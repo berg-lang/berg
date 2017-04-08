@@ -56,34 +56,38 @@ module Berg
             end
 
             def apply_prefix!(prefixes)
-                prefixes.each { |prefix| puts "Prefix: #{prefix}" }
+                prefixes.each { |prefix| debug "Prefix: #{prefix}" }
                 @unclosed += prefixes.select { |op| op.is_a?(Operator) }.map { |op| [ op, op.prefix ] }
-                puts "  - after: #{unclosed_to_s}" if prefixes.any?
+                debug "  - after: #{unclosed_to_s}" if prefixes.any?
             end
 
             def apply_expression!(expression)
-                puts "Expression: #{expression}"
+                debug "Expression: #{expression}"
                 @unclosed << expression
-                puts "  - after: #{unclosed_to_s}"
+                debug "  - after: #{unclosed_to_s}"
             end
 
             def apply_infix!(infix)
-                puts "Infix: #{infix}"
-                puts "  - before: #{unclosed_to_s}"
+                debug "Infix: #{infix}"
+                debug "  - before: #{unclosed_to_s}"
                 left_bind!(infix, infix.infix)
-                puts "  - after:  #{unclosed_to_s}"
+                debug "  - after:  #{unclosed_to_s}"
             end
 
             def apply_postfix!(postfixes)
                 postfixes.each do |operator|
-                    puts "Postfix: #{operator}"
-                    puts "  - before: #{unclosed_to_s}"
+                    debug "Postfix: #{operator}"
+                    debug "  - before: #{unclosed_to_s}"
                     left_bind!(operator, operator.postfix)
-                    puts "  - after:  #{unclosed_to_s}"
+                    debug "  - after:  #{unclosed_to_s}"
                 end
             end
 
             private
+
+            def debug(string)
+                # puts string
+            end
 
             attr_reader :unclosed
 

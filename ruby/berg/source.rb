@@ -44,7 +44,11 @@ module Berg
                 line -= 1
             end
             column = index - line_starts[line-1] + 1
-            [ line, column ]
+            [ line+1, column ]
+        end
+
+        def substr(start_index, end_index)
+            string[start_index...end_index]
         end
 
         private

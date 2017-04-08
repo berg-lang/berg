@@ -11,6 +11,10 @@ module Berg
                 @b = b
             end
 
+            def input_range
+                [ operator.input_range[0], b.input_range[1] ]
+            end
+
             def to_s
                 "#{operator}#{b}"
             end

@@ -14,20 +14,17 @@ module Berg
             @source = source
             @tokenizer = Tokenizer.new(source)
             @token = tokenizer.advance_token
-            puts "SET TOKEN #{token}"
             @unclosed_expression = UnclosedExpression.new
         end
 
         def parse
             # Prefix <sof> PREFIX* E
             operators, expression = next_expression_phrase
-                puts "First: Operators: #{operators.inspect}, Expression: #{expression}"
             unclosed_expression.apply_prefix!(operators)
             unclosed_expression.apply_expression!(expression)
 
             loop do
                 operators, expression = next_expression_phrase
-                puts "Next: Operators: #{operators.join(", ")}, Expression: #{expression}"
 
                 # Infix (E POSTFIX* INFIX PREFIX* E)
                 if expression
