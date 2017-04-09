@@ -1,0 +1,35 @@
+String:
+  Berg: |
+    "xy"
+  Ast:
+    StringLiteral:
+      StartQuote: [1@1,'"']
+      StringParts:
+        - [1@2-3,xy]
+      EndQuote: [1@4,'"']
+  Result:
+    String: xy
+
+OneCharacterString:
+  Berg: |
+    "x"
+  Ast:
+    StringLiteral:
+      StartQuote: [1@1,'"']
+      StringParts:
+        - [1@2,x]
+      EndQuote: [1@3,'"']
+  Result:
+    String: x
+
+EmptyString:
+  Berg: |
+    ""
+  Ast:
+    StringLiteral:
+      StartQuote: [1@1,'"']
+      StringParts:
+        - []
+      EndQuote: [1@2,'"']
+  Result:
+    String: ''
