@@ -1,4 +1,5 @@
-require_relative "berg_test/test_runner"
+require_relative "berg_test/test_run"
 
 test_path = File.expand_path("../../tests", __FILE__)
-BergTest::TestRunner.new(test_path).run
+test_run = BergTest::TestRun.new(test_path, whitelist: ARGV, output_stream: STDOUT)
+test_run.run

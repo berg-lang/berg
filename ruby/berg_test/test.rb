@@ -16,11 +16,25 @@ module BergTest
             @test = test
         end
 
+        def output
+            test_file.test_run.output
+        end
+
+        def should_run?
+            test_file.test_run.should_run?(self)
+        end
+
         #
         # Run a single test.
         #
         def run
-            test_file.runner.starting(self)
+            if !should_run?
+                output.test_skipped(self)
+                @result = :skipped
+                return
+            end
+
+            output.test_starting(self)
             begin
                 expression = parse(test_name, test["Berg"])
                 expression = strip_outer_expression(expression)
@@ -30,7 +44,7 @@ module BergTest
                 @result = $!.result_type
                 @result_message = $!.result_message
             ensure
-                test_file.runner.complete(self)
+                output.test_complete(self)
             end
         end
 
@@ -40,6 +54,7 @@ module BergTest
 
         def parse(test_name, berg_string)
             begin
+                raise BadTest.new("Berg", "Berg value is not a string: #{berg_string.inspect}") unless berg_string.is_a?(String)
                 @source = Berg::Source.new(test_name, berg_string)
                 parser = Berg::Parser.new(source)
                 parser.parse
