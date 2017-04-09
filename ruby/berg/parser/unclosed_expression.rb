@@ -19,6 +19,7 @@ module Berg
                 unclosed.reverse_each do |operator|
                     return operator if operator.is_a?(Operator) && operator.prefix && operator.prefix.start_delimiter?
                 end
+                nil
             end
 
             def expression
@@ -76,9 +77,10 @@ module Berg
 
             def apply_postfix!(postfixes)
                 postfixes.each do |operator|
+                    next if operator.is_a?(Whitespace)
                     debug "Postfix: #{operator}"
                     debug "  - before: #{unclosed_to_s}"
-                    left_bind!(operator, operator.postfix)
+                    left_bind!(operator, operator.postfix) 
                     debug "  - after:  #{unclosed_to_s}"
                 end
             end
