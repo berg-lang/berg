@@ -2,6 +2,7 @@ require_relative "parser/arity_picker"
 require_relative "parser/operator"
 require_relative "parser/tokenizer"
 require_relative "parser/unclosed_expression"
+require_relative "parser/syntax_errors"
 
 module Berg
     #
@@ -14,7 +15,7 @@ module Berg
             @source = source
             @tokenizer = Tokenizer.new(source)
             @token = tokenizer.advance_token
-            @unclosed_expression = UnclosedExpression.new
+            @unclosed_expression = UnclosedExpression.new(source)
         end
 
         def parse
@@ -67,8 +68,7 @@ module Berg
                 start_delimiter = unclosed_expression.current_start_delimiter
                 if start_delimiter && current_indent.size >= start_delimiter.size
                     if !current_indent.start_with?(start_delimiter.match[:indent])
-                        # TODO line numbers and all that jazz
-                        raise "Indents do not match due to tabs and spaces!"
+                        raise syntax_errors.unmatchable_indent(next_token, start_delimiter)
                     end
                     next_token = Operator.new(next_token.match, tokenizer.operator_list[:undent])
                 end

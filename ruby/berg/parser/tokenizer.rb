@@ -1,6 +1,8 @@
 require_relative "whitespace"
 require_relative "operator"
 require_relative "operator_list"
+require_relative "unrecognized_character"
+require_relative "syntax_errors"
 require_relative "../expressions/bareword"
 require_relative "../expressions/string_literal"
 require_relative "../expressions/imaginary_literal"
@@ -30,7 +32,9 @@ module Berg
                     @token ||= parse_number
                     @token ||= parse_bareword
                     @token ||= eof_token if source.eof?
-                    raise "Unrecognized character #{source.peek} in input!" unless token
+                    if !token
+                        raise syntax_errors.unrecognized_character(UnrecognizedCharacter.new(source.match(/./)))
+                    end
                     @token
                 else
                     @token
@@ -55,6 +59,10 @@ module Berg
             end
 
             private
+
+            def syntax_errors
+                SyntaxErrors.new(source)
+            end
 
             def parse_whitespace
                 match = source.match(/^((((?<newline>\n)(?<indent>[ \t]*))|\s)+|#[^\n]+)+/)
@@ -92,25 +100,22 @@ module Berg
                     is_float = match[:decimal] || match[:exp]
                     is_octal = !is_float && match[:integer] && match[:integer].length > 1 && match[:integer][0] == "0"
                     if match[:imaginary]
-                        if is_octal
-                            raise "Imaginary octal literals are not allowed. Integer imaginary was prefixed with 0: #{match[0]}."
-                        else
-                            Expressions::ImaginaryLiteral.new(match)
-                        end
+                        Expressions::ImaginaryLiteral.new(match)
 
                     elsif is_float
                         Expressions::FloatLiteral.new(match)
 
                     elsif is_octal
                         if match[:integer] =~ /[89]/
-                            raise "Illegal octal literal with 8 or 9 in it: #{match[0]}. All integers starting with 0 are treated as octal."
+                            raise syntax_errors.illegal_octal_digit(match)
                         end
                         Expressions::OctalLiteral.new(match)
 
                     elsif match[:integer]
                         Expressions::IntegerLiteral.new(match)
+
                     else
-                        raise "ERROR: number that doesn't fit any category: #{match}"
+                        raise syntax_error.internal_error(match, "ERROR: number that doesn't fit any category: #{match}")
                     end
                 else
                     # Handle hex literals (0xDEADBEEF)

@@ -1,3 +1,4 @@
+require_relative "syntax_errors"
 require_relative "../expressions/postfix_operation"
 require_relative "../expressions/delimited_operation"
 require_relative "../expressions/prefix_operation"
@@ -11,7 +12,10 @@ module Berg
         # and creating expressions for them.
         #
         class UnclosedExpression
-            def initialize
+            attr_reader :source
+
+            def initialize(source)
+                @source = source
                 @unclosed = []
             end
 
@@ -28,7 +32,7 @@ module Berg
                 elsif unclosed.size == 1 && unclosed[0].is_a?(Expression)
                     unclosed[0]
                 else
-                    raise "ERROR: expression still unclosed"
+                    raise syntax_errors.internal_error(unclosed[-1], "Expression still unclosed")
                 end
             end
 
@@ -87,6 +91,10 @@ module Berg
 
             private
 
+            def syntax_errors
+                SyntaxErrors.new(source)
+            end
+
             def debug(string)
                 # puts string
             end
@@ -107,13 +115,13 @@ module Berg
                         next unless left_operator
                         if operator.can_have_left_child?(left_operator)
                             # 2. Close the expression from that point on.
-                            left_child = close!(index)
+                            left_child = close!(index, token)
                             break
                         end
                     end
 
                     # No operator is willing to be a left child. Take the expression to the left instead.
-                    left_child ||= close!(unclosed.size-1)
+                    left_child ||= close!(unclosed.size-1, token)
                     if operator.postfix?
                         unclosed << Expressions::PostfixOperation.new(left_child, token)
                     else
@@ -131,35 +139,35 @@ module Berg
                     if left_operator
                         if operator.started_by == left_operator.key
                             # remove the open (
-                            expression = close!(index+1)
+                            expression = close!(index+1, token)
                             unclosed.pop
                             unclosed << Expressions::DelimitedOperation.new(left_token, expression, token)
                             return
                         elsif left_operator.key == :indent
                             # Indents can be closed by any end delimiter
-                            expression = close!(index+1)
+                            expression = close!(index+1, token)
                             unclosed.pop
                             unclosed << Expressions::DelimitedOperation.new(left_token, expression, token)
                         end
                     end
                 end
 
-                raise "Found ending #{operator} with no corresponding #{operator.started_by}. Perhaps you have too many #{operator}'s, or forgot to open with #{operator.started_by}?"
+                raise syntax_errors.unmatched_end_delimiter(token)
             end
 
-            def close!(index)
-                result, closed_index = close(index)
+            def close!(index, because_of)
+                result, closed_index = close(index, because_of)
                 @unclosed = unclosed[0...closed_index]
                 result
             end
 
-            def close(index)
+            def close(index, because_of)
                 token, operator = unclosed[index]
                 if operator
-                    right_hand_side, closed_index = close(index+1)
+                    right_hand_side, closed_index = close(index+1, because_of)
                     if operator.start_delimiter?
                         # Explicit open operators (i.e. things other than indent) require explicit closes.
-                        raise "Unclosed #{operator}! Did you forget a #{operator.ended_by}?"
+                        raise syntax_errors.unmatched_start_delimiter(token, because_of)
                     elsif operator.prefix?
                         expression = Expressions::PrefixOperation.new(token, right_hand_side)
                         [ expression, index ]
@@ -171,7 +179,7 @@ module Berg
 
                 # If this is an expression and there is stuff to the right, close the right.
                 elsif index+1 < unclosed.size
-                    close(index+1)
+                    close(index+1, because_of)
                 else
                     [ token, index ]
                 end
