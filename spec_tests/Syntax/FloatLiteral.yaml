@@ -181,19 +181,64 @@ NotAFloat:
             Operator: [1@6, "-"]
             Right: { IntegerLiteral: [1@7, "1"] }
   - Berg: "0.0 e1"
+    Ast:
+      InfixOperation:
+        $Range: [1@1-6,"0.0 e1"]
+        Left: { FloatLiteral: [1@1-3, "0.0"] }
+        Operator: [1@4, " "]
+        Right: { Bareword: [1@5-6, e1] }
   - Berg: "0 .0"
+    Ast:
+      InfixOperation:
+        $Range: [1@1-4,"0 .0"]
+        Left: { IntegerLiteral: [1@1, "0"] }
+        Operator: [1@2, " "]
+        Right: { FloatLiteral: [1@3-4, ".0"] }
   - Berg: "-1.2e3"
+    Ast:
+      PrefixOperation:
+        $Range: [1@1-6,"-1.2e3"]
+        Operator: [1@1, "-"]
+        Right: { FloatLiteral: [1@2-6, "1.2e3"] }
   - Berg: "-1.2"
+    Ast:
+      PrefixOperation:
+        $Range: [1@1-4,"-1.2"]
+        Operator: [1@1, "-"]
+        Right: { FloatLiteral: [1@2-4, "1.2"] }
   - Berg: "-.2"
+    Ast:
+      PrefixOperation:
+        $Range: [1@1-3,"-.2"]
+        Operator: [1@1, "-"]
+        Right: { FloatLiteral: [1@2-3, ".2"] }
   - Berg: "-1e-3"
-  - Berg: "0.0e.1"
-  - Berg: "0.0e-.1"
-  - Berg: "0.0e+.1"
-  - Berg: "0.0e0.1"
-  - Berg: "0.0e-0.1"
-  - Berg: "0.0e+0.1"
-  - Berg: "e.0"
-  - Berg: "a.0"
+    Ast:
+      PrefixOperation:
+        $Range: [1@1-5,"-1e-3"]
+        Operator: [1@1, "-"]
+        Right: { FloatLiteral: [1@2-5, "1e-3"] }
+  # - Berg: "e.0"
+  #   Ast:
+  #     InfixOperation:
+  #       $Range: [1@1-3, "e.0"]
+  #       Left: { Bareword: [1@1,e] }
+  #       Operator: [1@2,.]
+  #       Right: { IntegerLiteral: [1@3,"0"]}
+  # - Berg: "E.0"
+  #   Ast:
+  #     InfixOperation:
+  #       $Range: [1@1-3, "E.0"]
+  #       Left: { Bareword: [1@1,E] }
+  #       Operator: [1@2,.]
+  #       Right: { IntegerLiteral: [1@3,"0"]}
+  # - Berg: "a.0"
+  #   Ast:
+  #     InfixOperation:
+  #       $Range: [1@1-3, "e.0"]
+  #       Left: { Bareword: [1@1,a] }
+  #       Operator: [1@2,.]
+  #       Right: { IntegerLiteral: [1@3,"0"]}
 
 IllegalFloat:
   - Berg: "0.0e"
@@ -245,3 +290,15 @@ IllegalFloat:
   - Berg: "0e 1"
     Error: ""
 
+  - Berg: "0.0e.1"
+    Error:
+  - Berg: "0.0e-.1"
+    Error:
+  - Berg: "0.0e+.1"
+    Error:
+  - Berg: "0.0e0.1"
+    Error:
+  - Berg: "0.0e-0.1"
+    Error:
+  - Berg: "0.0e+0.1"
+    Error:
