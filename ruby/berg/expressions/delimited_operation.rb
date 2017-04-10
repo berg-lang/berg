@@ -7,8 +7,8 @@ module Berg
             attr_reader :expression
             attr_reader :end_delimiter
 
-            def input_range
-                [ start_delimiter.input_range[0], end_delimiter.input_range[1] ]
+            def source_range
+                SourceRange.span(start_delimiter, end_delimiter)
             end
 
             def initialize(start_delimiter, expression, end_delimiter)

@@ -21,7 +21,7 @@ module Berg
 
             def initialize(source)
                 @source = source
-                @token = Operator.new(source.match(//), operator_list[:sof])
+                @token = Operator.new(source.create_empty_range, all_operators[:sof])
             end
 
             def token
@@ -54,7 +54,7 @@ module Berg
                 result
             end
 
-            def operator_list
+            def all_operators
                 OperatorList.berg_operators
             end
 
@@ -71,7 +71,7 @@ module Berg
 
             def parse_operator
                 match = source.match(operators_regex)
-                Operator.new(match, operator_list[match.to_s]) if match
+                Operator.new(match, all_operators[match.string]) if match
             end
 
             def parse_bareword
@@ -85,20 +85,20 @@ module Berg
             end
 
             def eof_token
-                @eof_token ||= Operator.new(source.match(//), operator_list[:eof])
+                @eof_token ||= Operator.new(source.create_empty_range, all_operators[:eof])
             end
 
             def parse_number
                 #
                 # Handle floats, imaginaries and integers (hex is later in this function)
                 #
-                # sign? integer? (. decimal) (e expsign? exponent)? i?
-                match = source.match /^(?<sign>[-+])?(?<integer>\d+)?((\.)(?<decimal>\d+))((e)(?<expsign>[-+])?(?<exp>\d+))?(?<imaginary>i)?/i
-                # sign? integer (. decimal)? (e expsign? exponent)? i?
-                match ||= source.match /^(?<sign>[-+])?(?<integer>\d+)((\.)(?<decimal>\d+))?((e)(?<expsign>[-+])?(?<exp>\d+))?(?<imaginary>i)?/i
+                # integer? (. decimal) (e expsign? exponent)? i?
+                match = source.match /^(?<integer>\d+)?((\.)(?<decimal>\d+))((e)(?<expsign>[-+])?(?<exp>\d+))?(?<imaginary>i)?/i
+                # integer (. decimal)? (e expsign? exponent)? i?
+                match ||= source.match /^(?<integer>\d+)((\.)(?<decimal>\d+))?((e)(?<expsign>[-+])?(?<exp>\d+))?(?<imaginary>i)?/i
                 if match
                     is_float = match[:decimal] || match[:exp]
-                    is_octal = !is_float && match[:integer] && match[:integer].length > 1 && match[:integer][0] == "0"
+                    is_octal = !is_float && match[:integer] && match[:integer].length > 1 && match["integer"].start_with?("0")
                     if match[:imaginary]
                         Expressions::ImaginaryLiteral.new(match)
 
@@ -115,7 +115,7 @@ module Berg
                         Expressions::IntegerLiteral.new(match)
 
                     else
-                        raise syntax_error.internal_error(match, "ERROR: number that doesn't fit any category: #{match}")
+                        raise syntax_errors.internal_error(match, "ERROR: number that doesn't fit any category: #{match.string}")
                     end
                 else
                     # Handle hex literals (0xDEADBEEF)
@@ -131,7 +131,7 @@ module Berg
 
             def operators_regex
                 @operators_regex ||= Regexp.new("^(" +
-                    operator_list.keys.select { |key| key.is_a?(String) }.sort_by { |key| -key.length }.map { |key| Regexp.escape(key) }.join("|") + ")"
+                    all_operators.keys.select { |key| key.is_a?(String) }.sort_by { |key| -key.length }.map { |key| Regexp.escape(key) }.join("|") + ")"
                 )
             end
 

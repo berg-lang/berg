@@ -1,17 +1,13 @@
 module Berg
     module Token
-        attr_reader :match
+        attr_reader :source_range
 
-        def initialize(match)
-            @match = match
-        end
-
-        def input_range
-            match.offset(0)
+        def initialize(source_range)
+            @source_range = source_range
         end
 
         def to_s
-            match.to_s
+            source_range.string
         end
     end
 end

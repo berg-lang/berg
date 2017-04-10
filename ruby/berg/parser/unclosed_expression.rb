@@ -13,10 +13,25 @@ module Berg
         #
         class UnclosedExpression
             attr_reader :source
+            attr_reader :parser
 
-            def initialize(source)
-                @source = source
+            def initialize(parser)
+                @source = parser.source
+                @parser = parser
                 @unclosed = []
+                @arity_picker = ArityPicker.new(self)
+            end
+
+            def all_operators
+                parser.all_operators
+            end
+
+            def source_range
+                first = unclosed.first
+                first = first[0] if first.is_a?(Array)
+                last = unclosed.last
+                last = last[0] if last.is_a?(Array)
+                SourceRange.span(first, last)
             end
 
             def current_start_delimiter
@@ -44,8 +59,8 @@ module Berg
             # Takes a set of operators between two expressions, and decides which are prefix, infix and postfix.
             # Then applies them.
             #
-            def resolve_infix!(operators, operator_list)
-                last_postfix, operator, first_prefix = ArityPicker.new.pick_infix(operators, operator_list)
+            def resolve_infix!(operators)
+                last_postfix, operator, first_prefix = arity_picker.pick_infix(operators)
                 apply_postfix!(operators[0..last_postfix]) if last_postfix >= 0
                 apply_infix!(operator)
 
@@ -53,7 +68,7 @@ module Berg
                 if operator.infix.indentable?
                     whitespace = operators[first_prefix - 1]
                     if whitespace.is_a?(Whitespace) && whitespace.has_newline?
-                        apply_prefix!(Operator.new(whitespace.match, tokenizer.operator_list[:indent]))
+                        apply_prefix!(Operator.new(whitespace.match, parser.all_operators[:indent]))
                     end
                 end
 
@@ -91,6 +106,9 @@ module Berg
 
             private
 
+            attr_reader :arity_picker
+            attr_reader :unclosed
+
             def syntax_errors
                 SyntaxErrors.new(source)
             end
@@ -98,8 +116,6 @@ module Berg
             def debug(string)
                 # puts string
             end
-
-            attr_reader :unclosed
 
             # PRE( PRE( (expr IN PRE( PRE( expr <- POST|IN
             def left_bind!(token, operator)

@@ -4,19 +4,19 @@ module Berg
     module Expressions
         class PrefixOperation < Expression
             attr_reader :operator
-            attr_reader :b
+            attr_reader :right
 
-            def initialize(operator, b)
+            def initialize(operator, right)
                 @operator = operator
-                @b = b
+                @right = right
             end
 
-            def input_range
-                [ operator.input_range[0], b.input_range[1] ]
+            def source_range
+                SourceRange.span(operator, right)
             end
 
             def to_s
-                "#{operator}#{b}"
+                "#{operator}#{right}"
             end
         end
     end

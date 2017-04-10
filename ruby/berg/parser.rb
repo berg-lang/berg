@@ -15,7 +15,11 @@ module Berg
             @source = source
             @tokenizer = Tokenizer.new(source)
             @token = tokenizer.advance_token
-            @unclosed_expression = UnclosedExpression.new(source)
+            @unclosed_expression = UnclosedExpression.new(self)
+        end
+
+        def all_operators
+            tokenizer.all_operators
         end
 
         def parse
@@ -29,7 +33,7 @@ module Berg
 
                 # Infix (E POSTFIX* INFIX PREFIX* E)
                 if expression
-                    unclosed_expression.resolve_infix!(operators, tokenizer.operator_list)
+                    unclosed_expression.resolve_infix!(operators)
                     unclosed_expression.apply_expression!(expression)
 
                 # Postfix (E POSTFIX* <eof>)
@@ -39,6 +43,10 @@ module Berg
                 end
 
             end
+        end
+
+        def source_range
+            [ unclosed.first[0], unclosed.last[1] ]
         end
 
         private
@@ -70,7 +78,7 @@ module Berg
                     if !current_indent.start_with?(start_delimiter.match[:indent])
                         raise syntax_errors.unmatchable_indent(next_token, start_delimiter)
                     end
-                    next_token = Operator.new(next_token.match, tokenizer.operator_list[:undent])
+                    next_token = Operator.new(next_token.match, tokenizer.all_operators[:undent])
                 end
             end
 

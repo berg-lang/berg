@@ -27,7 +27,7 @@ RSpec.describe "Berg Specs" do
                 if File.directory?(child_path)
                     generate_tests_from_path(child_path)
                 elsif File.extname(child_path) == ".yaml"
-                    test_spec = YAML.load(IO.read(child_path))
+                    test_spec = YAML.load(IO.read(child_path), child_path)
                     context File.basename(child_path[0..-6]) do
                         generate_tests_from_spec(test_spec)
                     end
@@ -132,21 +132,22 @@ RSpec.describe "Berg Specs" do
                     expect(expression).to be_a expected_class
                 end
             end
+
             if expected_string
                 it "has string \"#{expected_string}\"" do
-                    actual_string = source.substr(*expression.input_range)
+                    actual_string = expression.source_range.string
                     expect(actual_string).to eq expected_string
                 end
             end
 
             if expected_range
                 it "has row/column range #{expected_range}" do
-                    expected_range_start, expected_range_end = parse_range(expected_range)
+                    expected_range_begin, expected_range_end = parse_range(expected_range)
 
-                    actual_range_start = source.location(expression.input_range[0])
-                    actual_range_end = source.location(expression.input_range[1])
+                    actual_range_begin = expression.source_range.begin_location
+                    actual_range_end = expression.source_range.end_location
 
-                    expect(actual_range_start).to eq(expected_range_start)
+                    expect(actual_range_begin).to eq(expected_range_begin)
                     expect(actual_range_end).to eq(expected_range_end)
                 end
             end
@@ -163,22 +164,22 @@ RSpec.describe "Berg Specs" do
         expect(range).to match /^(\d+)@(\d+)(-(\d+@)?(\d+))?$/
         range =~ /^(\d+)@(\d+)(-(\d+@)?(\d+))?$/
 
-        range_start = [$1.to_i, $2.to_i]
-        range_end = [$4 ? $4.to_i : $1.to_i, $5 ? $5.to_i : $2.to_i+1]
-        [ range_start, range_end ]
+        range_begin = [$1.to_i, $2.to_i]
+        range_end = [$4 ? $4.to_i : $1.to_i, $5 ? $5.to_i : $2.to_i]
+        [ range_begin, range_end ]
     end
 
     def self.to_range_string(range)
-        range_start, range_end = range
+        range_begin, range_end = range
 
-        if range_start[0] == range_end[0]
-            if range_start[1] == range_end[1] + 1
-                "#{range_start[0]}@#{range_start[1]}"
+        if range_begin[0] == range_end[0]
+            if range_begin[1] == range_end[1] + 1
+                "#{range_begin[0]}@#{range_begin[1]}"
             else
-                "#{range_start[0]}@#{range_start[1]}-#{range_end[1]}"
+                "#{range_begin[0]}@#{range_begin[1]}-#{range_end[1]}"
             end
         else
-            "#{range_start[0]}@#{range_start[1]}-#{range_end[0]}@#{range_end[1]}"
+            "#{range_begin[0]}@#{range_begin[1]}-#{range_end[0]}@#{range_end[1]}"
         end
     end
 

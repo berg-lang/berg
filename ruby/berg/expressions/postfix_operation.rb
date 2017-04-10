@@ -3,20 +3,20 @@ require_relative "../expression"
 module Berg
     module Expressions
         class PostfixOperation < Expression
-            attr_reader :a
+            attr_reader :left
             attr_reader :operator
 
-            def initialize(a, operator)
-                @a = a
+            def initialize(left, operator)
+                @left = left
                 @operator = operator
             end
 
-            def input_range
-                [ a.input_range[0], operator.input_range[1] ]
+            def source_range
+                SourceRange.span(left, operator)
             end
 
             def to_s
-                "#{a}#{operator}"
+                "#{left}#{operator}"
             end
         end
     end

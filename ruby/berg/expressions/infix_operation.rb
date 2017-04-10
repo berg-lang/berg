@@ -3,22 +3,22 @@ require_relative "../expression"
 module Berg
     module Expressions
         class InfixOperation < Expression
-            attr_reader :a
+            attr_reader :left
             attr_reader :operator
-            attr_reader :b
+            attr_reader :right
 
-            def initialize(a, operator, b)
-                @a = a
+            def initialize(left, operator, right)
+                @left = left
                 @operator = operator
-                @b = b
+                @right = right
             end
 
-            def input_range
-                [ a.input_range[0], b.input_range[1] ]
+            def source_range
+                SourceRange.span(left, right)
             end
 
             def to_s
-                "(#{a} #{operator} #{b})"
+                "(#{left} #{operator} #{right})"
             end
         end
     end

@@ -15,7 +15,7 @@ module Berg
                 @args = args
                 @error = error
                 @remedy = remedy
-                line, column = source.location(ast.input_range[0])
+                line, column = source.location(ast.source_range.end)
                 super("#{source.name}:#{line}: #{error} #{remedy}")
             end
         end

@@ -6,11 +6,11 @@ module Berg
             include Token
 
             def has_newline?
-                match[:newline]
+                source_range[:newline]
             end
 
             def indent
-                match[:indent]
+                source_range[:indent]
             end
         end
     end

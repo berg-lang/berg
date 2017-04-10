@@ -1,3 +1,6 @@
+require_relative "source_range"
+require_relative "source_match"
+
 module Berg
     class Source
         attr_reader :name
@@ -23,18 +26,29 @@ module Berg
 
         def next
             if !eof?
+                advance(1)
+            end
+            peek
+        end
+
+        def advance(num_characters)
+            1.upto(num_characters) do
                 @index += 1
                 process_current_character
             end
-            peek
         end
 
         def match(regex)
             match = regex.match(string[index..-1])
             if match
-                @index += match.end(0)
-                match
+                start_index = index
+                advance(match.end(0))
+                SourceMatch.new(self, start_index, match)
             end
+        end
+
+        def create_empty_range(at_index=index)
+            SourceRange.new(self, index, index)
         end
 
         def location(index)
@@ -47,8 +61,8 @@ module Berg
             [ line+1, column ]
         end
 
-        def substr(start_index, end_index)
-            string[start_index...end_index]
+        def substr(before, after)
+            string[before...after]
         end
 
         private

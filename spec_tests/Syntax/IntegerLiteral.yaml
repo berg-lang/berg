@@ -1,17 +1,41 @@
 Integer:
-  Berg: "12"
-  Ast:
-    IntegerLiteral: [1@1-3, "12"]
-  Result: 12
+  - Berg: "12"
+    Ast: { IntegerLiteral: [1@1-2, "12"] }
+    Result: 12
+  
+SmallInteger:
+  - Berg: "1"
+    Ast: { IntegerLiteral: [1@1, "1"] }
+    Result: 1
 
 Zero:
-  Berg: "0"
-  Ast:
-    IntegerLiteral: [1@1-2, "0"]
-  Result: 0
+  - Berg: "0"
+    Ast: { IntegerLiteral: [1@1, "0"] }
+    Result: 0
+
+# Things that are not integers, but almost are.
+NotAnInteger:
+  - Berg: "-1"
+    Ast:
+      PrefixOperation:
+        $Range: [1@1-2, "-1"]
+        Operator: [1@1, "-"]
+        Right: { IntegerLiteral: [1@2, "1"] }
+  - Berg: "+1"
+    Ast:
+      PrefixOperation:
+        $Range: [1@1-2, "+1"]
+        Operator: [1@1, "+"]
+        Right: { IntegerLiteral: [1@2, "1"] }
+
+# Almost-integers that are actually errors.
+IllegalIntegers:
+  - Berg: "0-"
+    Error:
+  - Berg: "0+"
+    Error:
 
 BigInteger:
   Berg: "1938523759123651983641928734198741987343198741398741984719874139874139847139874319874139847139812795148619560"
-  Ast:
-    IntegerLiteral: [1@1-110, "1938523759123651983641928734198741987343198741398741984719874139874139847139874319874139847139812795148619560"]
+  Ast: { IntegerLiteral: [1@1-109, "1938523759123651983641928734198741987343198741398741984719874139874139847139874319874139847139812795148619560"] }
   Result: 1938523759123651983641928734198741987343198741398741984719874139874139847139874319874139847139812795148619560

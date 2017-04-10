@@ -1,7 +1,15 @@
 module Berg
     class Parser
         class ArityPicker
-            def pick_infix(operators, operator_list)
+            attr_reader :source
+            attr_reader :unclosed_expression
+
+            def initialize(unclosed_expression)
+                @source = unclosed_expression.source
+                @unclosed_expression = unclosed_expression
+            end
+
+            def pick_infix(operators)
                 # 1. Sticky Postfix: treat all guaranteed postfix operators as postfix 
                 last_postfix = last_sticky_postfix(operators)
 
@@ -30,7 +38,7 @@ module Berg
                 # 4. If not, see if there is a LINEBREAK between the "chosen infix" and the first_prefix.
                 #
                 elsif operators[last_postfix+1].is_a?(Whitespace) && operators[last_postfix+1].has_newline?
-                    infix = Operator.new(operators[last_postfix+1].match, tokenizer.operator_list["\n"])
+                    infix = Operator.new(operators[last_postfix+1].match, unclosed_expression.all_operators["\n"])
 
                 #
                 # 5. Insert a CALL operator.
@@ -38,15 +46,20 @@ module Berg
                 else
                     if operators[first_prefix-1].is_a?(Whitespace)
                         match = operators[first_prefix-1]
+                    elsif operators[first_prefix]
+                        match = source.create_empty_range(operators[first_prefix].begin)
+                    elsif operators[last_postfix]
+                        match = source.create_empty_range(operators[last_postfix].end)
                     else
-                        # TODO this means the CALL operator will not have a range if there is no whitespace or prefix (like a?b). This sucks.
-                        match = operators[first_prefix] || nil
+                        match = source.create_empty_range(unclosed_expression.source_range.begin)
                     end
-                    infix = Operator.new(match, operator_list[:call])
+                    infix = Operator.new(match, unclosed_expression.all_operators[:call])
                 end
 
                 [ last_postfix, infix, first_prefix ]
             end
+
+            private
 
             def last_sticky_postfix(operators)
                 operators.each_with_index do |operator, index|
