@@ -145,8 +145,41 @@ NotAFloat:
         Operator: [1@2,"."]
         Right: { Bareword: [1@3,e] }
   - Berg: "0.e-1"
+    Ast:
+      InfixOperation:
+        $Range: [1@1-5,"0.e-1"]
+        Left:
+          InfixOperation:
+            $Range: [1@1-3, "0.e"]
+            Left: { IntegerLiteral: [1@1, "0"] }
+            Operator: [1@2, "."]
+            Right: { Bareword: [1@3, e] }
+        Operator: [1@4, "-"]
+        Right: { IntegerLiteral: [1@5, "1"]}
   - Berg: "0.e+1"
+    Ast:
+      InfixOperation:
+        $Range: [1@1-5,"0.e+1"]
+        Left:
+          InfixOperation:
+            $Range: [1@1-3, "0.e"]
+            Left: { IntegerLiteral: [1@1, "0"] }
+            Operator: [1@2, "."]
+            Right: { Bareword: [1@3, e] }
+        Operator: [1@4, "+"]
+        Right: { IntegerLiteral: [1@5, "1"]}
   - Berg: "0.0 e-1"
+    Ast:
+      InfixOperation:
+        $Range: [1@1-7,"0.0 e-1"]
+        Left: { FloatLiteral: [1@1-3, "0.0"] }
+        Operator: [1@4, " "]
+        Right:
+          InfixOperation:
+            $Range: [1@5-7, "e-1"]
+            Left: { Bareword: [1@5, e] }
+            Operator: [1@6, "-"]
+            Right: { IntegerLiteral: [1@7, "1"] }
   - Berg: "0.0 e1"
   - Berg: "0 .0"
   - Berg: "-1.2e3"

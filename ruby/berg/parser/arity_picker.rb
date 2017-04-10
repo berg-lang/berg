@@ -45,15 +45,15 @@ module Berg
                 #
                 else
                     if operators[first_prefix-1].is_a?(Whitespace)
-                        match = operators[first_prefix-1]
+                        call_range = operators[first_prefix-1].source_range
                     elsif operators[first_prefix]
-                        match = source.create_empty_range(operators[first_prefix].begin)
+                        call_range = source.create_empty_range(operators[first_prefix].begin)
                     elsif operators[last_postfix]
-                        match = source.create_empty_range(operators[last_postfix].end)
+                        call_range = source.create_empty_range(operators[last_postfix].end)
                     else
-                        match = source.create_empty_range(unclosed_expression.source_range.begin)
+                        call_range = source.create_empty_range(unclosed_expression.source_range.begin)
                     end
-                    infix = Operator.new(match, unclosed_expression.all_operators[:call])
+                    infix = Operator.new(call_range, unclosed_expression.all_operators[:call])
                 end
 
                 [ last_postfix, infix, first_prefix ]
