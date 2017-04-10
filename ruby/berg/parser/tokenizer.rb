@@ -92,10 +92,8 @@ module Berg
                 #
                 # Handle floats, imaginaries and integers (hex is later in this function)
                 #
-                # integer? (. decimal) (e expsign? exponent)? i?
-                match = source.match /^(?<integer>\d+)?((\.)(?<decimal>\d+))((e)(?<expsign>[-+])?(?<exp>\d+))?(?<imaginary>i)?/i
                 # integer (. decimal)? (e expsign? exponent)? i?
-                match ||= source.match /^(?<integer>\d+)((\.)(?<decimal>\d+))?((e)(?<expsign>[-+])?(?<exp>\d+))?(?<imaginary>i)?/i
+                match = source.match /^(?<integer>\d+)((\.)(?<decimal>\d+))?((e)(?<expsign>[-+])?(?<exp>\d+))?(?<imaginary>i)?/i
                 if match
                     is_float = match[:decimal] || match[:exp]
                     is_octal = !is_float && match[:integer] && match[:integer].length > 1 && match["integer"].start_with?("0")
