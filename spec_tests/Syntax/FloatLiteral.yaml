@@ -1,0 +1,220 @@
+Float:
+  - Berg: "12.34e56"
+    Ast:
+      FloatLiteral: [1@1-9, "12.34e56"]
+    Result: 12.34e56
+  - Berg: "12.34E56"
+    Ast:
+      FloatLiteral: [1@1-9, "12.34E56"]
+    Result: 12.34e-56
+  - Berg: "12.34e-56"
+    Ast:
+      FloatLiteral: [1@1-10, "12.34e-56"]
+    Result: 12.34e-56
+  - Berg: "12.34E-56"
+    Ast:
+      FloatLiteral: [1@1-10, "12.34E-56"]
+    Result: 12.34e-56
+  - Berg: "12.34e+56"
+    Ast:
+      FloatLiteral: [1@1-10, "12.34e+56"]
+    Result: 12.34e56
+  - Berg: "12.34E+56"
+    Ast:
+      FloatLiteral: [1@1-10, "12.34E+56"]
+    Result: 12.34e56
+
+  - Berg: "12.34"
+    Ast:
+      FloatLiteral: [1@1-6, "12.34"]
+    Result: 12.34
+
+  - Berg: "12e56"
+    Ast:
+      FloatLiteral: [1@1-6, "12e56"]
+    Result: 12e56
+  - Berg: "12E56"
+    Ast:
+      FloatLiteral: [1@1-6, "12E56"]
+    Result: 12e56
+  - Berg: "12e-56"
+    Ast:
+      FloatLiteral: [1@1-7, "12e-56"]
+    Result: 12e-56
+  - Berg: "12E-56"
+    Ast:
+      FloatLiteral: [1@1-7, "12E-56"]
+    Result: 12e-56
+  - Berg: "12e+56"
+    Ast:
+      FloatLiteral: [1@1-7, "12e+56"]
+    Result: 12e56
+  - Berg: "12E+56"
+    Ast:
+      FloatLiteral: [1@1-7, "12E+56"]
+    Result: 12e56
+
+  - Berg: ".34e56"
+    Ast:
+      FloatLiteral: [1@1-7, ".34e56"]
+    Result: 0.34e56
+  - Berg: ".34E56"
+    Ast:
+      FloatLiteral: [1@1-7, ".34E56"]
+    Result: 0.34e-56
+  - Berg: ".34e+56"
+    Ast:
+      FloatLiteral: [1@1-8, ".34e+56"]
+    Result: 0.34e56
+  - Berg: ".34E+56"
+    Ast:
+      FloatLiteral: [1@1-8, ".34E+56"]
+    Result: 0.34e-56
+  - Berg: ".34e-56"
+    Ast:
+      FloatLiteral: [1@1-8, ".34e-56"]
+    Result: 0.34e-56
+  - Berg: ".34E-56"
+    Ast:
+      FloatLiteral: [1@1-8, ".34E-56"]
+    Result: 0.34e-56
+
+  - Berg: ".34"
+    Ast:
+      FloatLiteral: [1@1-4, ".34"]
+    Result: 0.34
+
+SmallFloat:
+  - Berg: "1.2e3"
+    Ast:
+      FloatLiteral: [1@1-6, "1.2e3"]
+    Result: 1.2e3
+  - Berg: "1.2e-3"
+    Ast:
+      FloatLiteral: [1@1-7, "1.2e-3"]
+    Result: 1.2e-3
+  - Berg: "1.2"
+    Ast:
+      FloatLiteral: [1@1-4, "1.2"]
+    Result: 1.2
+  - Berg: ".2"
+    Ast:
+      FloatLiteral: [1@1-3, ".2"]
+    Result: 0.2
+
+BigFloat:
+  - Berg: "18264871384761873461873642781.128497871364813648127648731e-1294761873468713641837634871648316431"
+    Ast:
+      FloatLiteral: [1@1-97]
+    Result: 18264871384761873461873642781.128497871364813648127648731e-1294761873468713641837634871648316431
+
+FloatZero:
+  - Berg: "0.0e0"
+    Ast:
+      FloatLiteral: 1@1-6
+    Result: 0.0
+  - Berg: "0.0e+0"
+    Ast:
+      FloatLiteral: 1@1-7
+    Result: 0.0
+  - Berg: "0.0e-0"
+    Ast:
+      FloatLiteral: 1@1-7
+    Result: 0.0
+
+  - Berg: "0.0"
+    Ast:
+      FloatLiteral: 1@1-4
+    Result: 0.23
+
+  - Berg: "0e0"
+    Ast:
+      FloatLiteral: 1@1-4
+    Result: 0.0
+  - Berg: "0e+0"
+    Ast:
+      FloatLiteral: 1@1-5
+    Result: 0.0
+  - Berg: "0e-0"
+    Ast:
+      FloatLiteral: 1@1-5
+    Result: 0.0
+
+  - Berg: ".0e0"
+    Ast:
+      FloatLiteral: 1@1-5
+    Result: 0.0
+  - Berg: ".0e+0"
+    Ast:
+      FloatLiteral: 1@1-6
+    Result: 0.0
+  - Berg: ".0e-0"
+    Ast:
+      FloatLiteral: 1@1-6
+    Result: 0.0
+
+# These are not floats, but look similar enougrh that we should check that the parser doesn't screw them up.
+NotAFloat:
+  - Berg: "e"
+  - Berg: "e-1"
+  - Berg: "e1"
+  - Berg: "0.e"
+  - Berg: "0.e-1"
+  - Berg: "0.e+1"
+  - Berg: "0.0 e-1"
+  - Berg: "0.0 e1"
+  - Berg: "0 .0"
+  - Berg: "-1.2e3"
+  - Berg: "-1.2"
+  - Berg: "-.2"
+  - Berg: "-1e-3"
+
+IllegalFloat:
+  - Berg: "0.0e"
+    Error:
+  - Berg: "0.0e+"
+    Error:
+  - Berg: "0.0e-"
+    Error:
+  - Berg: "0.0e-+1"
+    Error:
+  - Berg: "0.0e+-1"
+    Error:
+  - Berg: "0.0e++1"
+    Error:
+  - Berg: "0.0e--1"
+    Error:
+
+  - Berg: "0."
+    Error:
+  - Berg: "0.-"
+    Error:
+  - Berg: "0.+"
+    Error:
+
+  - Berg: ".e"
+    Error:
+  - Berg: ".e-"
+    Error:
+  - Berg: ".e+"
+    Error:
+
+  - Berg: "0e"
+    Error: ""
+  - Berg: "0e-"
+    Error: ""
+  - Berg: "0e+"
+    Error: ""
+  - Berg: "."
+    Error: ""
+
+  - Berg: "0.0e -1"
+    Error: ""
+  - Berg: "0e -1"
+    Error: ""
+  - Berg: "0.0e +1"
+    Error: ""
+  - Berg: "0e +1"
+    Error: ""
+  - Berg: "0e 1"
+    Error: ""

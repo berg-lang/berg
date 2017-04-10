@@ -126,6 +126,12 @@ RSpec.describe "Berg Specs" do
                 property_value
             end
 
+            if expected_type
+                expected_class = eval("Berg::Expressions::#{expected_type}")
+                it "is #{expected_type}" do
+                    expect(expression).to be_a expected_class
+                end
+            end
             if expected_string
                 it "has string \"#{expected_string}\"" do
                     actual_string = source.substr(*expression.input_range)
@@ -142,12 +148,6 @@ RSpec.describe "Berg Specs" do
 
                     expect(actual_range_start).to eq(expected_range_start)
                     expect(actual_range_end).to eq(expected_range_end)
-                end
-            end
-            if expected_type
-                expected_class = eval("Berg::Expressions::#{expected_type}")
-                it "is #{expected_type}" do
-                    expect(expression).to be_a expected_class
                 end
             end
         end

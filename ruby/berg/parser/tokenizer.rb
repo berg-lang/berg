@@ -27,9 +27,9 @@ module Berg
             def token
                 if @token == :next
                     @token = parse_whitespace
+                    @token ||= parse_number
                     @token ||= parse_operator
                     @token ||= parse_string
-                    @token ||= parse_number
                     @token ||= parse_bareword
                     @token ||= eof_token if source.eof?
                     if !token
@@ -93,9 +93,9 @@ module Berg
                 # Handle floats, imaginaries and integers (hex is later in this function)
                 #
                 # sign? integer? (. decimal) (e expsign? exponent)? i?
-                match = source.match /^(?<sign>[-+])?(?<integer>\d+)?((\.)(?<decimal>\d+))((e)(?<expsign>[-+])?(?<exp>\d+))?(?<imaginary>i)?/
+                match = source.match /^(?<sign>[-+])?(?<integer>\d+)?((\.)(?<decimal>\d+))((e)(?<expsign>[-+])?(?<exp>\d+))?(?<imaginary>i)?/i
                 # sign? integer (. decimal)? (e expsign? exponent)? i?
-                match ||= source.match /^(?<sign>[-+])?(?<integer>\d+)((\.)(?<decimal>\d+))?((e)(?<expsign>[-+])?(?<exp>\d+))?(?<imaginary>i)?/
+                match ||= source.match /^(?<sign>[-+])?(?<integer>\d+)((\.)(?<decimal>\d+))?((e)(?<expsign>[-+])?(?<exp>\d+))?(?<imaginary>i)?/i
                 if match
                     is_float = match[:decimal] || match[:exp]
                     is_octal = !is_float && match[:integer] && match[:integer].length > 1 && match[:integer][0] == "0"
