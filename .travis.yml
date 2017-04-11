@@ -1,0 +1,25 @@
+sudo: false
+language: ruby
+cache: bundler
+gemfile: ruby/Gemfile
+
+before_install:
+  - cd ruby
+  - bundle --version
+  - gem --version
+
+script:
+  - bundle install --jobs=3 --retry=3
+  - bundle exec rake build
+  - bundle exec rake spec
+
+rvm:
+  - 2.3.3
+
+# Replace this with the notification stuff for your Slack channel
+# After running "travis encrypt <your token>"
+# notifications:
+#   slack:
+#     on_failure: always
+#     on_success: change
+#     secure: Ueimquh2DjsPZ24PX+yI9a4QzI0rxNInq8xWkIlbhkrhWtdnnZQT4Rk2Bg89gZkHjvp7NZLvHh5hLc39QlYDEycbx3+BdEryEg+33WpdCnShlzQjcMmOvOXBhs6nyOKvIZAjkrcFwfp/4cftk/2dXoE0Za6B3RBOD2yxeHV/nO0=
