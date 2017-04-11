@@ -38,7 +38,7 @@ module BergLang
         end
 
         def end_location
-            source.location(self.end-1)
+            source.location(self.end-1) if self.end > self.begin
         end
 
         def to_s

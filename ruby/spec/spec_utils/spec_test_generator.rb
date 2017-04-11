@@ -74,8 +74,8 @@ module SpecUtils
                 let :syntax_error do
                     begin
                         parser = BergLang::Parser.new(source)
-                        parser.parse
-                        raise "Expected a parse error, but no error happened!"
+                        expression = parser.parse
+                        raise "Expected a parse error, but no error happened! Instead, the expression #{expression} was returned."
                     rescue BergLang::Parser::SyntaxError
                         return $!
                     end
@@ -209,11 +209,17 @@ module SpecUtils
 
         module InstanceMethods
             def parse_range(range)
-                expect(range).to match /^(\d+)@(\d+)(-(\d+@)?(\d+))?$/
-                range =~ /^(\d+)@(\d+)(-(\d+@)?(\d+))?$/
+                expect(range).to match /^(\d+)@(\d+)(-(\d+@)?(\d+)|(\+0))?$/
+                range =~ /^(\d+)@(\d+)(-(\d+@)?(\d+)|(\+0))?$/
 
                 range_begin = [$1.to_i, $2.to_i]
-                range_end = [$4 ? $4.to_i : $1.to_i, $5 ? $5.to_i : $2.to_i]
+                if $6
+                    range_end = nil
+                elsif $5
+                    range_end = [$4 ? $4.to_i : range_begin[0], $5 ? $5.to_i : range_begin[1]]
+                else
+                    range_end = range_begin
+                end
                 [ range_begin, range_end ]
             end
 

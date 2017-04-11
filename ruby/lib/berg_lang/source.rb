@@ -48,7 +48,7 @@ module BergLang
         end
 
         def create_empty_range(at_index=index)
-            SourceRange.new(self, index, index)
+            SourceRange.new(self, at_index, at_index)
         end
 
         def location(index)

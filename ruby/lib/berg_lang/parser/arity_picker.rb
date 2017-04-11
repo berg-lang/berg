@@ -51,7 +51,7 @@ module BergLang
                     elsif operators[last_postfix]
                         call_range = source.create_empty_range(operators[last_postfix].end)
                     else
-                        call_range = source.create_empty_range(unclosed_expression.source_range.begin)
+                        call_range = source.create_empty_range(unclosed_expression.source_range.end)
                     end
                     infix = Operator.new(call_range, unclosed_expression.all_operators[:call])
                 end

@@ -169,6 +169,23 @@ NotAFloat:
         $Range: [1@1-5,"-1e-3"]
         Operator: [1@1, "-"]
         Right: { FloatLiteral: [1@2-5, "1e-3"] }
+  # TODO this is true but the error message that will result at typecheck time will need real tweaking.
+  - Berg: "0.0e+.1"
+    Ast:
+      InfixOperation:
+        $Range: [1@1-7,0.0e+.1]
+        Left: { FloatLiteral: [1@1-3, "0.0"] }
+        Operator: [1@4+0, ""]
+        Right:
+          InfixOperation:
+            $Range: [1@4-7,e+.1]
+            Left:
+              PostfixOperation:
+                $Range: [1@4-5,e+]
+                Left: { Bareword: [1@4,e] }
+                Operator: [1@5,+]
+            Operator: [1@6,.]
+            Right: { IntegerLiteral: [1@7, "1"]}
 
 IllegalFloat:
   FloatStartingWithDot:
@@ -266,17 +283,14 @@ IllegalFloat:
     - Berg: "0.0e.1"
       Error:
     - Berg: "0.0e-.1"
-      Error:
-    - Berg: "0.0e+.1"
-      Error:
 
   DotIsNotPrefix:
     - Berg: ".e"
-      Error:
+      Error: [1@1,'Missing a value on the left side of ".". Did you mean for the "." to be there?']
     - Berg: ".e-"
-      Error:
+      Error: [1@1,'Missing a value on the left side of ".". Did you mean for the "." to be there?']
     - Berg: ".e+"
-      Error:
+      Error: [1@1,'Missing a value on the left side of ".". Did you mean for the "." to be there?']
 
   DotByItself:
     - Berg: "."
