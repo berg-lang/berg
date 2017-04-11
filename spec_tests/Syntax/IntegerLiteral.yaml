@@ -43,5 +43,5 @@ NotAnInteger:
 IllegalIntegers:
   MissingRightHandSide:
     - Berg: "0-"
-      Error: [1@2,'Missing a value on the right side of "-". Perhaps you closed the file earlier than intended, or didn''t mean to put the - there at all?']
+      Error: [1@2,'Missing a value on the right side of "-". Perhaps you closed the file earlier than intended, or didn''t mean to put the "-" there at all?']
 

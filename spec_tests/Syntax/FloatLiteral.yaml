@@ -278,6 +278,6 @@ IllegalFloat:
     - Berg: ".e+"
       Error:
 
-  DotBeByItself:
+  DotByItself:
     - Berg: "."
-      Error: ""
+      Error: [1@1,'Missing a value on the left side of ".". Did you mean for the "." to be there?']

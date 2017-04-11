@@ -24,7 +24,11 @@ module BergLang
             
             syntax_error :missing_right_hand_side_at_eof,
                 error:  proc { |token, eof_token| "Missing a value on the right side of \"#{token}\"." },
-                remedy: proc { |token, eof_token| "Perhaps you closed the file earlier than intended, or didn't mean to put the - there at all?" }
+                remedy: proc { |token, eof_token| "Perhaps you closed the file earlier than intended, or didn't mean to put the \"#{token}\" there at all?" }
+
+            syntax_error :missing_left_hand_side_at_sof,
+                error:  proc { |token, sof_token| "Missing a value on the left side of \"#{token}\"." },
+                remedy: proc { |token, sof_token| "Did you mean for the \"#{token}\" to be there?"}
 
             # TODO help more with this one. I hate this so much in programs.
             syntax_error :umatched_end_delimiter,

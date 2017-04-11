@@ -83,9 +83,16 @@ module BergLang
             end
 
             def apply_prefix!(prefixes)
-                prefixes.each { |prefix| debug "Prefix: #{prefix}" }
-                @unclosed += prefixes.select { |op| op.is_a?(Operator) }.map { |op| [ op, op.prefix ] }
-                debug "  - after: #{unclosed_to_s}" if prefixes.any?
+                prefixes.each do |operator|
+                    debug "Prefix: #{operator}"
+                    next if operator.is_a?(Whitespace)
+                    if !operator.prefix
+                        raise syntax_errors.missing_left_hand_side_at_sof(operator, prefixes[0])
+                    end
+                    @unclosed << [ operator, operator.prefix ]
+                end
+
+                debug "  - after: #{unclosed_to_s}" if unclosed.any?
             end
 
             def apply_expression!(expression)
