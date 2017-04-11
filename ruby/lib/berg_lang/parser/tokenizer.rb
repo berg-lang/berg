@@ -61,7 +61,7 @@ module BergLang
             private
 
             def syntax_errors
-                SyntaxErrors.new(source)
+                SyntaxErrors.new
             end
 
             def parse_whitespace

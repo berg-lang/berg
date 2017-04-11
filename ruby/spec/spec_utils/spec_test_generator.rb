@@ -3,6 +3,11 @@ require "berg_lang/source"
 require "berg_lang/parser"
 
 module SpecUtils
+    #
+    # Generates tests from the top-level Berg spec tests.
+    #
+    # Goes through each YAML file, iterates through the tests and generates rspec for each.
+    #
     module SpecTestGenerator
         def self.extended(other)
             other.include(InstanceMethods)
@@ -66,6 +71,16 @@ module SpecUtils
                     parser.parse
                 end
 
+                let :syntax_error do
+                    begin
+                        parser = BergLang::Parser.new(source)
+                        parser.parse
+                        raise "Expected a parse error, but no error happened!"
+                    rescue BergLang::Parser::SyntaxError
+                        return $!
+                    end
+                end
+
                 let :parsed_expression do
                     # Strip off the outer DelimitedOperation before checking the AST (since it's always the same)
                     expect(parsed_expression_root).to be_a BergLang::Expressions::DelimitedOperation
@@ -76,6 +91,34 @@ module SpecUtils
 
                 if test_spec["Ast"]
                     generate_ast_tests([], test_spec["Ast"])
+                end
+                if test_spec["Error"]
+                    generate_error_tests(test_spec["Error"])
+                end
+            end
+        end
+
+        def generate_error_tests(error_spec)
+            expected_range, expected_error = error_spec
+            return unless expected_range && expected_range != ""
+            if expected_error
+                error_description = expected_error
+                if error_description.size > MAX_TEST_DESCRIPTION_SOURCE_SIZE
+                    error_description = "#{error_description[0...MAX_TEST_DESCRIPTION_SOURCE_SIZE-3]}..."
+                end
+                it "has an error with text #{error_description}" do
+                    expect("#{syntax_error.error} #{syntax_error.remedy}").to eq expected_error
+                end
+            end
+            if expected_range
+                it "has an error at row/column #{expected_range}" do
+                    expected_range_end, expected_range_begin = parse_range(expected_range)
+
+                    actual_range_begin = syntax_error.source_range.begin_location
+                    actual_range_end = syntax_error.source_range.end_location
+
+                    expect(actual_range_begin).to eq(expected_range_begin)
+                    expect(actual_range_end).to eq(expected_range_end)
                 end
             end
         end

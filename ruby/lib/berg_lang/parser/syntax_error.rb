@@ -6,17 +6,19 @@ module BergLang
             attr_reader :args
             attr_reader :error
             attr_reader :remedy
-            attr_reader :source
 
-            def initialize(name, source:, ast:, args:, error:, remedy:)
+            def initialize(name, ast:, args:, error:, remedy:)
                 @name = name
-                @source = source
                 @ast = ast
                 @args = args
                 @error = error
                 @remedy = remedy
-                line, column = source.location(ast.source_range.end)
-                super("#{source.name}:#{line}: #{error} #{remedy}")
+                line = source_range.begin_location[0]
+                super("#{ast.source_range.source.name}:#{line}: #{error} #{remedy}")
+            end
+
+            def source_range
+                ast.source_range
             end
         end
     end

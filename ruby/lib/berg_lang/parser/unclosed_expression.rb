@@ -8,8 +8,15 @@ require_relative "../expressions/empty_expression"
 module BergLang
     class Parser
         #
-        # Handles "closing" an expression, resolving precedence and associativity rules for operators
-        # and creating expressions for them.
+        # Resolves "loose" operators and whitespace in an expression while we read more and more
+        # bits from the source file. Because precedence prevents us from knowing *exactly* what will be
+        # in the right hand side of an expression, we have to keep the operators around until we can
+        # create the actual expression.
+        #
+        # It keeps the operators and expressions floating around in the "unclosed" array, in the order
+        # they appeared in the source. When it can resolve an operator into an expression (when it knows
+        # for sure what the left and/or right side of the expression will be), it removes the operators from
+        # the array and inserts the expression in its place. Rinse and repeat until only one remains.
         #
         class UnclosedExpression
             attr_reader :source
@@ -99,6 +106,9 @@ module BergLang
                     next if operator.is_a?(Whitespace)
                     debug "Postfix: #{operator}"
                     debug "  - before: #{unclosed_to_s}"
+                    if !operator.postfix
+                        raise syntax_errors.missing_right_hand_side_at_eof(operator, postfixes[-1])
+                    end
                     left_bind!(operator, operator.postfix) 
                     debug "  - after:  #{unclosed_to_s}"
                 end
@@ -110,7 +120,7 @@ module BergLang
             attr_reader :unclosed
 
             def syntax_errors
-                SyntaxErrors.new(source)
+                SyntaxErrors.new
             end
 
             def debug(string)
@@ -124,13 +134,14 @@ module BergLang
                     close_delimited!(token, operator)
                     return
 
-                # It's postfix or infix. Find the first expression (left to right) that can be a left child of the POSTFIX or INFIX operator.
+                # It's postfix or infix. Find the first expression (left to right) that can be a left child
+                # of the POSTFIX or INFIX operator.
                 else
                     left_child = nil
                     unclosed.each_with_index do |(left_token, left_operator), index|
                         next unless left_operator
                         if operator.can_have_left_child?(left_operator)
-                            # 2. Close the expression from that point on.
+                            # Close the entire left child so we can dump it into the postfix/infix operator.
                             left_child = close!(index, token)
                             break
                         end

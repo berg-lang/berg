@@ -33,7 +33,7 @@ NotAnInteger:
         Operator: [1@1, "+"]
         Right: { IntegerLiteral: [1@2, "1"] }
   - Berg: "0+"
-    Error:
+    Ast:
       PostfixOperation:
         $Range: [1@1-2, "0+"]
         Left: { IntegerLiteral: [1@1, "0"] }
@@ -43,5 +43,5 @@ NotAnInteger:
 IllegalIntegers:
   MissingRightHandSide:
     - Berg: "0-"
-      Error:
+      Error: [1@2,'Missing a value on the right side of "-". Perhaps you closed the file earlier than intended, or didn''t mean to put the - there at all?']
 
