@@ -71,7 +71,12 @@ module BergLang
 
             def parse_operator
                 match = source.match(operators_regex)
-                Operator.new(match, all_operators[match.string]) if match
+                if match
+                    if match.string == "." && digits = source.match(/^\d+/)
+                        raise syntax_errors.float_without_leading_zero(SourceRange.span(match, digits))
+                    end
+                    Operator.new(match, all_operators[match.string])
+                end
             end
 
             def parse_bareword

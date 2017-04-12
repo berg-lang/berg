@@ -146,6 +146,19 @@ NotAFloat:
         Operator: " "
         Right -> Bareword: e1 
 
+    - Berg: e-0.0
+      Ast -> InfixOperation:
+        $Term: e-0.0
+        Left -> Bareword: e
+        Operator: "-"
+        Right -> FloatLiteral: "0.0"
+    - Berg: e+0.0
+      Ast -> InfixOperation:
+        $Term: e+0.0
+        Left -> Bareword: e
+        Operator: +
+        Right -> FloatLiteral: "0.0"
+
   UnaryPlusOrMinus:
     - Berg: "-1.2e3"
       Ast -> PrefixOperation:
@@ -178,99 +191,53 @@ NotAFloat:
         Operator: 1@1 = +
         Right -> FloatLiteral: "1e+3"
 
-  MemberAccessWithNumberOnRightSide:
-    - Berg: 0.0e0.1
-      Ast -> InfixOperation:
-        $Term: 0.0e0.1
-        Left -> FloatLiteral: "0.0e0"
-        Operator: 1@6 = .
-        Right -> IntegerLiteral: "1"
-    - Berg: 0.0e-0.1
-      Ast -> InfixOperation:
-        $Term: 0.0e-0.1
-        Left -> FloatLiteral: "0.0e-0"
-        Operator: 1@7 = .
-        Right -> IntegerLiteral: "1"
-    - Berg: 0.0e+0.1
-      Ast -> InfixOperation:
-        $Term: 0.0e+0.1
-        Left -> FloatLiteral: "0.0e+0"
-        Operator: 1@7 = .
-        Right -> IntegerLiteral: "1"
-
-    - Berg: e.0
-      Ast -> InfixOperation:
-        $Term: e.0
-        Left -> Bareword: e
-        Operator: .
-        Right -> IntegerLiteral: "0"
-    - Berg: E.0
-      Ast -> InfixOperation:
-        $Term: E.0
-        Left -> Bareword: E
-        Operator: .
-        Right -> IntegerLiteral: "0"
-    - Berg: e0.0
-      Ast -> InfixOperation:
-        $Term: e0.0
-        Left -> Bareword: e0
-        Operator: .
-        Right -> IntegerLiteral: 1@4 = 0
-    - Berg: a.0
-      Ast -> InfixOperation:
-        $Term: a.0
-        Left -> Bareword: a
-        Operator: .
-        Right -> IntegerLiteral: "0"
-
-    - Berg: 0 .0
-      Ast -> InfixOperation:
-        $Term: 0 .0
-        Left -> IntegerLiteral: 1@1 = 0
-        Operator: .
-        Right -> IntegerLiteral: 1@4 = 0
-
-    - Berg: e-0.0
-      Ast -> InfixOperation:
-        $Term: e-0.0
-        Left -> Bareword: e
-        Operator: "-"
-        Right -> FloatLiteral: "0.0"
-    - Berg: e+0.0
-      Ast -> InfixOperation:
-        $Term: e+0.0
-        Left -> Bareword: e
-        Operator: +
-        Right -> FloatLiteral: "0.0"
-
 IllegalFloat:
-  FloatStartingWithDot:
+  FloatwithoutLeadingZero:
     - Berg: ".34"
-      Error:
+      Error: Floating point number found without leading zero. Add a 0 before the ".".
     - Berg: ".2"
-      Error:
+      Error: Floating point number found without leading zero. Add a 0 before the ".".
     - Berg: "-.2"
-      Error:
+      Error: .2 = Floating point number found without leading zero. Add a 0 before the ".".
 
     - Berg: ".0e0"
-      Error:
+      Error: .0 = Floating point number found without leading zero. Add a 0 before the ".".
     - Berg: ".0e+0"
-      Error:
+      Error: .0 = Floating point number found without leading zero. Add a 0 before the ".".
     - Berg: ".0e-0"
-      Error:
+      Error: .0 = Floating point number found without leading zero. Add a 0 before the ".".
 
     - Berg: ".34e56"
-      Error:
+      Error: .34 = Floating point number found without leading zero. Add a 0 before the ".".
     - Berg: ".34E56"
-      Error:
+      Error: .34 = Floating point number found without leading zero. Add a 0 before the ".".
     - Berg: ".34e+56"
-      Error:
+      Error: .34 = Floating point number found without leading zero. Add a 0 before the ".".
     - Berg: ".34E+56"
-      Error:
+      Error: .34 = Floating point number found without leading zero. Add a 0 before the ".".
     - Berg: ".34e-56"
-      Error:
+      Error: .34 = Floating point number found without leading zero. Add a 0 before the ".".
     - Berg: ".34E-56"
-      Error:
+      Error: .34 = Floating point number found without leading zero. Add a 0 before the ".".
+
+    - Berg: 0 .0
+      Error: .0 = Floating point number found without leading zero. Add a 0 before the ".".
+
+    - Berg: e.0
+      Error: .0 = Floating point number found without leading zero. Add a 0 before the ".".
+    - Berg: E.0
+      Error: .0 = Floating point number found without leading zero. Add a 0 before the ".".
+    - Berg: e0.0
+      Error: .0 = Floating point number found without leading zero. Add a 0 before the ".".
+    - Berg: a.0
+      Error: .0 = Floating point number found without leading zero. Add a 0 before the ".".
+
+    - Berg: 0.0e0.1
+      Error: .1 = Floating point number found without leading zero. Add a 0 before the ".".
+    - Berg: 0.0e-0.1
+      Error: .1 = Floating point number found without leading zero. Add a 0 before the ".".
+    - Berg: 0.0e+0.1
+      Error: .1 = Floating point number found without leading zero. Add a 0 before the ".".
 
   EmptyDecimal:
     - Berg: "0."

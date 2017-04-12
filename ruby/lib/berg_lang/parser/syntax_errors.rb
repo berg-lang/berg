@@ -32,6 +32,10 @@ module BergLang
                 error: "Number is mixed up with a word.",
                 remedy: "If you wanted a number, you can remove the word characters. If you're trying to get a property of an integer with \".\", make sure the property name starts with a word character."
 
+            syntax_error :float_without_leading_zero,
+                error: "Floating point number found without leading zero.",
+                remedy: "Add a 0 before the \".\"."
+
             syntax_error :variable_name_starting_with_an_integer,
                 error: "Number is mixed up with a word.",
                 remedy: "If it's a variable name, change it to start with a character instead of a number. If you wanted a number, you can remove the word characters."
