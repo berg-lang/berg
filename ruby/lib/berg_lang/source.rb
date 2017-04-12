@@ -16,6 +16,10 @@ module BergLang
             process_current_character
         end
 
+        def ==(other)
+            other.is_a?(Source) && name == other.name && string == other.string
+        end
+
         def eof?
             peek.nil?
         end
@@ -51,7 +55,7 @@ module BergLang
             SourceRange.new(self, at_index, at_index)
         end
 
-        def location(index)
+        def to_location(index)
             line = line_starts.size
             line_starts.reverse_each do |line_start|
                 break if line_start > index
@@ -59,6 +63,11 @@ module BergLang
             end
             column = index - line_starts[line-1] + 1
             [ line+1, column ]
+        end
+
+        def to_index(location)
+            line, column = location
+            line_starts[line-1] + (column-1)
         end
 
         def substr(before, after)

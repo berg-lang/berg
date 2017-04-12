@@ -1,21 +1,21 @@
 Integer:
   - Berg: "12"
-    Ast: { IntegerLiteral: [1@1-2, "12"] }
+    Ast: { IntegerLiteral: "12" }
     Result: 12
   
 SmallInteger:
   - Berg: "1"
-    Ast: { IntegerLiteral: [1@1, "1"] }
+    Ast: { IntegerLiteral: "1" }
     Result: 1
 
 BigInteger:
   Berg: "1938523759123651983641928734198741987343198741398741984719874139874139847139874319874139847139812795148619560"
-  Ast: { IntegerLiteral: [1@1-109, "1938523759123651983641928734198741987343198741398741984719874139874139847139874319874139847139812795148619560"] }
+  Ast: { IntegerLiteral: "1938523759123651983641928734198741987343198741398741984719874139874139847139874319874139847139812795148619560" }
   Result: 1938523759123651983641928734198741987343198741398741984719874139874139847139874319874139847139812795148619560
 
 Zero:
   - Berg: "0"
-    Ast: { IntegerLiteral: [1@1, "0"] }
+    Ast: { IntegerLiteral: "0" }
     Result: 0
 
 # Things that are not integers, but almost are.
@@ -23,30 +23,32 @@ NotAnInteger:
   - Berg: "-1"
     Ast:
       PrefixOperation:
-        $Range: [1@1-2, "-1"]
-        Operator: [1@1, "-"]
-        Right: { IntegerLiteral: [1@2, "1"] }
+        $Term: "-1"
+        Operator: "-"
+        Right: { IntegerLiteral: "1" }
   - Berg: "+1"
     Ast:
       PrefixOperation:
-        $Range: [1@1-2, "+1"]
-        Operator: [1@1, "+"]
-        Right: { IntegerLiteral: [1@2, "1"] }
-  - Berg: "0+"
+        $Term: "+1"
+        Operator: +
+        Right: { IntegerLiteral: "1" }
+  - Berg: 0+
     Ast:
       PostfixOperation:
-        $Range: [1@1-2, "0+"]
-        Left: { IntegerLiteral: [1@1, "0"] }
-        Operator: [1@2, +]
+        $Term: 0+
+        Left: { IntegerLiteral: "0" }
+        Operator: +
 
 # Almost-integers that are actually errors.
 IllegalIntegers:
   VariableStartingWithInteger:
-    - Berg: "0a"
-      Error: [1@1-2,"Number is mixed up with a word. If it's a variable name, change it to start with a character instead of a number. If you wanted a number, you can remove the word characters."]
-    - Berg: "123adfslj"
-      Error: [1@1-9,"Number is mixed up with a word. If it's a variable name, change it to start with a character instead of a number. If you wanted a number, you can remove the word characters."]
+    - Berg: 0a
+      Error: 0a = Number is mixed up with a word. If it's a variable name, change it to start with a character instead of a number. If you wanted a number, you can remove the word characters.
+    - Berg: 123adfslj
+      Error: 123adfslj = Number is mixed up with a word. If it's a variable name, change it to start with a character instead of a number. If you wanted a number, you can remove the word characters.
   MissingRightHandSide:
-    - Berg: "0-"
-      Error: [1@2,'Missing a value on the right side of "-". Perhaps you closed the file earlier than intended, or didn''t mean to put the "-" there at all?']
+    - Berg: 0-
+      Error:
+        $Term: "-"
+        $Error: Missing a value on the right side of "-". Perhaps you closed the file earlier than intended, or didn't mean to put the "-" there at all?
 

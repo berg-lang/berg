@@ -13,6 +13,14 @@ module BergLang
             @end = end_offset
         end
 
+        def ==(other)
+            other.is_a?(SourceRange) && source == other.source && self.begin == other.begin && self.end == other.end
+        end
+
+        def ===(other)
+            other.respond_to?(:source_range) && self == other.source_range
+        end
+
         #
         # Create a region that includes both ranges
         #
@@ -34,11 +42,27 @@ module BergLang
         end
 
         def begin_location
-            source.location(self.begin)
+            source.to_location(self.begin)
+        end
+
+        def begin_line
+            begin_location[0]
+        end
+
+        def begin_column
+            begin_location[1]
         end
 
         def end_location
-            source.location(self.end-1) if self.end > self.begin
+            source.to_location(self.end-1) if self.end > self.begin
+        end
+
+        def end_line
+            end_location[0]
+        end
+
+        def end_column
+            end_location[1]
         end
 
         def to_s

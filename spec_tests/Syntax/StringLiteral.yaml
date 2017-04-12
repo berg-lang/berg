@@ -1,20 +1,20 @@
 String:
   Berg: '"xy"'
   Ast:
-    StringLiteral: [1@1-4, '"xy"']
+    StringLiteral: '"xy"'
   Result:
     String: xy
 
 OneCharacterString:
   Berg: '"x"'
   Ast:
-    StringLiteral: [1@1-3,'"x"']
+    StringLiteral: '"x"'
   Result:
     String: x
 
 EmptyString:
   Berg: '""'
   Ast:
-    StringLiteral: [1@1-2,'""']
+    StringLiteral: '""'
   Result:
     String: ''
