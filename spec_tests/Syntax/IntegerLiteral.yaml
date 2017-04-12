@@ -1,43 +1,40 @@
 Integer:
   - Berg: "12"
-    Ast: { IntegerLiteral: "12" }
+    Ast -> IntegerLiteral: "12" 
     Result: 12
   
 SmallInteger:
   - Berg: "1"
-    Ast: { IntegerLiteral: "1" }
+    Ast -> IntegerLiteral: "1" 
     Result: 1
 
 BigInteger:
   Berg: "1938523759123651983641928734198741987343198741398741984719874139874139847139874319874139847139812795148619560"
-  Ast: { IntegerLiteral: "1938523759123651983641928734198741987343198741398741984719874139874139847139874319874139847139812795148619560" }
+  Ast -> IntegerLiteral: "1938523759123651983641928734198741987343198741398741984719874139874139847139874319874139847139812795148619560" 
   Result: 1938523759123651983641928734198741987343198741398741984719874139874139847139874319874139847139812795148619560
 
 Zero:
   - Berg: "0"
-    Ast: { IntegerLiteral: "0" }
+    Ast -> IntegerLiteral: "0" 
     Result: 0
 
 # Things that are not integers, but almost are.
 NotAnInteger:
   - Berg: "-1"
-    Ast:
-      PrefixOperation:
-        $Term: "-1"
-        Operator: "-"
-        Right: { IntegerLiteral: "1" }
+    Ast -> PrefixOperation:
+      $Term: "-1"
+      Operator: "-"
+      Right -> IntegerLiteral: "1" 
   - Berg: "+1"
-    Ast:
-      PrefixOperation:
-        $Term: "+1"
-        Operator: +
-        Right: { IntegerLiteral: "1" }
+    Ast -> PrefixOperation:
+      $Term: "+1"
+      Operator: +
+      Right -> IntegerLiteral: "1" 
   - Berg: 0+
-    Ast:
-      PostfixOperation:
-        $Term: 0+
-        Left: { IntegerLiteral: "0" }
-        Operator: +
+    Ast -> PostfixOperation:
+      $Term: 0+
+      Left -> IntegerLiteral: "0" 
+      Operator: +
 
 # Almost-integers that are actually errors.
 IllegalIntegers:

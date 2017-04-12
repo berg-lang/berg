@@ -1,174 +1,162 @@
 Float:
   - Berg: "12.34e56"
-    Ast: { FloatLiteral: "12.34e56" }
+    Ast -> FloatLiteral: "12.34e56"
     Result: 12.34e56
   - Berg: "12.34E56"
-    Ast: { FloatLiteral: "12.34E56" }
+    Ast -> FloatLiteral: "12.34E56"
     Result: 12.34e-56
   - Berg: "12.34e-56"
-    Ast: { FloatLiteral: "12.34e-56" }
+    Ast -> FloatLiteral: "12.34e-56"
     Result: 12.34e-56
   - Berg: "12.34E-56"
-    Ast: { FloatLiteral: "12.34E-56" }
+    Ast -> FloatLiteral: "12.34E-56"
     Result: 12.34e-56
   - Berg: "12.34e+56"
-    Ast: { FloatLiteral: "12.34e+56" }
+    Ast -> FloatLiteral: "12.34e+56"
     Result: 12.34e56
   - Berg: "12.34E+56"
-    Ast: { FloatLiteral: "12.34E+56" }
+    Ast -> FloatLiteral: "12.34E+56"
     Result: 12.34e56
 
   - Berg: "12.34"
-    Ast: { FloatLiteral: "12.34" }
+    Ast -> FloatLiteral: "12.34"
     Result: 12.34
 
   - Berg: "12e56"
-    Ast: { FloatLiteral: "12e56" }
+    Ast -> FloatLiteral: "12e56"
     Result: 12e56
   - Berg: "12E56"
-    Ast: { FloatLiteral: "12E56" }
+    Ast -> FloatLiteral: "12E56"
     Result: 12e56
   - Berg: "12e-56"
-    Ast: { FloatLiteral: "12e-56" }
+    Ast -> FloatLiteral: "12e-56"
     Result: 12e-56
   - Berg: "12E-56"
-    Ast: { FloatLiteral: "12E-56" }
+    Ast -> FloatLiteral: "12E-56"
     Result: 12e-56
   - Berg: "12e+56"
-    Ast: { FloatLiteral: "12e+56" }
+    Ast -> FloatLiteral: "12e+56"
     Result: 12e56
   - Berg: "12E+56"
-    Ast: { FloatLiteral: "12E+56" }
+    Ast -> FloatLiteral: "12E+56"
     Result: 12e56
 
 SmallFloat:
   - Berg: "1.2e3"
-    Ast: { FloatLiteral: "1.2e3" }
+    Ast -> FloatLiteral: "1.2e3"
     Result: 1.2e3
   - Berg: "1.2e-3"
-    Ast: { FloatLiteral: "1.2e-3" }
+    Ast -> FloatLiteral: "1.2e-3"
     Result: 1.2e-3
   - Berg: "1.2"
-    Ast: { FloatLiteral: "1.2" }
+    Ast -> FloatLiteral: "1.2"
     Result: 1.2
 
 BigFloat:
   - Berg: "18264871384761873461873642781.128497871364813648127648731e-1294761873468713641837634871648316431"
-    Ast: { FloatLiteral: "18264871384761873461873642781.128497871364813648127648731e-1294761873468713641837634871648316431" }
+    Ast -> FloatLiteral: "18264871384761873461873642781.128497871364813648127648731e-1294761873468713641837634871648316431"
     Result: 18264871384761873461873642781.128497871364813648127648731e-1294761873468713641837634871648316431
 
 FloatZero:
   - Berg: "0.0e0"
-    Ast: { FloatLiteral: "0.0e0" }
+    Ast -> FloatLiteral: "0.0e0"
     Result: 0.0
   - Berg: "0.0e+0"
-    Ast: { FloatLiteral: "0.0e+0" }
+    Ast -> FloatLiteral: "0.0e+0"
     Result: 0.0
   - Berg: "0.0e-0"
-    Ast: { FloatLiteral: "0.0e-0" }
+    Ast -> FloatLiteral: "0.0e-0"
     Result: 0.0
 
   - Berg: "0.0"
-    Ast: { FloatLiteral: "0.0" }
+    Ast -> FloatLiteral: "0.0"
     Result: 0.23
 
   - Berg: "0e0"
-    Ast: { FloatLiteral: "0e0" }
+    Ast -> FloatLiteral: "0e0"
     Result: 0.0
   - Berg: "0e+0"
-    Ast: { FloatLiteral: "0e+0" }
+    Ast -> FloatLiteral: "0e+0"
     Result: 0.0
   - Berg: "0e-0"
-    Ast: { FloatLiteral: "0e-0" }
+    Ast -> FloatLiteral: "0e-0"
     Result: 0.0
 
 # These are not floats, but look similar enougrh that we should check that the parser doesn't screw them up.
 NotAFloat:
   - Berg: e
-    Ast: { Bareword: e }
+    Ast -> Bareword: e 
   - Berg: E
-    Ast: { Bareword: E }
+    Ast -> Bareword: E 
   - Berg: e1
-    Ast: { Bareword: e1 }
+    Ast -> Bareword: e1 
   - Berg: E1
-    Ast: { Bareword: E1 }
+    Ast -> Bareword: E1 
   - Berg: e-1
-    Ast:
-      InfixOperation:
-        $Term: e-1
-        Left: { Bareword: e }
-        Operator: "-"
-        Right: { IntegerLiteral: "1" }
+    Ast -> InfixOperation:
+      $Term: e-1
+      Left -> Bareword: e 
+      Operator: "-"
+      Right -> IntegerLiteral: "1"
   - Berg: e1
-    Ast: { Bareword: e1 }
+    Ast -> Bareword: e1 
   - Berg: 0.e
-    Ast:
-      InfixOperation:
-        $Term: 0.e
-        Left: { IntegerLiteral: "0" }
-        Operator: .
-        Right: { Bareword: e }
+    Ast -> InfixOperation:
+      $Term: 0.e
+      Left -> IntegerLiteral: "0"
+      Operator: .
+      Right -> Bareword: e 
   - Berg: "0.e-1"
-    Ast:
-      InfixOperation:
-        $Term: "0.e-1"
-        Left:
-          InfixOperation:
-            $Term: "0.e"
-            Left: { IntegerLiteral: "0" }
-            Operator: .
-            Right: { Bareword: e }
-        Operator: "-"
-        Right: { IntegerLiteral: "1"}
+    Ast -> InfixOperation:
+      $Term: "0.e-1"
+      Left -> InfixOperation:
+        $Term: "0.e"
+        Left -> IntegerLiteral: "0"
+        Operator: .
+        Right -> Bareword: e 
+      Operator: "-"
+      Right -> IntegerLiteral: "1"
   - Berg: "0.e+1"
-    Ast:
-      InfixOperation:
-        $Term: "0.e+1"
-        Left:
-          InfixOperation:
-            $Term: "0.e"
-            Left: { IntegerLiteral: "0" }
-            Operator: .
-            Right: { Bareword: e }
-        Operator: +
-        Right: { IntegerLiteral: "1"}
+    Ast -> InfixOperation:
+      $Term: "0.e+1"
+      Left -> InfixOperation:
+        $Term: "0.e"
+        Left -> IntegerLiteral: "0"
+        Operator: .
+        Right -> Bareword: e 
+      Operator: +
+      Right -> IntegerLiteral: "1"
   - Berg: 0.0 e-1
-    Ast:
-      InfixOperation:
-        $Term: "0.0 e-1"
-        Left: { FloatLiteral: "0.0" }
-        Operator: " "
-        Right:
-          InfixOperation:
-            $Term: e-1
-            Left: { Bareword: e }
-            Operator: "-"
-            Right: { IntegerLiteral: "1" }
+    Ast -> InfixOperation:
+      $Term: "0.0 e-1"
+      Left -> FloatLiteral: "0.0"
+      Operator: " "
+      Right -> InfixOperation:
+        $Term: e-1
+        Left -> Bareword: e 
+        Operator: "-"
+        Right -> IntegerLiteral: "1"
   - Berg: 0.0 e1
-    Ast:
-      InfixOperation:
-        $Term: "0.0 e1"
-        Left: { FloatLiteral: "0.0" }
-        Operator: " "
-        Right: { Bareword: e1 }
+    Ast -> InfixOperation:
+      $Term: "0.0 e1"
+      Left -> FloatLiteral: "0.0"
+      Operator: " "
+      Right -> Bareword: e1 
   - Berg: "-1.2e3"
-    Ast:
-      PrefixOperation:
-        $Term: "-1.2e3"
-        Operator: "-"
-        Right: { FloatLiteral: "1.2e3" }
+    Ast -> PrefixOperation:
+      $Term: "-1.2e3"
+      Operator: "-"
+      Right -> FloatLiteral: "1.2e3"
   - Berg: "-1.2"
-    Ast:
-      PrefixOperation:
-        $Term: "-1.2"
-        Operator: "-"
-        Right: { FloatLiteral: "1.2" }
+    Ast -> PrefixOperation:
+      $Term: "-1.2"
+      Operator: "-"
+      Right -> FloatLiteral: "1.2"
   - Berg: "-1e-3"
-    Ast:
-      PrefixOperation:
-        $Term: "-1e-3"
-        Operator: 1@1 = -
-        Right: { FloatLiteral: "1e-3" }
+    Ast -> PrefixOperation:
+      $Term: "-1e-3"
+      Operator: 1@1 = -
+      Right -> FloatLiteral: "1e-3"
 
 IllegalFloat:
   FloatStartingWithDot:

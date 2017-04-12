@@ -1,20 +1,14 @@
 String:
   Berg: '"xy"'
-  Ast:
-    StringLiteral: '"xy"'
-  Result:
-    String: xy
+  Ast -> StringLiteral: '"xy"'
+  Result: xy
 
 OneCharacterString:
   Berg: '"x"'
-  Ast:
-    StringLiteral: '"x"'
-  Result:
-    String: x
+  Ast -> StringLiteral: '"x"'
+  Result: x
 
 EmptyString:
   Berg: '""'
-  Ast:
-    StringLiteral: '""'
-  Result:
-    String: ''
+  Ast -> StringLiteral: '""'
+  Result: ''

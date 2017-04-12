@@ -1,5 +1,5 @@
 require "yaml"
-require "berg_lang/source"
+require "berg_lang/source_stream"
 require "berg_lang/parser"
 
 module SpecUtils
@@ -64,7 +64,7 @@ module SpecUtils
 
             context "When Berg source is #{test_spec["Berg"]}" do
                 let :source do
-                    BergLang::Source.new("spec_test", test_spec["Berg"])
+                    BergLang::SourceStream.new("spec_test", test_spec["Berg"])
                 end
 
                 let :syntax_error do
@@ -90,27 +90,23 @@ module SpecUtils
                     parsed_expression_root.expression
                 end
 
-                if test_spec["Ast"]
-                    generate_ast_tests([], test_spec["Ast"], BergLang::Source.new("spec_test", test_spec["Berg"]))
-                end
-                if test_spec["Error"]
-                    generate_error_tests(test_spec["Error"], BergLang::Source.new("spec_test", test_spec["Berg"]))
+                test_spec.each do |key, expected_value|
+                    test_type, expected_key = key.split(/\s*->\s*/, 2)
+                    case test_type
+                    when "Ast"
+                        generate_ast_tests([], expected_key, expected_value, BergLang::SourceStream.new("spec_test", test_spec["Berg"]))
+                    when "Error"
+                        generate_error_tests(expected_value, BergLang::SourceStream.new("spec_test", test_spec["Berg"]))
+                    when "Berg", "Result"
+                    else
+                        raise "Unexpected test key #{key}! Expected Berg, Ast, Error, or Result."
+                    end
                 end
             end
         end
 
-        def generate_ast_tests(property_path, ast_spec, source)
-            case ast_spec
-            when Hash
-                if ast_spec.size != 1
-                    raise "Expected ast #{property_path.join(".")} to have exactly one key (Type: ExpectedValue), but it has #{ast_spec.size}!"
-                end
-                expected_type, expected_value = ast_spec.first
-            else
-                expected_value = ast_spec
-            end
-
-            expected_range, expected_term = parse_range(expected_value, source)
+        def generate_ast_tests(property_path, expected_type, expected_value, source)
+            expected_range, expected_term = parse_range(expected_value || "", source)
 
             if property_path.any?
                 description = "the parsed expression property #{property_path.join(".")}"
@@ -151,14 +147,16 @@ module SpecUtils
 
             # Child properties
             if expected_value.is_a?(Hash)
-                expected_value.each do |child_property_name, expected_property_value|
+                expected_value.each do |key, expected_property_value|
+                    child_property_name, expected_type = key.split(/\s*->\s*/, 2)
                     next if %w($Range $Term).include?(child_property_name)
-                    generate_ast_tests(property_path + [ child_property_name ], expected_property_value, source)
+                    generate_ast_tests(property_path + [ child_property_name ], expected_type, expected_property_value, source)
                 end
             end
         end
 
         def generate_error_tests(error_spec, source)
+            return if !error_spec
             # Read the error spec
             # 1@1-2=<error>
             # 1@1-2@3=<error>
@@ -203,7 +201,7 @@ module SpecUtils
             when Hash
                 [ error_spec["$Range"], error_spec["$Term"], error_spec["$Error"] ]
             else
-                raise "Unexpected type #{error_spec.string} for error_spec #{error_spec} in test with Berg source #{source.string.inspect}"
+                raise "Unexpected type #{error_spec.class} for error_spec #{error_spec} in test with Berg source #{source.string.inspect}"
             end
 
         end

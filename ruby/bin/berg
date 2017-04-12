@@ -1,9 +1,9 @@
-require_relative "berg/source"
+require_relative "berg/source_stream"
 require_relative "berg/parser"
 require "pp"
 
 str = ARGV[0]
-source = BergLang::Source.new("<argument>", str)
+source = BergLang::SourceStream.new("<argument>", str)
 parser = BergLang::Parser.new(source)
 expression = parser.parse
 puts "\n"
