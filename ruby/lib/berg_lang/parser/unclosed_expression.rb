@@ -68,7 +68,7 @@ module BergLang
             #
             def resolve_infix!(operators)
                 last_postfix, operator, first_prefix = arity_picker.pick_infix(operators)
-                apply_postfix!(operators[0..last_postfix]) if last_postfix >= 0
+                apply_postfix!(operators[0..last_postfix], operator) if last_postfix >= 0
                 apply_infix!(operator)
 
                 # Indent (  A:\n    B) If it's indentable (a:\n...) and immediately followed by a linebreak, it's an indented value.
@@ -108,13 +108,17 @@ module BergLang
                 debug "  - after:  #{unclosed_to_s}"
             end
 
-            def apply_postfix!(postfixes)
+            def apply_postfix!(postfixes, because_of_infix=nil)
                 postfixes.each do |operator|
                     next if operator.is_a?(Whitespace)
                     debug "Postfix: #{operator}"
                     debug "  - before: #{unclosed_to_s}"
                     if !operator.postfix
-                        raise syntax_errors.missing_right_hand_side_at_eof(operator, postfixes[-1])
+                        if because_of_infix
+                            raise syntax_errors.prefix_or_infix_in_front_of_infix_operator(operator, because_of_infix)
+                        else
+                            raise syntax_errors.missing_right_hand_side_at_eof(operator, postfixes[-1])
+                        end
                     end
                     left_bind!(operator, operator.postfix) 
                     debug "  - after:  #{unclosed_to_s}"

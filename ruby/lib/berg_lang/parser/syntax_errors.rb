@@ -30,6 +30,9 @@ module BergLang
                 error:  proc { |token, sof_token| "Missing a value on the left side of \"#{token}\"." },
                 remedy: proc { |token, sof_token| "Did you mean for the \"#{token}\" to be there?" }
 
+            syntax_error :prefix_or_infix_in_front_of_infix_operator,
+                error: proc { |token, because_of_infix| "Operators \"#{token}\" and \"#{because_of_infix}\" are in the wrong order." },
+                remedy: proc { |token, because_of_infix| "Perhaps one of them was an error, or you meant to have a value between them?" }
             # TODO help more with this one. I hate this so much in programs.
             syntax_error :umatched_end_delimiter,
                 error:  proc { |token| "Found ending #{token} with no corresponding #{token.end_delimiter.started_by}." },
