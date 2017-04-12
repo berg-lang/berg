@@ -65,14 +65,14 @@ module BergLang
             end
 
             def parse_whitespace
-                match = source.match(/^((((?<newline>\n)(?<indent>[ \t]*))|\s)+|#[^\n]+)+/)
+                match = source.match(/\A((((?<newline>\n)(?<indent>[ \t]*))|\s)+|#[^\n]+)+/)
                 Whitespace.new(match) if match
             end
 
             def parse_operator
                 match = source.match(operators_regex)
                 if match
-                    if match.string == "." && digits = source.match(/^\d+/)
+                    if match.string == "." && digits = source.match(/\A\d+/)
                         raise syntax_errors.float_without_leading_zero(SourceRange.span(match, digits))
                     end
                     Operator.new(match, all_operators[match.string])
@@ -80,13 +80,20 @@ module BergLang
             end
 
             def parse_bareword
-                match = source.match(/^(\w|[_$])+/)
+                match = source.match(/\A(\w|[_$])+/)
                 Expressions::Bareword.new(match) if match
             end
 
             def parse_string
-                match = source.match(/^"(\\.|[^\\"]+)*"/)
-                Expressions::StringLiteral.new(match) if match
+                if source.peek == '"'
+                    match = source.match(/\A"(\\.|[^\\"]+)*"/m)
+                    if match
+                        Expressions::StringLiteral.new(match)
+                    else
+                        match = source.match(/\A"(\\.|[^\\"]+)*/m)
+                        raise syntax_errors.unclosed_string(match)
+                    end
+                end
             end
 
             def eof_token
@@ -98,9 +105,9 @@ module BergLang
                 # Handle floats, imaginaries and integers (hex is later in this function)
                 #
                 # integer (. decimal)? (e expsign? exponent)? i?
-                match = source.match /^(?<integer>\d+)((\.)(?<decimal>\d+))?((e)(?<expsign>[-+])?(?<exp>\d+))?(?<imaginary>i)?/i
+                match = source.match /\A(?<integer>\d+)((\.)(?<decimal>\d+))?((e)(?<expsign>[-+])?(?<exp>\d+))?(?<imaginary>i)?/i
                 if match
-                    illegal_word_characters = source.match /^(\w|[_$])+/
+                    illegal_word_characters = source.match /\A(\w|[_$])+/
                     # Word characters immediately following a number is illegal.
                     if illegal_word_characters
                         if !match[:exp] && illegal_word_characters.string.downcase == "e"
@@ -136,7 +143,7 @@ module BergLang
                 else
                     # Handle hex literals (0xDEADBEEF)
                     # sign? prefix integer
-                    match = source.match /^(?<sign>[-+])?(?<prefix>0x)(?<integer>(\d|[A-Fa-f])+)/
+                    match = source.match /\A(?<sign>[-+])?(?<prefix>0x)(?<integer>(\d|[A-Fa-f])+)/
                     if match
                         Expressions::HexadecimalLiteral.new(match)
                     else

@@ -16,6 +16,10 @@ module BergLang
                 end
             end
 
+            syntax_error :unclosed_string,
+                error:  "Unclosed string.",
+                remedy: "Put a \" at the end to fix this; it is possible, however, that a previous string is the problem. You may need to scan the file. Sorry about that."
+
             syntax_error :unrecognized_character,
                 error:  "Unrecognized character.",
                 remedy: "Perhaps you meant to put it inside of a string?"

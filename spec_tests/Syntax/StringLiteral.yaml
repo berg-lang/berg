@@ -1,14 +1,76 @@
 String:
-  Berg: '"xy"'
-  Ast -> StringLiteral: '"xy"'
-  Result: xy
+  - Berg: '"xy"'
+    Ast -> StringLiteral: '"xy"'
+    Result: xy
+  - Berg: '"x"'
+    Ast -> StringLiteral: '"x"'
+    Result: x
 
-OneCharacterString:
-  Berg: '"x"'
-  Ast -> StringLiteral: '"x"'
-  Result: x
+MultilineString:
+  - Berg: |
+      "
+      "
+    Ast -> StringLiteral: "1@1-2@1 = \"\n\""
+    Result: "\n"
+  - Berg: |
+      " 
+       "
+    Ast -> StringLiteral: "1@1-2@2 = \" \n \""
+    Result: " \n "
+  - Berg: |
+      "
+      
+      "
+    Ast -> StringLiteral: "1@1-3@1 = \"\n\n\""
+    Result: "\n\n"
+  - Berg: |
+      " 
+       
+       "
+    Ast -> StringLiteral: "1@1-3@2 = \" \n \n \""
+    Result: " \n \n "
+  - Berg: |
+      "a
+      b
+      c"
+    Ast -> StringLiteral: "1@1-3@2 = \"a\nb\nc\""
+    Result: "a\nb\nc"
+
+EscapeSequences:
+  - Berg: '"\""'
+    Ast -> StringLiteral: "\"\\\"\""
+    Result: '"'
+  - Berg: '"\\"'
+    Ast -> StringLiteral: "\"\\\\\""
+    Result: '\'
+  - Berg: '"\n"'
+    Ast -> StringLiteral: "\"\\n\""
+    Result: "\n"
 
 EmptyString:
   Berg: '""'
   Ast -> StringLiteral: '""'
   Result: ''
+
+MultipleStrings:
+  Berg: '"a" + "b"'
+  Ast -> InfixOperation:
+    $Term: '"a" + "b"'
+    Left -> StringLiteral: '"a"'
+    Operator: +
+    Right -> StringLiteral: '"b"'
+
+IllegalString:
+  UnclosedString:
+    - Berg: '"'
+      Error: Unclosed string. Put a " at the end to fix this; it is possible, however, that a previous string is the problem. You may need to scan the file. Sorry about that.
+    - Berg: '"\"'
+      Error: Unclosed string. Put a " at the end to fix this; it is possible, however, that a previous string is the problem. You may need to scan the file. Sorry about that.
+    - Berg: "\"\n"
+      Error: Unclosed string. Put a " at the end to fix this; it is possible, however, that a previous string is the problem. You may need to scan the file. Sorry about that.
+    - Berg: ' " '
+      Error: Unclosed string. Put a " at the end to fix this; it is possible, however, that a previous string is the problem. You may need to scan the file. Sorry about that.
+
+  UnclosedEscape:
+    - Berg: '"\'
+      Error: Unclosed string. Put a " at the end to fix this; it is possible, however, that a previous string is the problem. You may need to scan the file. Sorry about that.
