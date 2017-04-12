@@ -41,6 +41,11 @@ NotAnInteger:
 
 # Almost-integers that are actually errors.
 IllegalIntegers:
+  VariableStartingWithInteger:
+    - Berg: "0a"
+      Error: [1@1-2,"Number is mixed up with a word. If it's a variable name, change it to start with a character instead of a number. If you wanted a number, you can remove the word characters."]
+    - Berg: "123adfslj"
+      Error: [1@1-9,"Number is mixed up with a word. If it's a variable name, change it to start with a character instead of a number. If you wanted a number, you can remove the word characters."]
   MissingRightHandSide:
     - Berg: "0-"
       Error: [1@2,'Missing a value on the right side of "-". Perhaps you closed the file earlier than intended, or didn''t mean to put the "-" there at all?']

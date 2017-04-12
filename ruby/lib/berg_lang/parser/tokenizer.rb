@@ -95,9 +95,22 @@ module BergLang
                 # integer (. decimal)? (e expsign? exponent)? i?
                 match = source.match /^(?<integer>\d+)((\.)(?<decimal>\d+))?((e)(?<expsign>[-+])?(?<exp>\d+))?(?<imaginary>i)?/i
                 if match
+                    illegal_word_characters = source.match /^(\w|[_$])+/
+                    # Word characters immediately following a number is illegal.
+                    if illegal_word_characters
+                        if !match[:exp] && illegal_word_characters.string.downcase == "e"
+                            raise syntax_errors.empty_exponent(illegal_word_characters)
+                        elsif match[:decimal]
+                            raise syntax_errors.float_with_trailing_identifier(SourceRange.span(match, illegal_word_characters))
+                        else
+                            raise syntax_errors.variable_name_starting_with_an_integer(SourceRange.span(match, illegal_word_characters))
+                        end
+                    end
+
+                    is_imaginary = match[:imaginary]
                     is_float = match[:decimal] || match[:exp]
                     is_octal = !is_float && match[:integer] && match[:integer].length > 1 && match["integer"].start_with?("0")
-                    if match[:imaginary]
+                    if is_imaginary
                         Expressions::ImaginaryLiteral.new(match)
 
                     elsif is_float

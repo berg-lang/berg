@@ -15,13 +15,25 @@ module BergLang
             end
 
             syntax_error :unrecognized_character,
-                error:  proc { |token| "Unrecognized character #{token.to_s.inspect}." },
+                error:  "Unrecognized character.",
                 remedy: "Perhaps you meant to put it inside of a string?"
 
             syntax_error :illegal_octal_digit,
-                error:  proc { |token| "Octal literals cannot have 8 or 9 in them: #{token}." },
+                error:  "Octal literals cannot have 8 or 9 in them.",
                 remedy: "If you meant to write a decimal number, remove the 0."
             
+            syntax_error :empty_exponent,
+                error: "Empty exponent.",
+                remedy: "If you meant the \"e\" to have an exponent, add some numbers."
+
+            syntax_error :float_with_trailing_identifier,
+                error: "Number is mixed up with a word.",
+                remedy: "If you wanted a number, you can remove the word characters. If you're trying to get a property of an integer with \".\", make sure the property name starts with a word character."
+
+            syntax_error :variable_name_starting_with_an_integer,
+                error: "Number is mixed up with a word.",
+                remedy: "If it's a variable name, change it to start with a character instead of a number. If you wanted a number, you can remove the word characters."
+
             syntax_error :missing_right_hand_side_at_eof,
                 error:  proc { |token, eof_token| "Missing a value on the right side of \"#{token}\"." },
                 remedy: proc { |token, eof_token| "Perhaps you closed the file earlier than intended, or didn't mean to put the \"#{token}\" there at all?" }

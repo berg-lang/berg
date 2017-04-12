@@ -169,35 +169,6 @@ NotAFloat:
         $Range: [1@1-5,"-1e-3"]
         Operator: [1@1, "-"]
         Right: { FloatLiteral: [1@2-5, "1e-3"] }
-  # TODO this is true but the error message that will result at typecheck time will need real tweaking.
-  - Berg: "0.0e+.1"
-    Ast:
-      InfixOperation:
-        $Range: [1@1-7,0.0e+.1]
-        Left: { FloatLiteral: [1@1-3, "0.0"] }
-        Operator: [1@4+0, ""]
-        Right:
-          InfixOperation:
-            $Range: [1@4-7,e+.1]
-            Left:
-              PostfixOperation:
-                $Range: [1@4-5,e+]
-                Left: { Bareword: [1@4,e] }
-                Operator: [1@5,+]
-            Operator: [1@6,.]
-            Right: { IntegerLiteral: [1@7, "1"]}
-  - Berg: "0.0e.1"
-    Ast:
-      InfixOperation:
-        $Range: [1@1-6,0.0e.1]
-        Left: { FloatLiteral: [1@1-3, "0.0"] }
-        Operator: [1@4+0, ""]
-        Right:
-          InfixOperation:
-            $Range: [1@4-6,e.1]
-            Left: { Bareword: [1@4,e] }
-            Operator: [1@5,.]
-            Right: { IntegerLiteral: [1@6, "1"]}
 
 IllegalFloat:
   FloatStartingWithDot:
@@ -253,47 +224,70 @@ IllegalFloat:
     - Berg: "0.+"
       Error:
 
+  FloatWithTrailingIdentifier:
+    - Berg: "0.0a"
+      Error: [1@1-4,"Number is mixed up with a word. If you wanted a number, you can remove the word characters. If you're trying to get a property of an integer with \".\", make sure the property name starts with a word character."]
+    - Berg: "0.0abc"
+      Error: [1@1-6,"Number is mixed up with a word. If you wanted a number, you can remove the word characters. If you're trying to get a property of an integer with \".\", make sure the property name starts with a word character."]
+    - Berg: "0.0e0a"
+      Error: [1@1-6,"Number is mixed up with a word. If you wanted a number, you can remove the word characters. If you're trying to get a property of an integer with \".\", make sure the property name starts with a word character."]
+    - Berg: "0.0e0abc"
+      Error: [1@1-8,"Number is mixed up with a word. If you wanted a number, you can remove the word characters. If you're trying to get a property of an integer with \".\", make sure the property name starts with a word character."]
+    - Berg: "0.0e-0a"
+      Error: [1@1-7,"Number is mixed up with a word. If you wanted a number, you can remove the word characters. If you're trying to get a property of an integer with \".\", make sure the property name starts with a word character."]
+    - Berg: "0.0e-0abc"
+      Error: [1@1-9,"Number is mixed up with a word. If you wanted a number, you can remove the word characters. If you're trying to get a property of an integer with \".\", make sure the property name starts with a word character."]
+    - Berg: "0e0a"
+      Error: [1@1-4,"Number is mixed up with a word. If it's a variable name, change it to start with a character instead of a number. If you wanted a number, you can remove the word characters."]
+    - Berg: "0e0abc"
+      Error: [1@1-6, "Number is mixed up with a word. If it's a variable name, change it to start with a character instead of a number. If you wanted a number, you can remove the word characters."]
+
   EmptyExponent:
     - Berg: "0.0e"
-      Error:
+      Error: [1@4,"Empty exponent. If you meant the \"e\" to have an exponent, add some numbers."]
     - Berg: "0.0E"
-      Error:
+      Error: [1@4,"Empty exponent. If you meant the \"e\" to have an exponent, add some numbers."]
     - Berg: "0.0e+"
-      Error:
+      Error: [1@4,"Empty exponent. If you meant the \"e\" to have an exponent, add some numbers."]
     - Berg: "0.0e-"
-      Error:
+      Error: [1@4,"Empty exponent. If you meant the \"e\" to have an exponent, add some numbers."]
 
     - Berg: "0E"
-      Error:
+      Error: [1@2,"Empty exponent. If you meant the \"e\" to have an exponent, add some numbers."]
     - Berg: "0e"
-      Error: ""
+      Error: [1@2,"Empty exponent. If you meant the \"e\" to have an exponent, add some numbers."]
     - Berg: "0e-"
-      Error: ""
+      Error: [1@2,"Empty exponent. If you meant the \"e\" to have an exponent, add some numbers."]
     - Berg: "0e+"
-      Error: ""
+      Error: [1@2,"Empty exponent. If you meant the \"e\" to have an exponent, add some numbers."]
 
     - Berg: "0.0e-+1"
-      Error:
+      Error: [1@4,"Empty exponent. If you meant the \"e\" to have an exponent, add some numbers."]
     - Berg: "0.0e+-1"
-      Error:
+      Error: [1@4,"Empty exponent. If you meant the \"e\" to have an exponent, add some numbers."]
     - Berg: "0.0e++1"
-      Error:
+      Error: [1@4,"Empty exponent. If you meant the \"e\" to have an exponent, add some numbers."]
     - Berg: "0.0e--1"
-      Error:
+      Error: [1@4,"Empty exponent. If you meant the \"e\" to have an exponent, add some numbers."]
 
     - Berg: "0.0e -1"
-      Error: ""
+      Error: [1@4,"Empty exponent. If you meant the \"e\" to have an exponent, add some numbers."]
     - Berg: "0e -1"
-      Error: ""
+      Error: [1@2,"Empty exponent. If you meant the \"e\" to have an exponent, add some numbers."]
     - Berg: "0.0e +1"
-      Error: ""
+      Error: [1@4,"Empty exponent. If you meant the \"e\" to have an exponent, add some numbers."]
     - Berg: "0e +1"
-      Error: ""
+      Error: [1@2,"Empty exponent. If you meant the \"e\" to have an exponent, add some numbers."]
     - Berg: "0e 1"
-      Error: ""
+      Error: [1@2,"Empty exponent. If you meant the \"e\" to have an exponent, add some numbers."]
 
+    # TODO this is true but the error message that will result at typecheck time will need real tweaking.
+    - Berg: "0.0e+.1"
+      Error: [1@4,"Empty exponent. If you meant the \"e\" to have an exponent, add some numbers."]
+    - Berg: "0.0e.1"
+      Error: [1@4,"Empty exponent. If you meant the \"e\" to have an exponent, add some numbers."]
     - Berg: "0.0e-.1"
-      Error: [1@5,'Operators "-" and "." are in the wrong order. Perhaps one of them was an error, or you meant to have a value between them?']
+      Error: [1@4,"Empty exponent. If you meant the \"e\" to have an exponent, add some numbers."]
 
   DotIsNotPrefix:
     - Berg: ".e"

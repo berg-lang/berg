@@ -112,7 +112,7 @@ module SpecUtils
             end
             if expected_range
                 it "has an error at row/column #{expected_range}" do
-                    expected_range_end, expected_range_begin = parse_range(expected_range)
+                    expected_range_begin, expected_range_end = parse_range(expected_range)
 
                     actual_range_begin = syntax_error.source_range.begin_location
                     actual_range_end = syntax_error.source_range.end_location
