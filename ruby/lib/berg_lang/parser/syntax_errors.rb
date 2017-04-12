@@ -8,9 +8,11 @@ module BergLang
 
             def self.syntax_error(name, error:, remedy:)
                 define_method(name) do |ast, *args|
-                    error = error.call(ast, *args) if error.is_a?(Proc)
-                    remedy = remedy.call(ast, *args) if remedy.is_a?(Proc)
-                    SyntaxError.new(name, ast: ast, args: args, error: error, remedy: remedy)
+                    error_message = error
+                    error_message = error_message.call(ast, *args) if error.is_a?(Proc)
+                    remedy_message = remedy
+                    remedy_message = remedy_message.call(ast, *args) if remedy.is_a?(Proc)
+                    SyntaxError.new(name, ast: ast, args: args, error: error_message, remedy: remedy_message)
                 end
             end
 
@@ -43,7 +45,7 @@ module BergLang
                 remedy: proc { |token, sof_token| "Did you mean for the \"#{token}\" to be there?" }
 
             syntax_error :prefix_or_infix_in_front_of_infix_operator,
-                error: proc { |token, because_of_infix| "Operators \"#{token}\" and \"#{because_of_infix}\" are in the wrong order." },
+                error: proc { |token, because_of_infix| "Operators \"#{token}\" and \"#{because_of_infix}\" cannot appear together or are in the wrong order." },
                 remedy: proc { |token, because_of_infix| "Perhaps one of them was an error, or you meant to have a value between them?" }
             # TODO help more with this one. I hate this so much in programs.
             syntax_error :umatched_end_delimiter,

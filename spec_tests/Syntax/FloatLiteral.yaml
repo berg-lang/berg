@@ -84,79 +84,164 @@ FloatZero:
 
 # These are not floats, but look similar enougrh that we should check that the parser doesn't screw them up.
 NotAFloat:
-  - Berg: e
-    Ast -> Bareword: e 
-  - Berg: E
-    Ast -> Bareword: E 
-  - Berg: e1
-    Ast -> Bareword: e1 
-  - Berg: E1
-    Ast -> Bareword: E1 
-  - Berg: e-1
-    Ast -> InfixOperation:
-      $Term: e-1
-      Left -> Bareword: e 
-      Operator: "-"
-      Right -> IntegerLiteral: "1"
-  - Berg: e1
-    Ast -> Bareword: e1 
-  - Berg: 0.e
-    Ast -> InfixOperation:
-      $Term: 0.e
-      Left -> IntegerLiteral: "0"
-      Operator: .
-      Right -> Bareword: e 
-  - Berg: "0.e-1"
-    Ast -> InfixOperation:
-      $Term: "0.e-1"
-      Left -> InfixOperation:
-        $Term: "0.e"
-        Left -> IntegerLiteral: "0"
-        Operator: .
-        Right -> Bareword: e 
-      Operator: "-"
-      Right -> IntegerLiteral: "1"
-  - Berg: "0.e+1"
-    Ast -> InfixOperation:
-      $Term: "0.e+1"
-      Left -> InfixOperation:
-        $Term: "0.e"
-        Left -> IntegerLiteral: "0"
-        Operator: .
-        Right -> Bareword: e 
-      Operator: +
-      Right -> IntegerLiteral: "1"
-  - Berg: 0.0 e-1
-    Ast -> InfixOperation:
-      $Term: "0.0 e-1"
-      Left -> FloatLiteral: "0.0"
-      Operator: " "
-      Right -> InfixOperation:
+  VariableThatLooksLikeExponent:
+    - Berg: e
+      Ast -> Bareword: e 
+    - Berg: E
+      Ast -> Bareword: E 
+    - Berg: e1
+      Ast -> Bareword: e1 
+    - Berg: E1
+      Ast -> Bareword: E1 
+    - Berg: e1
+      Ast -> Bareword: e1 
+  
+  OperationThatLooksLikeExponent:
+    - Berg: e-1
+      Ast -> InfixOperation:
         $Term: e-1
         Left -> Bareword: e 
         Operator: "-"
         Right -> IntegerLiteral: "1"
-  - Berg: 0.0 e1
-    Ast -> InfixOperation:
-      $Term: "0.0 e1"
-      Left -> FloatLiteral: "0.0"
-      Operator: " "
-      Right -> Bareword: e1 
-  - Berg: "-1.2e3"
-    Ast -> PrefixOperation:
-      $Term: "-1.2e3"
-      Operator: "-"
-      Right -> FloatLiteral: "1.2e3"
-  - Berg: "-1.2"
-    Ast -> PrefixOperation:
-      $Term: "-1.2"
-      Operator: "-"
-      Right -> FloatLiteral: "1.2"
-  - Berg: "-1e-3"
-    Ast -> PrefixOperation:
-      $Term: "-1e-3"
-      Operator: 1@1 = -
-      Right -> FloatLiteral: "1e-3"
+    - Berg: 0.e
+      Ast -> InfixOperation:
+        $Term: 0.e
+        Left -> IntegerLiteral: "0"
+        Operator: .
+        Right -> Bareword: e 
+    - Berg: "0.e-1"
+      Ast -> InfixOperation:
+        $Term: "0.e-1"
+        Left -> InfixOperation:
+          $Term: "0.e"
+          Left -> IntegerLiteral: "0"
+          Operator: .
+          Right -> Bareword: e 
+        Operator: "-"
+        Right -> IntegerLiteral: "1"
+    - Berg: "0.e+1"
+      Ast -> InfixOperation:
+        $Term: "0.e+1"
+        Left -> InfixOperation:
+          $Term: "0.e"
+          Left -> IntegerLiteral: "0"
+          Operator: .
+          Right -> Bareword: e 
+        Operator: +
+        Right -> IntegerLiteral: "1"
+    - Berg: 0.0 e-1
+      Ast -> InfixOperation:
+        $Term: "0.0 e-1"
+        Left -> FloatLiteral: "0.0"
+        Operator: " "
+        Right -> InfixOperation:
+          $Term: e-1
+          Left -> Bareword: e 
+          Operator: "-"
+          Right -> IntegerLiteral: "1"
+    - Berg: 0.0 e1
+      Ast -> InfixOperation:
+        $Term: "0.0 e1"
+        Left -> FloatLiteral: "0.0"
+        Operator: " "
+        Right -> Bareword: e1 
+
+  UnaryPlusOrMinus:
+    - Berg: "-1.2e3"
+      Ast -> PrefixOperation:
+        $Term: "-1.2e3"
+        Operator: "-"
+        Right -> FloatLiteral: "1.2e3"
+    - Berg: "-1.2"
+      Ast -> PrefixOperation:
+        $Term: "-1.2"
+        Operator: "-"
+        Right -> FloatLiteral: "1.2"
+    - Berg: "-1e-3"
+      Ast -> PrefixOperation:
+        $Term: "-1e-3"
+        Operator: 1@1 = -
+        Right -> FloatLiteral: "1e-3"
+    - Berg: "+1.2e3"
+      Ast -> PrefixOperation:
+        $Term: "+1.2e3"
+        Operator: +
+        Right -> FloatLiteral: "1.2e3"
+    - Berg: "+1.2"
+      Ast -> PrefixOperation:
+        $Term: "+1.2"
+        Operator: +
+        Right -> FloatLiteral: "1.2"
+    - Berg: "+1e+3"
+      Ast -> PrefixOperation:
+        $Term: "+1e+3"
+        Operator: 1@1 = +
+        Right -> FloatLiteral: "1e+3"
+
+  MemberAccessWithNumberOnRightSide:
+    - Berg: 0.0e0.1
+      Ast -> InfixOperation:
+        $Term: 0.0e0.1
+        Left -> FloatLiteral: "0.0e0"
+        Operator: 1@6 = .
+        Right -> IntegerLiteral: "1"
+    - Berg: 0.0e-0.1
+      Ast -> InfixOperation:
+        $Term: 0.0e-0.1
+        Left -> FloatLiteral: "0.0e-0"
+        Operator: 1@7 = .
+        Right -> IntegerLiteral: "1"
+    - Berg: 0.0e+0.1
+      Ast -> InfixOperation:
+        $Term: 0.0e+0.1
+        Left -> FloatLiteral: "0.0e+0"
+        Operator: 1@7 = .
+        Right -> IntegerLiteral: "1"
+
+    - Berg: e.0
+      Ast -> InfixOperation:
+        $Term: e.0
+        Left -> Bareword: e
+        Operator: .
+        Right -> IntegerLiteral: "0"
+    - Berg: E.0
+      Ast -> InfixOperation:
+        $Term: E.0
+        Left -> Bareword: E
+        Operator: .
+        Right -> IntegerLiteral: "0"
+    - Berg: e0.0
+      Ast -> InfixOperation:
+        $Term: e0.0
+        Left -> Bareword: e0
+        Operator: .
+        Right -> IntegerLiteral: 1@4 = 0
+    - Berg: a.0
+      Ast -> InfixOperation:
+        $Term: a.0
+        Left -> Bareword: a
+        Operator: .
+        Right -> IntegerLiteral: "0"
+
+    - Berg: 0 .0
+      Ast -> InfixOperation:
+        $Term: 0 .0
+        Left -> IntegerLiteral: 1@1 = 0
+        Operator: .
+        Right -> IntegerLiteral: 1@4 = 0
+
+    - Berg: e-0.0
+      Ast -> InfixOperation:
+        $Term: e-0.0
+        Left -> Bareword: e
+        Operator: "-"
+        Right -> FloatLiteral: "0.0"
+    - Berg: e+0.0
+      Ast -> InfixOperation:
+        $Term: e+0.0
+        Left -> Bareword: e
+        Operator: +
+        Right -> FloatLiteral: "0.0"
 
 IllegalFloat:
   FloatStartingWithDot:
@@ -189,11 +274,14 @@ IllegalFloat:
 
   EmptyDecimal:
     - Berg: "0."
-      Error:
+      Error: Missing a value on the right side of ".". Perhaps you closed the file earlier than intended, or didn't mean to put the "." there at all?
     - Berg: 0.-
-      Error:
+      Error: Missing a value on the right side of ".". Perhaps you closed the file earlier than intended, or didn't mean to put the "." there at all?
     - Berg: 0.+
-      Error:
+      Error: Missing a value on the right side of ".". Perhaps you closed the file earlier than intended, or didn't mean to put the "." there at all?
+
+    - Berg: 0. * 10
+      Error: Operators "." and "*" cannot appear together or are in the wrong order. Perhaps one of them was an error, or you meant to have a value between them?
 
   FloatWithTrailingIdentifier:
     - Berg: 0.0a
@@ -208,23 +296,6 @@ IllegalFloat:
       Error: 0.0e-0a = Number is mixed up with a word. If you wanted a number, you can remove the word characters. If you're trying to get a property of an integer with ".", make sure the property name starts with a word character.
     - Berg: 0.0e-0abc
       Error: 0.0e-0abc = Number is mixed up with a word. If you wanted a number, you can remove the word characters. If you're trying to get a property of an integer with ".", make sure the property name starts with a word character.
-
-    - Berg: 0.0e0.1
-      Error: 
-    - Berg: 0.0e-0.1
-      Error:
-    - Berg: 0.0e+0.1
-      Error:
-
-    - Berg: e.0
-      Error:
-    - Berg: E.0
-      Error:
-    - Berg: a.0
-      Error:
-
-    - Berg: 0 .0
-      Error:
 
   VariableStartingWithANumber:
     - Berg: 0e0a
