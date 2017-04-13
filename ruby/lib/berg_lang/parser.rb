@@ -3,6 +3,7 @@ require_relative "parser/operator"
 require_relative "parser/tokenizer"
 require_relative "parser/unclosed_expression"
 require_relative "parser/syntax_errors"
+require_relative "expressions/empty_expression"
 
 module BergLang
     #
@@ -57,11 +58,28 @@ module BergLang
 
         def next_expression_phrase
             operators = []
-            while token && !token.is_a?(Expression)
-                operators << advance_token
+            while true
+                case token
+                when Expression
+                    return [operators, advance_token]
+                when Operator
+                    # Empty () ends up showing up as a series of tokens, but there is an assumed EmptyExpression in there
+                    if token.end_delimiter
+                        if operators[-1].is_a?(Operator) && operators[-1].start_delimiter
+                            return [operators, Expressions::EmptyExpression.new(source.create_empty_range(operators[-1].source_range.end))]
+                        elsif operators[-1].is_a?(Whitespace) && operators[-2].is_a?(Operator) && operators[-2].start_delimiter
+                            return [operators, Expressions::EmptyExpression.new(operators[-1].source_range)]
+                        end
+                    end
+                    operators << advance_token
+                when Whitespace
+                    operators << advance_token
+                when nil
+                    return [operators, nil]
+                else
+                    raise syntax_errors.internal_error(token, "Unknown token type #{token.class}")
+                end
             end
-            expression = advance_token
-            [operators, expression]
         end
 
         def advance_token

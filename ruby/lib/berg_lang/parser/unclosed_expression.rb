@@ -87,7 +87,12 @@ module BergLang
                     debug "Prefix: #{operator}"
                     next if operator.is_a?(Whitespace)
                     if !operator.prefix
-                        raise syntax_errors.missing_left_hand_side_at_sof(operator, prefixes[0])
+                        # If there is an empty expression--(<whitespace>)--it may show up in prefixes.
+                        if operator.end_delimiter
+                            close_delimited!(operator, operator.end_delimiter)
+                        else
+                            raise syntax_errors.missing_left_hand_side_at_sof(operator, prefixes[0])
+                        end
                     end
                     @unclosed << [ operator, operator.prefix ]
                 end

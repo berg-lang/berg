@@ -20,6 +20,10 @@ module BergLang
                 operator_definitions.values.first.key
             end
 
+            def prefix
+                operator_definitions[:prefix] || operator_definitions[:start_delimiter]
+            end
+
             def infix
                 operator_definitions[:infix]
             end
@@ -28,8 +32,12 @@ module BergLang
                 operator_definitions[:postfix] || operator_definitions[:end_delimiter]
             end
 
-            def prefix
-                operator_definitions[:prefix] || operator_definitions[:start_delimiter]
+            def start_delimiter
+                operator_definitions[:start_delimiter]
+            end
+
+            def end_delimiter
+                operator_definitions[:end_delimiter]
             end
         end
     end
