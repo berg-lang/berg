@@ -1,0 +1,24 @@
+Empty:
+  - Berg: ""
+    Ast -> EmptyExpression: ""
+    Result -> Void: void
+
+WhitespaceOnly:
+  - Berg: " "
+    Ast -> EmptyExpression: " "
+    Result -> Void: void
+  - Berg: "\n"
+    Ast -> EmptyExpression: "\n"
+    Result -> Void: void
+  - Berg: "\r\n"
+    Ast -> EmptyExpression: "\r\n"
+    Result -> Void: void
+  - Berg: " \t\r\n"
+    Ast -> EmptyExpression: " \t\r\n"
+    Result -> Void: void
+  - Berg: "# x"
+    Ast -> EmptyExpression: "# x"
+    Result -> Void: void
+  - Berg: " \t\r\n# x\n  # x"
+    Ast -> EmptyExpression: " \t\r\n# x\n  # x"
+    Result -> Void: void
