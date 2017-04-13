@@ -75,7 +75,7 @@ module BergLang
                 if operator.infix.indentable?
                     whitespace = operators[first_prefix - 1]
                     if whitespace.is_a?(Whitespace) && whitespace.has_newline?
-                        apply_prefix!(Operator.new(whitespace.match, parser.all_operators[:indent]))
+                        apply_prefix!([Operator.new(whitespace.indent, parser.all_operators[:indent])])
                     end
                 end
 

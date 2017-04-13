@@ -31,7 +31,7 @@ module BergLang
                     @token ||= parse_operator
                     @token ||= parse_string
                     @token ||= parse_bareword
-                    @token ||= eof_token if source.eof?
+                    @token ||= create_eof_token if source.eof?
                     if !token
                         raise syntax_errors.unrecognized_character(UnrecognizedCharacter.new(source.match(/./)))
                     end
@@ -97,6 +97,10 @@ module BergLang
             end
 
             def eof_token
+                @eof_token
+            end
+
+            def create_eof_token
                 @eof_token ||= Operator.new(source.create_empty_range, all_operators[:eof])
             end
 

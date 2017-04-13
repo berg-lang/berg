@@ -93,10 +93,10 @@ module BergLang
                 current_indent = next_token.indent
                 start_delimiter = unclosed_expression.current_start_delimiter
                 if start_delimiter && current_indent.size >= start_delimiter.size
-                    if !current_indent.start_with?(start_delimiter.match[:indent])
+                    if !current_indent.string.start_with?(start_delimiter.string)
                         raise syntax_errors.unmatchable_indent(next_token, start_delimiter)
                     end
-                    next_token = Operator.new(next_token.match, tokenizer.all_operators[:undent])
+                    next_token = Operator.new(next_token.source_range, tokenizer.all_operators[:undent])
                 end
             end
 

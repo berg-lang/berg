@@ -161,6 +161,7 @@ module SpecUtils
             # 1@1-2=<error>
             # 1@1-2@3=<error>
             # 1@1=<error>
+            # 1@1+0=<error>
             # <term>=<error>
             # <error>
             # <highlighted string>=<error>
@@ -226,9 +227,15 @@ module SpecUtils
                 if range =~ /^(\d+)@(\d+)(-(\d+@)?(\d+)|(\+0))?$/
                     begin_line = $1.to_i
                     begin_column = $2.to_i
-                    end_line = $4 ? $4.to_i : begin_line
-                    end_column = $5 ? $5.to_i : begin_column
-                    range = LocationSourceRange.new(source, [begin_line, begin_column], [end_line, end_column])
+                    begin_location = [ begin_line, begin_column ]
+                    if $6
+                        end_location = nil
+                    else
+                        end_line = $4 ? $4.to_i : begin_line
+                        end_column = $5 ? $5.to_i : begin_column
+                        end_location = [end_line, end_column]
+                    end
+                    range = LocationSourceRange.new(source, begin_location, end_location)
 
                 # If range does not work, then we assume the whole thing is a term and the = sign (if any) was a red herring.
                 else

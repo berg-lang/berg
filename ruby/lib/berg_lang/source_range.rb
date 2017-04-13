@@ -58,11 +58,13 @@ module BergLang
         end
 
         def end_line
-            end_location[0]
+            location = end_location
+            location ? location[0] : nil
         end
 
         def end_column
-            end_location[1]
+            location = end_location
+            location ? location[0] : nil
         end
 
         def to_s

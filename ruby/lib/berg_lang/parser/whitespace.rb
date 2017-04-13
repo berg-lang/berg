@@ -6,11 +6,11 @@ module BergLang
             include Token
 
             def has_newline?
-                source_range[:newline]
+                source_range.named_captures["newline"]
             end
 
             def indent
-                source_range[:indent]
+                source_range.named_captures["indent"]
             end
         end
     end

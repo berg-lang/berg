@@ -276,15 +276,15 @@ BasicOperators:
   #     { key: :sof, type: :start_delimiter, ended_by: :eof, direction: :right },
   #     { key: :eof, type: :end_delimiter, started_by: :sof, direction: :right },
   # ],
-  # - Berg: "a:\n  b"
-  #   Ast -> InfixOperation:
-  #     $Term: "a:\n  b"
-  #     Left -> Bareword: a
-  #     Operator: ":"
-  #     Right -> DelimitedOperation:
-  #       StartDelimiter: "  "
-  #       EndDelimiter: "2@4 = "
-  #       Expression -> Bareword: b
+  - Berg: "a:\n  b"
+    Ast -> InfixOperation:
+      $Term: "a:\n  b"
+      Left -> Bareword: a
+      Operator: ":"
+      Right -> DelimitedOperation:
+        StartDelimiter: "  "
+        EndDelimiter: "2@4+0 = "
+        Expression -> Bareword: b
   - Berg: (a)
     Ast -> DelimitedOperation:
       StartDelimiter: (
