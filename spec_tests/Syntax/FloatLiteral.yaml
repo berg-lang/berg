@@ -41,6 +41,14 @@ Float:
     Ast -> FloatLiteral: "12E+56"
     Result: 12e56
 
+FloatSurroundedByCommentsNewlineAndWhitespace:
+  - Berg: "# comment\n 1.2# comment\n "
+    Ast -> FloatLiteral: "1.2"
+  - Berg: "# comment\n 1.2e3# comment\n "
+    Ast -> FloatLiteral: "1.2e3"
+  - Berg: "# comment\n 1e3# comment\n "
+    Ast -> FloatLiteral: "1e3"
+
 SmallFloat:
   - Berg: "1.2e3"
     Ast -> FloatLiteral: "1.2e3"

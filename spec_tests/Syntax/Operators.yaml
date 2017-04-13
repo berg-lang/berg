@@ -295,3 +295,912 @@ BasicOperators:
       StartDelimiter: "{"
       EndDelimiter: "}"
       Expression -> Bareword: a
+
+#
+# All operators, with spaces between the operands and the expression
+#
+OperatorsSeparatedBySpace:
+  # ". postfix.-- postfix.++",
+  - Berg: a . b
+    Ast -> InfixOperation:
+      $Term: a . b
+      Left -> Bareword: a
+      Operator: .
+      Right -> Bareword: b
+  - Berg: a --
+    Ast -> PostfixOperation:
+      $Term: a --
+      Left -> Bareword: a
+      Operator: --
+  - Berg: a ++
+    Ast -> PostfixOperation:
+      $Term: a ++
+      Left -> Bareword: a
+      Operator: ++
+
+  # "prefix.-- prefix.++ prefix.- prefix.+ prefix.!",
+  - Berg: -- b
+    Ast -> PrefixOperation:
+      $Term: -- b
+      Operator: --
+      Right -> Bareword: b
+  - Berg: ++ b
+    Ast -> PrefixOperation:
+      $Term: ++ b
+      Operator: ++
+      Right -> Bareword: b
+  - Berg: "- b"
+    Ast -> PrefixOperation:
+      $Term: "- b"
+      Operator: "-"
+      Right -> Bareword: b
+  - Berg: + b
+    Ast -> PrefixOperation:
+      $Term: + b
+      Operator: +
+      Right -> Bareword: b
+  - Berg: "! b"
+    Ast -> PrefixOperation:
+      $Term: "! b"
+      Operator: "!"
+      Right -> Bareword: b
+
+  # "* / %",
+  - Berg: a * b
+    Ast -> InfixOperation:
+      $Term: a * b
+      Left -> Bareword: a
+      Operator: "*"
+      Right -> Bareword: b
+  - Berg: a / b
+    Ast -> InfixOperation:
+      $Term: a / b
+      Left -> Bareword: a
+      Operator: /
+      Right -> Bareword: b
+  - Berg: a % b
+    Ast -> InfixOperation:
+      $Term: a % b
+      Left -> Bareword: a
+      Operator: "%"
+      Right -> Bareword: b
+
+  # "+ -",
+  - Berg: a + b
+    Ast -> InfixOperation:
+      $Term: a + b
+      Left -> Bareword: a
+      Operator: +
+      Right -> Bareword: b
+  - Berg: a - b
+    Ast -> InfixOperation:
+      $Term: a - b
+      Left -> Bareword: a
+      Operator: "-"
+      Right -> Bareword: b
+
+  # "> >= < <=",
+  - Berg: a > b
+    Ast -> InfixOperation:
+      $Term: a > b
+      Left -> Bareword: a
+      Operator: ">"
+      Right -> Bareword: b
+  - Berg: a >= b
+    Ast -> InfixOperation:
+      $Term: a >= b
+      Left -> Bareword: a
+      Operator: ">="
+      Right -> Bareword: b
+  - Berg: a < b
+    Ast -> InfixOperation:
+      $Term: a < b
+      Left -> Bareword: a
+      Operator: <
+      Right -> Bareword: b
+  - Berg: a <= b
+    Ast -> InfixOperation:
+      $Term: a <= b
+      Left -> Bareword: a
+      Operator: <=
+      Right -> Bareword: b
+
+  # "== !=",
+  - Berg: a == b
+    Ast -> InfixOperation:
+      $Term: a == b
+      Left -> Bareword: a
+      Operator: ==
+      Right -> Bareword: b
+  - Berg: a != b
+    Ast -> InfixOperation:
+      $Term: a != b
+      Left -> Bareword: a
+      Operator: "!="
+      Right -> Bareword: b
+
+  # "postfix.+ postfix.* postfix.?",
+  - Berg: a +
+    Ast -> PostfixOperation:
+      $Term: a +
+      Left -> Bareword: a
+      Operator: +
+  - Berg: a *
+    Ast -> PostfixOperation:
+      $Term: a *
+      Left -> Bareword: a
+      Operator: "*"
+  - Berg: a ?
+    Ast -> PostfixOperation:
+      $Term: a ?
+      Left -> Bareword: a
+      Operator: "?"
+
+  # "&&",
+  - Berg: a && b
+    Ast -> InfixOperation:
+      $Term: a && b
+      Left -> Bareword: a
+      Operator: "&&"
+      Right -> Bareword: b
+
+  # "|| ??",
+  - Berg: a || b
+    Ast -> InfixOperation:
+      $Term: a || b
+      Left -> Bareword: a
+      Operator: "||"
+      Right -> Bareword: b
+  - Berg: a ?? b
+    Ast -> InfixOperation:
+      $Term: a ?? b
+      Left -> Bareword: a
+      Operator: "??"
+      Right -> Bareword: b
+
+  # "right indent.: = += -= *= /= %= ||= &&= ??=",
+  - Berg: "a : b"
+    Ast -> InfixOperation:
+      $Term: "a : b"
+      Left -> Bareword: a
+      Operator: ":"
+      Right -> Bareword: b
+  - Berg: a = b
+    Ast -> InfixOperation:
+      $Term: a = b
+      Left -> Bareword: a
+      Operator: "="
+      Right -> Bareword: b
+  - Berg: a += b
+    Ast -> InfixOperation:
+      $Term: a += b
+      Left -> Bareword: a
+      Operator: +=
+      Right -> Bareword: b
+  - Berg: a -= b
+    Ast -> InfixOperation:
+      $Term: a -= b
+      Left -> Bareword: a
+      Operator: -=
+      Right -> Bareword: b
+  - Berg: a *= b
+    Ast -> InfixOperation:
+      $Term: a *= b
+      Left -> Bareword: a
+      Operator: "*="
+      Right -> Bareword: b
+  - Berg: a /= b
+    Ast -> InfixOperation:
+      $Term: a /= b
+      Left -> Bareword: a
+      Operator: /=
+      Right -> Bareword: b
+  - Berg: a %= b
+    Ast -> InfixOperation:
+      $Term: a %= b
+      Left -> Bareword: a
+      Operator: "%="
+      Right -> Bareword: b
+  - Berg: a ||= b
+    Ast -> InfixOperation:
+      $Term: a ||= b
+      Left -> Bareword: a
+      Operator: "||="
+      Right -> Bareword: b
+  - Berg: a &&= b
+    Ast -> InfixOperation:
+      $Term: a &&= b
+      Left -> Bareword: a
+      Operator: "&&="
+      Right -> Bareword: b
+  - Berg: a ??= b
+    Ast -> InfixOperation:
+      $Term: a ??= b
+      Left -> Bareword: a
+      Operator: "??="
+      Right -> Bareword: b
+
+  # ",",
+  - Berg: a , b
+    Ast -> InfixOperation:
+      $Term: a , b
+      Left -> Bareword: a
+      Operator: ","
+      Right -> Bareword: b
+
+  # "&",
+  - Berg: a & b
+    Ast -> InfixOperation:
+      $Term: a & b
+      Left -> Bareword: a
+      Operator: "&"
+      Right -> Bareword: b
+
+  # "|",
+  - Berg: "a | b"
+    Ast -> InfixOperation:
+      $Term: "a | b"
+      Left -> Bareword: a
+      Operator: "|"
+      Right -> Bareword: b
+
+  # [ { key: :call } ],
+  - Berg: a   b
+    Ast -> InfixOperation:
+      $Term: a   b
+      Left -> Bareword: a
+      Operator: "   "
+      Right -> Bareword: b
+
+  # "\n ;",
+  - Berg: "a \n b"
+    Ast -> InfixOperation:
+      $Term: "a \n b"
+      Left -> Bareword: a
+      Operator: " \n "
+      Right -> Bareword: b
+  - Berg: a ; b
+    Ast -> InfixOperation:
+      $Term: a ; b
+      Left -> Bareword: a
+      Operator: ;
+      Right -> Bareword: b
+
+  # # Delimiters want everything as children.
+  # [
+  #     { key: :indent, type: :start_delimiter, ended_by: :undent, direction: :right },
+  #     { key: :undent, type: :end_delimiter, started_by: :indent, direction: :right },
+  #     { string: "(", type: :start_delimiter, ended_by: ")", direction: :right },
+  #     { string: ")", type: :end_delimiter, started_by: "(", direction: :right },
+  #     { string: "{", type: :start_delimiter, ended_by: "}", direction: :right },
+  #     { string: "}", type: :end_delimiter, started_by: "{", direction: :right },
+  #     { key: :sof, type: :start_delimiter, ended_by: :eof, direction: :right },
+  #     { key: :eof, type: :end_delimiter, started_by: :sof, direction: :right },
+  # ],
+  - Berg: "a : \n   b"
+    Ast -> InfixOperation:
+      $Term: "a : \n   b"
+      Left -> Bareword: a
+      Operator: ":"
+      Right -> DelimitedOperation:
+        StartDelimiter: "   "
+        EndDelimiter: "2@5+0 = "
+        Expression -> Bareword: b
+  - Berg: ( a )
+    Ast -> DelimitedOperation:
+      StartDelimiter: (
+      EndDelimiter: )
+      Expression -> Bareword: a
+  - Berg: "{ a }"
+    Ast -> DelimitedOperation:
+      StartDelimiter: "{"
+      EndDelimiter: "}"
+      Expression -> Bareword: a
+
+#
+# All operators, with spaces between the operands and the expression
+#
+OperatorsSeparatedByNewline:
+  # ". postfix.-- postfix.++",
+  - Berg: "a\n.\nb"
+    Ast -> InfixOperation:
+      $Term: "a\n.\nb"
+      Left -> Bareword: a
+      Operator: .
+      Right -> Bareword: b
+  - Berg: "a\n--"
+    Ast -> PostfixOperation:
+      $Term: "a\n--"
+      Left -> Bareword: a
+      Operator: --
+  - Berg: "a\n++"
+    Ast -> PostfixOperation:
+      $Term: "a\n++"
+      Left -> Bareword: a
+      Operator: ++
+
+  # "prefix.-- prefix.++ prefix.- prefix.+ prefix.!",
+  - Berg: "--\nb"
+    Ast -> PrefixOperation:
+      $Term: "--\nb"
+      Operator: --
+      Right -> Bareword: b
+  - Berg: "++\nb"
+    Ast -> PrefixOperation:
+      $Term: "++\nb"
+      Operator: ++
+      Right -> Bareword: b
+  - Berg: "-\nb"
+    Ast -> PrefixOperation:
+      $Term: "-\nb"
+      Operator: "-"
+      Right -> Bareword: b
+  - Berg: "+\nb"
+    Ast -> PrefixOperation:
+      $Term: "+\nb"
+      Operator: +
+      Right -> Bareword: b
+  - Berg: "!\nb"
+    Ast -> PrefixOperation:
+      $Term: "!\nb"
+      Operator: "!"
+      Right -> Bareword: b
+
+  # "* / %",
+  - Berg: "a\n*\nb"
+    Ast -> InfixOperation:
+      $Term: "a\n*\nb"
+      Left -> Bareword: a
+      Operator: "*"
+      Right -> Bareword: b
+  - Berg: "a\n/\nb"
+    Ast -> InfixOperation:
+      $Term: "a\n/\nb"
+      Left -> Bareword: a
+      Operator: /
+      Right -> Bareword: b
+  - Berg: "a\n%\nb"
+    Ast -> InfixOperation:
+      $Term: "a\n%\nb"
+      Left -> Bareword: a
+      Operator: "%"
+      Right -> Bareword: b
+
+  # "+ -",
+  - Berg: "a\n+\nb"
+    Ast -> InfixOperation:
+      $Term: "a\n+\nb"
+      Left -> Bareword: a
+      Operator: +
+      Right -> Bareword: b
+  - Berg: "a\n-\nb"
+    Ast -> InfixOperation:
+      $Term: "a\n-\nb"
+      Left -> Bareword: a
+      Operator: "-"
+      Right -> Bareword: b
+
+  # "> >= < <=",
+  - Berg: "a\n>\nb"
+    Ast -> InfixOperation:
+      $Term: "a\n>\nb"
+      Left -> Bareword: a
+      Operator: ">"
+      Right -> Bareword: b
+  - Berg: "a\n>=\nb"
+    Ast -> InfixOperation:
+      $Term: "a\n>=\nb"
+      Left -> Bareword: a
+      Operator: ">="
+      Right -> Bareword: b
+  - Berg: "a\n<\nb"
+    Ast -> InfixOperation:
+      $Term: "a\n<\nb"
+      Left -> Bareword: a
+      Operator: <
+      Right -> Bareword: b
+  - Berg: "a\n<=\nb"
+    Ast -> InfixOperation:
+      $Term: "a\n<=\nb"
+      Left -> Bareword: a
+      Operator: <=
+      Right -> Bareword: b
+
+  # "== !=",
+  - Berg: "a\n==\nb"
+    Ast -> InfixOperation:
+      $Term: "a\n==\nb"
+      Left -> Bareword: a
+      Operator: ==
+      Right -> Bareword: b
+  - Berg: "a\n!=\nb"
+    Ast -> InfixOperation:
+      $Term: "a\n!=\nb"
+      Left -> Bareword: a
+      Operator: "!="
+      Right -> Bareword: b
+
+  # "postfix.+ postfix.* postfix.?",
+  - Berg: "a\n+"
+    Ast -> PostfixOperation:
+      $Term: "a\n+"
+      Left -> Bareword: a
+      Operator: +
+  - Berg: "a\n*"
+    Ast -> PostfixOperation:
+      $Term: "a\n*"
+      Left -> Bareword: a
+      Operator: "*"
+  - Berg: "a\n?"
+    Ast -> PostfixOperation:
+      $Term: "a\n?"
+      Left -> Bareword: a
+      Operator: "?"
+
+  # "&&",
+  - Berg: "a\n&&\nb"
+    Ast -> InfixOperation:
+      $Term: "a\n&&\nb"
+      Left -> Bareword: a
+      Operator: "&&"
+      Right -> Bareword: b
+
+  # "|| ??",
+  - Berg: "a\n||\nb"
+    Ast -> InfixOperation:
+      $Term: "a\n||\nb"
+      Left -> Bareword: a
+      Operator: "||"
+      Right -> Bareword: b
+  - Berg: "a\n??\nb"
+    Ast -> InfixOperation:
+      $Term: "a\n??\nb"
+      Left -> Bareword: a
+      Operator: "??"
+      Right -> Bareword: b
+
+  # "right indent.: = += -= *= /= %= ||= &&= ??=",
+  - Berg: "a : b"
+    Ast -> InfixOperation:
+      $Term: "a : b"
+      Left -> Bareword: a
+      Operator: ":"
+      Right -> Bareword: b
+  - Berg: "a\n=\nb"
+    Ast -> InfixOperation:
+      $Term: "a\n=\nb"
+      Left -> Bareword: a
+      Operator: "="
+      Right -> Bareword: b
+  - Berg: "a\n+=\nb"
+    Ast -> InfixOperation:
+      $Term: "a\n+=\nb"
+      Left -> Bareword: a
+      Operator: +=
+      Right -> Bareword: b
+  - Berg: "a\n-=\nb"
+    Ast -> InfixOperation:
+      $Term: "a\n-=\nb"
+      Left -> Bareword: a
+      Operator: -=
+      Right -> Bareword: b
+  - Berg: "a\n*=\nb"
+    Ast -> InfixOperation:
+      $Term: "a\n*=\nb"
+      Left -> Bareword: a
+      Operator: "*="
+      Right -> Bareword: b
+  - Berg: "a\n/=\nb"
+    Ast -> InfixOperation:
+      $Term: "a\n/=\nb"
+      Left -> Bareword: a
+      Operator: /=
+      Right -> Bareword: b
+  - Berg: "a\n%=\nb"
+    Ast -> InfixOperation:
+      $Term: "a\n%=\nb"
+      Left -> Bareword: a
+      Operator: "%="
+      Right -> Bareword: b
+  - Berg: "a\n||=\nb"
+    Ast -> InfixOperation:
+      $Term: "a\n||=\nb"
+      Left -> Bareword: a
+      Operator: "||="
+      Right -> Bareword: b
+  - Berg: "a\n&&=\nb"
+    Ast -> InfixOperation:
+      $Term: "a\n&&=\nb"
+      Left -> Bareword: a
+      Operator: "&&="
+      Right -> Bareword: b
+  - Berg: "a\n??=\nb"
+    Ast -> InfixOperation:
+      $Term: "a\n??=\nb"
+      Left -> Bareword: a
+      Operator: "??="
+      Right -> Bareword: b
+
+  # ",",
+  - Berg: "a\n,\nb"
+    Ast -> InfixOperation:
+      $Term: "a\n,\nb"
+      Left -> Bareword: a
+      Operator: ","
+      Right -> Bareword: b
+
+  # "&",
+  - Berg: "a\n&\nb"
+    Ast -> InfixOperation:
+      $Term: "a\n&\nb"
+      Left -> Bareword: a
+      Operator: "&"
+      Right -> Bareword: b
+
+  # "|",
+  - Berg: "a\n|\nb"
+    Ast -> InfixOperation:
+      $Term: "a\n|\nb"
+      Left -> Bareword: a
+      Operator: "|"
+      Right -> Bareword: b
+
+  # [ { key: :call } ],
+  # NOTE: this one picks the \n operator instead of call!
+  - Berg: "a\n \nb"
+    Ast -> InfixOperation:
+      $Term: "a\n \nb"
+      Left -> Bareword: a
+      Operator: "\n \n"
+      Right -> Bareword: b
+
+  # "\n ;",
+  - Berg: "a\n\n\nb"
+    Ast -> InfixOperation:
+      $Term: "a\n\n\nb"
+      Left -> Bareword: a
+      Operator: "\n\n\n"
+      Right -> Bareword: b
+  - Berg: "a\n;\nb"
+    Ast -> InfixOperation:
+      $Term: "a\n;\nb"
+      Left -> Bareword: a
+      Operator: ;
+      Right -> Bareword: b
+
+  # # Delimiters want everything as children.
+  # [
+  #     { key: :indent, type: :start_delimiter, ended_by: :undent, direction: :right },
+  #     { key: :undent, type: :end_delimiter, started_by: :indent, direction: :right },
+  #     { string: "(", type: :start_delimiter, ended_by: ")", direction: :right },
+  #     { string: ")", type: :end_delimiter, started_by: "(", direction: :right },
+  #     { string: "{", type: :start_delimiter, ended_by: "}", direction: :right },
+  #     { string: "}", type: :end_delimiter, started_by: "{", direction: :right },
+  #     { key: :sof, type: :start_delimiter, ended_by: :eof, direction: :right },
+  #     { key: :eof, type: :end_delimiter, started_by: :sof, direction: :right },
+  # ],
+  - Berg: "a\n:\n\n\n  b"
+    Ast -> InfixOperation:
+      $Term: "a\n:\n\n\n  b"
+      Left -> Bareword: a
+      Operator: ":"
+      Right -> DelimitedOperation:
+        StartDelimiter: "  "
+        EndDelimiter: "5@4+0 = "
+        Expression -> Bareword: b
+  - Berg: "(\na\n)"
+    Ast -> DelimitedOperation:
+      $Term: "(\na\n)"
+      StartDelimiter: (
+      EndDelimiter: )
+      Expression -> Bareword: a
+  - Berg: "{\na\n}"
+    Ast -> DelimitedOperation:
+      $Term: "{\na\n}"
+      StartDelimiter: "{"
+      EndDelimiter: "}"
+      Expression -> Bareword: a
+
+#
+# All operators, with spaces between the operands and the expression
+#
+OperatorsSeparatedByCommentNewlineAndSpace:
+  # ". postfix.-- postfix.++",
+  - Berg: "a# comment \n .# comment \n b"
+    Ast -> InfixOperation:
+      $Term: "a# comment \n .# comment \n b"
+      Left -> Bareword: a
+      Operator: .
+      Right -> Bareword: b
+  - Berg: "a# comment \n --"
+    Ast -> PostfixOperation:
+      $Term: "a# comment \n --"
+      Left -> Bareword: a
+      Operator: --
+  - Berg: "a# comment \n ++"
+    Ast -> PostfixOperation:
+      $Term: "a# comment \n ++"
+      Left -> Bareword: a
+      Operator: ++
+
+  # "prefix.-- prefix.++ prefix.- prefix.+ prefix.!",
+  - Berg: "--# comment \n b"
+    Ast -> PrefixOperation:
+      $Term: "--# comment \n b"
+      Operator: --
+      Right -> Bareword: b
+  - Berg: "++# comment \n b"
+    Ast -> PrefixOperation:
+      $Term: "++# comment \n b"
+      Operator: ++
+      Right -> Bareword: b
+  - Berg: "-# comment \n b"
+    Ast -> PrefixOperation:
+      $Term: "-# comment \n b"
+      Operator: "-"
+      Right -> Bareword: b
+  - Berg: "+# comment \n b"
+    Ast -> PrefixOperation:
+      $Term: "+# comment \n b"
+      Operator: +
+      Right -> Bareword: b
+  - Berg: "!# comment \n b"
+    Ast -> PrefixOperation:
+      $Term: "!# comment \n b"
+      Operator: "!"
+      Right -> Bareword: b
+
+  # "* / %",
+  - Berg: "a# comment \n *# comment \n b"
+    Ast -> InfixOperation:
+      $Term: "a# comment \n *# comment \n b"
+      Left -> Bareword: a
+      Operator: "*"
+      Right -> Bareword: b
+  - Berg: "a# comment \n /# comment \n b"
+    Ast -> InfixOperation:
+      $Term: "a# comment \n /# comment \n b"
+      Left -> Bareword: a
+      Operator: /
+      Right -> Bareword: b
+  - Berg: "a# comment \n %# comment \n b"
+    Ast -> InfixOperation:
+      $Term: "a# comment \n %# comment \n b"
+      Left -> Bareword: a
+      Operator: "%"
+      Right -> Bareword: b
+
+  # "+ -",
+  - Berg: "a# comment \n +# comment \n b"
+    Ast -> InfixOperation:
+      $Term: "a# comment \n +# comment \n b"
+      Left -> Bareword: a
+      Operator: +
+      Right -> Bareword: b
+  - Berg: "a# comment \n -# comment \n b"
+    Ast -> InfixOperation:
+      $Term: "a# comment \n -# comment \n b"
+      Left -> Bareword: a
+      Operator: "-"
+      Right -> Bareword: b
+
+  # "> >= < <=",
+  - Berg: "a# comment \n ># comment \n b"
+    Ast -> InfixOperation:
+      $Term: "a# comment \n ># comment \n b"
+      Left -> Bareword: a
+      Operator: ">"
+      Right -> Bareword: b
+  - Berg: "a# comment \n >=# comment \n b"
+    Ast -> InfixOperation:
+      $Term: "a# comment \n >=# comment \n b"
+      Left -> Bareword: a
+      Operator: ">="
+      Right -> Bareword: b
+  - Berg: "a# comment \n <# comment \n b"
+    Ast -> InfixOperation:
+      $Term: "a# comment \n <# comment \n b"
+      Left -> Bareword: a
+      Operator: <
+      Right -> Bareword: b
+  - Berg: "a# comment \n <=# comment \n b"
+    Ast -> InfixOperation:
+      $Term: "a# comment \n <=# comment \n b"
+      Left -> Bareword: a
+      Operator: <=
+      Right -> Bareword: b
+
+  # "== !=",
+  - Berg: "a# comment \n ==# comment \n b"
+    Ast -> InfixOperation:
+      $Term: "a# comment \n ==# comment \n b"
+      Left -> Bareword: a
+      Operator: ==
+      Right -> Bareword: b
+  - Berg: "a# comment \n !=# comment \n b"
+    Ast -> InfixOperation:
+      $Term: "a# comment \n !=# comment \n b"
+      Left -> Bareword: a
+      Operator: "!="
+      Right -> Bareword: b
+
+  # "postfix.+ postfix.* postfix.?",
+  - Berg: "a# comment \n +"
+    Ast -> PostfixOperation:
+      $Term: "a# comment \n +"
+      Left -> Bareword: a
+      Operator: +
+  - Berg: "a# comment \n *"
+    Ast -> PostfixOperation:
+      $Term: "a# comment \n *"
+      Left -> Bareword: a
+      Operator: "*"
+  - Berg: "a# comment \n ?"
+    Ast -> PostfixOperation:
+      $Term: "a# comment \n ?"
+      Left -> Bareword: a
+      Operator: "?"
+
+  # "&&",
+  - Berg: "a# comment \n &&# comment \n b"
+    Ast -> InfixOperation:
+      $Term: "a# comment \n &&# comment \n b"
+      Left -> Bareword: a
+      Operator: "&&"
+      Right -> Bareword: b
+
+  # "|| ??",
+  - Berg: "a# comment \n ||# comment \n b"
+    Ast -> InfixOperation:
+      $Term: "a# comment \n ||# comment \n b"
+      Left -> Bareword: a
+      Operator: "||"
+      Right -> Bareword: b
+  - Berg: "a# comment \n ??# comment \n b"
+    Ast -> InfixOperation:
+      $Term: "a# comment \n ??# comment \n b"
+      Left -> Bareword: a
+      Operator: "??"
+      Right -> Bareword: b
+
+  # "right indent.: = += -= *= /= %= ||= &&= ??=",
+  - Berg: "a : b"
+    Ast -> InfixOperation:
+      $Term: "a : b"
+      Left -> Bareword: a
+      Operator: ":"
+      Right -> Bareword: b
+  - Berg: "a# comment \n =# comment \n b"
+    Ast -> InfixOperation:
+      $Term: "a# comment \n =# comment \n b"
+      Left -> Bareword: a
+      Operator: "="
+      Right -> Bareword: b
+  - Berg: "a# comment \n +=# comment \n b"
+    Ast -> InfixOperation:
+      $Term: "a# comment \n +=# comment \n b"
+      Left -> Bareword: a
+      Operator: +=
+      Right -> Bareword: b
+  - Berg: "a# comment \n -=# comment \n b"
+    Ast -> InfixOperation:
+      $Term: "a# comment \n -=# comment \n b"
+      Left -> Bareword: a
+      Operator: -=
+      Right -> Bareword: b
+  - Berg: "a# comment \n *=# comment \n b"
+    Ast -> InfixOperation:
+      $Term: "a# comment \n *=# comment \n b"
+      Left -> Bareword: a
+      Operator: "*="
+      Right -> Bareword: b
+  - Berg: "a# comment \n /=# comment \n b"
+    Ast -> InfixOperation:
+      $Term: "a# comment \n /=# comment \n b"
+      Left -> Bareword: a
+      Operator: /=
+      Right -> Bareword: b
+  - Berg: "a# comment \n %=# comment \n b"
+    Ast -> InfixOperation:
+      $Term: "a# comment \n %=# comment \n b"
+      Left -> Bareword: a
+      Operator: "%="
+      Right -> Bareword: b
+  - Berg: "a# comment \n ||=# comment \n b"
+    Ast -> InfixOperation:
+      $Term: "a# comment \n ||=# comment \n b"
+      Left -> Bareword: a
+      Operator: "||="
+      Right -> Bareword: b
+  - Berg: "a# comment \n &&=# comment \n b"
+    Ast -> InfixOperation:
+      $Term: "a# comment \n &&=# comment \n b"
+      Left -> Bareword: a
+      Operator: "&&="
+      Right -> Bareword: b
+  - Berg: "a# comment \n ??=# comment \n b"
+    Ast -> InfixOperation:
+      $Term: "a# comment \n ??=# comment \n b"
+      Left -> Bareword: a
+      Operator: "??="
+      Right -> Bareword: b
+
+  # ",",
+  - Berg: "a# comment \n ,# comment \n b"
+    Ast -> InfixOperation:
+      $Term: "a# comment \n ,# comment \n b"
+      Left -> Bareword: a
+      Operator: ","
+      Right -> Bareword: b
+
+  # "&",
+  - Berg: "a# comment \n &# comment \n b"
+    Ast -> InfixOperation:
+      $Term: "a# comment \n &# comment \n b"
+      Left -> Bareword: a
+      Operator: "&"
+      Right -> Bareword: b
+
+  # "|",
+  - Berg: "a# comment \n |# comment \n b"
+    Ast -> InfixOperation:
+      $Term: "a# comment \n |# comment \n b"
+      Left -> Bareword: a
+      Operator: "|"
+      Right -> Bareword: b
+
+  # [ { key: :call } ],
+  # NOTE: this one picks the \n operator instead of call!
+  - Berg: "a# comment \n  # comment \n b"
+    Ast -> InfixOperation:
+      $Term: "a# comment \n  # comment \n b"
+      Left -> Bareword: a
+      Operator: "# comment \n  # comment \n "
+      Right -> Bareword: b
+
+  # "\n ;",
+  - Berg: "a# comment \n \n# comment \n b"
+    Ast -> InfixOperation:
+      $Term: "a# comment \n \n# comment \n b"
+      Left -> Bareword: a
+      Operator: "# comment \n \n# comment \n "
+      Right -> Bareword: b
+  - Berg: "a# comment \n ;# comment \n b"
+    Ast -> InfixOperation:
+      $Term: "a# comment \n ;# comment \n b"
+      Left -> Bareword: a
+      Operator: ;
+      Right -> Bareword: b
+
+  # # Delimiters want everything as children.
+  # [
+  #     { key: :indent, type: :start_delimiter, ended_by: :undent, direction: :right },
+  #     { key: :undent, type: :end_delimiter, started_by: :indent, direction: :right },
+  #     { string: "(", type: :start_delimiter, ended_by: ")", direction: :right },
+  #     { string: ")", type: :end_delimiter, started_by: "(", direction: :right },
+  #     { string: "{", type: :start_delimiter, ended_by: "}", direction: :right },
+  #     { string: "}", type: :end_delimiter, started_by: "{", direction: :right },
+  #     { key: :sof, type: :start_delimiter, ended_by: :eof, direction: :right },
+  #     { key: :eof, type: :end_delimiter, started_by: :sof, direction: :right },
+  # ],
+  - Berg: "a# comment \n :# comment \n \n# comment \n   b"
+    Ast -> InfixOperation:
+      $Term: "a# comment \n :# comment \n \n# comment \n   b"
+      Left -> Bareword: a
+      Operator: ":"
+      Right -> DelimitedOperation:
+        StartDelimiter: "   "
+        EndDelimiter: "5@5+0 = "
+        Expression -> Bareword: b
+  - Berg: "(# comment \n a# comment \n )"
+    Ast -> DelimitedOperation:
+      $Term: "(# comment \n a# comment \n )"
+      StartDelimiter: (
+      EndDelimiter: )
+      Expression -> Bareword: a
+  - Berg: "{# comment \n a# comment \n }"
+    Ast -> DelimitedOperation:
+      $Term: "{# comment \n a# comment \n }"
+      StartDelimiter: "{"
+      EndDelimiter: "}"
+      Expression -> Bareword: a

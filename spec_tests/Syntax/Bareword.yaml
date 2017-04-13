@@ -45,6 +45,10 @@ Bareword:
   - Berg: abc_
     Ast -> Bareword: abc_
 
+BarewordSurroundedByCommentsNewlineAndWhitespace:
+  - Berg: "# comment\n a# comment\n "
+    Ast -> Bareword: a
+
 IllegalBareword:
   VariableStartingWithInteger:
     - Berg: 0a

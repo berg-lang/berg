@@ -21,7 +21,7 @@ module BergLang
                 remedy: "Put a \" at the end to fix this; it is possible, however, that a previous string is the problem. You may need to scan the file. Sorry about that."
 
             syntax_error :unrecognized_character,
-                error:  "Unrecognized character.",
+                error:  proc { |token| "Unrecognized character #{token.to_s.inspect}." },
                 remedy: "Perhaps you meant to put it inside of a string?"
 
             syntax_error :illegal_octal_digit,
