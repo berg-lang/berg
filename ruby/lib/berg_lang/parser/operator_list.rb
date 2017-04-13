@@ -60,7 +60,7 @@ module BergLang
                 operator_defs.flat_map do |operator_def|
                     if operator_def.is_a?(String)
                         # String is like "* / + *"
-                        operator_def = operator_def.split(" ")
+                        operator_def = operator_def.split(/ /)
 
                         # If string starts with "right", like "right = += -=", use that as direction
                         if %w{left right}.include?(operator_def.first)

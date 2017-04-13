@@ -38,7 +38,7 @@ module BergLang
                 # 4. If not, see if there is a LINEBREAK between the "chosen infix" and the first_prefix.
                 #
                 elsif operators[last_postfix+1].is_a?(Whitespace) && operators[last_postfix+1].has_newline?
-                    infix = Operator.new(operators[last_postfix+1].match, unclosed_expression.all_operators["\n"])
+                    infix = Operator.new(operators[last_postfix+1].source_range, unclosed_expression.all_operators["\n"])
 
                 #
                 # 5. Insert a CALL operator.

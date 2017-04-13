@@ -13,8 +13,7 @@ module BergLang
                 @args = args
                 @error = error
                 @remedy = remedy
-                line = source_range.begin_location[0]
-                super("#{ast.source_range.source.name}:#{line}: #{error} #{remedy}")
+                super("#{ast.source_range}: #{error} #{remedy}")
             end
 
             def source_range

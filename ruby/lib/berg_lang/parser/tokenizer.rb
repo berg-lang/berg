@@ -153,8 +153,13 @@ module BergLang
             end
 
             def operators_regex
-                @operators_regex ||= Regexp.new("^(" +
-                    all_operators.keys.select { |key| key.is_a?(String) }.sort_by { |key| -key.length }.map { |key| Regexp.escape(key) }.join("|") + ")"
+                @operators_regex ||= Regexp.new(
+                    "\\A(" +
+                    all_operators.keys.select { |key| key.is_a?(String) }
+                                      .sort_by { |key| -key.length }
+                                      .map { |key| Regexp.escape(key) }
+                                      .join("|") +
+                    ")"
                 )
             end
 
