@@ -1,0 +1,54 @@
+Bareword:
+  - Berg: a
+    Ast -> Bareword: a
+  - Berg: A
+    Ast -> Bareword: A
+
+  - Berg: a0
+    Ast -> Bareword: a0
+  - Berg: a1
+    Ast -> Bareword: a1
+  - Berg: a2
+    Ast -> Bareword: a2
+  - Berg: a3
+    Ast -> Bareword: a3
+  - Berg: a4
+    Ast -> Bareword: a4
+  - Berg: a5
+    Ast -> Bareword: a5
+  - Berg: a6
+    Ast -> Bareword: a6
+  - Berg: a7
+    Ast -> Bareword: a7
+  - Berg: a8
+    Ast -> Bareword: a8
+  - Berg: a9
+    Ast -> Bareword: a9
+  - Berg: a1b2c3
+    Ast -> Bareword: a1b2c3
+
+  - Berg: $
+    Ast -> Bareword: $
+  - Berg: $abc
+    Ast -> Bareword: $abc
+  - Berg: $a$b$c$
+    Ast -> Bareword: $a$b$c$
+  - Berg: abc$
+    Ast -> Bareword: abc$
+
+  - Berg: _
+    Ast -> Bareword: _
+  - Berg: _abc
+    Ast -> Bareword: _abc
+  - Berg: _a_b_c_
+    Ast -> Bareword: _a_b_c_
+  - Berg: abc_
+    Ast -> Bareword: abc_
+
+IllegalBareword:
+  VariableStartingWithInteger:
+    - Berg: 0a
+      Error: Number is mixed up with a word. If it's a variable name, change it to start with a character instead of a number. If you wanted a number, you can remove the word characters.
+    - Berg: 0$
+      Error: Number is mixed up with a word. If it's a variable name, change it to start with a character instead of a number. If you wanted a number, you can remove the word characters.
+  
