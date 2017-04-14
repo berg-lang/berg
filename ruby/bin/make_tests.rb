@@ -140,21 +140,6 @@ class TestMaker
         end
     end
 
-    def bad_combination?(value)
-        outer = value[:expected]
-        if value[:type] == "PostfixOperation" && inner = outer["Left -> PostfixOperation"]
-            case "a #{outer["Operator"]} #{inner["Operator"]}"
-            when "a ? ?", "a + +", "a + ++"
-                true
-            end
-        elsif value[:type] == "PrefixOperation" && inner = outer["Right -> PrefixOperation"]
-            case "#{outer["Operator"]} #{inner["Operator"]} a"
-            when "+ + a", "+ ++ a", "- - a", "- -- a"
-                true
-            end
-        end
-    end
-
     def generate_missing_expression_test(op)
         output ""
         case op.type
@@ -240,28 +225,49 @@ class TestMaker
         }
     end
 
-    def known_bad?(source)
-        source =~ /\n/ ||
-        [
-            "(a:\n  b)"
-        ].include?(source)
+    def fixup_precedence_test(value)
+        case value[:source]
+        when "(a:\n  b)"
+            value[:expected]["Expression -> InfixOperation"]["Right -> DelimitedOperation"]["EndDelimiter"] = ")"
+        when "{a:\n  b}"
+            value[:expected]["Expression -> InfixOperation"]["Right -> DelimitedOperation"]["EndDelimiter"] = "}"
+        when "a:\n  b:\n    c"
+            value[:expected]["Right -> DelimitedOperation"]["Expression -> InfixOperation"]["Right -> DelimitedOperation"]["StartDelimiter"] = "    "
+        else
+            value
+        end
+    end
+
+    def bad_combination?(value)
+        outer = value[:expected]
+        if value[:type] == "PostfixOperation" && inner = outer["Left -> PostfixOperation"]
+            case "a #{outer["Operator"]} #{inner["Operator"]}"
+            when "a ? ?", "a + +", "a + ++"
+                true
+            end
+        elsif value[:type] == "PrefixOperation" && inner = outer["Right -> PrefixOperation"]
+            case "#{outer["Operator"]} #{inner["Operator"]} a"
+            when "+ + a", "+ ++ a", "- - a", "- -- a"
+                true
+            end
+        end
     end
 
     def delimited(op, expression)
         expression = bare(expression)
         if op.key == :indent
             indented_source = expression[:source].lines.map { |line| "  #{line}" }.join("")
-            source = "\n#{indented_source}",
+            source = "\n#{indented_source}"
         else
-            source = "#{op_source(op)}#{expression[:source]}#{op_source(op.ended_by)}",
-        else
+            source = "#{op_source(op)}#{expression[:source]}#{op_source(op.ended_by)}"
+        end
         {
             type: "DelimitedOperation",
-            source: "#{op_source(op)}#{source}#{op_source(op.ended_by)}",
+            source: source,
             expected: {
                 "StartDelimiter" => op_source(op),
                 "Expression -> #{expression[:type]}" => expression[:expected],
-                "EndDelimiter" => op_source(ended_by),
+                "EndDelimiter" => op_source(op.ended_by),
             },
         }
     end
@@ -271,7 +277,7 @@ class TestMaker
         return if bad_combination?(value)
         old_indent = current_indent
         begin
-            @current_indent += "# " if known_bad?(value[:source])
+            fixup_precedence_test(value)
             output "- Berg: #{escape_yaml(value[:source])}"
             indented do
                 output_field "Ast -> #{value[:type]}", value[:expected]
@@ -321,9 +327,9 @@ class TestMaker
         when :call
             " "
         when :indent
-            "\n  "
-        when :undent
             "  "
+        when :undent
+            ""
         else
             op_key
         end

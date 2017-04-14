@@ -1505,30 +1505,30 @@ EqualPrecedence:
   # Precedence 15: "\n" ;
   #
   # "\n"
-  # - Berg: "a\nb\nc"
-  #   Ast -> InfixOperation:
-  #     Left -> InfixOperation:
-  #       Left -> Bareword: a
-  #       Operator: "\n"
-  #       Right -> Bareword: b
-  #     Operator: "\n"
-  #     Right -> Bareword: c
-  # - Berg: "a\nb;c"
-  #   Ast -> InfixOperation:
-  #     Left -> InfixOperation:
-  #       Left -> Bareword: a
-  #       Operator: "\n"
-  #       Right -> Bareword: b
-  #     Operator: ;
-  #     Right -> Bareword: c
-  # - Berg: "a;b\nc"
-  #   Ast -> InfixOperation:
-  #     Left -> InfixOperation:
-  #       Left -> Bareword: a
-  #       Operator: ;
-  #       Right -> Bareword: b
-  #     Operator: "\n"
-  #     Right -> Bareword: c
+  - Berg: "a\nb\nc"
+    Ast -> InfixOperation:
+      Left -> InfixOperation:
+        Left -> Bareword: a
+        Operator: "\n"
+        Right -> Bareword: b
+      Operator: "\n"
+      Right -> Bareword: c
+  - Berg: "a\nb;c"
+    Ast -> InfixOperation:
+      Left -> InfixOperation:
+        Left -> Bareword: a
+        Operator: "\n"
+        Right -> Bareword: b
+      Operator: ;
+      Right -> Bareword: c
+  - Berg: "a;b\nc"
+    Ast -> InfixOperation:
+      Left -> InfixOperation:
+        Left -> Bareword: a
+        Operator: ;
+        Right -> Bareword: b
+      Operator: "\n"
+      Right -> Bareword: c
 
   # ;
   - Berg: a;b;c
@@ -1552,39 +1552,39 @@ EqualPrecedence:
         Expression -> Bareword: a
         EndDelimiter: "}"
       EndDelimiter: "}"
-  # - Berg: "{a}:\n  b"
-  #   Ast -> InfixOperation:
-  #     Left -> DelimitedOperation:
-  #       StartDelimiter: "{"
-  #       Expression -> Bareword: a
-  #       EndDelimiter: "}"
-  #     Operator: ":"
-  #     Right -> DelimitedOperation:
-  #       StartDelimiter: "\n  "
-  #       Expression -> Bareword: b
-  #       EndDelimiter: "  "
-  # - Berg: "a:\n  {b}"
-  #   Ast -> InfixOperation:
-  #     Left -> Bareword: a
-  #     Operator: ":"
-  #     Right -> DelimitedOperation:
-  #       StartDelimiter: "\n  "
-  #       Expression -> DelimitedOperation:
-  #         StartDelimiter: "{"
-  #         Expression -> Bareword: b
-  #         EndDelimiter: "}"
-  #       EndDelimiter: "  "
-  # - Berg: "{a:\n  b}"
-  #   Ast -> DelimitedOperation:
-  #     StartDelimiter: "{"
-  #     Expression -> InfixOperation:
-  #       Left -> Bareword: a
-  #       Operator: ":"
-  #       Right -> DelimitedOperation:
-  #         StartDelimiter: "\n  "
-  #         Expression -> Bareword: b
-  #         EndDelimiter: "  "
-  #     EndDelimiter: "}"
+  - Berg: "{a}:\n  b"
+    Ast -> InfixOperation:
+      Left -> DelimitedOperation:
+        StartDelimiter: "{"
+        Expression -> Bareword: a
+        EndDelimiter: "}"
+      Operator: ":"
+      Right -> DelimitedOperation:
+        StartDelimiter: "  "
+        Expression -> Bareword: b
+        EndDelimiter: ""
+  - Berg: "a:\n  {b}"
+    Ast -> InfixOperation:
+      Left -> Bareword: a
+      Operator: ":"
+      Right -> DelimitedOperation:
+        StartDelimiter: "  "
+        Expression -> DelimitedOperation:
+          StartDelimiter: "{"
+          Expression -> Bareword: b
+          EndDelimiter: "}"
+        EndDelimiter: ""
+  - Berg: "{a:\n  b}"
+    Ast -> DelimitedOperation:
+      StartDelimiter: "{"
+      Expression -> InfixOperation:
+        Left -> Bareword: a
+        Operator: ":"
+        Right -> DelimitedOperation:
+          StartDelimiter: "  "
+          Expression -> Bareword: b
+          EndDelimiter: "}"
+      EndDelimiter: "}"
   - Berg: "{(a)}"
     Ast -> DelimitedOperation:
       StartDelimiter: "{"
@@ -1603,53 +1603,53 @@ EqualPrecedence:
       EndDelimiter: )
 
   # start_delimiter.indent
-  # - Berg: "a:\n  b:\n  c"
-  #   Ast -> InfixOperation:
-  #     Left -> Bareword: a
-  #     Operator: ":"
-  #     Right -> DelimitedOperation:
-  #       StartDelimiter: "\n  "
-  #       Expression -> InfixOperation:
-  #         Left -> Bareword: b
-  #         Operator: ":"
-  #         Right -> DelimitedOperation:
-  #           StartDelimiter: "\n  "
-  #           Expression -> Bareword: c
-  #           EndDelimiter: "  "
-  #       EndDelimiter: "  "
-  # - Berg: "(a):\n  b"
-  #   Ast -> InfixOperation:
-  #     Left -> DelimitedOperation:
-  #       StartDelimiter: (
-  #       Expression -> Bareword: a
-  #       EndDelimiter: )
-  #     Operator: ":"
-  #     Right -> DelimitedOperation:
-  #       StartDelimiter: "\n  "
-  #       Expression -> Bareword: b
-  #       EndDelimiter: "  "
-  # - Berg: "a:\n  (b)"
-  #   Ast -> InfixOperation:
-  #     Left -> Bareword: a
-  #     Operator: ":"
-  #     Right -> DelimitedOperation:
-  #       StartDelimiter: "\n  "
-  #       Expression -> DelimitedOperation:
-  #         StartDelimiter: (
-  #         Expression -> Bareword: b
-  #         EndDelimiter: )
-  #       EndDelimiter: "  "
-  # - Berg: "(a:\n  b)"
-  #   Ast -> DelimitedOperation:
-  #     StartDelimiter: (
-  #     Expression -> InfixOperation:
-  #       Left -> Bareword: a
-  #       Operator: ":"
-  #       Right -> DelimitedOperation:
-  #         StartDelimiter: "\n  "
-  #         Expression -> Bareword: b
-  #         EndDelimiter: "  "
-  #     EndDelimiter: )
+  - Berg: "a:\n  b:\n    c"
+    Ast -> InfixOperation:
+      Left -> Bareword: a
+      Operator: ":"
+      Right -> DelimitedOperation:
+        StartDelimiter: "  "
+        Expression -> InfixOperation:
+          Left -> Bareword: b
+          Operator: ":"
+          Right -> DelimitedOperation:
+            StartDelimiter: "    "
+            Expression -> Bareword: c
+            EndDelimiter: ""
+        EndDelimiter: ""
+  - Berg: "(a):\n  b"
+    Ast -> InfixOperation:
+      Left -> DelimitedOperation:
+        StartDelimiter: (
+        Expression -> Bareword: a
+        EndDelimiter: )
+      Operator: ":"
+      Right -> DelimitedOperation:
+        StartDelimiter: "  "
+        Expression -> Bareword: b
+        EndDelimiter: ""
+  - Berg: "a:\n  (b)"
+    Ast -> InfixOperation:
+      Left -> Bareword: a
+      Operator: ":"
+      Right -> DelimitedOperation:
+        StartDelimiter: "  "
+        Expression -> DelimitedOperation:
+          StartDelimiter: (
+          Expression -> Bareword: b
+          EndDelimiter: )
+        EndDelimiter: ""
+  - Berg: "(a:\n  b)"
+    Ast -> DelimitedOperation:
+      StartDelimiter: (
+      Expression -> InfixOperation:
+        Left -> Bareword: a
+        Operator: ":"
+        Right -> DelimitedOperation:
+          StartDelimiter: "  "
+          Expression -> Bareword: b
+          EndDelimiter: )
+      EndDelimiter: )
 
   # start_delimiter.(
   - Berg: ((a))
