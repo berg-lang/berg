@@ -228,7 +228,7 @@ class TestMaker
             right = delimited(op, right)
             op = colon
         end
-            
+
         {
             type: "InfixOperation",
             source: "#{left[:source]}#{op_source(op)}#{right[:source]}",
@@ -249,11 +249,15 @@ class TestMaker
 
     def delimited(op, expression)
         expression = bare(expression)
-        ended_by = op.ended_by
-        ended_by = "  " if op.key == :indent
+        if op.key == :indent
+            indented_source = expression[:source].lines.map { |line| "  #{line}" }.join("")
+            source = "\n#{indented_source}",
+        else
+            source = "#{op_source(op)}#{expression[:source]}#{op_source(op.ended_by)}",
+        else
         {
             type: "DelimitedOperation",
-            source: "#{op_source(op)}#{expression[:source]}#{op_source(op.ended_by)}",
+            source: "#{op_source(op)}#{source}#{op_source(op.ended_by)}",
             expected: {
                 "StartDelimiter" => op_source(op),
                 "Expression -> #{expression[:type]}" => expression[:expected],
@@ -319,7 +323,7 @@ class TestMaker
         when :indent
             "\n  "
         when :undent
-            ""
+            "  "
         else
             op_key
         end
