@@ -1,294 +1,1663 @@
-# ". postfix.-- postfix.++",
-# "prefix.-- prefix.++ prefix.- prefix.+ prefix.!",
-# "* / %",
-# "+ -",
-# "> >= < <=",
-# "== !=",
-# "postfix.+ postfix.* postfix.?",
-# "&&",
-# "|| ??",
-# "right indent.: = += -= *= /= %= ||= &&= ??=",
-# ",",
-# "&",
-# "|",
-# [ { key: :call } ],
-# "\n ;",
-# # Delimiters want everything as children.
-# [
-#     { key: :indent, type: :start_delimiter, ended_by: :undent, direction: :right },
-#     { key: :undent, type: :end_delimiter, started_by: :indent, direction: :right },
-#     { string: "(", type: :start_delimiter, ended_by: ")", direction: :right },
-#     { string: ")", type: :end_delimiter, started_by: "(", direction: :right },
-#     { string: "{", type: :start_delimiter, ended_by: "}", direction: :right },
-#     { string: "}", type: :end_delimiter, started_by: "{", direction: :right },
-#     { key: :sof, type: :start_delimiter, ended_by: :eof, direction: :right },
-#     { key: :eof, type: :end_delimiter, started_by: :sof, direction: :right },
-# ],
-
 EqualPrecedence:
   #
-  # ". postfix.-- postfix.++",
+  # Precedence 1: . postfix.-- postfix.++
   #
   # .
   - Berg: a.b.c
     Ast -> InfixOperation:
-      Left -> InfixOperation: a.b
+      Left -> InfixOperation:
+        Left -> Bareword: a
+        Operator: "."
+        Right -> Bareword: b
+      Operator: "."
       Right -> Bareword: c
   - Berg: a.b--
     Ast -> PostfixOperation:
-      Left -> InfixOperation: a.b
+      Left -> InfixOperation:
+        Left -> Bareword: a
+        Operator: "."
+        Right -> Bareword: b
       Operator: --
-  - Berg: a.b++
-    Ast -> PostfixOperation:
-      Left -> InfixOperation: a.b
-      Operator: ++
-
-  # --
   - Berg: a--.b
     Ast -> InfixOperation:
       Left -> PostfixOperation:
-        $Term: a--
         Left -> Bareword: a
         Operator: --
       Operator: "."
       Right -> Bareword: b
-  - Berg: a--++
+  - Berg: a.b++
     Ast -> PostfixOperation:
-      Left -> PostfixOperation: a--
+      Left -> InfixOperation:
+        Left -> Bareword: a
+        Operator: "."
+        Right -> Bareword: b
       Operator: ++
-  - Berg: a----
-    Ast -> PostfixOperation:
-      Left -> PostfixOperation: a--
-      Operator: 1@4-5 = --
-
-  # ++
-  - Berg: a++--
-    Ast -> PostfixOperation:
-      Left -> PostfixOperation: a++
-      Operator: --
-  - Berg: a++++
-    Ast -> PostfixOperation:
-      Left -> PostfixOperation: a++
-      Operator: 1@4-5 = ++
   - Berg: a++.b
     Ast -> InfixOperation:
       Left -> PostfixOperation:
-        $Term: a++
         Left -> Bareword: a
         Operator: ++
       Operator: "."
       Right -> Bareword: b
 
+  # postfix.--
+  - Berg: a----
+    Ast -> PostfixOperation:
+      Left -> PostfixOperation:
+        Left -> Bareword: a
+        Operator: --
+      Operator: --
+  - Berg: a--++
+    Ast -> PostfixOperation:
+      Left -> PostfixOperation:
+        Left -> Bareword: a
+        Operator: --
+      Operator: ++
+  - Berg: a++--
+    Ast -> PostfixOperation:
+      Left -> PostfixOperation:
+        Left -> Bareword: a
+        Operator: ++
+      Operator: --
+
+  # postfix.++
+  - Berg: a++++
+    Ast -> PostfixOperation:
+      Left -> PostfixOperation:
+        Left -> Bareword: a
+        Operator: ++
+      Operator: ++
+
   #
-  # "prefix.-- prefix.++ prefix.- prefix.+ prefix.!",
+  # Precedence 2: prefix.! prefix.- prefix.++ prefix.+ prefix.--
   #
-  # --
-  - Berg: ----a
-    Ast -> PrefixOperation:
-      Operator: 1@1-2 = --
-      Right -> PrefixOperation: --a
-  - Berg: --++a
-    Ast -> PrefixOperation:
-      Operator: --
-      Right -> PrefixOperation: ++a
-  - Berg: ---a
-    Ast -> PrefixOperation:
-      Operator: 1@1-2 = --
-      Right -> PrefixOperation: -a
-  - Berg: --+a
-    Ast -> PrefixOperation:
-      Operator: --
-      Right -> PrefixOperation: +a
-  - Berg: --!a
-    Ast -> PrefixOperation:
-      Operator: --
-      Right -> PrefixOperation: "!a"
-
-  # ++
-  - Berg: ++--a
-    Ast -> PrefixOperation:
-      Operator: ++
-      Right -> PrefixOperation: --a
-  - Berg: ++++a
-    Ast -> PrefixOperation:
-      Operator: 1@1-2 = ++
-      Right -> PrefixOperation: ++a
-  - Berg: ++-a
-    Ast -> PrefixOperation:
-      Operator: ++
-      Right -> PrefixOperation: -a
-  - Berg: +++a
-    Ast -> PrefixOperation:
-      Operator: 1@1-2 = ++
-      Right -> PrefixOperation: "+a"
-  - Berg: ++!a
-    Ast -> PrefixOperation:
-      Operator: ++
-      Right -> PrefixOperation: "!a"
-
-  # -
-  # NOTE parser will always treat this as -- -a. This is the rules.
-  - Berg: ---a
-    Ast -> PrefixOperation:
-      Operator: 1@1-2 = --
-      Right -> PrefixOperation: -a
-  - Berg: -++a
-    Ast -> PrefixOperation:
-      Operator: "-"
-      Right -> PrefixOperation: ++a
-  # NOTE parser will always treat this as -- a. This is the rules.
-  - Berg: --a
-    Ast -> PrefixOperation:
-      Operator: --
-      Right -> Bareword: a
-  - Berg: -+a
-    Ast -> PrefixOperation:
-      Operator: "-"
-      Right -> PrefixOperation: +a
-  - Berg: -!a
-    Ast -> PrefixOperation:
-      Operator: "-"
-      Right -> PrefixOperation: "!a"
-
-  # +
-  - Berg: +--a
-    Ast -> PrefixOperation:
-      Operator: +
-      Right -> PrefixOperation: --a
-  # NOTE parser will always treat this as ++ +a. This is the rules.
-  - Berg: +++a
-    Ast -> PrefixOperation:
-      Operator: 1@1-2 = ++
-      Right -> PrefixOperation: +a
-  - Berg: +-a
-    Ast -> PrefixOperation:
-      Operator: +
-      Right -> PrefixOperation: -a
-  # NOTE parser will always treat this as ++ a. This is the rules.
-  - Berg: ++a
-    Ast -> PrefixOperation:
-      Operator: ++
-      Right -> Bareword: a
-  - Berg: --!a
-    Ast -> PrefixOperation:
-      Operator: --
-      Right -> PrefixOperation: "!a"
-
-  # !
-  - Berg: "!--a"
+  # prefix.!
+  - Berg: "!!a"
     Ast -> PrefixOperation:
       Operator: "!"
-      Right -> PrefixOperation: --a
-  - Berg: "!++a"
+      Right -> PrefixOperation:
+        Operator: "!"
+        Right -> Bareword: a
+  - Berg: "!!a"
     Ast -> PrefixOperation:
       Operator: "!"
-      Right -> PrefixOperation: ++a
+      Right -> PrefixOperation:
+        Operator: "!"
+        Right -> Bareword: a
   - Berg: "!-a"
     Ast -> PrefixOperation:
       Operator: "!"
-      Right -> PrefixOperation: -a
+      Right -> PrefixOperation:
+        Operator: "-"
+        Right -> Bareword: a
+  - Berg: -!a
+    Ast -> PrefixOperation:
+      Operator: "-"
+      Right -> PrefixOperation:
+        Operator: "!"
+        Right -> Bareword: a
+  - Berg: "!++a"
+    Ast -> PrefixOperation:
+      Operator: "!"
+      Right -> PrefixOperation:
+        Operator: ++
+        Right -> Bareword: a
+  - Berg: ++!a
+    Ast -> PrefixOperation:
+      Operator: ++
+      Right -> PrefixOperation:
+        Operator: "!"
+        Right -> Bareword: a
   - Berg: "!+a"
     Ast -> PrefixOperation:
       Operator: "!"
-      Right -> PrefixOperation: +a
-  - Berg: "!!a"
+      Right -> PrefixOperation:
+        Operator: +
+        Right -> Bareword: a
+  - Berg: +!a
     Ast -> PrefixOperation:
-      Operator: "1@1 = !"
-      Right -> PrefixOperation: "!a"
+      Operator: +
+      Right -> PrefixOperation:
+        Operator: "!"
+        Right -> Bareword: a
+  - Berg: "!--a"
+    Ast -> PrefixOperation:
+      Operator: "!"
+      Right -> PrefixOperation:
+        Operator: --
+        Right -> Bareword: a
+  - Berg: --!a
+    Ast -> PrefixOperation:
+      Operator: --
+      Right -> PrefixOperation:
+        Operator: "!"
+        Right -> Bareword: a
+
+  # prefix.-
+  - Berg: -++a
+    Ast -> PrefixOperation:
+      Operator: "-"
+      Right -> PrefixOperation:
+        Operator: ++
+        Right -> Bareword: a
+  - Berg: ++-a
+    Ast -> PrefixOperation:
+      Operator: ++
+      Right -> PrefixOperation:
+        Operator: "-"
+        Right -> Bareword: a
+  - Berg: -+a
+    Ast -> PrefixOperation:
+      Operator: "-"
+      Right -> PrefixOperation:
+        Operator: +
+        Right -> Bareword: a
+  - Berg: +-a
+    Ast -> PrefixOperation:
+      Operator: +
+      Right -> PrefixOperation:
+        Operator: "-"
+        Right -> Bareword: a
+  - Berg: ---a
+    Ast -> PrefixOperation:
+      Operator: --
+      Right -> PrefixOperation:
+        Operator: "-"
+        Right -> Bareword: a
+
+  # prefix.++
+  - Berg: ++++a
+    Ast -> PrefixOperation:
+      Operator: ++
+      Right -> PrefixOperation:
+        Operator: ++
+        Right -> Bareword: a
+  - Berg: ++++a
+    Ast -> PrefixOperation:
+      Operator: ++
+      Right -> PrefixOperation:
+        Operator: ++
+        Right -> Bareword: a
+  - Berg: +++a
+    Ast -> PrefixOperation:
+      Operator: ++
+      Right -> PrefixOperation:
+        Operator: +
+        Right -> Bareword: a
+  - Berg: ++--a
+    Ast -> PrefixOperation:
+      Operator: ++
+      Right -> PrefixOperation:
+        Operator: --
+        Right -> Bareword: a
+  - Berg: --++a
+    Ast -> PrefixOperation:
+      Operator: --
+      Right -> PrefixOperation:
+        Operator: ++
+        Right -> Bareword: a
+
+  # prefix.+
+  - Berg: +--a
+    Ast -> PrefixOperation:
+      Operator: +
+      Right -> PrefixOperation:
+        Operator: --
+        Right -> Bareword: a
+  - Berg: --+a
+    Ast -> PrefixOperation:
+      Operator: --
+      Right -> PrefixOperation:
+        Operator: +
+        Right -> Bareword: a
+
+  # prefix.--
+  - Berg: ----a
+    Ast -> PrefixOperation:
+      Operator: --
+      Right -> PrefixOperation:
+        Operator: --
+        Right -> Bareword: a
+  - Berg: ----a
+    Ast -> PrefixOperation:
+      Operator: --
+      Right -> PrefixOperation:
+        Operator: --
+        Right -> Bareword: a
 
   #
-  # "* / %",
+  # Precedence 3: / % *
   #
-  # *
-  - Berg: a*b*c
-    Ast -> InfixOperation:
-      Left -> InfixOperation: a*b
-      Operator: "1@4 = *"
-      Right -> Bareword: c
-  - Berg: a*b/c
-    Ast -> InfixOperation:
-      Left -> InfixOperation: a*b
-      Operator: /
-      Right -> Bareword: c
-  - Berg: a*b%c
-    Ast -> InfixOperation:
-      Left -> InfixOperation: a*b
-      Operator: "%"
-      Right -> Bareword: c
   # /
-  - Berg: a/b*c
-    Ast -> InfixOperation:
-      Left -> InfixOperation: a/b
-      Operator: "*"
-      Right -> Bareword: c
   - Berg: a/b/c
     Ast -> InfixOperation:
-      Left -> InfixOperation: a/b
-      Operator: 1@4 = /
+      Left -> InfixOperation:
+        Left -> Bareword: a
+        Operator: /
+        Right -> Bareword: b
+      Operator: /
       Right -> Bareword: c
   - Berg: a/b%c
     Ast -> InfixOperation:
-      Left -> InfixOperation: a/b
+      Left -> InfixOperation:
+        Left -> Bareword: a
+        Operator: /
+        Right -> Bareword: b
       Operator: "%"
-      Right -> Bareword: c
-  # /
-  - Berg: a%b*c
-    Ast -> InfixOperation:
-      Left -> InfixOperation: a%b
-      Operator: "*"
       Right -> Bareword: c
   - Berg: a%b/c
     Ast -> InfixOperation:
-      Left -> InfixOperation: a%b
+      Left -> InfixOperation:
+        Left -> Bareword: a
+        Operator: "%"
+        Right -> Bareword: b
       Operator: /
       Right -> Bareword: c
-  - Berg: a%b%c
+  - Berg: a/b*c
     Ast -> InfixOperation:
-      Left -> InfixOperation: a%b
-      Operator: 1@4 = %
+      Left -> InfixOperation:
+        Left -> Bareword: a
+        Operator: /
+        Right -> Bareword: b
+      Operator: "*"
+      Right -> Bareword: c
+  - Berg: a*b/c
+    Ast -> InfixOperation:
+      Left -> InfixOperation:
+        Left -> Bareword: a
+        Operator: "*"
+        Right -> Bareword: b
+      Operator: /
       Right -> Bareword: c
 
-  # "+ -",
-  - Berg: a+b+c
+  # %
+  - Berg: a%b%c
     Ast -> InfixOperation:
-      Left -> InfixOperation: a+b
-      Operator: 1@4 = +
+      Left -> InfixOperation:
+        Left -> Bareword: a
+        Operator: "%"
+        Right -> Bareword: b
+      Operator: "%"
       Right -> Bareword: c
-  - Berg: a+b-c
+  - Berg: a%b*c
     Ast -> InfixOperation:
-      Left -> InfixOperation: a+b
+      Left -> InfixOperation:
+        Left -> Bareword: a
+        Operator: "%"
+        Right -> Bareword: b
+      Operator: "*"
+      Right -> Bareword: c
+  - Berg: a*b%c
+    Ast -> InfixOperation:
+      Left -> InfixOperation:
+        Left -> Bareword: a
+        Operator: "*"
+        Right -> Bareword: b
+      Operator: "%"
+      Right -> Bareword: c
+
+  # *
+  - Berg: a*b*c
+    Ast -> InfixOperation:
+      Left -> InfixOperation:
+        Left -> Bareword: a
+        Operator: "*"
+        Right -> Bareword: b
+      Operator: "*"
+      Right -> Bareword: c
+
+  #
+  # Precedence 4: - +
+  #
+  # -
+  - Berg: a-b-c
+    Ast -> InfixOperation:
+      Left -> InfixOperation:
+        Left -> Bareword: a
+        Operator: "-"
+        Right -> Bareword: b
       Operator: "-"
       Right -> Bareword: c
   - Berg: a-b+c
     Ast -> InfixOperation:
-      Left -> InfixOperation: a-b
+      Left -> InfixOperation:
+        Left -> Bareword: a
+        Operator: "-"
+        Right -> Bareword: b
       Operator: +
       Right -> Bareword: c
-  - Berg: a-b-c
+  - Berg: a+b-c
     Ast -> InfixOperation:
-      Left -> InfixOperation: a-b
-      Operator: 1@4 = -
+      Left -> InfixOperation:
+        Left -> Bareword: a
+        Operator: +
+        Right -> Bareword: b
+      Operator: "-"
       Right -> Bareword: c
 
-  # "> >= < <=",
-  # "== !=",
-  # "postfix.+ postfix.* postfix.?",
-  # "&&",
-  # "|| ??",
-  # "right indent.: = += -= *= /= %= ||= &&= ??=",
-  # ",",
-  # "&",
-  # "|",
-  # [ { key: :call } ],
-  # "\n ;",
-  # # Delimiters want everything as children.
-  # [
-  #     { key: :indent, type: :start_delimiter, ended_by: :undent, direction: :right },
-  #     { key: :undent, type: :end_delimiter, started_by: :indent, direction: :right },
-  #     { string: "(", type: :start_delimiter, ended_by: ")", direction: :right },
-  #     { string: ")", type: :end_delimiter, started_by: "(", direction: :right },
-  #     { string: "{", type: :start_delimiter, ended_by: "}", direction: :right },
-  #     { string: "}", type: :end_delimiter, started_by: "{", direction: :right },
-  #     { key: :sof, type: :start_delimiter, ended_by: :eof, direction: :right },
-  #     { key: :eof, type: :end_delimiter, started_by: :sof, direction: :right },
-  # ],
+  # +
+  - Berg: a+b+c
+    Ast -> InfixOperation:
+      Left -> InfixOperation:
+        Left -> Bareword: a
+        Operator: +
+        Right -> Bareword: b
+      Operator: +
+      Right -> Bareword: c
+
+  #
+  # Precedence 5: > <= < >=
+  #
+  # >
+  - Berg: a>b>c
+    Ast -> InfixOperation:
+      Left -> InfixOperation:
+        Left -> Bareword: a
+        Operator: ">"
+        Right -> Bareword: b
+      Operator: ">"
+      Right -> Bareword: c
+  - Berg: a>b<=c
+    Ast -> InfixOperation:
+      Left -> InfixOperation:
+        Left -> Bareword: a
+        Operator: ">"
+        Right -> Bareword: b
+      Operator: <=
+      Right -> Bareword: c
+  - Berg: a<=b>c
+    Ast -> InfixOperation:
+      Left -> InfixOperation:
+        Left -> Bareword: a
+        Operator: <=
+        Right -> Bareword: b
+      Operator: ">"
+      Right -> Bareword: c
+  - Berg: a>b<c
+    Ast -> InfixOperation:
+      Left -> InfixOperation:
+        Left -> Bareword: a
+        Operator: ">"
+        Right -> Bareword: b
+      Operator: <
+      Right -> Bareword: c
+  - Berg: a<b>c
+    Ast -> InfixOperation:
+      Left -> InfixOperation:
+        Left -> Bareword: a
+        Operator: <
+        Right -> Bareword: b
+      Operator: ">"
+      Right -> Bareword: c
+  - Berg: a>b>=c
+    Ast -> InfixOperation:
+      Left -> InfixOperation:
+        Left -> Bareword: a
+        Operator: ">"
+        Right -> Bareword: b
+      Operator: ">="
+      Right -> Bareword: c
+  - Berg: a>=b>c
+    Ast -> InfixOperation:
+      Left -> InfixOperation:
+        Left -> Bareword: a
+        Operator: ">="
+        Right -> Bareword: b
+      Operator: ">"
+      Right -> Bareword: c
+
+  # <=
+  - Berg: a<=b<=c
+    Ast -> InfixOperation:
+      Left -> InfixOperation:
+        Left -> Bareword: a
+        Operator: <=
+        Right -> Bareword: b
+      Operator: <=
+      Right -> Bareword: c
+  - Berg: a<=b<c
+    Ast -> InfixOperation:
+      Left -> InfixOperation:
+        Left -> Bareword: a
+        Operator: <=
+        Right -> Bareword: b
+      Operator: <
+      Right -> Bareword: c
+  - Berg: a<b<=c
+    Ast -> InfixOperation:
+      Left -> InfixOperation:
+        Left -> Bareword: a
+        Operator: <
+        Right -> Bareword: b
+      Operator: <=
+      Right -> Bareword: c
+  - Berg: a<=b>=c
+    Ast -> InfixOperation:
+      Left -> InfixOperation:
+        Left -> Bareword: a
+        Operator: <=
+        Right -> Bareword: b
+      Operator: ">="
+      Right -> Bareword: c
+  - Berg: a>=b<=c
+    Ast -> InfixOperation:
+      Left -> InfixOperation:
+        Left -> Bareword: a
+        Operator: ">="
+        Right -> Bareword: b
+      Operator: <=
+      Right -> Bareword: c
+
+  # <
+  - Berg: a<b<c
+    Ast -> InfixOperation:
+      Left -> InfixOperation:
+        Left -> Bareword: a
+        Operator: <
+        Right -> Bareword: b
+      Operator: <
+      Right -> Bareword: c
+  - Berg: a<b>=c
+    Ast -> InfixOperation:
+      Left -> InfixOperation:
+        Left -> Bareword: a
+        Operator: <
+        Right -> Bareword: b
+      Operator: ">="
+      Right -> Bareword: c
+  - Berg: a>=b<c
+    Ast -> InfixOperation:
+      Left -> InfixOperation:
+        Left -> Bareword: a
+        Operator: ">="
+        Right -> Bareword: b
+      Operator: <
+      Right -> Bareword: c
+
+  # >=
+  - Berg: a>=b>=c
+    Ast -> InfixOperation:
+      Left -> InfixOperation:
+        Left -> Bareword: a
+        Operator: ">="
+        Right -> Bareword: b
+      Operator: ">="
+      Right -> Bareword: c
+
+  #
+  # Precedence 6: != ==
+  #
+  # !=
+  - Berg: a!=b!=c
+    Ast -> InfixOperation:
+      Left -> InfixOperation:
+        Left -> Bareword: a
+        Operator: "!="
+        Right -> Bareword: b
+      Operator: "!="
+      Right -> Bareword: c
+  - Berg: a!=b==c
+    Ast -> InfixOperation:
+      Left -> InfixOperation:
+        Left -> Bareword: a
+        Operator: "!="
+        Right -> Bareword: b
+      Operator: ==
+      Right -> Bareword: c
+  - Berg: a==b!=c
+    Ast -> InfixOperation:
+      Left -> InfixOperation:
+        Left -> Bareword: a
+        Operator: ==
+        Right -> Bareword: b
+      Operator: "!="
+      Right -> Bareword: c
+
+  # ==
+  - Berg: a==b==c
+    Ast -> InfixOperation:
+      Left -> InfixOperation:
+        Left -> Bareword: a
+        Operator: ==
+        Right -> Bareword: b
+      Operator: ==
+      Right -> Bareword: c
+
+  #
+  # Precedence 7: postfix.+ postfix.* postfix.?
+  #
+  # postfix.+
+  - Berg: a+*
+    Ast -> PostfixOperation:
+      Left -> PostfixOperation:
+        Left -> Bareword: a
+        Operator: +
+      Operator: "*"
+  - Berg: a*+
+    Ast -> PostfixOperation:
+      Left -> PostfixOperation:
+        Left -> Bareword: a
+        Operator: "*"
+      Operator: +
+  - Berg: a+?
+    Ast -> PostfixOperation:
+      Left -> PostfixOperation:
+        Left -> Bareword: a
+        Operator: +
+      Operator: "?"
+  - Berg: a?+
+    Ast -> PostfixOperation:
+      Left -> PostfixOperation:
+        Left -> Bareword: a
+        Operator: "?"
+      Operator: +
+
+  # postfix.*
+  - Berg: a**
+    Ast -> PostfixOperation:
+      Left -> PostfixOperation:
+        Left -> Bareword: a
+        Operator: "*"
+      Operator: "*"
+  - Berg: a*?
+    Ast -> PostfixOperation:
+      Left -> PostfixOperation:
+        Left -> Bareword: a
+        Operator: "*"
+      Operator: "?"
+  - Berg: a?*
+    Ast -> PostfixOperation:
+      Left -> PostfixOperation:
+        Left -> Bareword: a
+        Operator: "?"
+      Operator: "*"
+
+  # postfix.?
+
+  #
+  # Precedence 8: &&
+  #
+  # &&
+  - Berg: a&&b&&c
+    Ast -> InfixOperation:
+      Left -> InfixOperation:
+        Left -> Bareword: a
+        Operator: "&&"
+        Right -> Bareword: b
+      Operator: "&&"
+      Right -> Bareword: c
+
+  #
+  # Precedence 9: ?? ||
+  #
+  # ??
+  - Berg: a??b??c
+    Ast -> InfixOperation:
+      Left -> InfixOperation:
+        Left -> Bareword: a
+        Operator: "??"
+        Right -> Bareword: b
+      Operator: "??"
+      Right -> Bareword: c
+  - Berg: a??b||c
+    Ast -> InfixOperation:
+      Left -> InfixOperation:
+        Left -> Bareword: a
+        Operator: "??"
+        Right -> Bareword: b
+      Operator: "||"
+      Right -> Bareword: c
+  - Berg: a||b??c
+    Ast -> InfixOperation:
+      Left -> InfixOperation:
+        Left -> Bareword: a
+        Operator: "||"
+        Right -> Bareword: b
+      Operator: "??"
+      Right -> Bareword: c
+
+  # ||
+  - Berg: a||b||c
+    Ast -> InfixOperation:
+      Left -> InfixOperation:
+        Left -> Bareword: a
+        Operator: "||"
+        Right -> Bareword: b
+      Operator: "||"
+      Right -> Bareword: c
+
+  #
+  # Precedence 10: : -= += /= %= *= &&= ||= ??= =
+  #
+  # :
+  - Berg: "a:b:c"
+    Ast -> InfixOperation:
+      Left -> Bareword: a
+      Operator: ":"
+      Right -> InfixOperation:
+        Left -> Bareword: b
+        Operator: ":"
+        Right -> Bareword: c
+  - Berg: "a:b-=c"
+    Ast -> InfixOperation:
+      Left -> Bareword: a
+      Operator: ":"
+      Right -> InfixOperation:
+        Left -> Bareword: b
+        Operator: -=
+        Right -> Bareword: c
+  - Berg: "a-=b:c"
+    Ast -> InfixOperation:
+      Left -> Bareword: a
+      Operator: -=
+      Right -> InfixOperation:
+        Left -> Bareword: b
+        Operator: ":"
+        Right -> Bareword: c
+  - Berg: "a:b+=c"
+    Ast -> InfixOperation:
+      Left -> Bareword: a
+      Operator: ":"
+      Right -> InfixOperation:
+        Left -> Bareword: b
+        Operator: +=
+        Right -> Bareword: c
+  - Berg: "a+=b:c"
+    Ast -> InfixOperation:
+      Left -> Bareword: a
+      Operator: +=
+      Right -> InfixOperation:
+        Left -> Bareword: b
+        Operator: ":"
+        Right -> Bareword: c
+  - Berg: "a:b/=c"
+    Ast -> InfixOperation:
+      Left -> Bareword: a
+      Operator: ":"
+      Right -> InfixOperation:
+        Left -> Bareword: b
+        Operator: /=
+        Right -> Bareword: c
+  - Berg: "a/=b:c"
+    Ast -> InfixOperation:
+      Left -> Bareword: a
+      Operator: /=
+      Right -> InfixOperation:
+        Left -> Bareword: b
+        Operator: ":"
+        Right -> Bareword: c
+  - Berg: "a:b%=c"
+    Ast -> InfixOperation:
+      Left -> Bareword: a
+      Operator: ":"
+      Right -> InfixOperation:
+        Left -> Bareword: b
+        Operator: "%="
+        Right -> Bareword: c
+  - Berg: "a%=b:c"
+    Ast -> InfixOperation:
+      Left -> Bareword: a
+      Operator: "%="
+      Right -> InfixOperation:
+        Left -> Bareword: b
+        Operator: ":"
+        Right -> Bareword: c
+  - Berg: "a:b*=c"
+    Ast -> InfixOperation:
+      Left -> Bareword: a
+      Operator: ":"
+      Right -> InfixOperation:
+        Left -> Bareword: b
+        Operator: "*="
+        Right -> Bareword: c
+  - Berg: "a*=b:c"
+    Ast -> InfixOperation:
+      Left -> Bareword: a
+      Operator: "*="
+      Right -> InfixOperation:
+        Left -> Bareword: b
+        Operator: ":"
+        Right -> Bareword: c
+  - Berg: "a:b&&=c"
+    Ast -> InfixOperation:
+      Left -> Bareword: a
+      Operator: ":"
+      Right -> InfixOperation:
+        Left -> Bareword: b
+        Operator: "&&="
+        Right -> Bareword: c
+  - Berg: "a&&=b:c"
+    Ast -> InfixOperation:
+      Left -> Bareword: a
+      Operator: "&&="
+      Right -> InfixOperation:
+        Left -> Bareword: b
+        Operator: ":"
+        Right -> Bareword: c
+  - Berg: "a:b||=c"
+    Ast -> InfixOperation:
+      Left -> Bareword: a
+      Operator: ":"
+      Right -> InfixOperation:
+        Left -> Bareword: b
+        Operator: "||="
+        Right -> Bareword: c
+  - Berg: "a||=b:c"
+    Ast -> InfixOperation:
+      Left -> Bareword: a
+      Operator: "||="
+      Right -> InfixOperation:
+        Left -> Bareword: b
+        Operator: ":"
+        Right -> Bareword: c
+  - Berg: "a:b??=c"
+    Ast -> InfixOperation:
+      Left -> Bareword: a
+      Operator: ":"
+      Right -> InfixOperation:
+        Left -> Bareword: b
+        Operator: "??="
+        Right -> Bareword: c
+  - Berg: "a??=b:c"
+    Ast -> InfixOperation:
+      Left -> Bareword: a
+      Operator: "??="
+      Right -> InfixOperation:
+        Left -> Bareword: b
+        Operator: ":"
+        Right -> Bareword: c
+  - Berg: "a:b=c"
+    Ast -> InfixOperation:
+      Left -> Bareword: a
+      Operator: ":"
+      Right -> InfixOperation:
+        Left -> Bareword: b
+        Operator: =
+        Right -> Bareword: c
+  - Berg: "a=b:c"
+    Ast -> InfixOperation:
+      Left -> Bareword: a
+      Operator: =
+      Right -> InfixOperation:
+        Left -> Bareword: b
+        Operator: ":"
+        Right -> Bareword: c
+
+  # -=
+  - Berg: a-=b-=c
+    Ast -> InfixOperation:
+      Left -> Bareword: a
+      Operator: -=
+      Right -> InfixOperation:
+        Left -> Bareword: b
+        Operator: -=
+        Right -> Bareword: c
+  - Berg: a-=b+=c
+    Ast -> InfixOperation:
+      Left -> Bareword: a
+      Operator: -=
+      Right -> InfixOperation:
+        Left -> Bareword: b
+        Operator: +=
+        Right -> Bareword: c
+  - Berg: a+=b-=c
+    Ast -> InfixOperation:
+      Left -> Bareword: a
+      Operator: +=
+      Right -> InfixOperation:
+        Left -> Bareword: b
+        Operator: -=
+        Right -> Bareword: c
+  - Berg: a-=b/=c
+    Ast -> InfixOperation:
+      Left -> Bareword: a
+      Operator: -=
+      Right -> InfixOperation:
+        Left -> Bareword: b
+        Operator: /=
+        Right -> Bareword: c
+  - Berg: a/=b-=c
+    Ast -> InfixOperation:
+      Left -> Bareword: a
+      Operator: /=
+      Right -> InfixOperation:
+        Left -> Bareword: b
+        Operator: -=
+        Right -> Bareword: c
+  - Berg: a-=b%=c
+    Ast -> InfixOperation:
+      Left -> Bareword: a
+      Operator: -=
+      Right -> InfixOperation:
+        Left -> Bareword: b
+        Operator: "%="
+        Right -> Bareword: c
+  - Berg: a%=b-=c
+    Ast -> InfixOperation:
+      Left -> Bareword: a
+      Operator: "%="
+      Right -> InfixOperation:
+        Left -> Bareword: b
+        Operator: -=
+        Right -> Bareword: c
+  - Berg: a-=b*=c
+    Ast -> InfixOperation:
+      Left -> Bareword: a
+      Operator: -=
+      Right -> InfixOperation:
+        Left -> Bareword: b
+        Operator: "*="
+        Right -> Bareword: c
+  - Berg: a*=b-=c
+    Ast -> InfixOperation:
+      Left -> Bareword: a
+      Operator: "*="
+      Right -> InfixOperation:
+        Left -> Bareword: b
+        Operator: -=
+        Right -> Bareword: c
+  - Berg: a-=b&&=c
+    Ast -> InfixOperation:
+      Left -> Bareword: a
+      Operator: -=
+      Right -> InfixOperation:
+        Left -> Bareword: b
+        Operator: "&&="
+        Right -> Bareword: c
+  - Berg: a&&=b-=c
+    Ast -> InfixOperation:
+      Left -> Bareword: a
+      Operator: "&&="
+      Right -> InfixOperation:
+        Left -> Bareword: b
+        Operator: -=
+        Right -> Bareword: c
+  - Berg: a-=b||=c
+    Ast -> InfixOperation:
+      Left -> Bareword: a
+      Operator: -=
+      Right -> InfixOperation:
+        Left -> Bareword: b
+        Operator: "||="
+        Right -> Bareword: c
+  - Berg: a||=b-=c
+    Ast -> InfixOperation:
+      Left -> Bareword: a
+      Operator: "||="
+      Right -> InfixOperation:
+        Left -> Bareword: b
+        Operator: -=
+        Right -> Bareword: c
+  - Berg: a-=b??=c
+    Ast -> InfixOperation:
+      Left -> Bareword: a
+      Operator: -=
+      Right -> InfixOperation:
+        Left -> Bareword: b
+        Operator: "??="
+        Right -> Bareword: c
+  - Berg: a??=b-=c
+    Ast -> InfixOperation:
+      Left -> Bareword: a
+      Operator: "??="
+      Right -> InfixOperation:
+        Left -> Bareword: b
+        Operator: -=
+        Right -> Bareword: c
+  - Berg: a-=b=c
+    Ast -> InfixOperation:
+      Left -> Bareword: a
+      Operator: -=
+      Right -> InfixOperation:
+        Left -> Bareword: b
+        Operator: =
+        Right -> Bareword: c
+  - Berg: a=b-=c
+    Ast -> InfixOperation:
+      Left -> Bareword: a
+      Operator: =
+      Right -> InfixOperation:
+        Left -> Bareword: b
+        Operator: -=
+        Right -> Bareword: c
+
+  # +=
+  - Berg: a+=b+=c
+    Ast -> InfixOperation:
+      Left -> Bareword: a
+      Operator: +=
+      Right -> InfixOperation:
+        Left -> Bareword: b
+        Operator: +=
+        Right -> Bareword: c
+  - Berg: a+=b/=c
+    Ast -> InfixOperation:
+      Left -> Bareword: a
+      Operator: +=
+      Right -> InfixOperation:
+        Left -> Bareword: b
+        Operator: /=
+        Right -> Bareword: c
+  - Berg: a/=b+=c
+    Ast -> InfixOperation:
+      Left -> Bareword: a
+      Operator: /=
+      Right -> InfixOperation:
+        Left -> Bareword: b
+        Operator: +=
+        Right -> Bareword: c
+  - Berg: a+=b%=c
+    Ast -> InfixOperation:
+      Left -> Bareword: a
+      Operator: +=
+      Right -> InfixOperation:
+        Left -> Bareword: b
+        Operator: "%="
+        Right -> Bareword: c
+  - Berg: a%=b+=c
+    Ast -> InfixOperation:
+      Left -> Bareword: a
+      Operator: "%="
+      Right -> InfixOperation:
+        Left -> Bareword: b
+        Operator: +=
+        Right -> Bareword: c
+  - Berg: a+=b*=c
+    Ast -> InfixOperation:
+      Left -> Bareword: a
+      Operator: +=
+      Right -> InfixOperation:
+        Left -> Bareword: b
+        Operator: "*="
+        Right -> Bareword: c
+  - Berg: a*=b+=c
+    Ast -> InfixOperation:
+      Left -> Bareword: a
+      Operator: "*="
+      Right -> InfixOperation:
+        Left -> Bareword: b
+        Operator: +=
+        Right -> Bareword: c
+  - Berg: a+=b&&=c
+    Ast -> InfixOperation:
+      Left -> Bareword: a
+      Operator: +=
+      Right -> InfixOperation:
+        Left -> Bareword: b
+        Operator: "&&="
+        Right -> Bareword: c
+  - Berg: a&&=b+=c
+    Ast -> InfixOperation:
+      Left -> Bareword: a
+      Operator: "&&="
+      Right -> InfixOperation:
+        Left -> Bareword: b
+        Operator: +=
+        Right -> Bareword: c
+  - Berg: a+=b||=c
+    Ast -> InfixOperation:
+      Left -> Bareword: a
+      Operator: +=
+      Right -> InfixOperation:
+        Left -> Bareword: b
+        Operator: "||="
+        Right -> Bareword: c
+  - Berg: a||=b+=c
+    Ast -> InfixOperation:
+      Left -> Bareword: a
+      Operator: "||="
+      Right -> InfixOperation:
+        Left -> Bareword: b
+        Operator: +=
+        Right -> Bareword: c
+  - Berg: a+=b??=c
+    Ast -> InfixOperation:
+      Left -> Bareword: a
+      Operator: +=
+      Right -> InfixOperation:
+        Left -> Bareword: b
+        Operator: "??="
+        Right -> Bareword: c
+  - Berg: a??=b+=c
+    Ast -> InfixOperation:
+      Left -> Bareword: a
+      Operator: "??="
+      Right -> InfixOperation:
+        Left -> Bareword: b
+        Operator: +=
+        Right -> Bareword: c
+  - Berg: a+=b=c
+    Ast -> InfixOperation:
+      Left -> Bareword: a
+      Operator: +=
+      Right -> InfixOperation:
+        Left -> Bareword: b
+        Operator: =
+        Right -> Bareword: c
+  - Berg: a=b+=c
+    Ast -> InfixOperation:
+      Left -> Bareword: a
+      Operator: =
+      Right -> InfixOperation:
+        Left -> Bareword: b
+        Operator: +=
+        Right -> Bareword: c
+
+  # /=
+  - Berg: a/=b/=c
+    Ast -> InfixOperation:
+      Left -> Bareword: a
+      Operator: /=
+      Right -> InfixOperation:
+        Left -> Bareword: b
+        Operator: /=
+        Right -> Bareword: c
+  - Berg: a/=b%=c
+    Ast -> InfixOperation:
+      Left -> Bareword: a
+      Operator: /=
+      Right -> InfixOperation:
+        Left -> Bareword: b
+        Operator: "%="
+        Right -> Bareword: c
+  - Berg: a%=b/=c
+    Ast -> InfixOperation:
+      Left -> Bareword: a
+      Operator: "%="
+      Right -> InfixOperation:
+        Left -> Bareword: b
+        Operator: /=
+        Right -> Bareword: c
+  - Berg: a/=b*=c
+    Ast -> InfixOperation:
+      Left -> Bareword: a
+      Operator: /=
+      Right -> InfixOperation:
+        Left -> Bareword: b
+        Operator: "*="
+        Right -> Bareword: c
+  - Berg: a*=b/=c
+    Ast -> InfixOperation:
+      Left -> Bareword: a
+      Operator: "*="
+      Right -> InfixOperation:
+        Left -> Bareword: b
+        Operator: /=
+        Right -> Bareword: c
+  - Berg: a/=b&&=c
+    Ast -> InfixOperation:
+      Left -> Bareword: a
+      Operator: /=
+      Right -> InfixOperation:
+        Left -> Bareword: b
+        Operator: "&&="
+        Right -> Bareword: c
+  - Berg: a&&=b/=c
+    Ast -> InfixOperation:
+      Left -> Bareword: a
+      Operator: "&&="
+      Right -> InfixOperation:
+        Left -> Bareword: b
+        Operator: /=
+        Right -> Bareword: c
+  - Berg: a/=b||=c
+    Ast -> InfixOperation:
+      Left -> Bareword: a
+      Operator: /=
+      Right -> InfixOperation:
+        Left -> Bareword: b
+        Operator: "||="
+        Right -> Bareword: c
+  - Berg: a||=b/=c
+    Ast -> InfixOperation:
+      Left -> Bareword: a
+      Operator: "||="
+      Right -> InfixOperation:
+        Left -> Bareword: b
+        Operator: /=
+        Right -> Bareword: c
+  - Berg: a/=b??=c
+    Ast -> InfixOperation:
+      Left -> Bareword: a
+      Operator: /=
+      Right -> InfixOperation:
+        Left -> Bareword: b
+        Operator: "??="
+        Right -> Bareword: c
+  - Berg: a??=b/=c
+    Ast -> InfixOperation:
+      Left -> Bareword: a
+      Operator: "??="
+      Right -> InfixOperation:
+        Left -> Bareword: b
+        Operator: /=
+        Right -> Bareword: c
+  - Berg: a/=b=c
+    Ast -> InfixOperation:
+      Left -> Bareword: a
+      Operator: /=
+      Right -> InfixOperation:
+        Left -> Bareword: b
+        Operator: =
+        Right -> Bareword: c
+  - Berg: a=b/=c
+    Ast -> InfixOperation:
+      Left -> Bareword: a
+      Operator: =
+      Right -> InfixOperation:
+        Left -> Bareword: b
+        Operator: /=
+        Right -> Bareword: c
+
+  # %=
+  - Berg: a%=b%=c
+    Ast -> InfixOperation:
+      Left -> Bareword: a
+      Operator: "%="
+      Right -> InfixOperation:
+        Left -> Bareword: b
+        Operator: "%="
+        Right -> Bareword: c
+  - Berg: a%=b*=c
+    Ast -> InfixOperation:
+      Left -> Bareword: a
+      Operator: "%="
+      Right -> InfixOperation:
+        Left -> Bareword: b
+        Operator: "*="
+        Right -> Bareword: c
+  - Berg: a*=b%=c
+    Ast -> InfixOperation:
+      Left -> Bareword: a
+      Operator: "*="
+      Right -> InfixOperation:
+        Left -> Bareword: b
+        Operator: "%="
+        Right -> Bareword: c
+  - Berg: a%=b&&=c
+    Ast -> InfixOperation:
+      Left -> Bareword: a
+      Operator: "%="
+      Right -> InfixOperation:
+        Left -> Bareword: b
+        Operator: "&&="
+        Right -> Bareword: c
+  - Berg: a&&=b%=c
+    Ast -> InfixOperation:
+      Left -> Bareword: a
+      Operator: "&&="
+      Right -> InfixOperation:
+        Left -> Bareword: b
+        Operator: "%="
+        Right -> Bareword: c
+  - Berg: a%=b||=c
+    Ast -> InfixOperation:
+      Left -> Bareword: a
+      Operator: "%="
+      Right -> InfixOperation:
+        Left -> Bareword: b
+        Operator: "||="
+        Right -> Bareword: c
+  - Berg: a||=b%=c
+    Ast -> InfixOperation:
+      Left -> Bareword: a
+      Operator: "||="
+      Right -> InfixOperation:
+        Left -> Bareword: b
+        Operator: "%="
+        Right -> Bareword: c
+  - Berg: a%=b??=c
+    Ast -> InfixOperation:
+      Left -> Bareword: a
+      Operator: "%="
+      Right -> InfixOperation:
+        Left -> Bareword: b
+        Operator: "??="
+        Right -> Bareword: c
+  - Berg: a??=b%=c
+    Ast -> InfixOperation:
+      Left -> Bareword: a
+      Operator: "??="
+      Right -> InfixOperation:
+        Left -> Bareword: b
+        Operator: "%="
+        Right -> Bareword: c
+  - Berg: a%=b=c
+    Ast -> InfixOperation:
+      Left -> Bareword: a
+      Operator: "%="
+      Right -> InfixOperation:
+        Left -> Bareword: b
+        Operator: =
+        Right -> Bareword: c
+  - Berg: a=b%=c
+    Ast -> InfixOperation:
+      Left -> Bareword: a
+      Operator: =
+      Right -> InfixOperation:
+        Left -> Bareword: b
+        Operator: "%="
+        Right -> Bareword: c
+
+  # *=
+  - Berg: a*=b*=c
+    Ast -> InfixOperation:
+      Left -> Bareword: a
+      Operator: "*="
+      Right -> InfixOperation:
+        Left -> Bareword: b
+        Operator: "*="
+        Right -> Bareword: c
+  - Berg: a*=b&&=c
+    Ast -> InfixOperation:
+      Left -> Bareword: a
+      Operator: "*="
+      Right -> InfixOperation:
+        Left -> Bareword: b
+        Operator: "&&="
+        Right -> Bareword: c
+  - Berg: a&&=b*=c
+    Ast -> InfixOperation:
+      Left -> Bareword: a
+      Operator: "&&="
+      Right -> InfixOperation:
+        Left -> Bareword: b
+        Operator: "*="
+        Right -> Bareword: c
+  - Berg: a*=b||=c
+    Ast -> InfixOperation:
+      Left -> Bareword: a
+      Operator: "*="
+      Right -> InfixOperation:
+        Left -> Bareword: b
+        Operator: "||="
+        Right -> Bareword: c
+  - Berg: a||=b*=c
+    Ast -> InfixOperation:
+      Left -> Bareword: a
+      Operator: "||="
+      Right -> InfixOperation:
+        Left -> Bareword: b
+        Operator: "*="
+        Right -> Bareword: c
+  - Berg: a*=b??=c
+    Ast -> InfixOperation:
+      Left -> Bareword: a
+      Operator: "*="
+      Right -> InfixOperation:
+        Left -> Bareword: b
+        Operator: "??="
+        Right -> Bareword: c
+  - Berg: a??=b*=c
+    Ast -> InfixOperation:
+      Left -> Bareword: a
+      Operator: "??="
+      Right -> InfixOperation:
+        Left -> Bareword: b
+        Operator: "*="
+        Right -> Bareword: c
+  - Berg: a*=b=c
+    Ast -> InfixOperation:
+      Left -> Bareword: a
+      Operator: "*="
+      Right -> InfixOperation:
+        Left -> Bareword: b
+        Operator: =
+        Right -> Bareword: c
+  - Berg: a=b*=c
+    Ast -> InfixOperation:
+      Left -> Bareword: a
+      Operator: =
+      Right -> InfixOperation:
+        Left -> Bareword: b
+        Operator: "*="
+        Right -> Bareword: c
+
+  # &&=
+  - Berg: a&&=b&&=c
+    Ast -> InfixOperation:
+      Left -> Bareword: a
+      Operator: "&&="
+      Right -> InfixOperation:
+        Left -> Bareword: b
+        Operator: "&&="
+        Right -> Bareword: c
+  - Berg: a&&=b||=c
+    Ast -> InfixOperation:
+      Left -> Bareword: a
+      Operator: "&&="
+      Right -> InfixOperation:
+        Left -> Bareword: b
+        Operator: "||="
+        Right -> Bareword: c
+  - Berg: a||=b&&=c
+    Ast -> InfixOperation:
+      Left -> Bareword: a
+      Operator: "||="
+      Right -> InfixOperation:
+        Left -> Bareword: b
+        Operator: "&&="
+        Right -> Bareword: c
+  - Berg: a&&=b??=c
+    Ast -> InfixOperation:
+      Left -> Bareword: a
+      Operator: "&&="
+      Right -> InfixOperation:
+        Left -> Bareword: b
+        Operator: "??="
+        Right -> Bareword: c
+  - Berg: a??=b&&=c
+    Ast -> InfixOperation:
+      Left -> Bareword: a
+      Operator: "??="
+      Right -> InfixOperation:
+        Left -> Bareword: b
+        Operator: "&&="
+        Right -> Bareword: c
+  - Berg: a&&=b=c
+    Ast -> InfixOperation:
+      Left -> Bareword: a
+      Operator: "&&="
+      Right -> InfixOperation:
+        Left -> Bareword: b
+        Operator: =
+        Right -> Bareword: c
+  - Berg: a=b&&=c
+    Ast -> InfixOperation:
+      Left -> Bareword: a
+      Operator: =
+      Right -> InfixOperation:
+        Left -> Bareword: b
+        Operator: "&&="
+        Right -> Bareword: c
+
+  # ||=
+  - Berg: a||=b||=c
+    Ast -> InfixOperation:
+      Left -> Bareword: a
+      Operator: "||="
+      Right -> InfixOperation:
+        Left -> Bareword: b
+        Operator: "||="
+        Right -> Bareword: c
+  - Berg: a||=b??=c
+    Ast -> InfixOperation:
+      Left -> Bareword: a
+      Operator: "||="
+      Right -> InfixOperation:
+        Left -> Bareword: b
+        Operator: "??="
+        Right -> Bareword: c
+  - Berg: a??=b||=c
+    Ast -> InfixOperation:
+      Left -> Bareword: a
+      Operator: "??="
+      Right -> InfixOperation:
+        Left -> Bareword: b
+        Operator: "||="
+        Right -> Bareword: c
+  - Berg: a||=b=c
+    Ast -> InfixOperation:
+      Left -> Bareword: a
+      Operator: "||="
+      Right -> InfixOperation:
+        Left -> Bareword: b
+        Operator: =
+        Right -> Bareword: c
+  - Berg: a=b||=c
+    Ast -> InfixOperation:
+      Left -> Bareword: a
+      Operator: =
+      Right -> InfixOperation:
+        Left -> Bareword: b
+        Operator: "||="
+        Right -> Bareword: c
+
+  # ??=
+  - Berg: a??=b??=c
+    Ast -> InfixOperation:
+      Left -> Bareword: a
+      Operator: "??="
+      Right -> InfixOperation:
+        Left -> Bareword: b
+        Operator: "??="
+        Right -> Bareword: c
+  - Berg: a??=b=c
+    Ast -> InfixOperation:
+      Left -> Bareword: a
+      Operator: "??="
+      Right -> InfixOperation:
+        Left -> Bareword: b
+        Operator: =
+        Right -> Bareword: c
+  - Berg: a=b??=c
+    Ast -> InfixOperation:
+      Left -> Bareword: a
+      Operator: =
+      Right -> InfixOperation:
+        Left -> Bareword: b
+        Operator: "??="
+        Right -> Bareword: c
+
+  # =
+  - Berg: a=b=c
+    Ast -> InfixOperation:
+      Left -> Bareword: a
+      Operator: =
+      Right -> InfixOperation:
+        Left -> Bareword: b
+        Operator: =
+        Right -> Bareword: c
+
+  #
+  # Precedence 11: ,
+  #
+  # ,
+  - Berg: a,b,c
+    Ast -> InfixOperation:
+      Left -> InfixOperation:
+        Left -> Bareword: a
+        Operator: ","
+        Right -> Bareword: b
+      Operator: ","
+      Right -> Bareword: c
+
+  #
+  # Precedence 12: &
+  #
+  # &
+  - Berg: a&b&c
+    Ast -> InfixOperation:
+      Left -> InfixOperation:
+        Left -> Bareword: a
+        Operator: "&"
+        Right -> Bareword: b
+      Operator: "&"
+      Right -> Bareword: c
+
+  #
+  # Precedence 13: |
+  #
+  # |
+  - Berg: a|b|c
+    Ast -> InfixOperation:
+      Left -> InfixOperation:
+        Left -> Bareword: a
+        Operator: "|"
+        Right -> Bareword: b
+      Operator: "|"
+      Right -> Bareword: c
+
+  #
+  # Precedence 14: call
+  #
+  # call
+  - Berg: a b c
+    Ast -> InfixOperation:
+      Left -> InfixOperation:
+        Left -> Bareword: a
+        Operator: " "
+        Right -> Bareword: b
+      Operator: " "
+      Right -> Bareword: c
+
+  #
+  # Precedence 15: "\n" ;
+  #
+  # "\n"
+  # - Berg: "a\nb\nc"
+  #   Ast -> InfixOperation:
+  #     Left -> InfixOperation:
+  #       Left -> Bareword: a
+  #       Operator: "\n"
+  #       Right -> Bareword: b
+  #     Operator: "\n"
+  #     Right -> Bareword: c
+  # - Berg: "a\nb;c"
+  #   Ast -> InfixOperation:
+  #     Left -> InfixOperation:
+  #       Left -> Bareword: a
+  #       Operator: "\n"
+  #       Right -> Bareword: b
+  #     Operator: ;
+  #     Right -> Bareword: c
+  # - Berg: "a;b\nc"
+  #   Ast -> InfixOperation:
+  #     Left -> InfixOperation:
+  #       Left -> Bareword: a
+  #       Operator: ;
+  #       Right -> Bareword: b
+  #     Operator: "\n"
+  #     Right -> Bareword: c
+
+  # ;
+  - Berg: a;b;c
+    Ast -> InfixOperation:
+      Left -> InfixOperation:
+        Left -> Bareword: a
+        Operator: ;
+        Right -> Bareword: b
+      Operator: ;
+      Right -> Bareword: c
+
+  #
+  # Precedence 16: start_delimiter.{ start_delimiter.indent start_delimiter.(
+  #
+  # start_delimiter.{
+  - Berg: "{{a}}"
+    Ast -> DelimitedOperation:
+      StartDelimiter: "{"
+      Expression -> DelimitedOperation:
+        StartDelimiter: "{"
+        Expression -> Bareword: a
+        EndDelimiter: "}"
+      EndDelimiter: "}"
+  # - Berg: "{a}:\n  b"
+  #   Ast -> InfixOperation:
+  #     Left -> DelimitedOperation:
+  #       StartDelimiter: "{"
+  #       Expression -> Bareword: a
+  #       EndDelimiter: "}"
+  #     Operator: ":"
+  #     Right -> DelimitedOperation:
+  #       StartDelimiter: "\n  "
+  #       Expression -> Bareword: b
+  #       EndDelimiter: "  "
+  # - Berg: "a:\n  {b}"
+  #   Ast -> InfixOperation:
+  #     Left -> Bareword: a
+  #     Operator: ":"
+  #     Right -> DelimitedOperation:
+  #       StartDelimiter: "\n  "
+  #       Expression -> DelimitedOperation:
+  #         StartDelimiter: "{"
+  #         Expression -> Bareword: b
+  #         EndDelimiter: "}"
+  #       EndDelimiter: "  "
+  # - Berg: "{a:\n  b}"
+  #   Ast -> DelimitedOperation:
+  #     StartDelimiter: "{"
+  #     Expression -> InfixOperation:
+  #       Left -> Bareword: a
+  #       Operator: ":"
+  #       Right -> DelimitedOperation:
+  #         StartDelimiter: "\n  "
+  #         Expression -> Bareword: b
+  #         EndDelimiter: "  "
+  #     EndDelimiter: "}"
+  - Berg: "{(a)}"
+    Ast -> DelimitedOperation:
+      StartDelimiter: "{"
+      Expression -> DelimitedOperation:
+        StartDelimiter: (
+        Expression -> Bareword: a
+        EndDelimiter: )
+      EndDelimiter: "}"
+  - Berg: ({a})
+    Ast -> DelimitedOperation:
+      StartDelimiter: (
+      Expression -> DelimitedOperation:
+        StartDelimiter: "{"
+        Expression -> Bareword: a
+        EndDelimiter: "}"
+      EndDelimiter: )
+
+  # start_delimiter.indent
+  # - Berg: "a:\n  b:\n  c"
+  #   Ast -> InfixOperation:
+  #     Left -> Bareword: a
+  #     Operator: ":"
+  #     Right -> DelimitedOperation:
+  #       StartDelimiter: "\n  "
+  #       Expression -> InfixOperation:
+  #         Left -> Bareword: b
+  #         Operator: ":"
+  #         Right -> DelimitedOperation:
+  #           StartDelimiter: "\n  "
+  #           Expression -> Bareword: c
+  #           EndDelimiter: "  "
+  #       EndDelimiter: "  "
+  # - Berg: "(a):\n  b"
+  #   Ast -> InfixOperation:
+  #     Left -> DelimitedOperation:
+  #       StartDelimiter: (
+  #       Expression -> Bareword: a
+  #       EndDelimiter: )
+  #     Operator: ":"
+  #     Right -> DelimitedOperation:
+  #       StartDelimiter: "\n  "
+  #       Expression -> Bareword: b
+  #       EndDelimiter: "  "
+  # - Berg: "a:\n  (b)"
+  #   Ast -> InfixOperation:
+  #     Left -> Bareword: a
+  #     Operator: ":"
+  #     Right -> DelimitedOperation:
+  #       StartDelimiter: "\n  "
+  #       Expression -> DelimitedOperation:
+  #         StartDelimiter: (
+  #         Expression -> Bareword: b
+  #         EndDelimiter: )
+  #       EndDelimiter: "  "
+  # - Berg: "(a:\n  b)"
+  #   Ast -> DelimitedOperation:
+  #     StartDelimiter: (
+  #     Expression -> InfixOperation:
+  #       Left -> Bareword: a
+  #       Operator: ":"
+  #       Right -> DelimitedOperation:
+  #         StartDelimiter: "\n  "
+  #         Expression -> Bareword: b
+  #         EndDelimiter: "  "
+  #     EndDelimiter: )
+
+  # start_delimiter.(
+  - Berg: ((a))
+    Ast -> DelimitedOperation:
+      StartDelimiter: (
+      Expression -> DelimitedOperation:
+        StartDelimiter: (
+        Expression -> Bareword: a
+        EndDelimiter: )
+      EndDelimiter: )
+

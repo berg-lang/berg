@@ -27,7 +27,7 @@ module BergLang
             # Prefix <sof> PREFIX* E
             operators, expression = next_expression_phrase
             unclosed_expression.apply_prefix!(operators)
-            unclosed_expression.apply_expression!(expression)
+            unclosed_expression.apply_expression!(expression) if expression
 
             loop do
                 operators, expression = next_expression_phrase

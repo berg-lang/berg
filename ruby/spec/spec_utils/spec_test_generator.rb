@@ -242,15 +242,15 @@ module SpecUtils
                     term = range_spec
                     range = nil
 
-                    # Check if the term exists more than once in the source, and force the user to specify it if so.
-                    index1 = source.string.index(term)
-                    if index1
-                        if index2 = source.string.index(term, index1+1)
-                            location1 = to_range_string(BergLang::SourceRange.new(source, index1, index1+term.length))
-                            location2 = to_range_string(BergLang::SourceRange.new(source, index2, index2+term.length))
-                            raise "#{term} exists more than once in source #{source.string.inspect}. Please specify which one using range syntax #{location1} or #{location2}."
-                        end
-                    end
+                    # # Check if the term exists more than once in the source, and force the user to specify it if so.
+                    # index1 = source.string.index(term)
+                    # if index1
+                    #     if index2 = source.string.index(term, index1+1)
+                    #         location1 = to_range_string(BergLang::SourceRange.new(source, index1, index1+term.length))
+                    #         location2 = to_range_string(BergLang::SourceRange.new(source, index2, index2+term.length))
+                    #         raise "#{term} exists more than once in source #{source.string.inspect}. Please specify which one using range syntax #{location1} or #{location2}."
+                    #     end
+                    # end
                 end
 
                 [ range, term ]

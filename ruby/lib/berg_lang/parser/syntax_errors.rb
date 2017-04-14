@@ -44,9 +44,19 @@ module BergLang
                 error: "Number is mixed up with a word.",
                 remedy: "If it's a variable name, change it to start with a character instead of a number. If you wanted a number, you can remove the word characters."
 
-            syntax_error :missing_right_hand_side_at_eof,
-                error:  proc { |token, eof_token| "Missing a value on the right side of \"#{token}\"." },
-                remedy: proc { |token, eof_token| "Perhaps you closed the file earlier than intended, or didn't mean to put the \"#{token}\" there at all?" }
+            syntax_error :missing_right_hand_side,
+                error:  proc { |token, because_of| "Missing a value on the right side of \"#{token}\"." },
+                remedy: proc { |token, because_of|
+                    if !because_of || because_of.key == :eof
+                        "Perhaps you closed the file earlier than intended, or didn't mean to put the \"#{token}\" there at all?"
+                    elsif because_of.key == :undent
+                        "Did you mean to put the \"#{token}\" there?"
+                    elsif because_of.end_delimiter
+                        "Perhaps you closed the \"#{because_of}\" earlier than intended, or didn't mean to put the \"#{token}\" there at all?"
+                    else
+                        "Perhaps you put the \"#{because_of}\" earlier than intended, or didn't mean to put the \"#{token}\" there at all?"
+                    end
+                }
 
             syntax_error :missing_left_hand_side_at_sof,
                 error:  proc { |token, sof_token| "Missing a value on the left side of \"#{token}\"." },
@@ -55,6 +65,7 @@ module BergLang
             syntax_error :prefix_or_infix_in_front_of_infix_operator,
                 error: proc { |token, because_of_infix| "Operators \"#{token}\" and \"#{because_of_infix}\" cannot appear together or are in the wrong order." },
                 remedy: proc { |token, because_of_infix| "Perhaps one of them was an error, or you meant to have a value between them?" }
+
             # TODO help more with this one. I hate this so much in programs.
             syntax_error :umatched_end_delimiter,
                 error:  proc { |token| "Found ending #{token} with no corresponding #{token.end_delimiter.started_by}." },

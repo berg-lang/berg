@@ -1,5 +1,6 @@
-require_relative "berg/source_stream"
-require_relative "berg/parser"
+require "bundler/setup"
+require "berg_lang/source_stream"
+require "berg_lang/parser"
 require "pp"
 
 str = ARGV[0]

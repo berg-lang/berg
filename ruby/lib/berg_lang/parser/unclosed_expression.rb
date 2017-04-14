@@ -54,7 +54,7 @@ module BergLang
                 elsif unclosed.size == 1 && unclosed[0].is_a?(Expression)
                     unclosed[0]
                 else
-                    raise syntax_errors.internal_error(unclosed[-1], "Expression still unclosed")
+                    raise syntax_errors.internal_error(source_range, "Expression still unclosed")
                 end
             end
 
@@ -122,7 +122,7 @@ module BergLang
                         if because_of_infix
                             raise syntax_errors.prefix_or_infix_in_front_of_infix_operator(operator, because_of_infix)
                         else
-                            raise syntax_errors.missing_right_hand_side_at_eof(operator, postfixes[-1])
+                            raise syntax_errors.missing_right_hand_side(operator, postfixes[-1])
                         end
                     end
                     left_bind!(operator, operator.postfix) 
@@ -216,6 +216,8 @@ module BergLang
                     if operator.start_delimiter?
                         # Explicit open operators (i.e. things other than indent) require explicit closes.
                         raise syntax_errors.unmatched_start_delimiter(token, because_of)
+                    elsif !right_hand_side
+                        raise syntax_errors.missing_right_hand_side(token, because_of)
                     elsif operator.prefix?
                         expression = Expressions::PrefixOperation.new(token, right_hand_side)
                         [ expression, index ]
