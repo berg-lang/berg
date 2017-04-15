@@ -21,6 +21,10 @@ module BergLang
             other.respond_to?(:source_range) && self == other.source_range
         end
 
+        def size
+            self.end - self.begin
+        end
+
         #
         # Create a region that includes both ranges
         #

@@ -41,9 +41,10 @@ module BergLang
                 SourceRange.span(first, last)
             end
 
-            def current_start_delimiter
+            # The innermost open :indent operator
+            def open_indent
                 unclosed.reverse_each do |operator|
-                    return operator if operator.is_a?(Operator) && operator.prefix && operator.prefix.start_delimiter?
+                    return operator if operator.is_a?(IndentOperator)
                 end
                 nil
             end
@@ -70,15 +71,6 @@ module BergLang
                 last_postfix, operator, first_prefix = arity_picker.pick_infix(operators)
                 apply_postfix!(operators[0..last_postfix], operator) if last_postfix >= 0
                 apply_infix!(operator)
-
-                # Indent (  A:\n    B) If it's indentable (a:\n...) and immediately followed by a linebreak, it's an indented value.
-                if operator.infix.indentable?
-                    whitespace = operators[first_prefix - 1]
-                    if whitespace.is_a?(Whitespace) && whitespace.has_newline?
-                        apply_prefix!([Operator.new(whitespace.indent, parser.all_operators[:indent])])
-                    end
-                end
-
                 apply_prefix!(operators[first_prefix..-1])
             end
 

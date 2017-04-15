@@ -7,8 +7,8 @@ module BergLang
 
             attr_reader :operator_definitions
 
-            def initialize(match, operator_definitions)
-                super(match)
+            def initialize(source_range, operator_definitions)
+                super(source_range)
                 @operator_definitions = operator_definitions
             end
 
@@ -18,6 +18,11 @@ module BergLang
 
             def key
                 operator_definitions.values.first.key
+            end
+
+            def opens_indent_block?
+                return prefix.opens_indent_block? if prefix
+                return infix.opens_indent_block? if infix
             end
 
             def prefix

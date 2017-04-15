@@ -82,10 +82,6 @@ module BergLang
                     end
                 end
             end
-
-            def self.define_operator(**)
-                OperatorDefinition.new(string, key, precedence, type, direction, started_by, ended_by, indentable)
-            end
         end
     end
 end

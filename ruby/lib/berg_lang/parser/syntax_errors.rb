@@ -77,8 +77,8 @@ module BergLang
                 remedy: proc { |token, closed_by| "Perhaps you have too many #{token}'s, or forgot to end with #{token.start_delimiter.ended_by}?"}
 
             syntax_error :unmatchable_indent,
-                error:  proc { |source, new_token, open_indent| "Indents cannot match due to difference in tabs and spaces." },
-                remedy: proc { |source, new_token, open_indent| "Either convert tabs to spaces, or vice versa; do not mix them."}
+                error:  proc { |token, open_indent| "Indents cannot match due to difference in tabs and spaces." },
+                remedy: proc { |token, open_indent| "Either convert tabs to spaces, or vice versa; do not mix them."}
 
             syntax_error :internal_error,
                 error: proc { |token, message| message },

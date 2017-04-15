@@ -149,7 +149,7 @@ class TestMaker
         when :infix
             error_test infix("a", op, ""), "Missing a value on the right side of \"#{op_source(op)}\". Perhaps you closed the file earlier than intended, or didn't mean to put the \"#{op_source(op)}\" there at all?"
             error_test infix("", op, "b"), "Missing a value on the left side of \"#{op_source(op)}\". Did you mean for the \"#{op_source(op)}\" to be there?"
-            error_test infix("", op, ""), "Missing a value on the right side of \"#{op_source(op)}\". Perhaps you closed the file earlier than intended, or didn't mean to put the \"#{op_source(op)}\" there at all?"
+            error_test infix("", op, ""), "Missing a value on the left side of \"#{op_source(op)}\". Did you mean for the \"#{op_source(op)}\" to be there?"
 
         when :postfix
             error_test postfix("", op), "Missing a value on the left side of \"#{op_source(op)}\". Did you mean for the \"#{op_source(op)}\" to be there?"
@@ -185,7 +185,7 @@ class TestMaker
             source: "#{op_source(op)}#{right[:source]}",
             expected: {
                 "Operator" => op_source(op),
-                "Right -> #{right[:type]}" => right[:expected]
+                "Right -> #{right[:type]}" => right[:expected],
             },
         }
     end
@@ -197,7 +197,7 @@ class TestMaker
             source: "#{left[:source]}#{op_source(op)}",
             expected: {
                 "Left -> #{left[:type]}" => left[:expected],
-                "Operator" => op_source(op),
+                "Operator" => op_source(op)
             },
         }
     end
@@ -232,9 +232,23 @@ class TestMaker
         when "{a:\n  b}"
             value[:expected]["Expression -> InfixOperation"]["Right -> DelimitedOperation"]["EndDelimiter"] = "}"
         when "a:\n  b:\n    c"
-            value[:expected]["Right -> DelimitedOperation"]["Expression -> InfixOperation"]["Right -> DelimitedOperation"]["StartDelimiter"] = "    "
+            value[:expected]["Right -> DelimitedOperation"]["Expression -> InfixOperation"]["Right -> DelimitedOperation"]["$Space"] = "\n    "
+        when "a:\n"
+            value[:expected]["Right -> DelimitedOperation"]["Expression -> EmptyExpression"] = "\n"
+            value[:expected]["Right -> DelimitedOperation"].delete("$Space")
         else
             value
+        end
+    end
+
+    def bad_error_test?(value, error)
+        outer = value[:expected]
+        if value[:type] == "PostfixOperation" && ["--", "++", "+"].include?(outer["Operator"])
+            true
+        elsif value[:type] == "InfixOperation" && ["*", "+", ":", " ", "\n"].include?(outer["Operator"]) && error =~ /Missing a value on the right side/
+            true
+        elsif value[:type] == "InfixOperation" && ["+", "-", " ", "\n"].include?(outer["Operator"]) && error =~ /Missing a value on the left side/
+            true
         end
     end
 
@@ -261,35 +275,37 @@ class TestMaker
         else
             source = "#{op_source(op)}#{expression[:source]}#{op_source(op.ended_by)}"
         end
-        {
+        result = {
             type: "DelimitedOperation",
             source: source,
             expected: {
                 "StartDelimiter" => op_source(op),
+                "$Space" => (op.key == :indent ? "\n  " : ""),
                 "Expression -> #{expression[:type]}" => expression[:expected],
                 "EndDelimiter" => op_source(op.ended_by),
             },
         }
     end
 
-    def test(value)
-        value = bare(value)
-        return if bad_combination?(value)
+    def test(test)
+        test = bare(test)
+        return if bad_combination?(test)
         old_indent = current_indent
         begin
-            fixup_precedence_test(value)
-            output "- Berg: #{escape_yaml(value[:source])}"
+            fixup_precedence_test(test)
+            output "- Berg: #{escape_yaml(test[:source])}"
             indented do
-                output_field "Ast -> #{value[:type]}", value[:expected]
+                output_expected_ast_field "Ast -> #{test[:type]}", test[:expected], source: test[:source], line: 1, column: 1
             end
         ensure
             @current_indent = old_indent
         end
     end
 
-    def error_test(value, error)
-        value = bare(value) if value.is_a?(String)
-        output "- Berg: #{escape_yaml(value[:source])}"
+    def error_test(test, error)
+        test = bare(test)
+        return if bad_error_test?(test, error)
+        output "- Berg: #{escape_yaml(test[:source])}"
         indented do
             output_field "Error", error
         end
@@ -327,12 +343,56 @@ class TestMaker
         when :call
             " "
         when :indent
-            "  "
+            ""
         when :undent
             ""
         else
             op_key
         end
+    end
+
+    def output_expected_ast_field(name, value, source:, line:, column:)
+        if value.is_a?(Hash)
+            output "#{name}:"
+            indented do
+                value.each do |name, value|
+                    line, column = output_expected_ast_field(name, value, source: source, line: line, column: column)
+                end
+            end
+        else
+            begin_line, begin_column = [ line, column ]
+            line, column = add_to_location(begin_line, begin_column, value)
+            if source.scan(value).size > 1
+                range = "#{begin_line}@#{begin_column}"
+                if value.size == 0
+                    range << "+0"
+                else
+                    end_line, end_column = add_to_location(begin_line, begin_column, value[0..-2])
+                    if begin_line != end_line
+                        range << "-#{end_line}@#{end_column}"
+                    elsif begin_column != end_column
+                        range << "-#{end_column}"
+                    end
+                end
+                value = "#{range} = #{value}"
+            end
+            output "#{name}: #{escape_yaml(value)}" unless name.start_with?("$Space")
+        end
+        [ line, column ]
+    end
+
+    #
+    # Move the line/column indicator forward as if the string was appended.
+    #
+    def add_to_location(line, column, string)
+        string = string[:source] if string.is_a?(Hash)
+        lines = string.lines
+        lines << "" if lines.empty? || lines[-1][-1] == "\n" || lines.empty?
+
+        line += lines.size - 1
+        column = 1 if lines.size > 1
+        column += lines[-1].size
+        [ line, column ]
     end
 
     def output_field(name, value=nil, &block)

@@ -3,6 +3,7 @@ require_relative "parser/operator"
 require_relative "parser/tokenizer"
 require_relative "parser/unclosed_expression"
 require_relative "parser/syntax_errors"
+require_relative "parser/indent_operator"
 require_relative "expressions/empty_expression"
 
 module BergLang
@@ -17,6 +18,7 @@ module BergLang
             @tokenizer = Tokenizer.new(source)
             @token = tokenizer.advance_token
             @unclosed_expression = UnclosedExpression.new(self)
+            @current_indent = source.create_empty_range(0)
         end
 
         def all_operators
@@ -55,7 +57,9 @@ module BergLang
         attr_reader :tokenizer
         attr_reader :unclosed_expression
         attr_reader :token
+        attr_reader :current_indent
 
+        # TODO handle this in the tokenizer.
         def next_expression_phrase
             operators = []
             while true
@@ -63,17 +67,76 @@ module BergLang
                 when Expression
                     return [operators, advance_token]
                 when Operator
-                    # Empty () ends up showing up as a series of tokens, but there is an assumed EmptyExpression in there
-                    if token.end_delimiter
-                        if operators[-1].is_a?(Operator) && operators[-1].start_delimiter
-                            return [operators, Expressions::EmptyExpression.new(source.create_empty_range(operators[-1].source_range.end))]
-                        elsif operators[-1].is_a?(Whitespace) && operators[-2].is_a?(Operator) && operators[-2].start_delimiter
-                            return [operators, Expressions::EmptyExpression.new(operators[-1].source_range)]
+                    # Grab the indent before advancing token (in case we need it)
+                    indent = current_indent
+                    operator = token
+
+                    # Anything that opens up an expression block can have an empty expression in it: (, { and :, for example.
+                    # Empty expressions aren't neatly handled by our [operators, expression] abstraction because it's essentially
+                    # an expression hidden in the operators; so we insert them here and terminate the [operators, expression]
+                    # block early with an empty expression when they happen.
+                    if operator.end_delimiter
+                        #
+                        # Explicit end:
+                        #   ()
+                        #   {}.
+                        #
+                        # Infix blocks: empty infix blocks can happen if a ) or EOF happens on the same line as the open:
+                        #
+                        #   Decl: <eof>
+                        #   (A: 1, B: 2, Decl: )
+                        #
+                        # Empty infix blocks can also happen if the next line is indented more, but that is handled by the "explicit end" case
+                        # above.
+                        if operators[-1].is_a?(Operator)
+                            prev_operator = operators[-1]
+                        elsif operators[-2].is_a?(Operator)
+                            prev_operator = operators[-2]
+                        end
+                        if prev_operator && (prev_operator.start_delimiter || prev_operator.opens_indent_block?)
+                            # The empty range is from the end of the starting operator (just after :, ( or { ) to the current position,
+                            # so it includes any whitespace.
+                            empty_range = SourceRange.new(source, prev_operator.source_range.end, operators[-1].source_range.end)
+                            # Don't advance the token, so that next time we come around after the empty expression, it will still pick up the )
+                            return [operators, Expressions::EmptyExpression.new(empty_range)]
                         end
                     end
+
                     operators << advance_token
+
+                    #
+                    # Handle open indent: if we see a : operator followed by \n, insert an open indent before the whitespace comes around.
+                    # possible for the next expression to have a *smaller* indent, in which case an undent and empty expression will happen.
+                    #
+                    if operator.opens_indent_block? && token.is_a?(Whitespace) && token.has_newline?
+                        indent_start = source.create_empty_range(operator.source_range.end)
+                        operators << IndentOperator.new(indent_start, indent, all_operators[:indent])
+                    end
+
                 when Whitespace
+                    # If there's a newline, handle the indent level.
+                    if token.has_newline?
+                        # Save the current level of indent in case we see a new declaration on this line.
+                        @current_indent = token.indent
+
+                        # Check if we are at a lower level of indent than current, and close the indent.
+                        open_indent = unclosed_expression.open_indent
+                        if open_indent
+                            # Truncate both indents and make sure they match as far as tabs/spaces go
+                            if open_indent.indent.string[0...token.indent.size] != token.indent.string[0...open_indent.indent.size]
+                                raise syntax_errors.unmatchable_indent(open_indent, token)
+                            end
+                            # If the new indent is smaller than or equal to the current indent, generate an undent.
+                            if token.indent.size <= open_indent.indent.size
+                                # TODO this means comments for the next operator won't be able to include this whitespace ...
+                                operators << source.whitespace
+                                operators << Operator.new(source.indent, all_operators[:undent])
+                            end
+                        end
+                    end
+
                     operators << advance_token
+
                 when nil
                     return [operators, nil]
                 else
@@ -83,24 +146,9 @@ module BergLang
         end
 
         def advance_token
+            # We do this dance so we can essentially look at *three* tokens at once. TODO do that buffering in the tokenizer.
             previous_token = token
-            next_token = tokenizer.advance_token
-
-            #
-            # If we encounter a lower level of indent than current, generate :undent instead of whitespace.
-            #
-            if next_token.is_a?(Whitespace) && next_token.has_newline?
-                current_indent = next_token.indent
-                start_delimiter = unclosed_expression.current_start_delimiter
-                if start_delimiter && current_indent.size >= start_delimiter.size
-                    if !current_indent.string.start_with?(start_delimiter.string)
-                        raise syntax_errors.unmatchable_indent(next_token, start_delimiter)
-                    end
-                    next_token = Operator.new(next_token.source_range, tokenizer.all_operators[:undent])
-                end
-            end
-
-            @token = next_token
+            @token = tokenizer.advance_token
             previous_token
         end
 

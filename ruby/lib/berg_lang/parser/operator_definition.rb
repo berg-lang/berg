@@ -28,14 +28,14 @@ module BergLang
 
             # If this is true, and the line has only indentation, this opens an indented block,
             # terminated by the first non-whitespace line with *less* indentation than the current line.
-            def indentable?
-                @indentable
+            def opens_indent_block?
+                @opens_indent_block
             end
 
-            def initialize(string: nil, key: string, type: :infix, precedence:, direction: :left, started_by: nil, ended_by: nil, indentable: nil)
+            def initialize(string: nil, key: string, type: :infix, precedence:, direction: :left, started_by: nil, ended_by: nil, opens_indent_block: nil)
                 if type == :indent
                     type = :infix
-                    indentable = true
+                    opens_indent_block = true
                 end
                 @string = string
                 @key = key
@@ -44,7 +44,7 @@ module BergLang
                 @direction = direction
                 @started_by = started_by
                 @ended_by = ended_by
-                @indentable = indentable
+                @opens_indent_block = opens_indent_block
             end
 
             def to_s

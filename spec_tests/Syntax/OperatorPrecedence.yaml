@@ -7,9 +7,9 @@ EqualPrecedence:
     Ast -> InfixOperation:
       Left -> InfixOperation:
         Left -> Bareword: a
-        Operator: "."
+        Operator: 1@2 = .
         Right -> Bareword: b
-      Operator: "."
+      Operator: 1@4 = .
       Right -> Bareword: c
   - Berg: a.b--
     Ast -> PostfixOperation:
@@ -45,8 +45,8 @@ EqualPrecedence:
     Ast -> PostfixOperation:
       Left -> PostfixOperation:
         Left -> Bareword: a
-        Operator: --
-      Operator: --
+        Operator: 1@2-3 = --
+      Operator: 1@4-5 = --
   - Berg: a--++
     Ast -> PostfixOperation:
       Left -> PostfixOperation:
@@ -65,8 +65,8 @@ EqualPrecedence:
     Ast -> PostfixOperation:
       Left -> PostfixOperation:
         Left -> Bareword: a
-        Operator: ++
-      Operator: ++
+        Operator: 1@2-3 = ++
+      Operator: 1@4-5 = ++
 
   #
   # Precedence 2: prefix.! prefix.- prefix.++ prefix.+ prefix.--
@@ -74,15 +74,15 @@ EqualPrecedence:
   # prefix.!
   - Berg: "!!a"
     Ast -> PrefixOperation:
-      Operator: "!"
+      Operator: 1@1 = !
       Right -> PrefixOperation:
-        Operator: "!"
+        Operator: 1@2 = !
         Right -> Bareword: a
   - Berg: "!!a"
     Ast -> PrefixOperation:
-      Operator: "!"
+      Operator: 1@1 = !
       Right -> PrefixOperation:
-        Operator: "!"
+        Operator: 1@2 = !
         Right -> Bareword: a
   - Berg: "!-a"
     Ast -> PrefixOperation:
@@ -162,27 +162,27 @@ EqualPrecedence:
     Ast -> PrefixOperation:
       Operator: --
       Right -> PrefixOperation:
-        Operator: "-"
+        Operator: 1@3 = -
         Right -> Bareword: a
 
   # prefix.++
   - Berg: ++++a
     Ast -> PrefixOperation:
-      Operator: ++
+      Operator: 1@1-2 = ++
       Right -> PrefixOperation:
-        Operator: ++
+        Operator: 1@3-4 = ++
         Right -> Bareword: a
   - Berg: ++++a
     Ast -> PrefixOperation:
-      Operator: ++
+      Operator: 1@1-2 = ++
       Right -> PrefixOperation:
-        Operator: ++
+        Operator: 1@3-4 = ++
         Right -> Bareword: a
   - Berg: +++a
     Ast -> PrefixOperation:
       Operator: ++
       Right -> PrefixOperation:
-        Operator: +
+        Operator: 1@3 = +
         Right -> Bareword: a
   - Berg: ++--a
     Ast -> PrefixOperation:
@@ -214,15 +214,15 @@ EqualPrecedence:
   # prefix.--
   - Berg: ----a
     Ast -> PrefixOperation:
-      Operator: --
+      Operator: 1@1-2 = --
       Right -> PrefixOperation:
-        Operator: --
+        Operator: 1@3-4 = --
         Right -> Bareword: a
   - Berg: ----a
     Ast -> PrefixOperation:
-      Operator: --
+      Operator: 1@1-2 = --
       Right -> PrefixOperation:
-        Operator: --
+        Operator: 1@3-4 = --
         Right -> Bareword: a
 
   #
@@ -233,9 +233,9 @@ EqualPrecedence:
     Ast -> InfixOperation:
       Left -> InfixOperation:
         Left -> Bareword: a
-        Operator: /
+        Operator: 1@2 = /
         Right -> Bareword: b
-      Operator: /
+      Operator: 1@4 = /
       Right -> Bareword: c
   - Berg: a/b%c
     Ast -> InfixOperation:
@@ -275,9 +275,9 @@ EqualPrecedence:
     Ast -> InfixOperation:
       Left -> InfixOperation:
         Left -> Bareword: a
-        Operator: "%"
+        Operator: 1@2 = %
         Right -> Bareword: b
-      Operator: "%"
+      Operator: 1@4 = %
       Right -> Bareword: c
   - Berg: a%b*c
     Ast -> InfixOperation:
@@ -301,9 +301,9 @@ EqualPrecedence:
     Ast -> InfixOperation:
       Left -> InfixOperation:
         Left -> Bareword: a
-        Operator: "*"
+        Operator: 1@2 = *
         Right -> Bareword: b
-      Operator: "*"
+      Operator: 1@4 = *
       Right -> Bareword: c
 
   #
@@ -314,9 +314,9 @@ EqualPrecedence:
     Ast -> InfixOperation:
       Left -> InfixOperation:
         Left -> Bareword: a
-        Operator: "-"
+        Operator: 1@2 = -
         Right -> Bareword: b
-      Operator: "-"
+      Operator: 1@4 = -
       Right -> Bareword: c
   - Berg: a-b+c
     Ast -> InfixOperation:
@@ -340,9 +340,9 @@ EqualPrecedence:
     Ast -> InfixOperation:
       Left -> InfixOperation:
         Left -> Bareword: a
-        Operator: +
+        Operator: 1@2 = +
         Right -> Bareword: b
-      Operator: +
+      Operator: 1@4 = +
       Right -> Bareword: c
 
   #
@@ -353,9 +353,9 @@ EqualPrecedence:
     Ast -> InfixOperation:
       Left -> InfixOperation:
         Left -> Bareword: a
-        Operator: ">"
+        Operator: 1@2 = >
         Right -> Bareword: b
-      Operator: ">"
+      Operator: 1@4 = >
       Right -> Bareword: c
   - Berg: a>b<=c
     Ast -> InfixOperation:
@@ -393,7 +393,7 @@ EqualPrecedence:
     Ast -> InfixOperation:
       Left -> InfixOperation:
         Left -> Bareword: a
-        Operator: ">"
+        Operator: 1@2 = >
         Right -> Bareword: b
       Operator: ">="
       Right -> Bareword: c
@@ -403,7 +403,7 @@ EqualPrecedence:
         Left -> Bareword: a
         Operator: ">="
         Right -> Bareword: b
-      Operator: ">"
+      Operator: 1@5 = >
       Right -> Bareword: c
 
   # <=
@@ -411,9 +411,9 @@ EqualPrecedence:
     Ast -> InfixOperation:
       Left -> InfixOperation:
         Left -> Bareword: a
-        Operator: <=
+        Operator: 1@2-3 = <=
         Right -> Bareword: b
-      Operator: <=
+      Operator: 1@5-6 = <=
       Right -> Bareword: c
   - Berg: a<=b<c
     Ast -> InfixOperation:
@@ -421,13 +421,13 @@ EqualPrecedence:
         Left -> Bareword: a
         Operator: <=
         Right -> Bareword: b
-      Operator: <
+      Operator: 1@5 = <
       Right -> Bareword: c
   - Berg: a<b<=c
     Ast -> InfixOperation:
       Left -> InfixOperation:
         Left -> Bareword: a
-        Operator: <
+        Operator: 1@2 = <
         Right -> Bareword: b
       Operator: <=
       Right -> Bareword: c
@@ -453,9 +453,9 @@ EqualPrecedence:
     Ast -> InfixOperation:
       Left -> InfixOperation:
         Left -> Bareword: a
-        Operator: <
+        Operator: 1@2 = <
         Right -> Bareword: b
-      Operator: <
+      Operator: 1@4 = <
       Right -> Bareword: c
   - Berg: a<b>=c
     Ast -> InfixOperation:
@@ -479,9 +479,9 @@ EqualPrecedence:
     Ast -> InfixOperation:
       Left -> InfixOperation:
         Left -> Bareword: a
-        Operator: ">="
+        Operator: 1@2-3 = >=
         Right -> Bareword: b
-      Operator: ">="
+      Operator: 1@5-6 = >=
       Right -> Bareword: c
 
   #
@@ -492,9 +492,9 @@ EqualPrecedence:
     Ast -> InfixOperation:
       Left -> InfixOperation:
         Left -> Bareword: a
-        Operator: "!="
+        Operator: 1@2-3 = !=
         Right -> Bareword: b
-      Operator: "!="
+      Operator: 1@5-6 = !=
       Right -> Bareword: c
   - Berg: a!=b==c
     Ast -> InfixOperation:
@@ -518,9 +518,9 @@ EqualPrecedence:
     Ast -> InfixOperation:
       Left -> InfixOperation:
         Left -> Bareword: a
-        Operator: ==
+        Operator: 1@2-3 = ==
         Right -> Bareword: b
-      Operator: ==
+      Operator: 1@5-6 = ==
       Right -> Bareword: c
 
   #
@@ -557,8 +557,8 @@ EqualPrecedence:
     Ast -> PostfixOperation:
       Left -> PostfixOperation:
         Left -> Bareword: a
-        Operator: "*"
-      Operator: "*"
+        Operator: 1@2 = *
+      Operator: 1@3 = *
   - Berg: a*?
     Ast -> PostfixOperation:
       Left -> PostfixOperation:
@@ -582,9 +582,9 @@ EqualPrecedence:
     Ast -> InfixOperation:
       Left -> InfixOperation:
         Left -> Bareword: a
-        Operator: "&&"
+        Operator: 1@2-3 = &&
         Right -> Bareword: b
-      Operator: "&&"
+      Operator: 1@5-6 = &&
       Right -> Bareword: c
 
   #
@@ -595,9 +595,9 @@ EqualPrecedence:
     Ast -> InfixOperation:
       Left -> InfixOperation:
         Left -> Bareword: a
-        Operator: "??"
+        Operator: 1@2-3 = ??
         Right -> Bareword: b
-      Operator: "??"
+      Operator: 1@5-6 = ??
       Right -> Bareword: c
   - Berg: a??b||c
     Ast -> InfixOperation:
@@ -621,9 +621,9 @@ EqualPrecedence:
     Ast -> InfixOperation:
       Left -> InfixOperation:
         Left -> Bareword: a
-        Operator: "||"
+        Operator: 1@2-3 = ||
         Right -> Bareword: b
-      Operator: "||"
+      Operator: 1@5-6 = ||
       Right -> Bareword: c
 
   #
@@ -633,10 +633,10 @@ EqualPrecedence:
   - Berg: "a:b:c"
     Ast -> InfixOperation:
       Left -> Bareword: a
-      Operator: ":"
+      Operator: "1@2 = :"
       Right -> InfixOperation:
         Left -> Bareword: b
-        Operator: ":"
+        Operator: "1@4 = :"
         Right -> Bareword: c
   - Berg: "a:b-=c"
     Ast -> InfixOperation:
@@ -787,10 +787,10 @@ EqualPrecedence:
   - Berg: a-=b-=c
     Ast -> InfixOperation:
       Left -> Bareword: a
-      Operator: -=
+      Operator: 1@2-3 = -=
       Right -> InfixOperation:
         Left -> Bareword: b
-        Operator: -=
+        Operator: 1@5-6 = -=
         Right -> Bareword: c
   - Berg: a-=b+=c
     Ast -> InfixOperation:
@@ -910,12 +910,12 @@ EqualPrecedence:
       Operator: -=
       Right -> InfixOperation:
         Left -> Bareword: b
-        Operator: =
+        Operator: 1@5 = =
         Right -> Bareword: c
   - Berg: a=b-=c
     Ast -> InfixOperation:
       Left -> Bareword: a
-      Operator: =
+      Operator: 1@2 = =
       Right -> InfixOperation:
         Left -> Bareword: b
         Operator: -=
@@ -925,10 +925,10 @@ EqualPrecedence:
   - Berg: a+=b+=c
     Ast -> InfixOperation:
       Left -> Bareword: a
-      Operator: +=
+      Operator: 1@2-3 = +=
       Right -> InfixOperation:
         Left -> Bareword: b
-        Operator: +=
+        Operator: 1@5-6 = +=
         Right -> Bareword: c
   - Berg: a+=b/=c
     Ast -> InfixOperation:
@@ -1032,12 +1032,12 @@ EqualPrecedence:
       Operator: +=
       Right -> InfixOperation:
         Left -> Bareword: b
-        Operator: =
+        Operator: 1@5 = =
         Right -> Bareword: c
   - Berg: a=b+=c
     Ast -> InfixOperation:
       Left -> Bareword: a
-      Operator: =
+      Operator: 1@2 = =
       Right -> InfixOperation:
         Left -> Bareword: b
         Operator: +=
@@ -1047,10 +1047,10 @@ EqualPrecedence:
   - Berg: a/=b/=c
     Ast -> InfixOperation:
       Left -> Bareword: a
-      Operator: /=
+      Operator: 1@2-3 = /=
       Right -> InfixOperation:
         Left -> Bareword: b
-        Operator: /=
+        Operator: 1@5-6 = /=
         Right -> Bareword: c
   - Berg: a/=b%=c
     Ast -> InfixOperation:
@@ -1138,12 +1138,12 @@ EqualPrecedence:
       Operator: /=
       Right -> InfixOperation:
         Left -> Bareword: b
-        Operator: =
+        Operator: 1@5 = =
         Right -> Bareword: c
   - Berg: a=b/=c
     Ast -> InfixOperation:
       Left -> Bareword: a
-      Operator: =
+      Operator: 1@2 = =
       Right -> InfixOperation:
         Left -> Bareword: b
         Operator: /=
@@ -1153,10 +1153,10 @@ EqualPrecedence:
   - Berg: a%=b%=c
     Ast -> InfixOperation:
       Left -> Bareword: a
-      Operator: "%="
+      Operator: 1@2-3 = %=
       Right -> InfixOperation:
         Left -> Bareword: b
-        Operator: "%="
+        Operator: 1@5-6 = %=
         Right -> Bareword: c
   - Berg: a%=b*=c
     Ast -> InfixOperation:
@@ -1228,12 +1228,12 @@ EqualPrecedence:
       Operator: "%="
       Right -> InfixOperation:
         Left -> Bareword: b
-        Operator: =
+        Operator: 1@5 = =
         Right -> Bareword: c
   - Berg: a=b%=c
     Ast -> InfixOperation:
       Left -> Bareword: a
-      Operator: =
+      Operator: 1@2 = =
       Right -> InfixOperation:
         Left -> Bareword: b
         Operator: "%="
@@ -1243,10 +1243,10 @@ EqualPrecedence:
   - Berg: a*=b*=c
     Ast -> InfixOperation:
       Left -> Bareword: a
-      Operator: "*="
+      Operator: 1@2-3 = *=
       Right -> InfixOperation:
         Left -> Bareword: b
-        Operator: "*="
+        Operator: 1@5-6 = *=
         Right -> Bareword: c
   - Berg: a*=b&&=c
     Ast -> InfixOperation:
@@ -1302,12 +1302,12 @@ EqualPrecedence:
       Operator: "*="
       Right -> InfixOperation:
         Left -> Bareword: b
-        Operator: =
+        Operator: 1@5 = =
         Right -> Bareword: c
   - Berg: a=b*=c
     Ast -> InfixOperation:
       Left -> Bareword: a
-      Operator: =
+      Operator: 1@2 = =
       Right -> InfixOperation:
         Left -> Bareword: b
         Operator: "*="
@@ -1317,10 +1317,10 @@ EqualPrecedence:
   - Berg: a&&=b&&=c
     Ast -> InfixOperation:
       Left -> Bareword: a
-      Operator: "&&="
+      Operator: 1@2-4 = &&=
       Right -> InfixOperation:
         Left -> Bareword: b
-        Operator: "&&="
+        Operator: 1@6-8 = &&=
         Right -> Bareword: c
   - Berg: a&&=b||=c
     Ast -> InfixOperation:
@@ -1360,12 +1360,12 @@ EqualPrecedence:
       Operator: "&&="
       Right -> InfixOperation:
         Left -> Bareword: b
-        Operator: =
+        Operator: 1@6 = =
         Right -> Bareword: c
   - Berg: a=b&&=c
     Ast -> InfixOperation:
       Left -> Bareword: a
-      Operator: =
+      Operator: 1@2 = =
       Right -> InfixOperation:
         Left -> Bareword: b
         Operator: "&&="
@@ -1375,10 +1375,10 @@ EqualPrecedence:
   - Berg: a||=b||=c
     Ast -> InfixOperation:
       Left -> Bareword: a
-      Operator: "||="
+      Operator: 1@2-4 = ||=
       Right -> InfixOperation:
         Left -> Bareword: b
-        Operator: "||="
+        Operator: 1@6-8 = ||=
         Right -> Bareword: c
   - Berg: a||=b??=c
     Ast -> InfixOperation:
@@ -1402,12 +1402,12 @@ EqualPrecedence:
       Operator: "||="
       Right -> InfixOperation:
         Left -> Bareword: b
-        Operator: =
+        Operator: 1@6 = =
         Right -> Bareword: c
   - Berg: a=b||=c
     Ast -> InfixOperation:
       Left -> Bareword: a
-      Operator: =
+      Operator: 1@2 = =
       Right -> InfixOperation:
         Left -> Bareword: b
         Operator: "||="
@@ -1417,10 +1417,10 @@ EqualPrecedence:
   - Berg: a??=b??=c
     Ast -> InfixOperation:
       Left -> Bareword: a
-      Operator: "??="
+      Operator: 1@2-4 = ??=
       Right -> InfixOperation:
         Left -> Bareword: b
-        Operator: "??="
+        Operator: 1@6-8 = ??=
         Right -> Bareword: c
   - Berg: a??=b=c
     Ast -> InfixOperation:
@@ -1428,12 +1428,12 @@ EqualPrecedence:
       Operator: "??="
       Right -> InfixOperation:
         Left -> Bareword: b
-        Operator: =
+        Operator: 1@6 = =
         Right -> Bareword: c
   - Berg: a=b??=c
     Ast -> InfixOperation:
       Left -> Bareword: a
-      Operator: =
+      Operator: 1@2 = =
       Right -> InfixOperation:
         Left -> Bareword: b
         Operator: "??="
@@ -1443,10 +1443,10 @@ EqualPrecedence:
   - Berg: a=b=c
     Ast -> InfixOperation:
       Left -> Bareword: a
-      Operator: =
+      Operator: 1@2 = =
       Right -> InfixOperation:
         Left -> Bareword: b
-        Operator: =
+        Operator: 1@4 = =
         Right -> Bareword: c
 
   #
@@ -1457,9 +1457,9 @@ EqualPrecedence:
     Ast -> InfixOperation:
       Left -> InfixOperation:
         Left -> Bareword: a
-        Operator: ","
+        Operator: 1@2 = ,
         Right -> Bareword: b
-      Operator: ","
+      Operator: 1@4 = ,
       Right -> Bareword: c
 
   #
@@ -1470,9 +1470,9 @@ EqualPrecedence:
     Ast -> InfixOperation:
       Left -> InfixOperation:
         Left -> Bareword: a
-        Operator: "&"
+        Operator: 1@2 = &
         Right -> Bareword: b
-      Operator: "&"
+      Operator: 1@4 = &
       Right -> Bareword: c
 
   #
@@ -1483,9 +1483,9 @@ EqualPrecedence:
     Ast -> InfixOperation:
       Left -> InfixOperation:
         Left -> Bareword: a
-        Operator: "|"
+        Operator: 1@2 = |
         Right -> Bareword: b
-      Operator: "|"
+      Operator: 1@4 = |
       Right -> Bareword: c
 
   #
@@ -1496,9 +1496,9 @@ EqualPrecedence:
     Ast -> InfixOperation:
       Left -> InfixOperation:
         Left -> Bareword: a
-        Operator: " "
+        Operator: "1@2 =  "
         Right -> Bareword: b
-      Operator: " "
+      Operator: "1@4 =  "
       Right -> Bareword: c
 
   #
@@ -1509,9 +1509,9 @@ EqualPrecedence:
     Ast -> InfixOperation:
       Left -> InfixOperation:
         Left -> Bareword: a
-        Operator: "\n"
+        Operator: "1@2 = \n"
         Right -> Bareword: b
-      Operator: "\n"
+      Operator: "2@2 = \n"
       Right -> Bareword: c
   - Berg: "a\nb;c"
     Ast -> InfixOperation:
@@ -1535,9 +1535,9 @@ EqualPrecedence:
     Ast -> InfixOperation:
       Left -> InfixOperation:
         Left -> Bareword: a
-        Operator: ;
+        Operator: 1@2 = ;
         Right -> Bareword: b
-      Operator: ;
+      Operator: 1@4 = ;
       Right -> Bareword: c
 
   #
@@ -1546,12 +1546,12 @@ EqualPrecedence:
   # start_delimiter.{
   - Berg: "{{a}}"
     Ast -> DelimitedOperation:
-      StartDelimiter: "{"
+      StartDelimiter: 1@1 = {
       Expression -> DelimitedOperation:
-        StartDelimiter: "{"
+        StartDelimiter: 1@2 = {
         Expression -> Bareword: a
-        EndDelimiter: "}"
-      EndDelimiter: "}"
+        EndDelimiter: 1@4 = }
+      EndDelimiter: 1@5 = }
   - Berg: "{a}:\n  b"
     Ast -> InfixOperation:
       Left -> DelimitedOperation:
@@ -1560,20 +1560,20 @@ EqualPrecedence:
         EndDelimiter: "}"
       Operator: ":"
       Right -> DelimitedOperation:
-        StartDelimiter: "  "
+        StartDelimiter: "1@5+0 = "
         Expression -> Bareword: b
-        EndDelimiter: ""
+        EndDelimiter: "2@4+0 = "
   - Berg: "a:\n  {b}"
     Ast -> InfixOperation:
       Left -> Bareword: a
       Operator: ":"
       Right -> DelimitedOperation:
-        StartDelimiter: "  "
+        StartDelimiter: "1@3+0 = "
         Expression -> DelimitedOperation:
           StartDelimiter: "{"
           Expression -> Bareword: b
           EndDelimiter: "}"
-        EndDelimiter: ""
+        EndDelimiter: "2@6+0 = "
   - Berg: "{a:\n  b}"
     Ast -> DelimitedOperation:
       StartDelimiter: "{"
@@ -1581,7 +1581,7 @@ EqualPrecedence:
         Left -> Bareword: a
         Operator: ":"
         Right -> DelimitedOperation:
-          StartDelimiter: "  "
+          StartDelimiter: "1@4+0 = "
           Expression -> Bareword: b
           EndDelimiter: "}"
       EndDelimiter: "}"
@@ -1606,17 +1606,17 @@ EqualPrecedence:
   - Berg: "a:\n  b:\n    c"
     Ast -> InfixOperation:
       Left -> Bareword: a
-      Operator: ":"
+      Operator: "1@2 = :"
       Right -> DelimitedOperation:
-        StartDelimiter: "  "
+        StartDelimiter: "1@3+0 = "
         Expression -> InfixOperation:
           Left -> Bareword: b
-          Operator: ":"
+          Operator: "2@4 = :"
           Right -> DelimitedOperation:
-            StartDelimiter: "    "
+            StartDelimiter: "2@5+0 = "
             Expression -> Bareword: c
-            EndDelimiter: ""
-        EndDelimiter: ""
+            EndDelimiter: "3@6+0 = "
+        EndDelimiter: "3@6+0 = "
   - Berg: "(a):\n  b"
     Ast -> InfixOperation:
       Left -> DelimitedOperation:
@@ -1625,20 +1625,20 @@ EqualPrecedence:
         EndDelimiter: )
       Operator: ":"
       Right -> DelimitedOperation:
-        StartDelimiter: "  "
+        StartDelimiter: "1@5+0 = "
         Expression -> Bareword: b
-        EndDelimiter: ""
+        EndDelimiter: "2@4+0 = "
   - Berg: "a:\n  (b)"
     Ast -> InfixOperation:
       Left -> Bareword: a
       Operator: ":"
       Right -> DelimitedOperation:
-        StartDelimiter: "  "
+        StartDelimiter: "1@3+0 = "
         Expression -> DelimitedOperation:
           StartDelimiter: (
           Expression -> Bareword: b
           EndDelimiter: )
-        EndDelimiter: ""
+        EndDelimiter: "2@6+0 = "
   - Berg: "(a:\n  b)"
     Ast -> DelimitedOperation:
       StartDelimiter: (
@@ -1646,7 +1646,7 @@ EqualPrecedence:
         Left -> Bareword: a
         Operator: ":"
         Right -> DelimitedOperation:
-          StartDelimiter: "  "
+          StartDelimiter: "1@4+0 = "
           Expression -> Bareword: b
           EndDelimiter: )
       EndDelimiter: )
@@ -1654,10 +1654,10 @@ EqualPrecedence:
   # start_delimiter.(
   - Berg: ((a))
     Ast -> DelimitedOperation:
-      StartDelimiter: (
+      StartDelimiter: 1@1 = (
       Expression -> DelimitedOperation:
-        StartDelimiter: (
+        StartDelimiter: 1@2 = (
         Expression -> Bareword: a
-        EndDelimiter: )
-      EndDelimiter: )
+        EndDelimiter: 1@4 = )
+      EndDelimiter: 1@5 = )
 

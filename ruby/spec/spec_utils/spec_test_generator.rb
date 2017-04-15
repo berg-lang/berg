@@ -24,7 +24,6 @@ module SpecUtils
                     if File.directory?(child_path)
                         generate_tests_from_path(child_path)
                     elsif File.extname(child_path) == ".yaml"
-                        next if filename == "OperatorMissingExpressions.yaml"
                         test_spec = YAML.load(IO.read(child_path), child_path)
                         context File.basename(child_path[0..-6]) do
                             generate_tests_from_spec(test_spec)
