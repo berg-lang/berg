@@ -1,0 +1,362 @@
+NestedIndent:
+  Normal:
+    - Berg: |
+        OuterA:
+          MiddleA:
+            InnerA: 1
+      Ast:
+        Left: OuterA
+        Operator: ":"
+        Right:
+          Expression:
+            Left: MiddleA
+            Operator: ":"
+            Right: { Expression: "InnerA: 1" }
+  Multiple:
+    - Berg: |
+        OuterA: 1
+        OuterB:
+          MiddleA: 2
+          MiddleB:
+            InnerA: 3
+            InnerB:
+              4
+              5
+      Ast:
+        Left: "OuterA: 1"
+        Operator: "\n"
+        Right:
+          Left: OuterB
+          Operator: ":"
+          Right:
+            Expression:
+              Left: "MiddleA: 2"
+              Operator: "\n"
+              Right:
+                Left: MiddleB
+                Operator: ":"
+                Right:
+                  Expression:
+                    Left: "InnerA: 3"
+                    Operator: "\n"
+                    Right:
+                      Left: InnerB
+                      Operator: ":"
+                      Right:
+                        Expression:
+                          Left: "4"
+                          Operator: "\n"
+                          Right: "5"
+
+  Empty:
+    - Berg: |
+        OuterA:
+          MiddleA:
+            InnerA:
+      Ast:
+        Left: OuterA
+        Operator: ":"
+        Right:
+          Expression:
+            Left: MiddleA
+            Operator: ":"
+            Right:
+              Expression:
+                Left: InnerA
+                Operator: ":"
+                Right:
+                  Expression -> EmptyExpression: ""
+
+  JaggedRight:
+    - Berg: |
+        OuterA:
+          MiddleA: 1
+            MiddleB: 2
+      Ast:
+        Left: OuterA
+        Operator: ":"
+        Right:
+          Expression:
+            Left: "MiddleA: 1"
+            Operator: "\n"
+            Right: "MiddleB: 2"
+
+  JaggedLeft:
+    - Berg: |
+        OuterA:
+          MiddleA: 1
+         MiddleB: 2
+      Ast:
+        Left: OuterA
+        Operator: ":"
+        Right:
+          Expression:
+            Left: "MiddleA: 1"
+            Operator: "\n"
+            Right: "MiddleB: 2"
+
+Undent:
+  ToMiddle:
+    - Berg: |
+        OuterA:
+          MiddleA:
+            InnerA:
+              1
+          MiddleB: 2
+      Ast:
+        Left: OuterA
+        Operator: ":"
+        Right:
+          Expression:
+            Left:
+              Left: MiddleA
+              Operator: ":"
+              Right:
+                Expression:
+                  Left: InnerA
+                  Operator: ":"
+                  Right:
+                    Expression: "1"
+            Operator: "\n"
+            Right: "MiddleB: 2"
+    - Berg: |
+        OuterA:
+          MiddleA:
+            InnerA:
+          MiddleB: 2
+      Ast:
+        Left: OuterA
+        Operator: ":"
+        Right:
+          Expression:
+            Left:
+              Left: MiddleA
+              Operator: ":"
+              Right:
+                Expression:
+                  Left: InnerA
+                  Operator: ":"
+                  Right:
+                    Expression -> EmptyExpression: ""
+            Operator: "\n"
+            Right: "MiddleB: 2"
+
+  ToMiddleJagged:
+    - Berg: |
+        OuterA:
+          MiddleA:
+            InnerA:
+              1
+         MiddleB: 2
+      Ast:
+        Left: OuterA
+        Operator: ":"
+        Right:
+          Expression:
+            Left:
+              Left: MiddleA
+              Operator: ":"
+              Right:
+                Expression:
+                  Left: InnerA
+                  Operator: ":"
+                  Right:
+                    Expression: "1"
+            Operator: "\n"
+            Right: "MiddleB: 2"
+
+  ToOuter:
+    - Berg: |
+        OuterA:
+          MiddleA:
+            InnerA:
+              1
+        OuterB: 2
+      Ast:
+        Left:
+          Left: OuterA
+          Operator: ":"
+          Right:
+            Expression:
+              Left: MiddleA
+              Operator: ":"
+              Right:
+                Expression:
+                  Left: InnerA
+                  Operator: ":"
+                  Right:
+                    Expression: "1"
+        Operator: "\n"
+        Right: "OuterB: 2"
+    - Berg: |
+        OuterA:
+          MiddleA:
+            InnerA:
+        OuterB: 2
+      Ast:
+        Left:
+          Left: OuterA
+          Operator: ":"
+          Right:
+            Expression:
+              Left: MiddleA
+              Operator: ":"
+              Right:
+                Expression:
+                  Left: InnerA
+                  Operator: ":"
+                  Right:
+                    Expression -> EmptyExpression: ""
+        Operator: "\n"
+        Right: "OuterB: 2"
+
+  ToOuterJagged:
+    - Berg: |
+        # Going to indent OuterA a wee bit here:
+         OuterA:
+           MiddleA:
+             InnerA:
+              1
+        OuterB: 2
+      Ast:
+        Left:
+          Left: OuterA
+          Operator: ":"
+          Right:
+            Expression:
+              Left: MiddleA
+              Operator: ":"
+              Right:
+                Expression:
+                  Left: InnerA
+                  Operator: ":"
+                  Right:
+                    Expression: "1"
+        Operator: "\n"
+        Right: "OuterB: 2"
+
+Tabs:
+  - Berg: "OuterA:\n\tMiddleA:\n\t\t1\n\t\t2\nOuterB: 3"
+    Ast:
+      Left:
+        Left: OuterA
+        Operator: ":"
+        Right:
+          Expression:
+            Left: MiddleA
+            Operator: ":"
+            Right:
+              Expression:
+                Left: "1"
+                Operator: "\n"
+                Right: "2"
+      Operator: "\n"
+      Right: "OuterB: 3"
+
+TabsAndSpaces:
+  - Berg: "OuterA:\n \tMiddleA:\n \t  1\n \t  2\nOuterB: 3"
+    Ast:
+      Left:
+        Left: OuterA
+        Operator: ":"
+        Right:
+          Expression:
+            Left: MiddleA
+            Operator: ":"
+            Right:
+              Expression:
+                Left: "1"
+                Operator: "\n"
+                Right: "2"
+      Operator: "\n"
+      Right: "OuterB: 3"
+  - Berg: "OuterA:\n \tMiddleA:\n \t  1\n \t 2\nOuterB: 3"
+    Ast:
+      Left:
+        Left: OuterA
+        Operator: ":"
+        Right:
+          Expression:
+            Left: MiddleA
+            Operator: ":"
+            Right:
+              Expression:
+                Left: "1"
+                Operator: "\n"
+                Right: "2"
+      Operator: "\n"
+      Right: "OuterB: 3"
+  - Berg: "OuterA:\n \tMiddleA:\n \t  1\n \t  \t2\nOuterB: 3"
+    Ast:
+      Left:
+        Left: OuterA
+        Operator: ":"
+        Right:
+          Expression:
+            Left: MiddleA
+            Operator: ":"
+            Right:
+              Expression:
+                Left: "1"
+                Operator: "\n"
+                Right: "2"
+      Operator: "\n"
+      Right: "OuterB: 3"
+
+EmptyLines:
+  Multiple:
+    - Berg: |
+        OuterA: 1
+
+        # hi there
+
+        OuterB:
+        # hi again
+          MiddleA: 2
+        # hi a third time
+
+          MiddleB:
+               # hi a fourth time
+            InnerA: 3
+                 
+            InnerB:
+
+              4
+
+        # woo
+
+              5
+
+      Ast:
+        Left: "OuterA: 1"
+        Operator: "\n"
+        Right:
+          Left: OuterB
+          Operator: ":"
+          Right:
+            Expression:
+              Left: "MiddleA: 2"
+              Operator: "\n"
+              Right:
+                Left: MiddleB
+                Operator: ":"
+                Right:
+                  Expression:
+                    Left: "InnerA: 3"
+                    Operator: "\n"
+                    Right:
+                      Left: InnerB
+                      Operator: ":"
+                      Right:
+                        Expression:
+                          Left: "4"
+                          Operator: "\n"
+                          Right: "5"
+
+# EmptyTrailingSpace:
+# MultipleLeadingExpressions:
+
+# Errors:
+#   MismatchedIndent:
+#   MismatchedUndent:
+

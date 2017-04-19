@@ -219,7 +219,7 @@ BasicOperators:
       Operator: "??="
       Right -> Bareword: b
 
-  # [ ",", { string: ",", type: :postfix, can_be_sticky: false } ],,
+  # [ ",", { string: ",", type: :postfix, can_be_sticky: false } ],
   - Berg: a,b
     Ast -> InfixOperation:
       $Term: a,b
@@ -256,7 +256,7 @@ BasicOperators:
       Operator: " "
       Right -> Bareword: b
 
-  # [ "\n ;", { string: ";", type: :postfix, can_be_sticky: false } ],,
+  # [ "\n ;", { string: ";", type: :postfix, can_be_sticky: false } ],
   - Berg: "a\nb"
     Ast -> InfixOperation:
       $Term: "a\nb"
@@ -530,7 +530,7 @@ OperatorsSeparatedBySpace:
       Operator: "??="
       Right -> Bareword: b
 
-  # [ ",", { string: ",", type: :postfix, can_be_sticky: false } ],,
+  # [ ",", { string: ",", type: :postfix, can_be_sticky: false } ],
   - Berg: a , b
     Ast -> InfixOperation:
       $Term: a , b

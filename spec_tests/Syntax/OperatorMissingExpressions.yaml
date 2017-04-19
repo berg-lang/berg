@@ -1,0 +1,242 @@
+OperatorMissingExpressions:
+
+  - Berg: a.
+    Error: "Missing a value on the right side of \".\". Perhaps you closed the file earlier than intended, or didn't mean to put the \".\" there at all?"
+  - Berg: .b
+    Error: "Missing a value on the left side of \".\". Did you mean for the \".\" to be there?"
+  - Berg: "."
+    Error: "Missing a value on the left side of \".\". Did you mean for the \".\" to be there?"
+
+
+
+  - Berg: +
+    Error: "Missing a value on the right side of \"+\". Perhaps you closed the file earlier than intended, or didn't mean to put the \"+\" there at all?"
+
+  - Berg: "-"
+    Error: "Missing a value on the right side of \"-\". Perhaps you closed the file earlier than intended, or didn't mean to put the \"-\" there at all?"
+
+  - Berg: ++
+    Error: "Missing a value on the right side of \"++\". Perhaps you closed the file earlier than intended, or didn't mean to put the \"++\" there at all?"
+
+  - Berg: "!"
+    Error: "Missing a value on the right side of \"!\". Perhaps you closed the file earlier than intended, or didn't mean to put the \"!\" there at all?"
+
+  - Berg: --
+    Error: "Missing a value on the right side of \"--\". Perhaps you closed the file earlier than intended, or didn't mean to put the \"--\" there at all?"
+
+  - Berg: a/
+    Error: "Missing a value on the right side of \"/\". Perhaps you closed the file earlier than intended, or didn't mean to put the \"/\" there at all?"
+  - Berg: /b
+    Error: "Missing a value on the left side of \"/\". Did you mean for the \"/\" to be there?"
+  - Berg: /
+    Error: "Missing a value on the left side of \"/\". Did you mean for the \"/\" to be there?"
+
+  - Berg: a%
+    Error: "Missing a value on the right side of \"%\". Perhaps you closed the file earlier than intended, or didn't mean to put the \"%\" there at all?"
+  - Berg: "%b"
+    Error: "Missing a value on the left side of \"%\". Did you mean for the \"%\" to be there?"
+  - Berg: "%"
+    Error: "Missing a value on the left side of \"%\". Did you mean for the \"%\" to be there?"
+
+  - Berg: "*b"
+    Error: "Missing a value on the left side of \"*\". Did you mean for the \"*\" to be there?"
+  - Berg: "*"
+    Error: "Missing a value on the left side of \"*\". Did you mean for the \"*\" to be there?"
+
+  - Berg: a-
+    Error: "Missing a value on the right side of \"-\". Perhaps you closed the file earlier than intended, or didn't mean to put the \"-\" there at all?"
+
+
+  - Berg: a>
+    Error: "Missing a value on the right side of \">\". Perhaps you closed the file earlier than intended, or didn't mean to put the \">\" there at all?"
+  - Berg: ">b"
+    Error: "Missing a value on the left side of \">\". Did you mean for the \">\" to be there?"
+  - Berg: ">"
+    Error: "Missing a value on the left side of \">\". Did you mean for the \">\" to be there?"
+
+  - Berg: a<=
+    Error: "Missing a value on the right side of \"<=\". Perhaps you closed the file earlier than intended, or didn't mean to put the \"<=\" there at all?"
+  - Berg: <=b
+    Error: "Missing a value on the left side of \"<=\". Did you mean for the \"<=\" to be there?"
+  - Berg: <=
+    Error: "Missing a value on the left side of \"<=\". Did you mean for the \"<=\" to be there?"
+
+  - Berg: a<
+    Error: "Missing a value on the right side of \"<\". Perhaps you closed the file earlier than intended, or didn't mean to put the \"<\" there at all?"
+  - Berg: <b
+    Error: "Missing a value on the left side of \"<\". Did you mean for the \"<\" to be there?"
+  - Berg: <
+    Error: "Missing a value on the left side of \"<\". Did you mean for the \"<\" to be there?"
+
+  - Berg: a>=
+    Error: "Missing a value on the right side of \">=\". Perhaps you closed the file earlier than intended, or didn't mean to put the \">=\" there at all?"
+  - Berg: ">=b"
+    Error: "Missing a value on the left side of \">=\". Did you mean for the \">=\" to be there?"
+  - Berg: ">="
+    Error: "Missing a value on the left side of \">=\". Did you mean for the \">=\" to be there?"
+
+  - Berg: a==
+    Error: "Missing a value on the right side of \"==\". Perhaps you closed the file earlier than intended, or didn't mean to put the \"==\" there at all?"
+  - Berg: ==b
+    Error: "Missing a value on the left side of \"==\". Did you mean for the \"==\" to be there?"
+  - Berg: ==
+    Error: "Missing a value on the left side of \"==\". Did you mean for the \"==\" to be there?"
+
+  - Berg: a!=
+    Error: "Missing a value on the right side of \"!=\". Perhaps you closed the file earlier than intended, or didn't mean to put the \"!=\" there at all?"
+  - Berg: "!=b"
+    Error: "Missing a value on the left side of \"!=\". Did you mean for the \"!=\" to be there?"
+  - Berg: "!="
+    Error: "Missing a value on the left side of \"!=\". Did you mean for the \"!=\" to be there?"
+
+  - Berg: "?"
+    Error: "Missing a value on the left side of \"?\". Did you mean for the \"?\" to be there?"
+
+  - Berg: "*"
+    Error: "Missing a value on the left side of \"*\". Did you mean for the \"*\" to be there?"
+
+
+  - Berg: a&&
+    Error: "Missing a value on the right side of \"&&\". Perhaps you closed the file earlier than intended, or didn't mean to put the \"&&\" there at all?"
+  - Berg: "&&b"
+    Error: "Missing a value on the left side of \"&&\". Did you mean for the \"&&\" to be there?"
+  - Berg: "&&"
+    Error: "Missing a value on the left side of \"&&\". Did you mean for the \"&&\" to be there?"
+
+  - Berg: a??
+    Error: "Missing a value on the right side of \"??\". Perhaps you closed the file earlier than intended, or didn't mean to put the \"??\" there at all?"
+  - Berg: "??b"
+    Error: "Missing a value on the left side of \"??\". Did you mean for the \"??\" to be there?"
+  - Berg: "??"
+    Error: "Missing a value on the left side of \"??\". Did you mean for the \"??\" to be there?"
+
+  - Berg: a||
+    Error: "Missing a value on the right side of \"||\". Perhaps you closed the file earlier than intended, or didn't mean to put the \"||\" there at all?"
+  - Berg: "||b"
+    Error: "Missing a value on the left side of \"||\". Did you mean for the \"||\" to be there?"
+  - Berg: "||"
+    Error: "Missing a value on the left side of \"||\". Did you mean for the \"||\" to be there?"
+
+  - Berg: a??=
+    Error: "Missing a value on the right side of \"??=\". Perhaps you closed the file earlier than intended, or didn't mean to put the \"??=\" there at all?"
+  - Berg: "??=b"
+    Error: "Missing a value on the left side of \"??=\". Did you mean for the \"??=\" to be there?"
+  - Berg: "??="
+    Error: "Missing a value on the left side of \"??=\". Did you mean for the \"??=\" to be there?"
+
+  - Berg: a=
+    Error: "Missing a value on the right side of \"=\". Perhaps you closed the file earlier than intended, or didn't mean to put the \"=\" there at all?"
+  - Berg: =b
+    Error: "Missing a value on the left side of \"=\". Did you mean for the \"=\" to be there?"
+  - Berg: =
+    Error: "Missing a value on the left side of \"=\". Did you mean for the \"=\" to be there?"
+
+  - Berg: ":b"
+    Error: "Missing a value on the left side of \":\". Did you mean for the \":\" to be there?"
+  - Berg: ":"
+    Error: "Missing a value on the left side of \":\". Did you mean for the \":\" to be there?"
+
+  - Berg: a-=
+    Error: "Missing a value on the right side of \"-=\". Perhaps you closed the file earlier than intended, or didn't mean to put the \"-=\" there at all?"
+  - Berg: -=b
+    Error: "Missing a value on the left side of \"-=\". Did you mean for the \"-=\" to be there?"
+  - Berg: -=
+    Error: "Missing a value on the left side of \"-=\". Did you mean for the \"-=\" to be there?"
+
+  - Berg: a+=
+    Error: "Missing a value on the right side of \"+=\". Perhaps you closed the file earlier than intended, or didn't mean to put the \"+=\" there at all?"
+  - Berg: +=b
+    Error: "Missing a value on the left side of \"+=\". Did you mean for the \"+=\" to be there?"
+  - Berg: +=
+    Error: "Missing a value on the left side of \"+=\". Did you mean for the \"+=\" to be there?"
+
+  - Berg: a/=
+    Error: "Missing a value on the right side of \"/=\". Perhaps you closed the file earlier than intended, or didn't mean to put the \"/=\" there at all?"
+  - Berg: /=b
+    Error: "Missing a value on the left side of \"/=\". Did you mean for the \"/=\" to be there?"
+  - Berg: /=
+    Error: "Missing a value on the left side of \"/=\". Did you mean for the \"/=\" to be there?"
+
+  - Berg: a||=
+    Error: "Missing a value on the right side of \"||=\". Perhaps you closed the file earlier than intended, or didn't mean to put the \"||=\" there at all?"
+  - Berg: "||=b"
+    Error: "Missing a value on the left side of \"||=\". Did you mean for the \"||=\" to be there?"
+  - Berg: "||="
+    Error: "Missing a value on the left side of \"||=\". Did you mean for the \"||=\" to be there?"
+
+  - Berg: a*=
+    Error: "Missing a value on the right side of \"*=\". Perhaps you closed the file earlier than intended, or didn't mean to put the \"*=\" there at all?"
+  - Berg: "*=b"
+    Error: "Missing a value on the left side of \"*=\". Did you mean for the \"*=\" to be there?"
+  - Berg: "*="
+    Error: "Missing a value on the left side of \"*=\". Did you mean for the \"*=\" to be there?"
+
+  - Berg: a&&=
+    Error: "Missing a value on the right side of \"&&=\". Perhaps you closed the file earlier than intended, or didn't mean to put the \"&&=\" there at all?"
+  - Berg: "&&=b"
+    Error: "Missing a value on the left side of \"&&=\". Did you mean for the \"&&=\" to be there?"
+  - Berg: "&&="
+    Error: "Missing a value on the left side of \"&&=\". Did you mean for the \"&&=\" to be there?"
+
+  - Berg: a%=
+    Error: "Missing a value on the right side of \"%=\". Perhaps you closed the file earlier than intended, or didn't mean to put the \"%=\" there at all?"
+  - Berg: "%=b"
+    Error: "Missing a value on the left side of \"%=\". Did you mean for the \"%=\" to be there?"
+  - Berg: "%="
+    Error: "Missing a value on the left side of \"%=\". Did you mean for the \"%=\" to be there?"
+
+  - Berg: ",b"
+    Error: "Missing a value on the left side of \",\". Did you mean for the \",\" to be there?"
+  - Berg: ","
+    Error: "Missing a value on the left side of \",\". Did you mean for the \",\" to be there?"
+
+  - Berg: ","
+    Error: "Missing a value on the left side of \",\". Did you mean for the \",\" to be there?"
+
+  - Berg: a&
+    Error: "Missing a value on the right side of \"&\". Perhaps you closed the file earlier than intended, or didn't mean to put the \"&\" there at all?"
+  - Berg: "&b"
+    Error: "Missing a value on the left side of \"&\". Did you mean for the \"&\" to be there?"
+  - Berg: "&"
+    Error: "Missing a value on the left side of \"&\". Did you mean for the \"&\" to be there?"
+
+  - Berg: a|
+    Error: "Missing a value on the right side of \"|\". Perhaps you closed the file earlier than intended, or didn't mean to put the \"|\" there at all?"
+  - Berg: "|b"
+    Error: "Missing a value on the left side of \"|\". Did you mean for the \"|\" to be there?"
+  - Berg: "|"
+    Error: "Missing a value on the left side of \"|\". Did you mean for the \"|\" to be there?"
+
+
+  - Berg: ;b
+    Error: "Missing a value on the left side of \";\". Did you mean for the \";\" to be there?"
+  - Berg: ;
+    Error: "Missing a value on the left side of \";\". Did you mean for the \";\" to be there?"
+
+
+  - Berg: ;
+    Error: "Missing a value on the left side of \";\". Did you mean for the \";\" to be there?"
+
+  - Berg: "{}"
+    Ast -> DelimitedOperation:
+      Open: "{"
+      Expression -> EmptyExpression: "1@2+0 = "
+      Close: "}"
+
+  - Berg: "a:\n"
+    Ast -> InfixOperation:
+      Left -> Bareword: a
+      Operator: ":"
+      Right -> DelimitedOperation:
+        Expression -> EmptyExpression: "1@3+0 = "
+  - Berg: ":\n  b"
+    Error: "Missing a value on the left side of \":\". Did you mean for the \":\" to be there?"
+  - Berg: ":\n"
+    Error: "Missing a value on the left side of \":\". Did you mean for the \":\" to be there?"
+
+  - Berg: ()
+    Ast -> DelimitedOperation:
+      Open: (
+      Expression -> EmptyExpression: "1@2+0 = "
+      Close: )
+
