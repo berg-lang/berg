@@ -72,19 +72,25 @@ module SpecUtils
         end
 
         def generate_ast_tests(property_path, expected_type, expected_value, test_spec)
-            expected_range, expected_term = parse_range(expected_value || "", create_source(test_spec))
+            ast_tests = ast_test_specs(property_path, expected_type, expected_value, test_spec)
+            test_descriptions = ast_tests.map do |property_path, expected_type, expected_range, expected_term|
+                property_description = [ "Ast", *property_path ].join(".")
 
-            if expected_type || expected_term || expected_range
-                property_description = " property #{property_path.join(".")}" if property_path.any?
+                descriptions = []
+                descriptions << "a #{expected_type}" if expected_type
+                descriptions << "\"#{expected_term}\"" if expected_term
+                descriptions << " at #{to_range_string(expected_range)}" if expected_range
+                if descriptions.any?
+                    "#{property_description} is #{descriptions.join(" ")}"
+                end
+            end
 
-                test_descriptions = []
-                test_descriptions << "is #{expected_type}" if expected_type
-                test_descriptions << "has string \"#{expected_term}\"" if expected_term
-                test_descriptions << "has row/column range #{to_range_string(expected_range)}" if expected_range
-
-                it "When Berg source is #{source_description(test_spec)}, the parsed expression#{property_description} #{english_join(test_descriptions, "and")}" do
-                    # Parse.
-                    expression = parse_expression(test_spec)
+            it "When Berg source is #{source_description(test_spec)}, #{english_join(test_descriptions, "and")}" do
+                # Parse.
+                parsed_expression = parse_expression(test_spec)
+                ast_tests.each do |property_path, expected_type, expected_range, expected_term|
+                    
+                    expression = parsed_expression
                     property_path.each do |property_name|
                         expression = expression.send(to_snake_case(property_name))
                     end
@@ -104,15 +110,23 @@ module SpecUtils
                     end
                 end
             end
+        end
+
+        # Gather all desired tests, recursively
+        def ast_test_specs(property_path, expected_type, expected_value, test_spec)
+            expected_range, expected_term = parse_range(expected_value || "", create_source(test_spec))
+            results = []
+            results << [ property_path, expected_type, expected_range, expected_term ]
 
             # Recurse to child properties
             if expected_value.is_a?(Hash)
                 expected_value.each do |key, expected_property_value|
                     child_property_name, expected_property_type = key.split(/\s*->\s*/, 2)
                     next if %w($Range $Term).include?(child_property_name)
-                    generate_ast_tests(property_path + [ child_property_name ], expected_property_type, expected_property_value, test_spec)
+                    results += ast_test_specs(property_path + [ child_property_name ], expected_property_type, expected_property_value, test_spec)
                 end
             end
+            results
         end
 
         def generate_error_tests(error_spec, test_spec)
