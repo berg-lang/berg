@@ -219,13 +219,18 @@ BasicOperators:
       Operator: "??="
       Right -> Bareword: b
 
-  # ",",
+  # [ ",", { string: ",", type: :postfix, can_be_sticky: false } ],,
   - Berg: a,b
     Ast -> InfixOperation:
       $Term: a,b
       Left -> Bareword: a
       Operator: ","
       Right -> Bareword: b
+  - Berg: a,
+    Ast -> PostfixOperation:
+      $Term: a,
+      Left -> Bareword: a
+      Operator: ","
 
   # "&",
   - Berg: a&b
@@ -251,7 +256,7 @@ BasicOperators:
       Operator: " "
       Right -> Bareword: b
 
-  # "\n ;",
+  # [ "\n ;", { string: ";", type: :postfix, can_be_sticky: false } ],,
   - Berg: "a\nb"
     Ast -> InfixOperation:
       $Term: "a\nb"
@@ -264,6 +269,11 @@ BasicOperators:
       Left -> Bareword: a
       Operator: ;
       Right -> Bareword: b
+  - Berg: a;
+    Ast -> PostfixOperation:
+      $Term: a;
+      Left -> Bareword: a
+      Operator: ;
 
   # # Delimiters want everything as children.
   # [
@@ -520,13 +530,18 @@ OperatorsSeparatedBySpace:
       Operator: "??="
       Right -> Bareword: b
 
-  # ",",
+  # [ ",", { string: ",", type: :postfix, can_be_sticky: false } ],,
   - Berg: a , b
     Ast -> InfixOperation:
       $Term: a , b
       Left -> Bareword: a
       Operator: ","
       Right -> Bareword: b
+  - Berg: a ,
+    Ast -> PostfixOperation:
+      $Term: a ,
+      Left -> Bareword: a
+      Operator: ","
 
   # "&",
   - Berg: a & b
@@ -552,7 +567,7 @@ OperatorsSeparatedBySpace:
       Operator: "   "
       Right -> Bareword: b
 
-  # "\n ;",
+  # [ "\n ;", { string: ";", type: :postfix, can_be_sticky: false } ],,
   - Berg: "a \n b"
     Ast -> InfixOperation:
       $Term: "a \n b"
@@ -565,6 +580,11 @@ OperatorsSeparatedBySpace:
       Left -> Bareword: a
       Operator: ;
       Right -> Bareword: b
+  - Berg: a ;
+    Ast -> PostfixOperation:
+      $Term: a ;
+      Left -> Bareword: a
+      Operator: ";"
 
   # # Delimiters want everything as children.
   # [
@@ -821,13 +841,18 @@ OperatorsSeparatedByNewline:
       Operator: "??="
       Right -> Bareword: b
 
-  # ",",
+  # [ ",", { string: ",", type: :postfix, can_be_sticky: false } ],,
   - Berg: "a\n,\nb"
     Ast -> InfixOperation:
       $Term: "a\n,\nb"
       Left -> Bareword: a
       Operator: ","
       Right -> Bareword: b
+  - Berg: "a\n,"
+    Ast -> PostfixOperation:
+      $Term: "a\n,"
+      Left -> Bareword: a
+      Operator: ","
 
   # "&",
   - Berg: "a\n&\nb"
@@ -854,7 +879,7 @@ OperatorsSeparatedByNewline:
       Operator: "2@2 = \n"
       Right -> Bareword: b
 
-  # "\n ;",
+  # [ "\n ;", { string: ";", type: :postfix, can_be_sticky: false } ],,
   - Berg: "a\n\n\nb"
     Ast -> InfixOperation:
       $Term: "a\n\n\nb"
@@ -867,6 +892,11 @@ OperatorsSeparatedByNewline:
       Left -> Bareword: a
       Operator: ;
       Right -> Bareword: b
+  - Berg: "a\n;"
+    Ast -> PostfixOperation:
+      $Term: "a\n;"
+      Left -> Bareword: a
+      Operator: ;
 
   # # Delimiters want everything as children.
   # [
@@ -1125,13 +1155,18 @@ OperatorsSeparatedByCommentNewlineAndSpace:
       Operator: "??="
       Right -> Bareword: b
 
-  # ",",
+  # [ ",", { string: ",", type: :postfix, can_be_sticky: false } ],
   - Berg: "a# comment \n ,# comment \n b"
     Ast -> InfixOperation:
       $Term: "a# comment \n ,# comment \n b"
       Left -> Bareword: a
       Operator: ","
       Right -> Bareword: b
+  - Berg: "a# comment \n ,"
+    Ast -> PostfixOperation:
+      $Term: "a# comment \n ,"
+      Left -> Bareword: a
+      Operator: ","
 
   # "&",
   - Berg: "a# comment \n &# comment \n b"
@@ -1158,7 +1193,7 @@ OperatorsSeparatedByCommentNewlineAndSpace:
       Operator: "2@13 = \n"
       Right -> Bareword: b
 
-  # "\n ;",
+  # [ "\n ;", { string: ";", type: :postfix, can_be_sticky: false } ],
   - Berg: "a# comment \n \n# comment \n b"
     Ast -> InfixOperation:
       $Term: "a# comment \n \n# comment \n b"
@@ -1171,6 +1206,11 @@ OperatorsSeparatedByCommentNewlineAndSpace:
       Left -> Bareword: a
       Operator: ;
       Right -> Bareword: b
+  - Berg: "a# comment \n ;"
+    Ast -> PostfixOperation:
+      $Term: "a# comment \n ;"
+      Left -> Bareword: a
+      Operator: ;
 
   # # Delimiters want everything as children.
   # [

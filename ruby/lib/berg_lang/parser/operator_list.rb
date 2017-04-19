@@ -32,11 +32,11 @@ module BergLang
                     "&&",
                     "|| ??",
                     "right indent.: = += -= *= /= %= ||= &&= ??=",
-                    ",",
+                    [ ",", { string: ",", type: :postfix, can_be_sticky: false } ],
                     "&",
                     "|",
                     [ { key: :call } ],
-                    "\n ;",
+                    [ "\n ;", { string: ";", type: :postfix, can_be_sticky: false } ],
                     # Delimiters want everything as children.
                     [
                         { key: :indent, type: :open, ended_by: :undent, direction: :right },

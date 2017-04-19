@@ -63,7 +63,7 @@ module BergLang
 
             def last_sticky_postfix(operators)
                 operators.each_with_index do |operator, index|
-                    return index-1 if !(operator.is_a?(Operator) && operator.postfix)
+                    return index-1 unless operator.is_a?(Operator) && operator.postfix && operator.postfix.can_be_sticky?
                 end
                 -1
             end
@@ -90,7 +90,7 @@ module BergLang
             # For example, a+\nb is (a+) \n b (two separate statements), not a + b
             #
             def sticky_postfix?(operators, index)
-                if operators[index].is_a?(Operator) && operators[index].postfix
+                if operators[index].is_a?(Operator) && operators[index].postfix && operators[index].postfix.can_be_sticky?
                     prev_operator = operators[index-1] if index > 0
                     !prev_operator.is_a?(Whitespace) && operators[index+1].is_a?(Whitespace)
                 end
@@ -103,7 +103,7 @@ module BergLang
             # For example, a -b is a(-b), not a - b.
             #
             def sticky_prefix?(operators, index)
-                if operators[index].is_a?(Operator) && operators[index].prefix
+                if operators[index].is_a?(Operator) && operators[index].prefix && operators[index].prefix.can_be_sticky?
                     prev_operator = operators[index-1] if index >= 0
                     prev_operator.is_a?(Whitespace) && !operators[index+1].is_a?(Whitespace)
                 end

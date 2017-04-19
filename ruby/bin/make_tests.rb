@@ -244,27 +244,29 @@ class TestMaker
 
     def bad_error_test?(value, error)
         outer = value[:expected]
-        if value[:type] == "PostfixOperation" && ["--", "++", "+"].include?(outer["Operator"])
+        case value[:source]
+        when "a;", "a,"
             true
-        elsif value[:type] == "InfixOperation" && ["*", "+", ":", " ", "\n"].include?(outer["Operator"]) && error =~ /Missing a value on the right side/
-            true
-        elsif value[:type] == "InfixOperation" && ["+", "-", " ", "\n"].include?(outer["Operator"]) && error =~ /Missing a value on the left side/
-            true
+        else
+            if value[:type] == "PostfixOperation" && ["--", "++", "+"].include?(outer["Operator"])
+                true
+            elsif value[:type] == "InfixOperation" && ["*", "+", ":", " ", "\n"].include?(outer["Operator"]) && error =~ /Missing a value on the right side/
+                true
+            elsif value[:type] == "InfixOperation" && ["+", "-", " ", "\n"].include?(outer["Operator"]) && error =~ /Missing a value on the left side/
+                true
+            end
         end
     end
 
     def bad_combination?(value)
         outer = value[:expected]
-        if value[:type] == "PostfixOperation" && inner = outer["Left -> PostfixOperation"]
-            case "a #{outer["Operator"]} #{inner["Operator"]}"
-            when "a ? ?", "a + +", "a + ++"
-                true
-            end
-        elsif value[:type] == "PrefixOperation" && inner = outer["Right -> PrefixOperation"]
-            case "#{outer["Operator"]} #{inner["Operator"]} a"
-            when "+ + a", "+ ++ a", "- - a", "- -- a"
-                true
-            end
+        case value[:source]
+        when "a??", "a++", "a+++"
+            value[:type] == "PostfixOperation" && value[:expected]["Operator"].size == 1
+        when "a;\nb"
+            value[:type] == "InfixOperation" && value[:expected]["Operator"] == "\n"
+        when "++a", "--a", "+++a", "---a"
+            value[:type] == "PrefixOperation" && value[:expected]["Operator"].size == 1
         end
     end
 

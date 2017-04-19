@@ -32,7 +32,12 @@ module BergLang
                 @opens_indent_block
             end
 
-            def initialize(string: nil, key: string, type: :infix, precedence:, direction: :left, started_by: nil, ended_by: nil, opens_indent_block: nil)
+            # If this is true, and the operator is postfix or prefix, a -b and a+ b use the prefix and postfix instead of the infix + or -
+            def can_be_sticky?
+                @can_be_sticky
+            end
+
+            def initialize(string: nil, key: string, type: :infix, precedence:, direction: :left, started_by: nil, ended_by: nil, opens_indent_block: nil, can_be_sticky: true)
                 if type == :indent
                     type = :infix
                     opens_indent_block = true
