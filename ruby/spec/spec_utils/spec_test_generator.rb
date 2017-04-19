@@ -74,32 +74,34 @@ module SpecUtils
         def generate_ast_tests(property_path, expected_type, expected_value, test_spec)
             expected_range, expected_term = parse_range(expected_value || "", create_source(test_spec))
 
-            property_description = " property #{property_path.join(".")}" if property_path.any?
+            if expected_type || expected_term || expected_range
+                property_description = " property #{property_path.join(".")}" if property_path.any?
 
-            test_descriptions = []
-            test_descriptions << "is #{expected_type}" if expected_type
-            test_descriptions << "has string \"#{expected_term}\"" if expected_term
-            test_descriptions << "has row/column range #{to_range_string(expected_range)}" if expected_range
+                test_descriptions = []
+                test_descriptions << "is #{expected_type}" if expected_type
+                test_descriptions << "has string \"#{expected_term}\"" if expected_term
+                test_descriptions << "has row/column range #{to_range_string(expected_range)}" if expected_range
 
-            it "When Berg source is #{source_description(test_spec)}, the parsed expression#{property_description} #{english_join(test_descriptions, "and")}" do
-                # Parse.
-                expression = parse_expression(test_spec)
-                property_path.each do |property_name|
-                    expression = expression.send(to_snake_case(property_name))
-                end
+                it "When Berg source is #{source_description(test_spec)}, the parsed expression#{property_description} #{english_join(test_descriptions, "and")}" do
+                    # Parse.
+                    expression = parse_expression(test_spec)
+                    property_path.each do |property_name|
+                        expression = expression.send(to_snake_case(property_name))
+                    end
 
-                # Check the results
-                if expected_type
-                    expect(expression).to be_a eval("BergLang::Expressions::#{expected_type}")
-                end
+                    # Check the results
+                    if expected_type
+                        expect(expression).to be_a eval("BergLang::Expressions::#{expected_type}")
+                    end
 
-                if expected_term
-                    expect(expression.source_range.string).to eq expected_term
-                end
+                    if expected_term
+                        expect(expression.source_range.string).to eq expected_term
+                    end
 
-                if expected_range
-                    expect(expression.source_range.begin_location).to eq(expected_range.begin_location)
-                    expect(expression.source_range.end_location).to eq(expected_range.end_location)
+                    if expected_range
+                        expect(expression.source_range.begin_location).to eq(expected_range.begin_location)
+                        expect(expression.source_range.end_location).to eq(expected_range.end_location)
+                    end
                 end
             end
 
@@ -286,8 +288,8 @@ module SpecUtils
                 parsed_expression_root = parser.parse
                 # Strip off the outer DelimitedOperation before checking the AST (since it's always the same)
                 expect(parsed_expression_root).to be_a BergLang::Expressions::DelimitedOperation
-                expect(parsed_expression_root.start_delimiter.key).to eq :sof
-                expect(parsed_expression_root.end_delimiter.key).to eq :eof
+                expect(parsed_expression_root.open.key).to eq :sof
+                expect(parsed_expression_root.close.key).to eq :eof
 
                 # Get the desired expression
                 parsed_expression_root.expression

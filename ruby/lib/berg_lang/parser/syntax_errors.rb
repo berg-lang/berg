@@ -51,7 +51,7 @@ module BergLang
                         "Perhaps you closed the file earlier than intended, or didn't mean to put the \"#{token}\" there at all?"
                     elsif because_of.key == :undent
                         "Did you mean to put the \"#{token}\" there?"
-                    elsif because_of.end_delimiter
+                    elsif because_of.close
                         "Perhaps you closed the \"#{because_of}\" earlier than intended, or didn't mean to put the \"#{token}\" there at all?"
                     else
                         "Perhaps you put the \"#{because_of}\" earlier than intended, or didn't mean to put the \"#{token}\" there at all?"
@@ -67,14 +67,14 @@ module BergLang
                 remedy: proc { |token, because_of_infix| "Perhaps one of them was an error, or you meant to have a value between them?" }
 
             # TODO help more with this one. I hate this so much in programs.
-            syntax_error :umatched_end_delimiter,
-                error:  proc { |token| "Found ending #{token} with no corresponding #{token.end_delimiter.started_by}." },
-                remedy: proc { |token| "Perhaps you have too many #{token}'s, or forgot to open with #{token.end_delimiter.started_by}?" }
+            syntax_error :umatched_close,
+                error:  proc { |token| "Found ending #{token} with no corresponding #{token.close.started_by}." },
+                remedy: proc { |token| "Perhaps you have too many #{token}'s, or forgot to open with #{token.close.started_by}?" }
 
             # TODO help more with this one. I hate this so much in programs.
-            syntax_error :unmatched_start_delimiter,
-                error:  proc { |token, closed_by| "#{token} found with no corresponding #{token.start_delimiter.ended_by}." },
-                remedy: proc { |token, closed_by| "Perhaps you have too many #{token}'s, or forgot to end with #{token.start_delimiter.ended_by}?"}
+            syntax_error :unmatched_close,
+                error:  proc { |token, closed_by| "#{token} found with no corresponding #{token.close.ended_by}." },
+                remedy: proc { |token, closed_by| "Perhaps you have too many #{token}'s, or forgot to end with #{token.close.ended_by}?"}
 
             syntax_error :unmatchable_indent,
                 error:  proc { |token, open_indent| "Indents cannot match due to difference in tabs and spaces." },

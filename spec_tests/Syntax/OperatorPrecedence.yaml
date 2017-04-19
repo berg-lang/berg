@@ -1541,123 +1541,123 @@ EqualPrecedence:
       Right -> Bareword: c
 
   #
-  # Precedence 16: start_delimiter.{ start_delimiter.indent start_delimiter.(
+  # Precedence 16: open.{ open.indent open.(
   #
-  # start_delimiter.{
+  # open.{
   - Berg: "{{a}}"
     Ast -> DelimitedOperation:
-      StartDelimiter: 1@1 = {
+      Open: 1@1 = {
       Expression -> DelimitedOperation:
-        StartDelimiter: 1@2 = {
+        Open: 1@2 = {
         Expression -> Bareword: a
-        EndDelimiter: 1@4 = }
-      EndDelimiter: 1@5 = }
+        Close: 1@4 = }
+      Close: 1@5 = }
   - Berg: "{a}:\n  b"
     Ast -> InfixOperation:
       Left -> DelimitedOperation:
-        StartDelimiter: "{"
+        Open: "{"
         Expression -> Bareword: a
-        EndDelimiter: "}"
+        Close: "}"
       Operator: ":"
       Right -> DelimitedOperation:
-        StartDelimiter: "1@5+0 = "
+        Open: "1@5+0 = "
         Expression -> Bareword: b
-        EndDelimiter: "2@4+0 = "
+        Close: "2@4+0 = "
   - Berg: "a:\n  {b}"
     Ast -> InfixOperation:
       Left -> Bareword: a
       Operator: ":"
       Right -> DelimitedOperation:
-        StartDelimiter: "1@3+0 = "
+        Open: "1@3+0 = "
         Expression -> DelimitedOperation:
-          StartDelimiter: "{"
+          Open: "{"
           Expression -> Bareword: b
-          EndDelimiter: "}"
-        EndDelimiter: "2@6+0 = "
+          Close: "}"
+        Close: "2@6+0 = "
   - Berg: "{a:\n  b}"
     Ast -> DelimitedOperation:
-      StartDelimiter: "{"
+      Open: "{"
       Expression -> InfixOperation:
         Left -> Bareword: a
         Operator: ":"
         Right -> DelimitedOperation:
-          StartDelimiter: "1@4+0 = "
+          Open: "1@4+0 = "
           Expression -> Bareword: b
-          EndDelimiter: "}"
-      EndDelimiter: "}"
+          Close: "}"
+      Close: "}"
   - Berg: "{(a)}"
     Ast -> DelimitedOperation:
-      StartDelimiter: "{"
+      Open: "{"
       Expression -> DelimitedOperation:
-        StartDelimiter: (
+        Open: (
         Expression -> Bareword: a
-        EndDelimiter: )
-      EndDelimiter: "}"
+        Close: )
+      Close: "}"
   - Berg: ({a})
     Ast -> DelimitedOperation:
-      StartDelimiter: (
+      Open: (
       Expression -> DelimitedOperation:
-        StartDelimiter: "{"
+        Open: "{"
         Expression -> Bareword: a
-        EndDelimiter: "}"
-      EndDelimiter: )
+        Close: "}"
+      Close: )
 
-  # start_delimiter.indent
+  # open.indent
   - Berg: "a:\n  b:\n    c"
     Ast -> InfixOperation:
       Left -> Bareword: a
       Operator: "1@2 = :"
       Right -> DelimitedOperation:
-        StartDelimiter: "1@3+0 = "
+        Open: "1@3+0 = "
         Expression -> InfixOperation:
           Left -> Bareword: b
           Operator: "2@4 = :"
           Right -> DelimitedOperation:
-            StartDelimiter: "2@5+0 = "
+            Open: "2@5+0 = "
             Expression -> Bareword: c
-            EndDelimiter: "3@6+0 = "
-        EndDelimiter: "3@6+0 = "
+            Close: "3@6+0 = "
+        Close: "3@6+0 = "
   - Berg: "(a):\n  b"
     Ast -> InfixOperation:
       Left -> DelimitedOperation:
-        StartDelimiter: (
+        Open: (
         Expression -> Bareword: a
-        EndDelimiter: )
+        Close: )
       Operator: ":"
       Right -> DelimitedOperation:
-        StartDelimiter: "1@5+0 = "
+        Open: "1@5+0 = "
         Expression -> Bareword: b
-        EndDelimiter: "2@4+0 = "
+        Close: "2@4+0 = "
   - Berg: "a:\n  (b)"
     Ast -> InfixOperation:
       Left -> Bareword: a
       Operator: ":"
       Right -> DelimitedOperation:
-        StartDelimiter: "1@3+0 = "
+        Open: "1@3+0 = "
         Expression -> DelimitedOperation:
-          StartDelimiter: (
+          Open: (
           Expression -> Bareword: b
-          EndDelimiter: )
-        EndDelimiter: "2@6+0 = "
+          Close: )
+        Close: "2@6+0 = "
   - Berg: "(a:\n  b)"
     Ast -> DelimitedOperation:
-      StartDelimiter: (
+      Open: (
       Expression -> InfixOperation:
         Left -> Bareword: a
         Operator: ":"
         Right -> DelimitedOperation:
-          StartDelimiter: "1@4+0 = "
+          Open: "1@4+0 = "
           Expression -> Bareword: b
-          EndDelimiter: )
-      EndDelimiter: )
+          Close: )
+      Close: )
 
-  # start_delimiter.(
+  # open.(
   - Berg: ((a))
     Ast -> DelimitedOperation:
-      StartDelimiter: 1@1 = (
+      Open: 1@1 = (
       Expression -> DelimitedOperation:
-        StartDelimiter: 1@2 = (
+        Open: 1@2 = (
         Expression -> Bareword: a
-        EndDelimiter: 1@4 = )
-      EndDelimiter: 1@5 = )
+        Close: 1@4 = )
+      Close: 1@5 = )
 

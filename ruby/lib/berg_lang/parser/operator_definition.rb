@@ -11,7 +11,7 @@ module BergLang
             # "*", "-", etc. (only different for "call")
             attr_reader :key
 
-            # :infix, :prefix, :postfix, :start_delimiter, :end_delimiter
+            # :infix, :prefix, :postfix, :open, :close
             attr_reader :type
 
             # 1-n, tightest-loosest
@@ -64,16 +64,16 @@ module BergLang
                 left_operator.key == started_by
             end
 
-            def start_delimiter?
-                type == :start_delimiter
+            def open?
+                type == :open
             end
 
-            def end_delimiter?
-                type == :end_delimiter
+            def close?
+                type == :close
             end
 
             def prefix?
-                type == :prefix || type == :start_delimiter
+                type == :prefix || type == :open
             end
 
             def infix?
@@ -81,7 +81,7 @@ module BergLang
             end
 
             def postfix?
-                type == :postfix || type == :end_delimiter
+                type == :postfix || type == :close
             end
         end
     end

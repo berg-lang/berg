@@ -3,22 +3,22 @@ require_relative "../expression"
 module BergLang
     module Expressions
         class DelimitedOperation < Expression
-            attr_reader :start_delimiter
+            attr_reader :open
             attr_reader :expression
-            attr_reader :end_delimiter
+            attr_reader :close
 
             def source_range
-                SourceRange.span(start_delimiter, end_delimiter)
+                SourceRange.span(open, close)
             end
 
-            def initialize(start_delimiter, expression, end_delimiter)
-                @start_delimiter = start_delimiter
+            def initialize(open, expression, close)
+                @open = open
                 @expression = expression
-                @end_delimiter = end_delimiter
+                @close = close
             end
 
             def to_s
-                "#{start_delimiter}#{expression}#{end_delimiter}"
+                "#{open}#{expression}#{close}"
             end
         end
     end

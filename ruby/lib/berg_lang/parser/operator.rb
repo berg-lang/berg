@@ -26,7 +26,7 @@ module BergLang
             end
 
             def prefix
-                operator_definitions[:prefix] || operator_definitions[:start_delimiter]
+                operator_definitions[:prefix] || operator_definitions[:open]
             end
 
             def infix
@@ -34,15 +34,15 @@ module BergLang
             end
 
             def postfix
-                operator_definitions[:postfix] || operator_definitions[:end_delimiter]
+                operator_definitions[:postfix] || operator_definitions[:close]
             end
 
-            def start_delimiter
-                operator_definitions[:start_delimiter]
+            def open
+                operator_definitions[:open]
             end
 
-            def end_delimiter
-                operator_definitions[:end_delimiter]
+            def close
+                operator_definitions[:close]
             end
         end
     end

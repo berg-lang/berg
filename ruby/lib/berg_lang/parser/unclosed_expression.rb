@@ -41,12 +41,8 @@ module BergLang
                 SourceRange.span(first, last)
             end
 
-            # The innermost open :indent operator
-            def open_indent
-                unclosed.reverse_each do |operator|
-                    return operator if operator.is_a?(IndentOperator)
-                end
-                nil
+            def open_indents
+                unclosed.select { |token, operator| token.is_a?(IndentOperator) }.map { |token, operator| token }
             end
 
             def expression
@@ -59,8 +55,39 @@ module BergLang
                 end
             end
 
-            def unclosed_to_s
-                unclosed.map { |token, op| token }.join(", ")
+            def token_to_s(token, operator)
+                str = token.to_s
+                if str =~ /\s/
+                    str = str.inspect
+                end
+                str
+            end
+
+            def unclosed_to_s(index=0, indent: "  ")
+                token, operator = unclosed[index]
+                token_str = token_to_s(token, operator)
+
+                result = ""
+                if operator
+                    if operator.prefix?
+                        result << "#{indent} \\- #{token_str}\n"
+                        result << unclosed_to_s(index+1, indent: "#{indent}   #{" "*token_str.size}")
+                    else
+                        raise "Unexpected operator type #{operator.type} for #{operator}!"
+                    end
+                elsif token
+                    next_token, next_operator = unclosed[index+1]
+                    if next_operator && next_operator.infix?
+                        next_operator_str = token_to_s(next_token, next_operator)
+                        result = ""
+                        result << "#{indent} \\   #{" "*next_operator_str.size}/- #{token_str}\n"
+                        result << "#{indent}  \\- #{next_operator_str}\n"
+                        result << unclosed_to_s(index+2, indent: "#{indent}    #{" "*next_operator_str.size}")
+                    else
+                        result << "#{indent} \\- #{token_str}\n"
+                    end
+                end
+                result
             end
 
             #
@@ -76,40 +103,40 @@ module BergLang
 
             def apply_prefix!(prefixes)
                 prefixes.each do |operator|
-                    debug "Prefix: #{operator}"
                     next if operator.is_a?(Whitespace)
+                    debug "Prefix: #{token_to_s(operator, operator.prefix)}"
                     if !operator.prefix
                         # If there is an empty expression--(<whitespace>)--it may show up in prefixes.
-                        if operator.end_delimiter
-                            close_delimited!(operator, operator.end_delimiter)
+                        if operator.close
+                            close_delimited!(operator, operator.close)
                         else
                             raise syntax_errors.missing_left_hand_side_at_sof(operator, prefixes[0])
                         end
                     end
                     @unclosed << [ operator, operator.prefix ]
+                    debug unclosed_to_s(indent: "  ")
                 end
-
-                debug "  - after: #{unclosed_to_s}" if unclosed.any?
             end
 
             def apply_expression!(expression)
-                debug "Expression: #{expression}"
+                debug ""
+                debug "Expression: #{token_to_s(expression, nil)}"
                 @unclosed << expression
-                debug "  - after: #{unclosed_to_s}"
+                debug unclosed_to_s(indent: "  ")
             end
 
             def apply_infix!(infix)
-                debug "Infix: #{infix}"
-                debug "  - before: #{unclosed_to_s}"
+                debug ""
+                debug "Infix: #{token_to_s(infix, infix.infix)}"
                 left_bind!(infix, infix.infix)
-                debug "  - after:  #{unclosed_to_s}"
+                debug unclosed_to_s(indent: "  ")
             end
 
             def apply_postfix!(postfixes, because_of_infix=nil)
                 postfixes.each do |operator|
                     next if operator.is_a?(Whitespace)
-                    debug "Postfix: #{operator}"
-                    debug "  - before: #{unclosed_to_s}"
+                    debug ""
+                    debug "Postfix: #{token_to_s(operator, operator.postfix)}"
                     if !operator.postfix
                         if because_of_infix
                             raise syntax_errors.prefix_or_infix_in_front_of_infix_operator(operator, because_of_infix)
@@ -118,7 +145,7 @@ module BergLang
                         end
                     end
                     left_bind!(operator, operator.postfix) 
-                    debug "  - after:  #{unclosed_to_s}"
+                    debug unclosed_to_s(indent: "  ")
                 end
             end
 
@@ -132,27 +159,36 @@ module BergLang
             end
 
             def debug(string)
-                # puts string
+                #puts string
             end
 
             # PRE( PRE( (expr IN PRE( PRE( expr <- POST|IN
             def left_bind!(token, operator)
                 # If it's an end delimiter, look for the corresponding start delimiter.
-                if operator.end_delimiter?
+                if operator.close?
                     close_delimited!(token, operator)
                     return
 
-                # It's postfix or infix. Find the first expression (left to right) that can be a left child
-                # of the POSTFIX or INFIX operator.
+                # It's postfix or infix. Take as many of the operators as we can (from right to left) as left children.
                 else
                     left_child = nil
-                    unclosed.each_with_index do |(left_token, left_operator), index|
-                        next unless left_operator
-                        if operator.can_have_left_child?(left_operator)
-                            # Close the entire left child so we can dump it into the postfix/infix operator.
-                            left_child = close!(index, token)
-                            break
+                    index = unclosed.size
+                    while index > 0
+                        next_index = index-1
+                        left_token, left_operator = unclosed[next_index]
+                        if !left_operator && next_index > 0
+                            next_index -= 1
+                            left_token, left_operator = unclosed[next_index]
                         end
+                        if left_operator
+                            # If the next operator can't have the left child, use the current one.
+                            if !operator.can_have_left_child?(left_operator)
+                                # Close the entire left child so we can dump it into the postfix/infix operator.
+                                left_child = close!(index, token)
+                                break
+                            end
+                        end
+                        index = next_index
                     end
 
                     # No operator is willing to be a left child. Take the expression to the left instead.
@@ -187,7 +223,7 @@ module BergLang
                     end
                 end
 
-                raise syntax_errors.unmatched_end_delimiter(token)
+                raise syntax_errors.unmatched_close(token)
             end
 
             #
@@ -205,9 +241,9 @@ module BergLang
                 token, operator = unclosed[index]
                 if operator
                     right_hand_side, closed_index = close(index+1, because_of)
-                    if operator.start_delimiter?
+                    if operator.close? && operator.key != :indent
                         # Explicit open operators (i.e. things other than indent) require explicit closes.
-                        raise syntax_errors.unmatched_start_delimiter(token, because_of)
+                        raise syntax_errors.unmatched_close(token, because_of)
                     elsif !right_hand_side
                         raise syntax_errors.missing_right_hand_side(token, because_of)
                     elsif operator.prefix?

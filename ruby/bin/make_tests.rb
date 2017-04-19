@@ -81,7 +81,7 @@ class TestMaker
                 test prefix(postfix(op1, "a"), op2)
             end
 
-        when "prefix start_delimiter"
+        when "prefix open"
             # !(a)
             test prefix(op1, delimited(op2, "a"))
             # (!a)
@@ -108,7 +108,7 @@ class TestMaker
             # a?/b
             test infix(postfix("a", op2), op1, "b")
 
-        when "infix start_delimiter"
+        when "infix open"
             # (a)/b
             test infix(delimited(op2, "a"), op1, "b")
             # a/(b)
@@ -122,13 +122,13 @@ class TestMaker
             # a?+
             test postfix(postfix("a", op2), op1) unless op1 == op2
 
-        when "postfix start_delimiter"
+        when "postfix open"
             # (a)?
             test postfix(op1, delimited(op2, "a"))
             # (a?)
             test delimited(op2, postfix("a", op1))
 
-        when "start_delimiter start_delimiter"
+        when "open open"
             # ({a})
             test delimited(op1, delimited(op2, "a"))
             # {(a)}
@@ -154,7 +154,7 @@ class TestMaker
         when :postfix
             error_test postfix("", op), "Missing a value on the left side of \"#{op_source(op)}\". Did you mean for the \"#{op_source(op)}\" to be there?"
 
-        when :start_delimiter
+        when :open
             if op.key == :indent
                 test infix("a", op, "")
                 error_test infix("", op, "b"), "Missing a value on the left side of \"#{op_source(colon)}\". Did you mean for the \"#{op_source(colon)}\" to be there?"
@@ -228,14 +228,15 @@ class TestMaker
     def fixup_precedence_test(value)
         case value[:source]
         when "(a:\n  b)"
-            value[:expected]["Expression -> InfixOperation"]["Right -> DelimitedOperation"]["EndDelimiter"] = ")"
+            value[:expected]["Expression -> InfixOperation"]["Right -> DelimitedOperation"]["Close"] = ")"
         when "{a:\n  b}"
-            value[:expected]["Expression -> InfixOperation"]["Right -> DelimitedOperation"]["EndDelimiter"] = "}"
+            value[:expected]["Expression -> InfixOperation"]["Right -> DelimitedOperation"]["Close"] = "}"
         when "a:\n  b:\n    c"
             value[:expected]["Right -> DelimitedOperation"]["Expression -> InfixOperation"]["Right -> DelimitedOperation"]["$Space"] = "\n    "
         when "a:\n"
-            value[:expected]["Right -> DelimitedOperation"]["Expression -> EmptyExpression"] = "\n"
-            value[:expected]["Right -> DelimitedOperation"].delete("$Space")
+            value[:expected]["Right -> DelimitedOperation"] = {
+                "Expression -> EmptyExpression" => "",
+            }
         else
             value
         end
@@ -279,10 +280,10 @@ class TestMaker
             type: "DelimitedOperation",
             source: source,
             expected: {
-                "StartDelimiter" => op_source(op),
+                "Open" => op_source(op),
                 "$Space" => (op.key == :indent ? "\n  " : ""),
                 "Expression -> #{expression[:type]}" => expression[:expected],
-                "EndDelimiter" => op_source(op.ended_by),
+                "Close" => op_source(op.ended_by),
             },
         }
     end
@@ -316,7 +317,7 @@ class TestMaker
             operators = BergLang::Parser::OperatorList.berg_operators
             operators
                 .flat_map { |operator_name, definitions| definitions.values }
-                .reject   { |operator| operator.type == :end_delimiter || operator.key == :sof }
+                .reject   { |operator| operator.type == :close || operator.key == :sof }
                 .sort_by  { |operator| operator.precedence }
                 .group_by { |operator| operator.precedence }
         end

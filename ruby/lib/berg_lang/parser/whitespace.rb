@@ -5,7 +5,7 @@ module BergLang
         class Whitespace
             include Token
 
-            def has_newline?
+            def newline
                 source_range.named_captures["newline"]
             end
 

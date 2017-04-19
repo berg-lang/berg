@@ -39,14 +39,14 @@ module BergLang
                     "\n ;",
                     # Delimiters want everything as children.
                     [
-                        { key: :indent, type: :start_delimiter, ended_by: :undent, direction: :right },
-                        { key: :undent, type: :end_delimiter, started_by: :indent, direction: :right },
-                        { string: "(", type: :start_delimiter, ended_by: ")", direction: :right },
-                        { string: ")", type: :end_delimiter, started_by: "(", direction: :right },
-                        { string: "{", type: :start_delimiter, ended_by: "}", direction: :right },
-                        { string: "}", type: :end_delimiter, started_by: "{", direction: :right },
-                        { key: :sof, type: :start_delimiter, ended_by: :eof, direction: :right },
-                        { key: :eof, type: :end_delimiter, started_by: :sof, direction: :right },
+                        { key: :indent, type: :open, ended_by: :undent, direction: :right },
+                        { key: :undent, type: :close, started_by: :indent, direction: :right },
+                        { string: "(", type: :open, ended_by: ")", direction: :right },
+                        { string: ")", type: :close, started_by: "(", direction: :right },
+                        { string: "{", type: :open, ended_by: "}", direction: :right },
+                        { string: "}", type: :close, started_by: "{", direction: :right },
+                        { key: :sof, type: :open, ended_by: :eof, direction: :right },
+                        { key: :eof, type: :close, started_by: :sof, direction: :right },
                     ],
                 )
             end

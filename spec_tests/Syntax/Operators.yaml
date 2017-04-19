@@ -267,14 +267,14 @@ BasicOperators:
 
   # # Delimiters want everything as children.
   # [
-  #     { key: :indent, type: :start_delimiter, ended_by: :undent, direction: :right },
-  #     { key: :undent, type: :end_delimiter, started_by: :indent, direction: :right },
-  #     { string: "(", type: :start_delimiter, ended_by: ")", direction: :right },
-  #     { string: ")", type: :end_delimiter, started_by: "(", direction: :right },
-  #     { string: "{", type: :start_delimiter, ended_by: "}", direction: :right },
-  #     { string: "}", type: :end_delimiter, started_by: "{", direction: :right },
-  #     { key: :sof, type: :start_delimiter, ended_by: :eof, direction: :right },
-  #     { key: :eof, type: :end_delimiter, started_by: :sof, direction: :right },
+  #     { key: :indent, type: :open, ended_by: :undent, direction: :right },
+  #     { key: :undent, type: :close, started_by: :indent, direction: :right },
+  #     { string: "(", type: :open, ended_by: ")", direction: :right },
+  #     { string: ")", type: :close, started_by: "(", direction: :right },
+  #     { string: "{", type: :open, ended_by: "}", direction: :right },
+  #     { string: "}", type: :close, started_by: "{", direction: :right },
+  #     { key: :sof, type: :open, ended_by: :eof, direction: :right },
+  #     { key: :eof, type: :close, started_by: :sof, direction: :right },
   # ],
   - Berg: "a:\n  b"
     Ast -> InfixOperation:
@@ -282,18 +282,18 @@ BasicOperators:
       Left -> Bareword: a
       Operator: ":"
       Right -> DelimitedOperation:
-        StartDelimiter: "1@3+0 = "
-        EndDelimiter: "2@4+0 = "
+        Open: "1@3+0 = "
+        Close: "2@4+0 = "
         Expression -> Bareword: b
   - Berg: (a)
     Ast -> DelimitedOperation:
-      StartDelimiter: (
-      EndDelimiter: )
+      Open: (
+      Close: )
       Expression -> Bareword: a
   - Berg: "{a}"
     Ast -> DelimitedOperation:
-      StartDelimiter: "{"
-      EndDelimiter: "}"
+      Open: "{"
+      Close: "}"
       Expression -> Bareword: a
 
 #
@@ -557,7 +557,7 @@ OperatorsSeparatedBySpace:
     Ast -> InfixOperation:
       $Term: "a \n b"
       Left -> Bareword: a
-      Operator: " \n "
+      Operator: "\n"
       Right -> Bareword: b
   - Berg: a ; b
     Ast -> InfixOperation:
@@ -568,14 +568,14 @@ OperatorsSeparatedBySpace:
 
   # # Delimiters want everything as children.
   # [
-  #     { key: :indent, type: :start_delimiter, ended_by: :undent, direction: :right },
-  #     { key: :undent, type: :end_delimiter, started_by: :indent, direction: :right },
-  #     { string: "(", type: :start_delimiter, ended_by: ")", direction: :right },
-  #     { string: ")", type: :end_delimiter, started_by: "(", direction: :right },
-  #     { string: "{", type: :start_delimiter, ended_by: "}", direction: :right },
-  #     { string: "}", type: :end_delimiter, started_by: "{", direction: :right },
-  #     { key: :sof, type: :start_delimiter, ended_by: :eof, direction: :right },
-  #     { key: :eof, type: :end_delimiter, started_by: :sof, direction: :right },
+  #     { key: :indent, type: :open, ended_by: :undent, direction: :right },
+  #     { key: :undent, type: :close, started_by: :indent, direction: :right },
+  #     { string: "(", type: :open, ended_by: ")", direction: :right },
+  #     { string: ")", type: :close, started_by: "(", direction: :right },
+  #     { string: "{", type: :open, ended_by: "}", direction: :right },
+  #     { string: "}", type: :close, started_by: "{", direction: :right },
+  #     { key: :sof, type: :open, ended_by: :eof, direction: :right },
+  #     { key: :eof, type: :close, started_by: :sof, direction: :right },
   # ],
   - Berg: "a : \n   b"
     Ast -> InfixOperation:
@@ -583,18 +583,18 @@ OperatorsSeparatedBySpace:
       Left -> Bareword: a
       Operator: ":"
       Right -> DelimitedOperation:
-        StartDelimiter: "1@4+0 = "
-        EndDelimiter: "2@5+0 = "
+        Open: "1@4+0 = "
+        Close: "2@5+0 = "
         Expression -> Bareword: b
   - Berg: ( a )
     Ast -> DelimitedOperation:
-      StartDelimiter: (
-      EndDelimiter: )
+      Open: (
+      Close: )
       Expression -> Bareword: a
   - Berg: "{ a }"
     Ast -> DelimitedOperation:
-      StartDelimiter: "{"
-      EndDelimiter: "}"
+      Open: "{"
+      Close: "}"
       Expression -> Bareword: a
 
 #
@@ -851,7 +851,7 @@ OperatorsSeparatedByNewline:
     Ast -> InfixOperation:
       $Term: "a\n \nb"
       Left -> Bareword: a
-      Operator: "\n \n"
+      Operator: "2@2 = \n"
       Right -> Bareword: b
 
   # "\n ;",
@@ -859,7 +859,7 @@ OperatorsSeparatedByNewline:
     Ast -> InfixOperation:
       $Term: "a\n\n\nb"
       Left -> Bareword: a
-      Operator: "\n\n\n"
+      Operator: "3@1 = \n"
       Right -> Bareword: b
   - Berg: "a\n;\nb"
     Ast -> InfixOperation:
@@ -870,14 +870,14 @@ OperatorsSeparatedByNewline:
 
   # # Delimiters want everything as children.
   # [
-  #     { key: :indent, type: :start_delimiter, ended_by: :undent, direction: :right },
-  #     { key: :undent, type: :end_delimiter, started_by: :indent, direction: :right },
-  #     { string: "(", type: :start_delimiter, ended_by: ")", direction: :right },
-  #     { string: ")", type: :end_delimiter, started_by: "(", direction: :right },
-  #     { string: "{", type: :start_delimiter, ended_by: "}", direction: :right },
-  #     { string: "}", type: :end_delimiter, started_by: "{", direction: :right },
-  #     { key: :sof, type: :start_delimiter, ended_by: :eof, direction: :right },
-  #     { key: :eof, type: :end_delimiter, started_by: :sof, direction: :right },
+  #     { key: :indent, type: :open, ended_by: :undent, direction: :right },
+  #     { key: :undent, type: :close, started_by: :indent, direction: :right },
+  #     { string: "(", type: :open, ended_by: ")", direction: :right },
+  #     { string: ")", type: :close, started_by: "(", direction: :right },
+  #     { string: "{", type: :open, ended_by: "}", direction: :right },
+  #     { string: "}", type: :close, started_by: "{", direction: :right },
+  #     { key: :sof, type: :open, ended_by: :eof, direction: :right },
+  #     { key: :eof, type: :close, started_by: :sof, direction: :right },
   # ],
   - Berg: "a\n:\n\n\n  b"
     Ast -> InfixOperation:
@@ -885,20 +885,20 @@ OperatorsSeparatedByNewline:
       Left -> Bareword: a
       Operator: ":"
       Right -> DelimitedOperation:
-        StartDelimiter: "2@2+0 = "
-        EndDelimiter: "5@4+0 = "
+        Open: "2@2+0 = "
+        Close: "5@4+0 = "
         Expression -> Bareword: b
   - Berg: "(\na\n)"
     Ast -> DelimitedOperation:
       $Term: "(\na\n)"
-      StartDelimiter: (
-      EndDelimiter: )
+      Open: (
+      Close: )
       Expression -> Bareword: a
   - Berg: "{\na\n}"
     Ast -> DelimitedOperation:
       $Term: "{\na\n}"
-      StartDelimiter: "{"
-      EndDelimiter: "}"
+      Open: "{"
+      Close: "}"
       Expression -> Bareword: a
 
 #
@@ -1155,7 +1155,7 @@ OperatorsSeparatedByCommentNewlineAndSpace:
     Ast -> InfixOperation:
       $Term: "a# comment \n  # comment \n b"
       Left -> Bareword: a
-      Operator: "# comment \n  # comment \n "
+      Operator: "2@13 = \n"
       Right -> Bareword: b
 
   # "\n ;",
@@ -1163,7 +1163,7 @@ OperatorsSeparatedByCommentNewlineAndSpace:
     Ast -> InfixOperation:
       $Term: "a# comment \n \n# comment \n b"
       Left -> Bareword: a
-      Operator: "# comment \n \n# comment \n "
+      Operator: "3@11 = \n"
       Right -> Bareword: b
   - Berg: "a# comment \n ;# comment \n b"
     Ast -> InfixOperation:
@@ -1174,14 +1174,14 @@ OperatorsSeparatedByCommentNewlineAndSpace:
 
   # # Delimiters want everything as children.
   # [
-  #     { key: :indent, type: :start_delimiter, ended_by: :undent, direction: :right },
-  #     { key: :undent, type: :end_delimiter, started_by: :indent, direction: :right },
-  #     { string: "(", type: :start_delimiter, ended_by: ")", direction: :right },
-  #     { string: ")", type: :end_delimiter, started_by: "(", direction: :right },
-  #     { string: "{", type: :start_delimiter, ended_by: "}", direction: :right },
-  #     { string: "}", type: :end_delimiter, started_by: "{", direction: :right },
-  #     { key: :sof, type: :start_delimiter, ended_by: :eof, direction: :right },
-  #     { key: :eof, type: :end_delimiter, started_by: :sof, direction: :right },
+  #     { key: :indent, type: :open, ended_by: :undent, direction: :right },
+  #     { key: :undent, type: :close, started_by: :indent, direction: :right },
+  #     { string: "(", type: :open, ended_by: ")", direction: :right },
+  #     { string: ")", type: :close, started_by: "(", direction: :right },
+  #     { string: "{", type: :open, ended_by: "}", direction: :right },
+  #     { string: "}", type: :close, started_by: "{", direction: :right },
+  #     { key: :sof, type: :open, ended_by: :eof, direction: :right },
+  #     { key: :eof, type: :close, started_by: :sof, direction: :right },
   # ],
   - Berg: "a# comment \n :# comment \n \n# comment \n   b"
     Ast -> InfixOperation:
@@ -1189,18 +1189,18 @@ OperatorsSeparatedByCommentNewlineAndSpace:
       Left -> Bareword: a
       Operator: ":"
       Right -> DelimitedOperation:
-        StartDelimiter: "2@3+0 = "
-        EndDelimiter: "5@5+0 = "
+        Open: "2@3+0 = "
+        Close: "5@5+0 = "
         Expression -> Bareword: b
   - Berg: "(# comment \n a# comment \n )"
     Ast -> DelimitedOperation:
       $Term: "(# comment \n a# comment \n )"
-      StartDelimiter: (
-      EndDelimiter: )
+      Open: (
+      Close: )
       Expression -> Bareword: a
   - Berg: "{# comment \n a# comment \n }"
     Ast -> DelimitedOperation:
       $Term: "{# comment \n a# comment \n }"
-      StartDelimiter: "{"
-      EndDelimiter: "}"
+      Open: "{"
+      Close: "}"
       Expression -> Bareword: a
