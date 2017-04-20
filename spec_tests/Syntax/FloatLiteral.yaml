@@ -141,7 +141,7 @@ NotAFloat:
       Ast -> InfixOperation:
         $Term: "0.0 e-1"
         Left -> FloatLiteral: "0.0"
-        Operator: " "
+        Operator: ""
         Right -> InfixOperation:
           $Term: e-1
           Left -> Bareword: e 
@@ -151,7 +151,7 @@ NotAFloat:
       Ast -> InfixOperation:
         $Term: "0.0 e1"
         Left -> FloatLiteral: "0.0"
-        Operator: " "
+        Operator: ""
         Right -> Bareword: e1 
 
     - Berg: e-0.0

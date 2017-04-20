@@ -70,7 +70,7 @@ module BergLang
             end
 
             def parse_operator
-                match = source.match(operators_regex)
+                match = source.match(operators_regexp)
                 if match
                     if match.string == "." && digits = source.match(/\A\d+/)
                         raise syntax_errors.float_without_leading_zero(SourceRange.span(match, digits))
@@ -156,8 +156,8 @@ module BergLang
                 end
             end
 
-            def operators_regex
-                @operators_regex ||= Regexp.new(
+            def operators_regexp
+                @operators_regexp ||= Regexp.new(
                     "\\A(" +
                     all_operators.keys.select { |key| key.is_a?(String) }
                                       .sort_by { |key| -key.length }

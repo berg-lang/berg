@@ -1,5 +1,6 @@
 require_relative "parser/arity_picker"
 require_relative "parser/operator"
+require_relative "parser/output"
 require_relative "parser/tokenizer"
 require_relative "parser/unclosed_expression"
 require_relative "parser/syntax_errors"
@@ -12,9 +13,11 @@ module BergLang
     #
     class Parser
         attr_reader :source
+        attr_reader :output
 
-        def initialize(source)
+        def initialize(source, output: Output.new(STDOUT))
             @source = source
+            @output = output
             @tokenizer = Tokenizer.new(source)
             @token = tokenizer.advance_token
             @unclosed_expression = UnclosedExpression.new(self)
@@ -127,6 +130,7 @@ module BergLang
                     end
                 end
                 if prev_operator && (prev_operator.open || prev_operator.opens_indent_block?)
+                    output.debug("Empty Block: operation #{operator} #{prev_operator} found. Inserting empty expression between.")
                     # The empty range is from the end of the starting operator (just after :, ( or { ) to the current position,
                     # so it includes any whitespace.
                     empty_range = SourceRange.new(source, prev_operator.source_range.end, operators[-1].source_range.end)
@@ -142,6 +146,7 @@ module BergLang
             # possible for the next expression to have a *smaller* indent, in which case an undent and empty expression will happen.
             #
             if operator.opens_indent_block? && token.is_a?(Whitespace) && token.newline
+                output.debug("Indent: #{operator} followed by newline. Current indent is #{indent.string.inspect}.")
                 indent_start = source.create_empty_range(operator.source_range.end)
                 open_indent = IndentOperator.new(indent_start, indent, all_operators[:indent])
                 operators << open_indent
@@ -159,6 +164,7 @@ module BergLang
                 if open_indent.indent.string[0...token.indent.size] != token.indent.string[0...open_indent.indent.size]
                     raise syntax_errors.unmatchable_indent(open_indent, token)
                 end
+                output.debug("Undent: #{whitespace.indent.string.inspect} followed by newline")
                 undent = Operator.new(source.create_empty_range(token.indent.end), all_operators[:undent])
                 empty_expression = handle_empty_block(undent, operators)
                 return empty_expression if empty_expression
@@ -175,8 +181,8 @@ module BergLang
             previous_token
         end
 
-        def syntax_error(message)
-            raise message
+        def syntax_errors
+            SyntaxErrors.new
         end
     end
 end

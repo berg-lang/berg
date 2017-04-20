@@ -95,16 +95,16 @@ module BergLang
             # Then applies them.
             #
             def resolve_infix!(operators)
-                last_postfix, operator, first_prefix = arity_picker.pick_infix(operators)
-                apply_postfix!(operators[0..last_postfix], operator) if last_postfix >= 0
-                apply_infix!(operator)
-                apply_prefix!(operators[first_prefix..-1])
+                postfixes, infix, prefixes = arity_picker.pick_infix(operators)
+                apply_postfix!(postfixes)
+                apply_infix!(infix)
+                apply_prefix!(prefixes)
             end
 
             def apply_prefix!(prefixes)
                 prefixes.each do |operator|
                     next if operator.is_a?(Whitespace)
-                    debug "Prefix: #{token_to_s(operator, operator.prefix)}"
+                    debug "Applying Prefix Operator: #{token_to_s(operator, operator.prefix)}"
                     if !operator.prefix
                         # If there is an empty expression--(<whitespace>)--it may show up in prefixes.
                         if operator.close
@@ -132,18 +132,16 @@ module BergLang
                 debug unclosed_to_s(indent: "  ")
             end
 
-            def apply_postfix!(postfixes, because_of_infix=nil)
+            def apply_postfix!(postfixes)
                 postfixes.each do |operator|
                     next if operator.is_a?(Whitespace)
+
+                    if !operator.postfix
+                        raise syntax_errors.missing_right_hand_side(operator, postfixes[-1])
+                    end
+
                     debug ""
                     debug "Postfix: #{token_to_s(operator, operator.postfix)}"
-                    if !operator.postfix
-                        if because_of_infix
-                            raise syntax_errors.prefix_or_infix_in_front_of_infix_operator(operator, because_of_infix)
-                        else
-                            raise syntax_errors.missing_right_hand_side(operator, postfixes[-1])
-                        end
-                    end
                     left_bind!(operator, operator.postfix) 
                     debug unclosed_to_s(indent: "  ")
                 end
@@ -159,7 +157,7 @@ module BergLang
             end
 
             def debug(string)
-                #puts string
+                parser.output.debug(string)
             end
 
             # PRE( PRE( (expr IN PRE( PRE( expr <- POST|IN

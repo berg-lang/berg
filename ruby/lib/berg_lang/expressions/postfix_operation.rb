@@ -16,7 +16,7 @@ module BergLang
             end
 
             def to_s
-                "#{left}#{operator}"
+                "(#{left}#{operator})"
             end
         end
     end

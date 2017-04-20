@@ -1,62 +1,97 @@
+require_relative "syntax_errors"
+
 module BergLang
     class Parser
         class ArityPicker
             attr_reader :source
+            attr_reader :output
             attr_reader :unclosed_expression
 
             def initialize(unclosed_expression)
                 @source = unclosed_expression.source
+                @output = unclosed_expression.parser.output
                 @unclosed_expression = unclosed_expression
             end
 
             def pick_infix(operators)
-                # 1. Sticky Postfix: treat all guaranteed postfix operators as postfix 
-                last_postfix = last_sticky_postfix(operators)
+                output.debug "Operators: #{operators.map { |op| op.to_s.inspect }.join(", ")}"
+                #
+                # 1. Infix > Prefix > Postfix:
+                #
+                # Go through the list of operators and pick as many prefix operators as you can pick followed by an infix operator.
+                # If you run into an operator that MUST be postfix or run out of operators, insert a call there.
+                # 
+                index = operators.size-1
+                while index >= 0
+                    operator = operators[index]
+                    if operator.is_a?(Operator)
+                        # Break on the first postfix-only operator
+                        break if sticky_postfix?(operators, index)
+                        # Things that MUST be prefix are always OK.
 
-                # 2. Prefix > Postfix: Get as many prefix operators in a row as you can. The rest is postfix.
-                first_prefix = first_possible_prefix(operators, last_postfix+1)
-                last_postfix = first_prefix - 1
-                last_postfix -= 1 if operators[last_postfix].is_a?(Whitespace)
+                        if operator.infix
+                            infix_index = index
+                        end
+                        # If we find something that MUST be prefix, we can't choose the infix we wanted to ...
+                        if sticky_prefix?(operators, index) || (!operator.infix && !operator.postfix)
+                            infix_index = nil
+                            newline_index = nil
+                        end
+                        # If it doesn't allow prefix, we don't continue to the next one.
+                        break unless operator.prefix
 
-                #
-                # 3. Infix > Postfix: Use the last POSTFIX operator as INFIX if it can be.
-                #
-                if last_postfix >= 0 && operators[last_postfix].infix && !sticky_postfix?(operators, last_postfix)
-                    infix = operators[last_postfix]
-                    last_postfix -= 1 unless last_postfix < 0
-                    last_postfix -= 1 if operators[last_postfix].is_a?(Whitespace)
-
-                #
-                # 4. Infix > Prefix: Use the first PREFIX operator as INFIX if it can be.
-                #
-                elsif first_prefix < operators.size && operators[first_prefix].infix && !sticky_prefix?(operators, first_prefix)
-                    infix = operators[first_prefix]
-                    first_prefix += 1 unless first_prefix >= operators.size
-                    first_prefix += 1 if operators[first_prefix].is_a?(Whitespace)
-
-                #
-                # 4. If not, see if there is a LINEBREAK between the "chosen infix" and the first_prefix.
-                #
-                elsif operators[last_postfix+1].is_a?(Whitespace) && operators[last_postfix+1].newline
-                    infix = Operator.new(operators[last_postfix+1].newline, unclosed_expression.all_operators["\n"])
-
-                #
-                # 5. Insert a CALL operator.
-                #
-                else
-                    if operators[first_prefix-1].is_a?(Whitespace)
-                        call_range = operators[first_prefix-1].source_range
-                    elsif operators[first_prefix]
-                        call_range = source.create_empty_range(operators[first_prefix].source_range.begin)
-                    elsif operators[last_postfix]
-                        call_range = source.create_empty_range(operators[last_postfix].source_range.end)
-                    else
-                        call_range = source.create_empty_range(unclosed_expression.source_range.end)
+                    elsif operator.newline
+                        newline_index = index
                     end
-                    infix = Operator.new(call_range, unclosed_expression.all_operators[:call])
+
+                    index -= 1
                 end
 
-                [ last_postfix, infix, first_prefix ]
+                #
+                # Normal infix
+                #
+                if infix_index
+                    postfixes = operators[0...infix_index]
+                    infix = operators[infix_index]
+                    prefixes = operators[infix_index+1..-1]
+
+                    # When there's a normal infix operator, we have a special (better) error message to give if the postfixes
+                    # aren't really postfixes.
+                    postfixes.each do |operator|
+                        if operator.is_a?(Operator) && !operator.postfix
+                            raise syntax_errors.prefix_or_infix_in_front_of_infix_operator(operator, infix)
+                        end
+                    end
+
+                #
+                # Newline
+                #
+                elsif newline_index
+                    output.debug("Newline Statement: Inserting newline separator.")
+                    postfixes = operators[0...newline_index]
+                    # TODO split up the whitespace so that the infix lies in between the pr3efixes and postfixes
+                    infix = Operator.new(operators[newline_index].newline, unclosed_expression.all_operators["\n"])
+                    prefixes = operators[newline_index..-1]
+
+                #
+                # Call operator
+                #
+                else
+                    output.debug("Call Expression: Inserting call operator.")
+
+                    # Pick the spot right after the left expression to be the call operator.
+                    call_location = (index >= 0 ? operators[index] : unclosed_expression).source_range.end
+                    # Everything up to and including index
+                    postfixes = operators[0...index+1]
+                    infix = Operator.new(source.create_empty_range(call_location), unclosed_expression.all_operators[:call])
+                    prefixes = operators[index+1..-1]
+                end
+
+                output.debug "Postfixes: #{postfixes.map { |op| op.to_s.inspect }.join(", ")}"
+                output.debug "Infix: #{infix.to_s.inspect}"
+                output.debug "Prefixes: #{prefixes.map { |op| op.to_s.inspect }.join(", ")}"
+
+                [ postfixes, infix, prefixes ]
             end
 
             private
@@ -107,6 +142,10 @@ module BergLang
                     prev_operator = operators[index-1] if index >= 0
                     prev_operator.is_a?(Whitespace) && !operators[index+1].is_a?(Whitespace)
                 end
+            end
+
+            def syntax_errors
+                SyntaxErrors.new
             end
         end
     end

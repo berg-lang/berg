@@ -50,6 +50,7 @@ module BergLang
                 @started_by = started_by
                 @ended_by = ended_by
                 @opens_indent_block = opens_indent_block
+                @can_be_sticky = can_be_sticky
             end
 
             def to_s

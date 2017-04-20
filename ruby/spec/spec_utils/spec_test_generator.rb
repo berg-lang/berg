@@ -26,37 +26,41 @@ module SpecUtils
                     elsif File.extname(child_path) == ".yaml"
                         test_spec = YAML.load(IO.read(child_path), child_path)
                         context File.basename(child_path[0..-6]) do
-                            generate_tests_from_spec(test_spec)
+                            generate_tests_from_spec(child_path, test_spec)
                         end
                     end
                 end
             end
         end
 
-        def generate_tests_from_spec(test_spec)
+        def generate_tests_from_spec(path, test_spec)
             case test_spec
             when Array
                 test_spec.each_with_index do |child_spec, index|
-                    generate_tests_from_spec(child_spec)
+                    generate_tests_from_spec("#{path}[#{index}]", child_spec)
                 end
 
             when Hash
                 if test_spec["Berg"]
                     # We have a test! Generate it.
-                    generate_test(test_spec)
+                    generate_test(path, test_spec)
                 else
                     test_spec.each do |child_name,child_spec|
                         context child_name do
-                            generate_tests_from_spec(child_spec)
+                            generate_tests_from_spec("#{path}.#{child_name}", child_spec)
                         end
                     end
                 end
             else
                 raise "Not a test or test list: #{test_spec.inspect}"
             end
+
+        rescue
+            STDERR.puts "ERROR: in test #{path}"
+            raise
         end
 
-        def generate_test(test_spec)
+        def generate_test(path, test_spec)
             test_spec.each do |key, expected_value|
                 test_type, expected_key = key.split(/\s*->\s*/, 2)
                 case test_type
@@ -69,6 +73,12 @@ module SpecUtils
                     raise "Unexpected test key #{key}! Expected Berg, Ast, Error, or Result."
                 end
             end
+
+        rescue Object
+            STDERR.puts "ERROR: in test with spec:"
+            require "pp"
+            STDERR.pp test_spec
+            raise
         end
 
         def generate_ast_tests(property_path, expected_type, expected_value, test_spec)
@@ -87,27 +97,42 @@ module SpecUtils
 
             it "When Berg source is #{source_description(test_spec)}, #{english_join(test_descriptions, "and")}" do
                 # Parse.
-                parsed_expression = parse_expression(test_spec)
-                ast_tests.each do |property_path, expected_type, expected_range, expected_term|
-                    
-                    expression = parsed_expression
-                    property_path.each do |property_name|
-                        expression = expression.send(to_snake_case(property_name))
+                parsed_expression = nil
+                begin
+                    parser_output.indented do
+                        parsed_expression = parse_expression(test_spec)
                     end
+                    ast_tests.each do |property_path, expected_type, expected_range, expected_term|
 
-                    # Check the results
-                    if expected_type
-                        expect(expression).to be_a eval("BergLang::Expressions::#{expected_type}")
-                    end
+                        begin
+                            expression = parsed_expression
+                            property_path.each do |property_name|
+                                expression = expression.send(to_snake_case(property_name))
+                            end
 
-                    if expected_term
-                        expect(expression.source_range.string).to eq expected_term
-                    end
+                            # Check the results
+                            if expected_type
+                                expect(expression).to be_a eval("BergLang::Expressions::#{expected_type}")
+                            end
 
-                    if expected_range
-                        expect(expression.source_range.begin_location).to eq(expected_range.begin_location)
-                        expect(expression.source_range.end_location).to eq(expected_range.end_location)
+                            if expected_term
+                                expect(expression.source_range.string).to eq expected_term
+                            end
+
+                            if expected_range
+                                expect(expression.source_range.begin_location).to eq(expected_range.begin_location)
+                                expect(expression.source_range.end_location).to eq(expected_range.end_location)
+                            end
+                        rescue Object
+                            STDERR.puts "Error in #{[ "Ast", *property_path ].join(".")}"
+                            raise
+                        end
                     end
+                rescue Object
+                    STDERR.puts "Parsed expression: #{parsed_expression}" if parsed_expression
+                    STDERR.puts "Parser output:\n#{parser_output.stream.string}"
+                    STDERR.puts "--------------"
+                    raise
                 end
             end
         end
@@ -139,25 +164,35 @@ module SpecUtils
 
             it "When Berg source is #{source_description(test_spec)}, the parser emits an error with #{english_join(test_descriptions, "and")}" do
 
-                # Parse and grab the error.
-                syntax_error = nil
+                parsed_expression = nil
                 begin
-                    expression = parse_expression(test_spec)
-                    raise "Expected a parse error, but no error happened! Instead, the expression #{expression} was returned."
-                rescue BergLang::Parser::SyntaxError
-                    syntax_error = $!
-                end
+                    # Parse and grab the error.
+                    syntax_error = nil
+                    begin
+                        parser_output.indented do
+                            parsed_expression = parse_expression(test_spec)
+                        end
+                        raise "Expected a parse error, but no error happened! Instead, the expression #{expression} was returned."
+                    rescue BergLang::Parser::SyntaxError
+                        syntax_error = $!
+                    end
 
-                # Check its properties.
-                if expected_error
-                    expect("#{syntax_error.error} #{syntax_error.remedy}").to eq expected_error
-                end
-                if expected_term
-                    expect(syntax_error.source_range.string).to eq(expected_term)
-                end
-                if expected_range
-                    expect(syntax_error.source_range.begin_location).to eq(expected_range.begin_location)
-                    expect(syntax_error.source_range.end_location).to eq(expected_range.end_location)
+                    # Check its properties.
+                    if expected_error
+                        expect("#{syntax_error.error} #{syntax_error.remedy}").to eq expected_error
+                    end
+                    if expected_term
+                        expect(syntax_error.source_range.string).to eq(expected_term)
+                    end
+                    if expected_range
+                        expect(syntax_error.source_range.begin_location).to eq(expected_range.begin_location)
+                        expect(syntax_error.source_range.end_location).to eq(expected_range.end_location)
+                    end
+                rescue Object
+                    STDERR.puts "Parsed expression: #{parsed_expression}" if parsed_expression
+                    STDERR.puts "Parser output:\n#{parser_output.stream.string}"
+                    STDERR.puts "--------------"
+                    raise
                 end
             end
         end
@@ -297,8 +332,12 @@ module SpecUtils
                 self.class.create_source(test_spec)
             end
 
+            def parser_output
+                @parser_output ||= BergLang::Parser::Output.new(StringIO.new)
+            end
+
             def parse_expression(test_spec)
-                parser = BergLang::Parser.new(create_source(test_spec))
+                parser = BergLang::Parser.new(create_source(test_spec), output: parser_output)
                 parsed_expression_root = parser.parse
                 # Strip off the outer DelimitedOperation before checking the AST (since it's always the same)
                 expect(parsed_expression_root).to be_a BergLang::Expressions::DelimitedOperation

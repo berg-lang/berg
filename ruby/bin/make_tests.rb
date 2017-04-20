@@ -22,19 +22,38 @@ class TestMaker
     def generate_equal_precedence_tests
         # Generate operator
         output_file "Syntax/OperatorPrecedence.yaml" do
-            output_field "EqualPrecedence" do
-                operators_by_precedence.each do |precedence, operators|
+            operators_by_precedence.each do |precedence1, operators1|
+                output_field "Precedence#{precedence1}" do
                     output "#"
-                    output "# Precedence #{precedence}: #{operators.map { |op| op_output(op) }.join(" ")}"
+                    output "# Precedence #{precedence1}: #{operators1.map { |op| op_output(op) }.join(" ")}"
                     output "#"
-                    operators.each_with_index do |op1, op1_index|
-                        output "# #{op_output(op1)}"
-                        operators.drop(op1_index).each do |op2|
-                            generate_equal_precedence_test(op1, op2)
+                    operators_by_precedence.each do |precedence2, operators2|
+                        # Only process each pair of operators once.
+                        next if precedence2 < precedence1
+                        output_field "AgainstPrecedence#{precedence2}" do
+                            output "#"
+                            output "# Against precedence #{precedence2}: #{operators2.map { |op| op_output(op) }.join(" ")}"
+                            output "#"
+                            operators1.each_with_index do |op1, op1_index|
+                                output "#"
+                                output "# #{op_output(op1)}"
+                                output "#"
+                                if precedence1 == precedence2
+                                    operators2.drop(op1_index).each do |op2|
+                                        generate_precedence_test(op1, op2)
+                                    end
+                                else
+                                    operators2.each do |op2|
+                                        generate_precedence_test(op1, op2)
+                                    end
+                                end
+                                output ""
+                            end
                         end
                         output ""
                     end
                 end
+                output ""
             end
         end
 
@@ -50,13 +69,25 @@ class TestMaker
         end
     end
 
-    def generate_equal_precedence_test(op1, op2)
-        op1_type = op1.type
-        op1_type = :infix if op1.key == :indent
-        op2_type = op2.type
-        op2_type = :infix if op2.key == :indent
+    def generate_precedence_test(op1, op2)
+        if op1.key == :indent
+            op1_indent = true
+            op1 = colon
+        end
+        if op2.key == :indent
+            op2_indent = true
+            op2 = colon
+        end
+        # The one with the lower precedence binds tighter
+        if op1.precedence < op2.precedence
+            winner = :op1
+        elsif op1.precedence > op2.precedence
+            winner = :op2
+        else
+            winner = op1.direction
+        end
 
-        case "#{op1_type} #{op2_type}"
+        case "#{op1.type} #{op2.type}"
         when "prefix prefix"
             # !-a
             test prefix(op1, prefix(op2, "a"))
@@ -64,10 +95,11 @@ class TestMaker
             test prefix(op2, prefix(op1, "a"))
 
         when "prefix infix"
-            # a/!b
+            # a/!b, a:\n  !b
             test infix("a", op2, prefix(op1, "b"))
-            # !a/b
-            if op1.direction == :left
+
+            # !a/b, !a:\n  b
+            if [ :op1, :left ].include?(winner)
                 test infix(prefix(op1, "a"), op2, "b")
             else
                 test prefix(op1, infix("a", op2, "b"))
@@ -75,10 +107,10 @@ class TestMaker
 
         when "prefix postfix"
             # !a?
-            if op1.direction == :left
+            if [ :op1, :left ].include?(winner)
                 test postfix(prefix(op1, "a"), op2)
             else
-                test prefix(postfix(op1, "a"), op2)
+                test prefix(op1, postfix("a", op2))
             end
 
         when "prefix open"
@@ -88,32 +120,37 @@ class TestMaker
             test delimited(op2, prefix(op1, "a"))
 
         when "infix infix"
-            # a/b%c
-            # a%b/c
-            if op1.direction == :left
+            # a/b%c, a:\n  b%c, a:\n  b:\n    c
+            if [ :op1, :left ].include?(winner)
                 test infix(infix("a", op1, "b"), op2, "c")
-                test infix(infix("a", op2, "b"), op1, "c") unless op1 == op2
             else
                 test infix("a", op1, infix("b", op2, "c"))
-                test infix("a", op2, infix("b", op1, "c")) unless op1 == op2
+            end
+            # a%b/c, a%b:\n  c
+            if op1 != op2
+                if [ :op2, :left ].include?(winner)
+                    test infix(infix("a", op2, "b"), op1, "c")
+                else
+                    test infix("a", op2, infix("b", op1, "c"))
+                end
             end
 
         when "infix postfix"
-            # a/b?
-            if op1.direction == :left
+            # a/b?, a\n  b?
+            if [ :op1, :left ].include?(winner)
                 test postfix(infix("a", op1, "b"), op2)
             else
                 test infix("a", op1, postfix("b", op2))
             end
-            # a?/b
+            # a?/b, a?:\n  b
             test infix(postfix("a", op2), op1, "b")
 
         when "infix open"
-            # (a)/b
+            # (a)/b, (a):\n  b
             test infix(delimited(op2, "a"), op1, "b")
-            # a/(b)
+            # a/(b), a:\n  (b)
             test infix("a", op1, delimited(op2, "b"))
-            # (a/b)
+            # (a/b), (a:\n  b)
             test delimited(op2, infix("a", op1, "b"))
 
         when "postfix postfix"
@@ -124,7 +161,7 @@ class TestMaker
 
         when "postfix open"
             # (a)?
-            test postfix(op1, delimited(op2, "a"))
+            test postfix(delimited(op2, "a"), op1)
             # (a?)
             test delimited(op2, postfix("a", op1))
 
@@ -136,7 +173,7 @@ class TestMaker
 
         else
             # Switch the operators around if they weren't the right direction this time
-            generate_equal_precedence_test(op2, op1)
+            generate_precedence_test(op2, op1)
         end
     end
 
@@ -209,64 +246,108 @@ class TestMaker
     def infix(left, op, right)
         left = bare(left)
         right = bare(right)
-        if op.key == :indent
+        is_indent = (op.key == :indent)
+        if is_indent
             right = delimited(op, right)
             op = colon
         end
 
-        {
+        result = {
             type: "InfixOperation",
-            source: "#{left[:source]}#{op_source(op)}#{right[:source]}",
+            source: "#{left[:source]} #{op_source(op)} #{right[:source]}",
             expected: {
                 "Left -> #{left[:type]}" => left[:expected],
+                "$SpaceLeft" => " ",
                 "Operator" => op_source(op),
-                "Right -> #{right[:type]}" => right[:expected]
+                "$SpaceRight" => " ",
+                "Right -> #{right[:type]}" => right[:expected],
             },
         }
+        if op.key == :call
+            result[:expected]["$SpaceLeft"] = ""
+            result[:expected]["Operator"] = ""
+            result[:expected]["$SpaceRight"] = "   "
+        elsif is_indent
+            result[:expected]["$SpaceRight"] = ""
+            result[:expected]["$Space"] = " #{result[:expected]["$Space"]}"
+        end
+        result
     end
 
     def fixup_precedence_test(value)
+        expected = value[:expected]
+        operator = expected["Operator"]
+        type = value[:type]
         case value[:source]
         when "(a:\n  b)"
-            value[:expected]["Expression -> InfixOperation"]["Right -> DelimitedOperation"]["Close"] = ")"
+            expected["Expression -> InfixOperation"]["Right -> DelimitedOperation"]["Close"] = ")"
         when "{a:\n  b}"
-            value[:expected]["Expression -> InfixOperation"]["Right -> DelimitedOperation"]["Close"] = "}"
+            expected["Expression -> InfixOperation"]["Right -> DelimitedOperation"]["Close"] = "}"
         when "a:\n  b:\n    c"
-            value[:expected]["Right -> DelimitedOperation"]["Expression -> InfixOperation"]["Right -> DelimitedOperation"]["$Space"] = "\n    "
-        when "a:\n"
-            value[:expected]["Right -> DelimitedOperation"] = {
+            expected["Right -> DelimitedOperation"]["Expression -> InfixOperation"]["Right -> DelimitedOperation"]["$Space"] = "\n    "
+        when "a : \n"
+            expected.delete("$SpaceRight")
+            expected["Right -> DelimitedOperation"] = {
                 "Expression -> EmptyExpression" => "",
             }
-        else
-            value
+        when "++a", "--a", "+++a", "---a"
+            right_operator = expected["Right -> PrefixOperation"]["Operator"]
+            if [ "+", "-" ].include?(operator)
+                value[:source] = "#{operator} #{right_operator}a"
+                value[:expected] = {
+                    "Operator" => operator,
+                    "$Space" => " ",
+                    "Right -> PrefixOperation" => expected["Right -> PrefixOperation"],
+                }
+            end
+
+        when "a++", "a--", "a+++", "a??"
+            left_operator = expected["Left -> PostfixOperation"]["Operator"]
+            if [ "+", "-", "?" ].include?(left_operator)
+                value[:source] = "a#{left_operator} #{operator}"
+                value[:expected] = {
+                    "Left -> PostfixOperation" => expected["Left -> PostfixOperation"],
+                    "$Space" => " ",
+                    "Operator" => operator,
+                }
+            end
+
+        when /\Aa[,;] [-+] b\Z/
+            left_operator = expected["Left -> PostfixOperation"]["Operator"]
+            value[:expected] = {
+                "Left -> Bareword" => "a",
+                "Operator" => left_operator,
+                "$Space" => " ",
+                "Right -> PrefixOperation" => {
+                    "Operator" => operator,
+                    "$Space" => " ",
+                    "Right -> Bareword" => "b"
+                }
+            }
+
+        when /\Aa[,;] ([ \n]) b\Z/
+            left_operator = expected["Left -> PostfixOperation"]["Operator"]
+            value[:expected] = {
+                "Left -> Bareword" => "a",
+                "Operator" => left_operator,
+                "$Space" => " #{$1} ",
+                "Right -> Bareword" => "b",
+            }
+
         end
     end
 
     def bad_error_test?(value, error)
-        outer = value[:expected]
         case value[:source]
-        when "a;", "a,"
+        # Infix operators that are also postfix
+        when "a ; ", "a , ", "a * ", "a + ", "a : ", "a   ", "a \n "
             true
-        else
-            if value[:type] == "PostfixOperation" && ["--", "++", "+"].include?(outer["Operator"])
-                true
-            elsif value[:type] == "InfixOperation" && ["*", "+", ":", " ", "\n"].include?(outer["Operator"]) && error =~ /Missing a value on the right side/
-                true
-            elsif value[:type] == "InfixOperation" && ["+", "-", " ", "\n"].include?(outer["Operator"]) && error =~ /Missing a value on the left side/
-                true
-            end
-        end
-    end
-
-    def bad_combination?(value)
-        outer = value[:expected]
-        case value[:source]
-        when "a??", "a++", "a+++"
-            value[:type] == "PostfixOperation" && value[:expected]["Operator"].size == 1
-        when "a;\nb"
-            value[:type] == "InfixOperation" && value[:expected]["Operator"] == "\n"
-        when "++a", "--a", "+++a", "---a"
-            value[:type] == "PrefixOperation" && value[:expected]["Operator"].size == 1
+        # Infix operators that are also prefix
+        when " + b", " - b", "   b", " \n b", " - ", " + ", "   ", " \n "
+            true
+        # Postfix operators that are also prefix
+        when "++", "--", "+"
+            value[:type] == "PostfixOperation"
         end
     end
 
@@ -292,7 +373,6 @@ class TestMaker
 
     def test(test)
         test = bare(test)
-        return if bad_combination?(test)
         old_indent = current_indent
         begin
             fixup_precedence_test(test)
@@ -442,7 +522,7 @@ class TestMaker
 
     def escape_yaml(string)
         case string
-        when "", "-", "*", ".", /[\n\t\\"':]/, /\A[%>!?|&*,{}]/, /\s\Z/
+        when "", "-", "*", ".", /[\n\t\\"':]/, /\A[%>!?|&*,{}]/, /\s\Z/, /\A\s/, /\A-\s/
             string.inspect
         else
             string
