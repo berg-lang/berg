@@ -353,10 +353,79 @@ EmptyLines:
                           Operator: "\n"
                           Right: "5"
 
-# EmptyTrailingSpace:
-# MultipleLeadingExpressions:
+MultipleLeadingExpressions:
+  - Berg: |
+      a+b; MiddleA:
+        InnerA: 1
+      OuterA: 2
+    Ast:
+      Left:
+        Left: "a+b"
+        Operator: ";"
+        Right:
+          Left: MiddleA
+          Operator: ":"
+          Right:
+            Expression: "InnerA: 1"
+      Operator: "\n"
+      Right: "OuterA: 2"
+  - Berg: |
+      OuterA: MiddleA:
+        InnerA: 1
+      OuterB: 2
+    Ast:
+      Left:
+        Left: OuterA
+        Operator: ":"
+        Right:
+          Left: MiddleA
+          Operator: ":"
+          Right:
+            Expression: "InnerA: 1"
+      Operator: "\n"
+      Right: "OuterB: 2"
 
-# Errors:
-#   MismatchedIndent:
-#   MismatchedUndent:
+# We only care about indent that messes up the actual block, which means we only care about matching the indent on the initial line.
+AcceptablyMismatchedIndent:
+  - Berg: " OuterA:\n \tMiddleA: 1\n  MiddleB: 2"
+    Ast:
+      Left: OuterA
+      Operator: ":"
+      Right:
+        Expression:
+          Left: "MiddleA: 1"
+          Operator: "\n"
+          Right: "MiddleB: 2"
+  - Berg: " OuterA:\n \t\tMiddleA: 1\n  MiddleB: 2"
+    Ast:
+      Left: OuterA
+      Operator: ":"
+      Right:
+        Expression:
+          Left: "MiddleA: 1"
+          Operator: "\n"
+          Right: "MiddleB: 2"
+  - Berg: " OuterA:\n \tMiddleA: 1\n   MiddleB: 2"
+    Ast:
+      Left: OuterA
+      Operator: ":"
+      Right:
+        Expression:
+          Left: "MiddleA: 1"
+          Operator: "\n"
+          Right: "MiddleB: 2"
 
+Errors:
+  MismatchedIndent:
+    - Berg: "OuterA:\n\tMiddleA:\n MiddleA: 1"
+      Error: 3@1 = Indents cannot match due to difference in tabs and spaces. Either convert tabs to spaces, or vice versa; do not mix them.
+    - Berg: "OuterA:\n MiddleA:\n\tMiddleA: 1"
+      Error: 3@1 = Indents cannot match due to difference in tabs and spaces. Either convert tabs to spaces, or vice versa; do not mix them.
+    - Berg: "OuterA:\n\tMiddleA:\n \tInnerA: 1"
+      Error: 3@1-2 = Indents cannot match due to difference in tabs and spaces. Either convert tabs to spaces, or vice versa; do not mix them.
+    - Berg: "OuterA:\n MiddleA:\n\t InnerA: 1"
+      Error: 3@1-2 = Indents cannot match due to difference in tabs and spaces. Either convert tabs to spaces, or vice versa; do not mix them.
+    - Berg: "OuterA:\n  MiddleA:\n \tInnerA: 1"
+      Error: 3@1-2 = Indents cannot match due to difference in tabs and spaces. Either convert tabs to spaces, or vice versa; do not mix them.
+    - Berg: "OuterA:\n  MiddleA:\n\tOuterB: 1"
+      Error: 3@1 = Indents cannot match due to difference in tabs and spaces. Either convert tabs to spaces, or vice versa; do not mix them.

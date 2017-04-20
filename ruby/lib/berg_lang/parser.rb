@@ -66,6 +66,7 @@ module BergLang
         def next_expression_phrase
             operators = []
             while true
+                output.debug "Token: #{token.to_s.inspect}"
                 case token
                 when Expression
                     return [operators, advance_token]
@@ -157,15 +158,16 @@ module BergLang
             open_indents = unclosed_expression.open_indents
             open_indents = open_indents + operators.select { |operator| operator.is_a?(IndentOperator) }
             open_indents.reverse_each do |open_indent|
+                # Truncate both indents and make sure they match as far as tabs/spaces go
+                if open_indent.indent.string[0...whitespace.indent.size] != whitespace.indent.string[0...open_indent.indent.size]
+                    raise syntax_errors.unmatchable_indent(whitespace.indent, open_indent.indent)
+                end
+
                 # If we're properly indented, we won't find any further smaller indents. Exit early.
                 break if whitespace.indent.size > open_indent.indent.size
 
-                # Truncate both indents and make sure they match as far as tabs/spaces go
-                if open_indent.indent.string[0...token.indent.size] != token.indent.string[0...open_indent.indent.size]
-                    raise syntax_errors.unmatchable_indent(open_indent, token)
-                end
                 output.debug("Undent: #{whitespace.indent.string.inspect} followed by newline")
-                undent = Operator.new(source.create_empty_range(token.indent.end), all_operators[:undent])
+                undent = Operator.new(source.create_empty_range(whitespace.indent.end), all_operators[:undent])
                 empty_expression = handle_empty_block(undent, operators)
                 return empty_expression if empty_expression
 

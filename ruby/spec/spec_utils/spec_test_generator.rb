@@ -172,7 +172,7 @@ module SpecUtils
                         parser_output.indented do
                             parsed_expression = parse_expression(test_spec)
                         end
-                        raise "Expected a parse error, but no error happened! Instead, the expression #{expression} was returned."
+                        raise "Expected a parse error, but no error happened! Instead, the expression #{parsed_expression} was returned."
                     rescue BergLang::Parser::SyntaxError
                         syntax_error = $!
                     end

@@ -1094,11 +1094,24 @@ OperatorsSeparatedByCommentNewlineAndSpace:
       Right -> Bareword: b
 
   # "right indent.: = += -= *= /= %= ||= &&= ??=",
-  - Berg: "a : b"
+  #
+  # This one is a little messed up, but correct. Since the : is on the second line, its indent is just " ".
+  # The indent for b is " " too, so it's a sibling of the :, not a child:
+  #
+  # a# comment 
+  #  :# comment 
+  #  b
+  - Berg: "a# comment \n :# comment \n b"
     Ast -> InfixOperation:
-      $Term: "a : b"
-      Left -> Bareword: a
-      Operator: ":"
+      $Term: "a# comment \n :# comment \n b"
+      Left -> InfixOperation:
+        Left -> Bareword: a
+        Operator: ":"
+        Right -> DelimitedOperation:
+          Open: "2@3+0 = "
+          Expression -> EmptyExpression: "2@3+0"
+          Close: "3@2+0 = "
+      Operator: "2@13 = \n"
       Right -> Bareword: b
   - Berg: "a# comment \n =# comment \n b"
     Ast -> InfixOperation:
