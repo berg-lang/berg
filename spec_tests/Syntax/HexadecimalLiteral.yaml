@@ -1,0 +1,77 @@
+Hexadecimal:
+  - Berg: "0x1a"
+    Ast -> HexadecimalLiteral: "0x1a" 
+    Result: 26
+  - Berg: "0X1a"
+    Ast -> HexadecimalLiteral: "0X1a" 
+    Result: 26
+  - Berg: "0x12345678"
+    Ast -> HexadecimalLiteral: "0x12345678" 
+    Result: 305419896
+  - Berg: "0x90abcdef"
+    Ast -> HexadecimalLiteral: "0x90abcdef" 
+    Result: 2427178479
+  - Berg: "0xABCDEF90"
+    Ast -> HexadecimalLiteral: "0xABCDEF90" 
+    Result: 2882400144
+  - Berg: "0xAbCdEf"
+    Ast -> HexadecimalLiteral: "0xAbCdEf" 
+    Result: 11259375
+
+SmallHexadecimal:
+  - Berg: "0x1"
+    Ast -> HexadecimalLiteral: "0x1" 
+    Result: 1
+
+BigHexadecimal:
+  Berg: "0x7631254ae6f9167bfA776ed90123d6bf9167bfA77631254ae64ae6f9167bf7bfA7767631254ae6f9167bfA776ed90123d6bf9167bfA77631254ae64ae6f9167bf7bfA776"
+  Ast -> HexadecimalLiteral: "0x7631254ae6f9167bfA776ed90123d6bf9167bfA77631254ae64ae6f9167bf7bfA7767631254ae6f9167bfA776ed90123d6bf9167bfA77631254ae64ae6f9167bf7bfA776"
+  Result: 26586775401760734621856820721224968469912551661801077484041660060683575712148585927458577688341715997553070920122913749697373457349774008858759035503207992057112438
+
+Zero:
+  - Berg: "0x0"
+    Ast -> HexadecimalLiteral: "0x0"
+    Result: 0
+  - Berg: "0x00"
+    Ast -> HexadecimalLiteral: "0x00"
+    Result: 0
+
+HexadecimalSurroundedByCommentsNewlineAndWhitespace:
+  - Berg: "# comment\n 0x1# comment\n "
+    Ast -> HexadecimalLiteral: "0x1"
+    Result: 1
+
+# Things that are not Hexadecimals, but almost are.
+NotAHexadecimal:
+  - Berg: "-0x1"
+    Ast -> PrefixOperation:
+      $Term: "-0x1"
+      Operator: "-"
+      Right -> HexadecimalLiteral: "0x1" 
+  - Berg: "+0x1"
+    Ast -> PrefixOperation:
+      $Term: "+0x1"
+      Operator: +
+      Right -> HexadecimalLiteral: "0x1" 
+  - Berg: 0x1+
+    Ast -> PostfixOperation:
+      $Term: 0x1+
+      Left -> HexadecimalLiteral: "0x1" 
+      Operator: +
+
+# Almost-Hexadecimals that are actually errors.
+IllegalHexadecimals:
+  VariableStartingWithHexadecimal:
+    - Berg: 0x
+    - Berg: "0x1g"
+      Error: 0x1g = Number is mixed up with a word. If it's a variable name, change it to start with a character instead of a number. If you wanted a number, you can remove the word characters.
+    - Berg: "0x1i"
+      Error: 0x1i = Number is mixed up with a word. If it's a variable name, change it to start with a character instead of a number. If you wanted a number, you can remove the word characters.
+    - Berg: 0x123adfslj
+      Error: 0x123adfslj = Number is mixed up with a word. If it's a variable name, change it to start with a character instead of a number. If you wanted a number, you can remove the word characters.
+  MissingRightHandSide:
+    - Berg: 0x1-
+      Error:
+        $Term: "-"
+        $Error: Missing a value on the right side of "-". Perhaps you closed the file earlier than intended, or didn't mean to put the "-" there at all?
+

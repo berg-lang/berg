@@ -1,0 +1,63 @@
+Octal:
+  - Berg: "01234567"
+    Ast -> OctalLiteral: "01234567" 
+    Result: 342391
+
+SmallOctal:
+  - Berg: "01"
+    Ast -> OctalLiteral: "01" 
+    Result: 1
+
+BigOctal:
+  Berg: "01532523755123651523641522734152741527343152741352741524715274135274135247135274315274135247135212755142615560"
+  Ast -> OctalLiteral: "01532523755123651523641522734152741527343152741352741524715274135274135247135274315274135247135212755142615560" 
+  Result: 57315473507205286645885034247496920359656655201413502783302623136115204540696276786241826141707120
+
+Zero:
+  - Berg: "00"
+    Ast -> OctalLiteral: "00"
+    Result: 0
+
+OctalSurroundedByCommentsNewlineAndWhitespace:
+  - Berg: "# comment\n 01# comment\n "
+    Ast -> OctalLiteral: "01"
+
+# Things that are not Octals, but almost are.
+NotAnOctal:
+  - Berg: "-01"
+    Ast -> PrefixOperation:
+      $Term: "-01"
+      Operator: "-"
+      Right -> OctalLiteral: "01" 
+  - Berg: "+01"
+    Ast -> PrefixOperation:
+      $Term: "+01"
+      Operator: +
+      Right -> OctalLiteral: "01" 
+  - Berg: 01+
+    Ast -> PostfixOperation:
+      $Term: 01+
+      Left -> OctalLiteral: "01" 
+      Operator: +
+
+# Almost-Octals that are actually errors.
+IllegalOctals:
+  DecimalCharactersInOctal:
+    - Berg: "0189"
+      Error: 0189 = Octal literals cannot have 8 or 9 in them. If you meant to write a decimal number, remove the 0.
+    - Berg: "018"
+      Error: 018 = Octal literals cannot have 8 or 9 in them. If you meant to write a decimal number, remove the 0.
+    - Berg: "019"
+      Error: 019 = Octal literals cannot have 8 or 9 in them. If you meant to write a decimal number, remove the 0.
+
+  VariableStartingWithOctal:
+    - Berg: 01a
+      Error: 01a = Number is mixed up with a word. If it's a variable name, change it to start with a character instead of a number. If you wanted a number, you can remove the word characters.
+    - Berg: 123adfslj
+      Error: 123adfslj = Number is mixed up with a word. If it's a variable name, change it to start with a character instead of a number. If you wanted a number, you can remove the word characters.
+  MissingRightHandSide:
+    - Berg: 01-
+      Error:
+        $Term: "-"
+        $Error: Missing a value on the right side of "-". Perhaps you closed the file earlier than intended, or didn't mean to put the "-" there at all?
+

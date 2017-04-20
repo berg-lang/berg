@@ -6,7 +6,7 @@ module BergLang
         #
         # Represents hexadecimal literals such as 0x1f10 and 0xDEADBEEF
         #
-        class NumericLiteral < Expression
+        class HexadecimalLiteral < Expression
             include Token
         end
     end

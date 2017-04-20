@@ -105,6 +105,18 @@ module BergLang
             end
 
             def parse_number
+                # Handle hex literals (0xDEADBEEF)
+                # prefix integer
+                match = source.match /\A(?<prefix>0[xX])(?<integer>(\d|[A-Fa-f])+)/
+                if match
+                    illegal_word_characters = source.match /\A(\w|[_$])+/
+                    # Word characters immediately following a number is illegal.
+                    if illegal_word_characters
+                        raise syntax_errors.variable_name_starting_with_an_integer(SourceRange.span(match, illegal_word_characters))
+                    end
+                    return Expressions::HexadecimalLiteral.new(match)
+                end
+
                 #
                 # Handle floats, imaginaries and integers (hex is later in this function)
                 #
@@ -143,15 +155,6 @@ module BergLang
 
                     else
                         raise syntax_errors.internal_error(match, "ERROR: number that doesn't fit any category: #{match.string}")
-                    end
-                else
-                    # Handle hex literals (0xDEADBEEF)
-                    # sign? prefix integer
-                    match = source.match /\A(?<sign>[-+])?(?<prefix>0x)(?<integer>(\d|[A-Fa-f])+)/
-                    if match
-                        Expressions::HexadecimalLiteral.new(match)
-                    else
-                        nil
                     end
                 end
             end
