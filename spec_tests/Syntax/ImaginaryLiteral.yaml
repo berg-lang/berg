@@ -1,0 +1,432 @@
+Imaginary:
+  - Berg: "12i"
+    Ast -> ImaginaryLiteral: "12i" 
+    Result: 12i
+  # Making an octal number imaginary makes it not be octal anymore. Should we emit an error instead?
+  - Berg: "012i"
+    Ast -> ImaginaryLiteral: "012i" 
+    Result: 12i
+  - Berg: "12.34e56i"
+    Ast -> ImaginaryLiteral: "12.34e56i"
+    Result: 12.34e56i
+  - Berg: "12.34e56I"
+    Ast -> ImaginaryLiteral: "12.34e56I"
+    Result: 12.34e56i
+  - Berg: "12.34E56i"
+    Ast -> ImaginaryLiteral: "12.34E56i"
+    Result: 12.34e-56i
+  - Berg: "12.34e-56i"
+    Ast -> ImaginaryLiteral: "12.34e-56i"
+    Result: 12.34e-56i
+  - Berg: "12.34E-56i"
+    Ast -> ImaginaryLiteral: "12.34E-56i"
+    Result: 12.34e-56i
+  - Berg: "12.34e+56i"
+    Ast -> ImaginaryLiteral: "12.34e+56i"
+    Result: 12.34e56i
+  - Berg: "12.34E+56i"
+    Ast -> ImaginaryLiteral: "12.34E+56i"
+    Result: 12.34e56i
+
+  - Berg: "12.34i"
+    Ast -> ImaginaryLiteral: "12.34i"
+    Result: 12.34i
+
+  - Berg: "12e56i"
+    Ast -> ImaginaryLiteral: "12e56i"
+    Result: 12e56i
+  - Berg: "12E56i"
+    Ast -> ImaginaryLiteral: "12E56i"
+    Result: 12e56i
+  - Berg: "12e-56i"
+    Ast -> ImaginaryLiteral: "12e-56i"
+    Result: 12e-56i
+  - Berg: "12E-56i"
+    Ast -> ImaginaryLiteral: "12E-56i"
+    Result: 12e-56i
+  - Berg: "12e+56i"
+    Ast -> ImaginaryLiteral: "12e+56i"
+    Result: 12e56i
+  - Berg: "12E+56i"
+    Ast -> ImaginaryLiteral: "12E+56i"
+    Result: 12e56i
+
+ImaginarySurroundedByCommentsNewlineAndWhitespace:
+  - Berg: "# comment\n 1i# comment\n "
+    Ast -> ImaginaryLiteral: "1i"
+  - Berg: "# comment\n 1.2i# comment\n "
+    Ast -> ImaginaryLiteral: "1.2i"
+  - Berg: "# comment\n 1.2e3i# comment\n "
+    Ast -> ImaginaryLiteral: "1.2e3i"
+  - Berg: "# comment\n 1e3i# comment\n "
+    Ast -> ImaginaryLiteral: "1e3i"
+
+SmallImaginary:
+  - Berg: "1i"
+    Ast -> ImaginaryLiteral: "1i" 
+    Result: 1i
+  - Berg: "1.2e3i"
+    Ast -> ImaginaryLiteral: "1.2e3i"
+    Result: 1.2e3i
+  - Berg: "1.2e-3i"
+    Ast -> ImaginaryLiteral: "1.2e-3i"
+    Result: 1.2e-3i
+  - Berg: "1.2i"
+    Ast -> ImaginaryLiteral: "1.2i"
+    Result: 1.2i
+
+BigImaginary:
+  - Berg: "1938523759123651983641928734198741987343198741398741984719874139874139847139874319874139847139812795148619560i"
+    Ast -> ImaginaryLiteral: "1938523759123651983641928734198741987343198741398741984719874139874139847139874319874139847139812795148619560i"
+    Result: 1938523759123651983641928734198741987343198741398741984719874139874139847139874319874139847139812795148619560i
+  - Berg: "18264871384761873461873642781.128497871364813648127648731e-1294761873468713641837634871648316431i"
+    Ast -> ImaginaryLiteral: "18264871384761873461873642781.128497871364813648127648731e-1294761873468713641837634871648316431i"
+    Result: 18264871384761873461873642781.128497871364813648127648731e-1294761873468713641837634871648316431i
+
+ImaginaryZero:
+  - Berg: "0i"
+    Ast -> ImaginaryLiteral: "0i"
+    Result: 0i
+  - Berg: "0.0e0i"
+    Ast -> ImaginaryLiteral: "0.0e0i"
+    Result: 0.0i
+  - Berg: "0.0e+0i"
+    Ast -> ImaginaryLiteral: "0.0e+0i"
+    Result: 0.0i
+  - Berg: "0.0e-0i"
+    Ast -> ImaginaryLiteral: "0.0e-0i"
+    Result: 0.0i
+
+  - Berg: "0.0i"
+    Ast -> ImaginaryLiteral: "0.0i"
+    Result: 0.23i
+
+  - Berg: "0e0i"
+    Ast -> ImaginaryLiteral: "0e0i"
+    Result: 0.0i
+  - Berg: "0e+0i"
+    Ast -> ImaginaryLiteral: "0e+0i"
+    Result: 0.0i
+  - Berg: "0e-0i"
+    Ast -> ImaginaryLiteral: "0e-0i"
+    Result: 0.0i
+
+# These are not Imaginaries, but look similar enougrh that we should check that the parser doesn't screw them up.
+NotAnImaginary:
+  VariableThatLooksLikeImaginary:
+    - Berg: i
+      Ast -> Bareword: i 
+    - Berg: I
+      Ast -> Bareword: I 
+    - Berg: i1
+      Ast -> Bareword: i1     
+
+  VariableThatLooksLikeExponent:
+    - Berg: ei
+      Ast -> Bareword: ei
+    - Berg: Ei
+      Ast -> Bareword: Ei
+    - Berg: e1i
+      Ast -> Bareword: e1i
+    - Berg: E1i
+      Ast -> Bareword: E1i
+    - Berg: e1i
+      Ast -> Bareword: e1i
+
+  OperationThatLooksLikeImaginary:
+    - Berg: 0 i
+      Ast -> InfixOperation:
+        $Term: 0 i
+        Left -> IntegerLiteral: "0"
+        Operator: "1@2+0 = "
+        Right -> Bareword: i
+    - Berg: 0.0 i
+      Ast -> InfixOperation:
+        $Term: 0.0 i
+        Left -> FloatLiteral: "0.0"
+        Operator: "1@4+0 = "
+        Right -> Bareword: i
+    - Berg: 1.2e3 i
+      Ast -> InfixOperation:
+        $Term: 1.2e3 i
+        Left -> FloatLiteral: "1.2e3"
+        Operator: "1@6+0 = "
+        Right -> Bareword: i
+    - Berg: "0.i"
+      Ast -> InfixOperation:
+        $Term: 0.i
+        Left -> IntegerLiteral: "0"
+        Operator: "."
+        Right -> Bareword: i
+    - Berg: 0.-i
+      Ast -> InfixOperation:
+        $Term: 0.-i
+        Left -> IntegerLiteral: "0"
+        Operator: "."
+        Right -> PrefixOperation:
+          Operator: "-"
+          Right -> Bareword: i
+    - Berg: 0.+i
+      Ast -> InfixOperation:
+        $Term: 0.+i
+        Left -> IntegerLiteral: "0"
+        Operator: "."
+        Right -> PrefixOperation:
+          Operator: "+"
+          Right -> Bareword: i
+
+  OperationThatLooksLikeExponent:
+    - Berg: e-1i
+      Ast -> InfixOperation:
+        $Term: e-1i
+        Left -> Bareword: e 
+        Operator: "-"
+        Right -> ImaginaryLiteral: "1i"
+    - Berg: 0.ei
+      Ast -> InfixOperation:
+        $Term: 0.ei
+        Left -> IntegerLiteral: "0"
+        Operator: .
+        Right -> Bareword: ei
+    - Berg: "0.e-1i"
+      Ast -> InfixOperation:
+        $Term: "0.e-1i"
+        Left -> InfixOperation:
+          $Term: "0.e"
+          Left -> IntegerLiteral: "0"
+          Operator: .
+          Right -> Bareword: e
+        Operator: "-"
+        Right -> ImaginaryLiteral: "1i"
+    - Berg: "0.e+1i"
+      Ast -> InfixOperation:
+        $Term: "0.e+1i"
+        Left -> InfixOperation:
+          $Term: "0.e"
+          Left -> IntegerLiteral: "0"
+          Operator: .
+          Right -> Bareword: e 
+        Operator: +
+        Right -> ImaginaryLiteral: "1i"
+    - Berg: 0.0 e-1i
+      Ast -> InfixOperation:
+        $Term: "0.0 e-1i"
+        Left -> FloatLiteral: "0.0"
+        Operator: ""
+        Right -> InfixOperation:
+          $Term: e-1i
+          Left -> Bareword: e 
+          Operator: "-"
+          Right -> ImaginaryLiteral: "1i"
+    - Berg: 0.0 e1i
+      Ast -> InfixOperation:
+        $Term: "0.0 e1i"
+        Left -> FloatLiteral: "0.0"
+        Operator: ""
+        Right -> Bareword: e1i
+
+    - Berg: e-0.0i
+      Ast -> InfixOperation:
+        $Term: e-0.0i
+        Left -> Bareword: e
+        Operator: "-"
+        Right -> ImaginaryLiteral: "0.0i"
+    - Berg: e+0.0i
+      Ast -> InfixOperation:
+        $Term: e+0.0i
+        Left -> Bareword: e
+        Operator: +
+        Right -> ImaginaryLiteral: "0.0i"
+
+  UnaryPlusOrMinus:
+    - Berg: "-1i"
+      Ast -> PrefixOperation:
+        $Term: "-1i"
+        Operator: "-"
+        Right -> ImaginaryLiteral: "1i" 
+    - Berg: "+1i"
+      Ast -> PrefixOperation:
+        $Term: "+1i"
+        Operator: +
+        Right -> ImaginaryLiteral: "1i" 
+    - Berg: 0i+
+      Ast -> PostfixOperation:
+        $Term: 0i+
+        Left -> ImaginaryLiteral: "0i"
+        Operator: +
+    - Berg: "-1.2e3i"
+      Ast -> PrefixOperation:
+        $Term: "-1.2e3i"
+        Operator: "-"
+        Right -> ImaginaryLiteral: "1.2e3i"
+    - Berg: "-1.2i"
+      Ast -> PrefixOperation:
+        $Term: "-1.2i"
+        Operator: "-"
+        Right -> ImaginaryLiteral: "1.2i"
+    - Berg: "-1e-3i"
+      Ast -> PrefixOperation:
+        $Term: "-1e-3i"
+        Operator: 1@1 = -
+        Right -> ImaginaryLiteral: "1e-3i"
+    - Berg: "+1.2e3i"
+      Ast -> PrefixOperation:
+        $Term: "+1.2e3i"
+        Operator: +
+        Right -> ImaginaryLiteral: "1.2e3i"
+    - Berg: "+1.2i"
+      Ast -> PrefixOperation:
+        $Term: "+1.2i"
+        Operator: +
+        Right -> ImaginaryLiteral: "1.2i"
+    - Berg: "+1e+3i"
+      Ast -> PrefixOperation:
+        $Term: "+1e+3i"
+        Operator: 1@1 = +
+        Right -> ImaginaryLiteral: "1e+3i"
+
+IllegalImaginary:
+  ImaginaryWithoutLeadingZero:
+    - Berg: ".34i"
+      Error: Floating point number found without leading zero. Add a 0 before the ".".
+    - Berg: ".2i"
+      Error: Floating point number found without leading zero. Add a 0 before the ".".
+    - Berg: "-.2i"
+      Error: .2 = Floating point number found without leading zero. Add a 0 before the ".".
+
+    - Berg: ".0e0i"
+      Error: .0 = Floating point number found without leading zero. Add a 0 before the ".".
+    - Berg: ".0e+0i"
+      Error: .0 = Floating point number found without leading zero. Add a 0 before the ".".
+    - Berg: ".0e-0i"
+      Error: .0 = Floating point number found without leading zero. Add a 0 before the ".".
+
+    - Berg: ".34e56i"
+      Error: .34 = Floating point number found without leading zero. Add a 0 before the ".".
+    - Berg: ".34E56i"
+      Error: .34 = Floating point number found without leading zero. Add a 0 before the ".".
+    - Berg: ".34e+56i"
+      Error: .34 = Floating point number found without leading zero. Add a 0 before the ".".
+    - Berg: ".34E+56i"
+      Error: .34 = Floating point number found without leading zero. Add a 0 before the ".".
+    - Berg: ".34e-56i"
+      Error: .34 = Floating point number found without leading zero. Add a 0 before the ".".
+    - Berg: ".34E-56i"
+      Error: .34 = Floating point number found without leading zero. Add a 0 before the ".".
+
+    - Berg: 0 .0i
+      Error: .0 = Floating point number found without leading zero. Add a 0 before the ".".
+
+    - Berg: e.0i
+      Error: .0 = Floating point number found without leading zero. Add a 0 before the ".".
+    - Berg: E.0i
+      Error: .0 = Floating point number found without leading zero. Add a 0 before the ".".
+    - Berg: e0.0i
+      Error: .0 = Floating point number found without leading zero. Add a 0 before the ".".
+    - Berg: a.0i
+      Error: .0 = Floating point number found without leading zero. Add a 0 before the ".".
+
+    - Berg: 0.0e0.1i
+      Error: .1 = Floating point number found without leading zero. Add a 0 before the ".".
+    - Berg: 0.0e-0.1i
+      Error: .1 = Floating point number found without leading zero. Add a 0 before the ".".
+    - Berg: 0.0e+0.1i
+      Error: .1 = Floating point number found without leading zero. Add a 0 before the ".".
+
+  EmptyDecimal:
+    - Berg: 0. * 10i
+      Error: Operators "." and "*" cannot appear together or are in the wrong order. Perhaps one of them was an error, or you meant to have a value between them?
+    - Berg: 0i. * 10
+      Error: Operators "." and "*" cannot appear together or are in the wrong order. Perhaps one of them was an error, or you meant to have a value between them?
+
+  ImaginaryWithTrailingIdentifier:
+    - Berg: 0.0ai
+      Error: 0.0ai = Number is mixed up with a word. If you wanted a number, you can remove the word characters. If you're trying to get a property of an integer with ".", make sure the property name starts with a word character.
+    - Berg: 0.0abci
+      Error: 0.0abci = Number is mixed up with a word. If you wanted a number, you can remove the word characters. If you're trying to get a property of an integer with ".", make sure the property name starts with a word character.
+    - Berg: 0.0e0ai
+      Error: 0.0e0ai = Number is mixed up with a word. If you wanted a number, you can remove the word characters. If you're trying to get a property of an integer with ".", make sure the property name starts with a word character.
+    - Berg: 0.0e0abci
+      Error: 0.0e0abci = Number is mixed up with a word. If you wanted a number, you can remove the word characters. If you're trying to get a property of an integer with ".", make sure the property name starts with a word character.
+    - Berg: 0.0e-0ai
+      Error: 0.0e-0ai = Number is mixed up with a word. If you wanted a number, you can remove the word characters. If you're trying to get a property of an integer with ".", make sure the property name starts with a word character.
+    - Berg: 0.0e-0abci
+      Error: 0.0e-0abci = Number is mixed up with a word. If you wanted a number, you can remove the word characters. If you're trying to get a property of an integer with ".", make sure the property name starts with a word character.
+
+  VariableStartingWithANumber:
+    - Berg: 0ei
+      Error: 0ei = Number is mixed up with a word. If it's a variable name, change it to start with a character instead of a number. If you wanted a number, you can remove the word characters.
+    - Berg: 0ie
+      Error: 0ie = Number is mixed up with a word. If it's a variable name, change it to start with a character instead of a number. If you wanted a number, you can remove the word characters.
+    - Berg: 0ai
+      Error: 0ai = Number is mixed up with a word. If it's a variable name, change it to start with a character instead of a number. If you wanted a number, you can remove the word characters.
+    - Berg: 123iadfslj
+      Error: 123iadfslj = Number is mixed up with a word. If it's a variable name, change it to start with a character instead of a number. If you wanted a number, you can remove the word characters.
+    - Berg: 0e0ai
+      Error: 0e0ai = Number is mixed up with a word. If it's a variable name, change it to start with a character instead of a number. If you wanted a number, you can remove the word characters.
+    - Berg: 0e0abci
+      Error: 0e0abci = Number is mixed up with a word. If it's a variable name, change it to start with a character instead of a number. If you wanted a number, you can remove the word characters.
+    - Berg: 0x123i
+      Error: 0x123i = Number is mixed up with a word. If it's a variable name, change it to start with a character instead of a number. If you wanted a number, you can remove the word characters.
+
+  EmptyExponent:
+    - Berg: 0.0ei
+      Error: 0.0ei = Empty exponent. If you meant the "e" to have an exponent, add some numbers.
+    - Berg: 0.0Ei
+      Error: 0.0Ei = Empty exponent. If you meant the "e" to have an exponent, add some numbers.
+    - Berg: 0.0e+i
+      Error: 0.0e = Empty exponent. If you meant the "e" to have an exponent, add some numbers.
+    - Berg: 0.0e-i
+      Error: 0.0e = Empty exponent. If you meant the "e" to have an exponent, add some numbers.
+
+    - Berg: 0Ei
+      Error: 0Ei = Empty exponent. If you meant the "e" to have an exponent, add some numbers.
+    - Berg: 0ei
+      Error: 0ei = Empty exponent. If you meant the "e" to have an exponent, add some numbers.
+    - Berg: 0e-i
+      Error: 0e = Empty exponent. If you meant the "e" to have an exponent, add some numbers.
+    - Berg: 0e+i
+      Error: 0e = Empty exponent. If you meant the "e" to have an exponent, add some numbers.
+
+    - Berg: 0.0e-+1i
+      Error: 0.0e = Empty exponent. If you meant the "e" to have an exponent, add some numbers.
+    - Berg: 0.0e+-1i
+      Error: 0.0e = Empty exponent. If you meant the "e" to have an exponent, add some numbers.
+    - Berg: 0.0e++1i
+      Error: 0.0e = Empty exponent. If you meant the "e" to have an exponent, add some numbers.
+    - Berg: 0.0e--1i
+      Error: 0.0e = Empty exponent. If you meant the "e" to have an exponent, add some numbers.
+
+    - Berg: 0.0e -1i
+      Error: 0.0e = Empty exponent. If you meant the "e" to have an exponent, add some numbers.
+    - Berg: 0e -1i
+      Error: 0e = Empty exponent. If you meant the "e" to have an exponent, add some numbers.
+    - Berg: 0.0e +1i
+      Error: 0.0e = Empty exponent. If you meant the "e" to have an exponent, add some numbers.
+    - Berg: 0e +1i
+      Error: 0e = Empty exponent. If you meant the "e" to have an exponent, add some numbers.
+    - Berg: 0e 1i
+      Error: 0e = Empty exponent. If you meant the "e" to have an exponent, add some numbers.
+
+    - Berg: 0.0e+.1i
+      Error: 0.0e = Empty exponent. If you meant the "e" to have an exponent, add some numbers.
+    - Berg: 0.0e.1i
+      Error: 0.0e = Empty exponent. If you meant the "e" to have an exponent, add some numbers.
+    - Berg: 0.0e-.1i
+      Error: 0.0e = Empty exponent. If you meant the "e" to have an exponent, add some numbers.
+
+  DotIsNotPrefix:
+    - Berg: .ei
+      Error: Missing a value on the left side of ".". Did you mean for the "." to be there?
+    - Berg: .e-i
+      Error: Missing a value on the left side of ".". Did you mean for the "." to be there?
+    - Berg: .e+i
+      Error: Missing a value on the left side of ".". Did you mean for the "." to be there?
+
+  DotByItself:
+    - Berg: .i
+      Error: Missing a value on the left side of ".". Did you mean for the "." to be there?
+
+  MissingRightHandSide:
+    - Berg: "0i-"
+      Error: 1@3 = Missing a value on the right side of "-". Perhaps you closed the file earlier than intended, or didn't mean to put the "-" there at all?

@@ -18,9 +18,11 @@ module BergLang
         #
         class Tokenizer
             attr_reader :source
+            attr_reader :output
 
-            def initialize(source)
+            def initialize(source, output)
                 @source = source
+                @output = output
                 @token = Operator.new(source.create_empty_range, all_operators[:sof])
             end
 
@@ -126,8 +128,8 @@ module BergLang
                     illegal_word_characters = source.match /\A(\w|[_$])+/
                     # Word characters immediately following a number is illegal.
                     if illegal_word_characters
-                        if !match[:exp] && illegal_word_characters.string.downcase == "e"
-                            raise syntax_errors.empty_exponent(illegal_word_characters)
+                        if !match[:exp] && !match[:imaginary] && illegal_word_characters.string.downcase == "e"
+                            raise syntax_errors.empty_exponent(SourceRange.span(match, illegal_word_characters))
                         elsif match[:decimal]
                             raise syntax_errors.float_with_trailing_identifier(SourceRange.span(match, illegal_word_characters))
                         else

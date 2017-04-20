@@ -280,49 +280,49 @@ IllegalFloat:
 
   EmptyExponent:
     - Berg: 0.0e
-      Error: e = Empty exponent. If you meant the "e" to have an exponent, add some numbers.
+      Error: 0.0e = Empty exponent. If you meant the "e" to have an exponent, add some numbers.
     - Berg: 0.0E
-      Error: E = Empty exponent. If you meant the "e" to have an exponent, add some numbers.
+      Error: 0.0E = Empty exponent. If you meant the "e" to have an exponent, add some numbers.
     - Berg: 0.0e+
-      Error: e = Empty exponent. If you meant the "e" to have an exponent, add some numbers.
+      Error: 0.0e = Empty exponent. If you meant the "e" to have an exponent, add some numbers.
     - Berg: 0.0e-
-      Error: e = Empty exponent. If you meant the "e" to have an exponent, add some numbers.
+      Error: 0.0e = Empty exponent. If you meant the "e" to have an exponent, add some numbers.
 
     - Berg: 0E
-      Error: E = Empty exponent. If you meant the "e" to have an exponent, add some numbers.
+      Error: 0E = Empty exponent. If you meant the "e" to have an exponent, add some numbers.
     - Berg: 0e
-      Error: e = Empty exponent. If you meant the "e" to have an exponent, add some numbers.
+      Error: 0e = Empty exponent. If you meant the "e" to have an exponent, add some numbers.
     - Berg: 0e-
-      Error: e = Empty exponent. If you meant the "e" to have an exponent, add some numbers.
+      Error: 0e = Empty exponent. If you meant the "e" to have an exponent, add some numbers.
     - Berg: 0e+
-      Error: e = Empty exponent. If you meant the "e" to have an exponent, add some numbers.
+      Error: 0e = Empty exponent. If you meant the "e" to have an exponent, add some numbers.
 
     - Berg: 0.0e-+1
-      Error: e = Empty exponent. If you meant the "e" to have an exponent, add some numbers.
+      Error: 0.0e = Empty exponent. If you meant the "e" to have an exponent, add some numbers.
     - Berg: 0.0e+-1
-      Error: e = Empty exponent. If you meant the "e" to have an exponent, add some numbers.
+      Error: 0.0e = Empty exponent. If you meant the "e" to have an exponent, add some numbers.
     - Berg: 0.0e++1
-      Error: e = Empty exponent. If you meant the "e" to have an exponent, add some numbers.
+      Error: 0.0e = Empty exponent. If you meant the "e" to have an exponent, add some numbers.
     - Berg: 0.0e--1
-      Error: e = Empty exponent. If you meant the "e" to have an exponent, add some numbers.
+      Error: 0.0e = Empty exponent. If you meant the "e" to have an exponent, add some numbers.
 
     - Berg: 0.0e -1
-      Error: e = Empty exponent. If you meant the "e" to have an exponent, add some numbers.
+      Error: 0.0e = Empty exponent. If you meant the "e" to have an exponent, add some numbers.
     - Berg: 0e -1
-      Error: e = Empty exponent. If you meant the "e" to have an exponent, add some numbers.
+      Error: 0e = Empty exponent. If you meant the "e" to have an exponent, add some numbers.
     - Berg: 0.0e +1
-      Error: e = Empty exponent. If you meant the "e" to have an exponent, add some numbers.
+      Error: 0.0e = Empty exponent. If you meant the "e" to have an exponent, add some numbers.
     - Berg: 0e +1
-      Error: e = Empty exponent. If you meant the "e" to have an exponent, add some numbers.
+      Error: 0e = Empty exponent. If you meant the "e" to have an exponent, add some numbers.
     - Berg: 0e 1
-      Error: e = Empty exponent. If you meant the "e" to have an exponent, add some numbers.
+      Error: 0e = Empty exponent. If you meant the "e" to have an exponent, add some numbers.
 
     - Berg: 0.0e+.1
-      Error: e = Empty exponent. If you meant the "e" to have an exponent, add some numbers.
+      Error: 0.0e = Empty exponent. If you meant the "e" to have an exponent, add some numbers.
     - Berg: 0.0e.1
-      Error: e = Empty exponent. If you meant the "e" to have an exponent, add some numbers.
+      Error: 0.0e = Empty exponent. If you meant the "e" to have an exponent, add some numbers.
     - Berg: 0.0e-.1
-      Error: e = Empty exponent. If you meant the "e" to have an exponent, add some numbers.
+      Error: 0.0e = Empty exponent. If you meant the "e" to have an exponent, add some numbers.
 
   DotIsNotPrefix:
     - Berg: .e

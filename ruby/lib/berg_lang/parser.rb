@@ -18,7 +18,7 @@ module BergLang
         def initialize(source, output: Output.new(STDOUT))
             @source = source
             @output = output
-            @tokenizer = Tokenizer.new(source)
+            @tokenizer = Tokenizer.new(source, output)
             @token = tokenizer.advance_token
             @unclosed_expression = UnclosedExpression.new(self)
             @current_indent = source.create_empty_range(0)
