@@ -1,7 +1,7 @@
-require_relative "../token"
+require_relative "token"
 
 module BergLang
-    class Parser
+    module Ast
         class Whitespace
             include Token
 

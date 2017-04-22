@@ -1,7 +1,8 @@
-require_relative "../expression"
+require_relative "expression"
+require_relative "../source_range"
 
 module BergLang
-    module Expressions
+    module Ast
         class DelimitedOperation < Expression
             attr_reader :open
             attr_reader :expression

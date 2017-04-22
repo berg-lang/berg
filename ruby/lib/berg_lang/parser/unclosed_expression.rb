@@ -1,9 +1,10 @@
 require_relative "syntax_errors"
-require_relative "../expressions/postfix_operation"
-require_relative "../expressions/delimited_operation"
-require_relative "../expressions/prefix_operation"
-require_relative "../expressions/infix_operation"
-require_relative "../expressions/empty_expression"
+require_relative "../source_range"
+require_relative "../ast/postfix_operation"
+require_relative "../ast/delimited_operation"
+require_relative "../ast/prefix_operation"
+require_relative "../ast/infix_operation"
+require_relative "../ast/empty_expression"
 
 module BergLang
     class Parser
@@ -42,13 +43,13 @@ module BergLang
             end
 
             def open_indents
-                unclosed.select { |token, operator| token.is_a?(IndentOperator) }.map { |token, operator| token }
+                unclosed.select { |token, operator| token.is_a?(Ast::IndentOperator) }.map { |token, operator| token }
             end
 
             def expression
                 if unclosed.size == 0
-                    Expressions::EmptyExpression.new
-                elsif unclosed.size == 1 && unclosed[0].is_a?(Expression)
+                    Ast::EmptyExpression.new
+                elsif unclosed.size == 1 && unclosed[0].is_a?(Ast::Expression)
                     unclosed[0]
                 else
                     raise syntax_errors.internal_error(source_range, "Expression still unclosed")
@@ -104,7 +105,7 @@ module BergLang
             def apply_postfix!(operators)
                 arity_picker.assert_postfix!(operators)
                 operators.each do |operator|
-                    next if operator.is_a?(Whitespace)
+                    next if operator.is_a?(Ast::Whitespace)
 
                     debug ""
                     debug "Postfix: #{token_to_s(operator, operator.postfix)}"
@@ -123,7 +124,7 @@ module BergLang
             def apply_prefix!(operators)
                 arity_picker.assert_prefix!(operators)
                 operators.each do |operator|
-                    next if operator.is_a?(Whitespace)
+                    next if operator.is_a?(Ast::Whitespace)
                     debug "Applying Prefix Operator: #{token_to_s(operator, operator.prefix)}"
                     @unclosed << [ operator, operator.prefix ]
                     debug unclosed_to_s(indent: "  ")
@@ -182,7 +183,7 @@ module BergLang
                     # No operator is willing to be a left child. Take the expression to the left instead.
                     left_child ||= close!(unclosed.size-1, token)
                     if operator.postfix?
-                        unclosed << Expressions::PostfixOperation.new(left_child, token)
+                        unclosed << Ast::PostfixOperation.new(left_child, token)
                     else
                         unclosed << left_child
                         unclosed << [ token, operator ]
@@ -200,13 +201,13 @@ module BergLang
                             # remove the open (
                             expression = close!(index+1, token)
                             unclosed.pop
-                            unclosed << Expressions::DelimitedOperation.new(left_token, expression, token)
+                            unclosed << Ast::DelimitedOperation.new(left_token, expression, token)
                             return
                         elsif left_operator.key == :indent
                             # Indents can be closed by any end delimiter
                             expression = close!(index+1, token)
                             unclosed.pop
-                            unclosed << Expressions::DelimitedOperation.new(left_token, expression, token)
+                            unclosed << Ast::DelimitedOperation.new(left_token, expression, token)
                         end
                     end
                 end
@@ -235,11 +236,11 @@ module BergLang
                     elsif !right_hand_side
                         raise syntax_errors.missing_value_between_operators(token, because_of)
                     elsif operator.prefix?
-                        expression = Expressions::PrefixOperation.new(token, right_hand_side)
+                        expression = Ast::PrefixOperation.new(token, right_hand_side)
                         [ expression, index ]
                     else
                         left_hand_side = unclosed[index-1]
-                        expression = Expressions::InfixOperation.new(left_hand_side, token, right_hand_side)
+                        expression = Ast::InfixOperation.new(left_hand_side, token, right_hand_side)
                         [ expression, index-1 ]
                     end
 

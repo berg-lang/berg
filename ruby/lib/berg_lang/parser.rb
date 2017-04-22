@@ -1,13 +1,14 @@
+require_relative "output"
 require_relative "parser/arity_picker"
-require_relative "parser/operator"
-require_relative "parser/output"
+require_relative "parser/syntax_errors"
 require_relative "parser/tokenizer"
 require_relative "parser/unclosed_expression"
-require_relative "parser/syntax_errors"
-require_relative "parser/indent_operator"
-require_relative "expressions/bareword"
-require_relative "expressions/prefix_operation"
-require_relative "expressions/empty_expression"
+require_relative "ast/bareword"
+require_relative "ast/empty_expression"
+require_relative "ast/indent_operator"
+require_relative "ast/numeric_literal"
+require_relative "ast/operator"
+require_relative "ast/prefix_operation"
 
 module BergLang
     #
@@ -65,16 +66,19 @@ module BergLang
         attr_reader :previous_token
         attr_reader :current_indent
 
+        #
+        # Grab a set of operators up to the next expression boundary.
+        #
         # TODO handle this in the tokenizer.
         def next_expression_phrase
             operators = []
             while true
                 output.debug "Token: #{token.to_s.inspect}"
                 case token
-                when Expression
+                when Ast::Expression
                     return [operators, advance_token]
 
-                when Operator
+                when Ast::Operator
                     if expression = handle_empty_block(token, operators)
                         return [operators, expression]
                     end
@@ -82,6 +86,8 @@ module BergLang
                     if expression = handle_bare_declaration(token)
                         return [operators, expression]
                     end
+
+                    check_for_dot_number!(token)
 
                     # Grab the indent before advancing token (in case we need it)
                     indent = current_indent
@@ -91,7 +97,7 @@ module BergLang
 
                     handle_indent(operator, operators, indent)
 
-                when Whitespace
+                when Ast::Whitespace
                     # If there's a newline, handle the indent level.
                     if token.newline
                         # Save the current level of indent in case we see a new declaration on this line.
@@ -113,9 +119,9 @@ module BergLang
         end
 
         def handle_bare_declaration(operator)
-            if operator.key == ":" && !previous_token.is_a?(Expressions::Bareword)
-                if next_token.is_a?(Expressions::Bareword)
-                    Expressions::PrefixOperation.new(advance_token, advance_token)
+            if operator.key == ":" && !previous_token.is_a?(Ast::Bareword)
+                if next_token.is_a?(Ast::Bareword)
+                    Ast::PrefixOperation.new(advance_token, advance_token)
                 end
             end
         end
@@ -139,10 +145,10 @@ module BergLang
                 # Empty infix blocks can also happen if the next line is indented more, but that is handled by the "explicit end" case
                 # above.
                 case operators[-1]
-                when Operator
+                when Ast::Operator
                     prev_operator = operators[-1]
-                when Whitespace
-                    if operators[-2].is_a?(Operator)
+                when Ast::Whitespace
+                    if operators[-2].is_a?(Ast::Operator)
                         prev_operator = operators[-2]
                     end
                 end
@@ -152,8 +158,14 @@ module BergLang
                     # so it includes any whitespace.
                     empty_range = SourceRange.new(source, prev_operator.source_range.end, operators[-1].source_range.end)
                     # Don't advance the token, so that next time we come around after the empty expression, it will still pick up the )
-                    Expressions::EmptyExpression.new(empty_range)
+                    Ast::EmptyExpression.new(empty_range)
                 end
+            end
+        end
+
+        def check_for_dot_number!(operator)
+            if operator.key == "." && next_token.is_a?(Ast::NumericLiteral)
+                raise syntax_errors.float_without_leading_zero(SourceRange.span(operator, next_token))
             end
         end
 
@@ -162,17 +174,17 @@ module BergLang
             # Handle open indent: if we see a : operator followed by \n, insert an open indent before the whitespace comes around.
             # possible for the next expression to have a *smaller* indent, in which case an undent and empty expression will happen.
             #
-            if operator.opens_indent_block? && token.is_a?(Whitespace) && token.newline
+            if operator.opens_indent_block? && token.is_a?(Ast::Whitespace) && token.newline
                 output.debug("Indent: #{operator} followed by newline. Current indent is #{indent.string.inspect}.")
                 indent_start = source.create_empty_range(operator.source_range.end)
-                open_indent = IndentOperator.new(indent_start, indent, all_operators[:indent])
+                open_indent = Ast::IndentOperator.new(indent_start, indent, all_operators[:indent])
                 operators << open_indent
             end
         end
 
         def handle_undent(whitespace, operators)
             open_indents = unclosed_expression.open_indents
-            open_indents = open_indents + operators.select { |operator| operator.is_a?(IndentOperator) }
+            open_indents = open_indents + operators.select { |operator| operator.is_a?(Ast::IndentOperator) }
             open_indents.reverse_each do |open_indent|
                 # Truncate both indents and make sure they match as far as tabs/spaces go
                 if open_indent.indent.string[0...whitespace.indent.size] != whitespace.indent.string[0...open_indent.indent.size]
@@ -183,7 +195,7 @@ module BergLang
                 break if whitespace.indent.size > open_indent.indent.size
 
                 output.debug("Undent: #{whitespace.indent.string.inspect} followed by newline")
-                undent = Operator.new(source.create_empty_range(whitespace.indent.end), all_operators[:undent])
+                undent = Ast::Operator.new(source.create_empty_range(whitespace.indent.end), all_operators[:undent])
                 empty_expression = handle_empty_block(undent, operators)
                 return empty_expression if empty_expression
 

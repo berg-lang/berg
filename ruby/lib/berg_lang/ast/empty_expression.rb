@@ -1,8 +1,8 @@
-require_relative "../expression"
-require_relative "../token"
+require_relative "expression"
+require_relative "token"
 
 module BergLang
-    module Expressions
+    module Ast
         class EmptyExpression < Expression
             include Token
         end

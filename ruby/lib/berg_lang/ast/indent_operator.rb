@@ -1,7 +1,7 @@
 require_relative "operator"
 
 module BergLang
-    class Parser
+    module Ast
         class IndentOperator < Operator
             attr_reader :indent
 

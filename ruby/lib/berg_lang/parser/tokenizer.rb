@@ -1,15 +1,15 @@
-require_relative "whitespace"
-require_relative "operator"
 require_relative "operator_list"
-require_relative "unrecognized_character"
 require_relative "syntax_errors"
-require_relative "../expressions/bareword"
-require_relative "../expressions/string_literal"
-require_relative "../expressions/imaginary_literal"
-require_relative "../expressions/float_literal"
-require_relative "../expressions/octal_literal"
-require_relative "../expressions/hexadecimal_literal"
-require_relative "../expressions/integer_literal"
+require_relative "../ast/bareword"
+require_relative "../ast/float_literal"
+require_relative "../ast/hexadecimal_literal"
+require_relative "../ast/imaginary_literal"
+require_relative "../ast/integer_literal"
+require_relative "../ast/octal_literal"
+require_relative "../ast/operator"
+require_relative "../ast/string_literal"
+require_relative "../ast/unrecognized_character"
+require_relative "../ast/whitespace"
 
 module BergLang
     class Parser
@@ -23,7 +23,7 @@ module BergLang
             def initialize(source, output)
                 @source = source
                 @output = output
-                @token = Operator.new(source.create_empty_range, all_operators[:sof])
+                @token = Ast::Operator.new(source.create_empty_range, all_operators[:sof])
             end
 
             def token
@@ -35,7 +35,7 @@ module BergLang
                     @token ||= parse_bareword
                     @token ||= create_eof_token if source.eof?
                     if !token
-                        raise syntax_errors.unrecognized_character(UnrecognizedCharacter.new(source.match(/./)))
+                        raise syntax_errors.unrecognized_character(Ast::UnrecognizedCharacter.new(source.match(/./)))
                     end
                     @token
                 else
@@ -68,29 +68,26 @@ module BergLang
 
             def parse_whitespace
                 match = source.match(/\A((((?<newline>\n)(?<indent>[ \t]*))|\s)+|#[^\n]+)+/)
-                Whitespace.new(match) if match
+                Ast::Whitespace.new(match) if match
             end
 
             def parse_operator
                 match = source.match(operators_regexp)
                 if match
-                    if match.string == "." && digits = source.match(/\A\d+/)
-                        raise syntax_errors.float_without_leading_zero(SourceRange.span(match, digits))
-                    end
-                    Operator.new(match, all_operators[match.string])
+                    Ast::Operator.new(match, all_operators[match.string])
                 end
             end
 
             def parse_bareword
                 match = source.match(/\A(\w|[_$])+/)
-                Expressions::Bareword.new(match) if match
+                Ast::Bareword.new(match) if match
             end
 
             def parse_string
                 if source.peek == '"'
                     match = source.match(/\A"(\\.|[^\\"]+)*"/m)
                     if match
-                        Expressions::StringLiteral.new(match)
+                        Ast::StringLiteral.new(match)
                     else
                         match = source.match(/\A"(\\.|[^\\"]+)*/m)
                         raise syntax_errors.unclosed_string(match)
@@ -103,7 +100,7 @@ module BergLang
             end
 
             def create_eof_token
-                @eof_token ||= Operator.new(source.create_empty_range, all_operators[:eof])
+                @eof_token ||= Ast::Operator.new(source.create_empty_range, all_operators[:eof])
             end
 
             def parse_number
@@ -116,7 +113,7 @@ module BergLang
                     if illegal_word_characters
                         raise syntax_errors.variable_name_starting_with_an_integer(SourceRange.span(match, illegal_word_characters))
                     end
-                    return Expressions::HexadecimalLiteral.new(match)
+                    return Ast::HexadecimalLiteral.new(match)
                 end
 
                 #
@@ -141,19 +138,19 @@ module BergLang
                     is_float = match[:decimal] || match[:exp]
                     is_octal = !is_float && match[:integer] && match[:integer].length > 1 && match["integer"].start_with?("0")
                     if is_imaginary
-                        Expressions::ImaginaryLiteral.new(match)
+                        Ast::ImaginaryLiteral.new(match)
 
                     elsif is_float
-                        Expressions::FloatLiteral.new(match)
+                        Ast::FloatLiteral.new(match)
 
                     elsif is_octal
                         if match[:integer] =~ /[89]/
                             raise syntax_errors.illegal_octal_digit(match)
                         end
-                        Expressions::OctalLiteral.new(match)
+                        Ast::OctalLiteral.new(match)
 
                     elsif match[:integer]
-                        Expressions::IntegerLiteral.new(match)
+                        Ast::IntegerLiteral.new(match)
 
                     else
                         raise syntax_errors.internal_error(match, "ERROR: number that doesn't fit any category: #{match.string}")

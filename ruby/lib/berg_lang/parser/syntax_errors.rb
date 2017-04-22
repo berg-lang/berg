@@ -1,4 +1,4 @@
-require_relative "syntax_error"
+require_relative "../syntax_error"
 
 module BergLang
     class Parser

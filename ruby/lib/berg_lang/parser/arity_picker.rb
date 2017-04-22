@@ -53,7 +53,7 @@ module BergLang
             def pick_max_prefixes(operators)
                 index = operators.size-1
                 while index >= 0
-                    if operators[index].is_a?(Operator)
+                    if operators[index].is_a?(Ast::Operator)
                         postfix, infix, prefix = possible_arities(operators, index)
 
                         infix_index = index if infix
@@ -84,7 +84,7 @@ module BergLang
                 puts "Newline Statement: Inserting newline separator."
                 postfixes = operators[0...newline_index]
                 # TODO split up the whitespace so that the infix lies in between the pr3efixes and postfixes
-                infix = Operator.new(operators[newline_index].newline, unclosed_expression.all_operators["\n"])
+                infix = Ast::Operator.new(operators[newline_index].newline, unclosed_expression.all_operators["\n"])
                 prefixes = operators[newline_index..-1]
                 [ postfixes, infix, prefixes ]
             end
@@ -95,19 +95,19 @@ module BergLang
                 # Pick the spot right after the left expression to be the call operator.
                 call_location = (first_prefix > 0 ? operators[first_prefix-1] : unclosed_expression).source_range.end
                 postfixes = operators[0...first_prefix]
-                infix = Operator.new(source.create_empty_range(call_location), unclosed_expression.all_operators[:call])
+                infix = Ast::Operator.new(source.create_empty_range(call_location), unclosed_expression.all_operators[:call])
                 prefixes = operators[first_prefix...operators.size]
                 [ postfixes, infix, prefixes ]
             end
 
             def assert_postfix!(postfixes, operators=postfixes)
                 postfixes.each_with_index do |operator, index|
-                    next unless operator.is_a?(Operator)
+                    next unless operator.is_a?(Ast::Operator)
 
                     if !operator.postfix || operator.postfix.resolve_manually?
                         # If we are not postfix, we must have been forced to be so by the next operator.
                         next_operator = index+1
-                        next_operator += 1 unless operators[next_operator].is_a?(Operator)
+                        next_operator += 1 unless operators[next_operator].is_a?(Ast::Operator)
                         raise syntax_errors.internal_error(operator, "No infix/prefix operator before non-postfix operator #{operator}: can't figure out how we got an error!") if !operators[next_operator]
                         raise syntax_errors.missing_value_between_operators(operator, operators[next_operator])
                     end
@@ -117,10 +117,10 @@ module BergLang
             def assert_prefix!(prefixes, operators=prefixes)
                 (operators.size-prefixes.size).upto(operators.size-1) do |index|
                     operator = operators[index]
-                    next unless operator.is_a?(Operator)
+                    next unless operator.is_a?(Ast::Operator)
                     if !operator.prefix || operator.prefix.resolve_manually?
                         previous_operator = index-1
-                        previous_operator -= 1 unless operators[previous_operator].is_a?(Operator)
+                        previous_operator -= 1 unless operators[previous_operator].is_a?(Ast::Operator)
                         raise syntax_errors.internal_error(operator, "No infix/postfix operator before non-prefix operator #{operator}: can't figure out how we got an error!") if previous_operator < 0
                         raise syntax_errors.missing_value_between_operators(operators[previous_operator], operator)
                    end
@@ -146,7 +146,7 @@ module BergLang
 
             def last_sticky_postfix(operators)
                 operators.each_with_index do |operator, index|
-                    return index-1 unless operator.is_a?(Operator) && operator.postfix && operator.postfix.can_be_sticky?
+                    return index-1 unless operator.is_a?(Ast::Operator) && operator.postfix && operator.postfix.can_be_sticky?
                 end
                 -1
             end
@@ -155,7 +155,7 @@ module BergLang
                 first_prefix = operators.size
                 (operators.size-1).downto(start_index).each do |index|
                     operator = operators[index]
-                    if operator.is_a?(Operator)
+                    if operator.is_a?(Ast::Operator)
                         if operator.prefix
                             first_prefix = index
                         else
@@ -173,11 +173,11 @@ module BergLang
             # For example, a+\nb is (a+) \n b (two separate statements), not a + b
             #
             def sticky_postfix?(operators, index)
-                if operators[index].is_a?(Operator) && operators[index].postfix && operators[index].postfix.can_be_sticky?
+                if operators[index].is_a?(Ast::Operator) && operators[index].postfix && operators[index].postfix.can_be_sticky?
                     prev_operator = operators[index-1] if index > 0
                     next_operator = operators[index+1]
-                    prev_is_whitespace = prev_operator && (prev_operator.is_a?(Whitespace) || [:undent, :indent].include?(prev_operator.key))
-                    next_is_whitespace = next_operator && (next_operator.is_a?(Whitespace) || [:undent, :indent].include?(next_operator.key))
+                    prev_is_whitespace = prev_operator && (prev_operator.is_a?(Ast::Whitespace) || [:undent, :indent].include?(prev_operator.key))
+                    next_is_whitespace = next_operator && (next_operator.is_a?(Ast::Whitespace) || [:undent, :indent].include?(next_operator.key))
                     if !prev_is_whitespace && next_is_whitespace
                         puts "Sticky Postfix: #{operators[index].to_s.inspect}"
                         true
@@ -192,11 +192,11 @@ module BergLang
             # For example, a -b is a(-b), not a - b.
             #
             def sticky_prefix?(operators, index)
-                if operators[index].is_a?(Operator) && operators[index].prefix && operators[index].prefix.can_be_sticky?
+                if operators[index].is_a?(Ast::Operator) && operators[index].prefix && operators[index].prefix.can_be_sticky?
                     prev_operator = operators[index-1] if index > 0
                     next_operator = operators[index+1]
-                    prev_is_whitespace = prev_operator && (prev_operator.is_a?(Whitespace) || [:undent, :indent].include?(prev_operator.key))
-                    next_is_whitespace = next_operator && (next_operator.is_a?(Whitespace) || [:undent, :indent].include?(next_operator.key))
+                    prev_is_whitespace = prev_operator && (prev_operator.is_a?(Ast::Whitespace) || [:undent, :indent].include?(prev_operator.key))
+                    next_is_whitespace = next_operator && (next_operator.is_a?(Ast::Whitespace) || [:undent, :indent].include?(next_operator.key))
                     if !next_is_whitespace && prev_is_whitespace
                         puts "Sticky Prefix: #{operators[index].to_s.inspect}"
                         true

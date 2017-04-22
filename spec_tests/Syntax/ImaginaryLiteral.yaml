@@ -288,50 +288,50 @@ NotAnImaginary:
 IllegalImaginary:
   ImaginaryWithoutLeadingZero:
     - Berg: ".34i"
-      Error: Floating point number found without leading zero. Add a 0 before the ".".
+      Error: .34i = Floating point number found without leading zero. Add a 0 before the ".".
     - Berg: ".2i"
-      Error: Floating point number found without leading zero. Add a 0 before the ".".
+      Error: .2i = Floating point number found without leading zero. Add a 0 before the ".".
     - Berg: "-.2i"
-      Error: .2 = Floating point number found without leading zero. Add a 0 before the ".".
+      Error: .2i = Floating point number found without leading zero. Add a 0 before the ".".
 
     - Berg: ".0e0i"
-      Error: .0 = Floating point number found without leading zero. Add a 0 before the ".".
+      Error: .0e0i = Floating point number found without leading zero. Add a 0 before the ".".
     - Berg: ".0e+0i"
-      Error: .0 = Floating point number found without leading zero. Add a 0 before the ".".
+      Error: .0e+0i = Floating point number found without leading zero. Add a 0 before the ".".
     - Berg: ".0e-0i"
-      Error: .0 = Floating point number found without leading zero. Add a 0 before the ".".
+      Error: .0e-0i = Floating point number found without leading zero. Add a 0 before the ".".
 
     - Berg: ".34e56i"
-      Error: .34 = Floating point number found without leading zero. Add a 0 before the ".".
+      Error: .34e56i = Floating point number found without leading zero. Add a 0 before the ".".
     - Berg: ".34E56i"
-      Error: .34 = Floating point number found without leading zero. Add a 0 before the ".".
+      Error: .34E56i = Floating point number found without leading zero. Add a 0 before the ".".
     - Berg: ".34e+56i"
-      Error: .34 = Floating point number found without leading zero. Add a 0 before the ".".
+      Error: .34e+56i = Floating point number found without leading zero. Add a 0 before the ".".
     - Berg: ".34E+56i"
-      Error: .34 = Floating point number found without leading zero. Add a 0 before the ".".
+      Error: .34E+56i = Floating point number found without leading zero. Add a 0 before the ".".
     - Berg: ".34e-56i"
-      Error: .34 = Floating point number found without leading zero. Add a 0 before the ".".
+      Error: .34e-56i = Floating point number found without leading zero. Add a 0 before the ".".
     - Berg: ".34E-56i"
-      Error: .34 = Floating point number found without leading zero. Add a 0 before the ".".
+      Error: .34E-56i = Floating point number found without leading zero. Add a 0 before the ".".
 
     - Berg: 0 .0i
-      Error: .0 = Floating point number found without leading zero. Add a 0 before the ".".
+      Error: .0i = Floating point number found without leading zero. Add a 0 before the ".".
 
     - Berg: e.0i
-      Error: .0 = Floating point number found without leading zero. Add a 0 before the ".".
+      Error: .0i = Floating point number found without leading zero. Add a 0 before the ".".
     - Berg: E.0i
-      Error: .0 = Floating point number found without leading zero. Add a 0 before the ".".
+      Error: .0i = Floating point number found without leading zero. Add a 0 before the ".".
     - Berg: e0.0i
-      Error: .0 = Floating point number found without leading zero. Add a 0 before the ".".
+      Error: .0i = Floating point number found without leading zero. Add a 0 before the ".".
     - Berg: a.0i
-      Error: .0 = Floating point number found without leading zero. Add a 0 before the ".".
+      Error: .0i = Floating point number found without leading zero. Add a 0 before the ".".
 
     - Berg: 0.0e0.1i
-      Error: .1 = Floating point number found without leading zero. Add a 0 before the ".".
+      Error: .1i = Floating point number found without leading zero. Add a 0 before the ".".
     - Berg: 0.0e-0.1i
-      Error: .1 = Floating point number found without leading zero. Add a 0 before the ".".
+      Error: .1i = Floating point number found without leading zero. Add a 0 before the ".".
     - Berg: 0.0e+0.1i
-      Error: .1 = Floating point number found without leading zero. Add a 0 before the ".".
+      Error: .1i = Floating point number found without leading zero. Add a 0 before the ".".
 
   EmptyDecimal:
     - Berg: 0. * 10i

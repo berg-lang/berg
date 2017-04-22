@@ -209,24 +209,24 @@ IllegalFloat:
       Error: .2 = Floating point number found without leading zero. Add a 0 before the ".".
 
     - Berg: ".0e0"
-      Error: .0 = Floating point number found without leading zero. Add a 0 before the ".".
+      Error: .0e0 = Floating point number found without leading zero. Add a 0 before the ".".
     - Berg: ".0e+0"
-      Error: .0 = Floating point number found without leading zero. Add a 0 before the ".".
+      Error: .0e+0 = Floating point number found without leading zero. Add a 0 before the ".".
     - Berg: ".0e-0"
-      Error: .0 = Floating point number found without leading zero. Add a 0 before the ".".
+      Error: .0e-0 = Floating point number found without leading zero. Add a 0 before the ".".
 
     - Berg: ".34e56"
-      Error: .34 = Floating point number found without leading zero. Add a 0 before the ".".
+      Error: .34e56 = Floating point number found without leading zero. Add a 0 before the ".".
     - Berg: ".34E56"
-      Error: .34 = Floating point number found without leading zero. Add a 0 before the ".".
+      Error: .34E56 = Floating point number found without leading zero. Add a 0 before the ".".
     - Berg: ".34e+56"
-      Error: .34 = Floating point number found without leading zero. Add a 0 before the ".".
+      Error: .34e+56 = Floating point number found without leading zero. Add a 0 before the ".".
     - Berg: ".34E+56"
-      Error: .34 = Floating point number found without leading zero. Add a 0 before the ".".
+      Error: .34E+56 = Floating point number found without leading zero. Add a 0 before the ".".
     - Berg: ".34e-56"
-      Error: .34 = Floating point number found without leading zero. Add a 0 before the ".".
+      Error: .34e-56 = Floating point number found without leading zero. Add a 0 before the ".".
     - Berg: ".34E-56"
-      Error: .34 = Floating point number found without leading zero. Add a 0 before the ".".
+      Error: .34E-56 = Floating point number found without leading zero. Add a 0 before the ".".
 
     - Berg: 0 .0
       Error: .0 = Floating point number found without leading zero. Add a 0 before the ".".

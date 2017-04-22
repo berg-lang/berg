@@ -1,5 +1,5 @@
 require "yaml"
-require "berg_lang/source_stream"
+require "berg_lang/parser/source_stream"
 require "berg_lang/parser"
 
 module SpecUtils
@@ -77,7 +77,7 @@ module SpecUtils
         rescue Object
             STDERR.puts "ERROR: in test with spec:"
             require "pp"
-            STDERR.pp test_spec
+            pp test_spec
             raise
         end
 
@@ -112,7 +112,7 @@ module SpecUtils
 
                             # Check the results
                             if expected_type
-                                expect(expression).to be_a eval("BergLang::Expressions::#{expected_type}")
+                                expect(expression).to be_a eval("BergLang::Ast::#{expected_type}")
                             end
 
                             if expected_term
@@ -173,7 +173,7 @@ module SpecUtils
                             parsed_expression = parse_expression(test_spec)
                         end
                         raise "Expected a parse error, but no error happened! Instead, the expression #{parsed_expression} was returned."
-                    rescue BergLang::Parser::SyntaxError
+                    rescue BergLang::SyntaxError
                         syntax_error = $!
                     end
 
@@ -198,7 +198,7 @@ module SpecUtils
         end
 
         def create_source(test_spec)
-            BergLang::SourceStream.new("spec_test", test_spec["Berg"])
+            BergLang::Parser::SourceStream.new("spec_test", test_spec["Berg"])
         end
 
         # Read the error spec
@@ -333,14 +333,14 @@ module SpecUtils
             end
 
             def parser_output
-                @parser_output ||= BergLang::Parser::Output.new(StringIO.new)
+                @parser_output ||= BergLang::Output.new(StringIO.new)
             end
 
             def parse_expression(test_spec)
                 parser = BergLang::Parser.new(create_source(test_spec), output: parser_output)
                 parsed_expression_root = parser.parse
                 # Strip off the outer DelimitedOperation before checking the AST (since it's always the same)
-                expect(parsed_expression_root).to be_a BergLang::Expressions::DelimitedOperation
+                expect(parsed_expression_root).to be_a BergLang::Ast::DelimitedOperation
                 expect(parsed_expression_root.open.key).to eq :sof
                 expect(parsed_expression_root.close.key).to eq :eof
 
