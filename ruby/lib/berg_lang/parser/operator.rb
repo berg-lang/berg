@@ -21,8 +21,8 @@ module BergLang
             end
 
             def opens_indent_block?
-                return prefix.opens_indent_block? if prefix
-                return infix.opens_indent_block? if infix
+                (prefix && prefix.opens_indent_block?) ||
+                  (infix && infix.opens_indent_block?)
             end
 
             def prefix

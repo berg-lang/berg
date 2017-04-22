@@ -1,4 +1,15 @@
 BasicOperators:
+  # [
+  #     # :BareDeclaration is handled outside the normal arity resolution rules because the rule is <!bareword>:bareword,
+  #     # which doesn't fit normal rules. Will have to think if there is a way ...
+  #     { string: ":", type: :prefix, resolve_manually: true },
+  # ],
+  - Berg: ":b"
+    Ast -> PrefixOperation:
+      $Term: ":b"
+      Operator: ":"
+      Right -> Bareword: b  
+
   # ". postfix.-- postfix.++",
   - Berg: a.b
     Ast -> InfixOperation:
@@ -157,7 +168,26 @@ BasicOperators:
       Operator: "??"
       Right -> Bareword: b
 
-  # "right indent.: = += -= *= /= %= ||= &&= ??=",
+  # "->",
+  - Berg: a->b
+    Ast -> InfixOperation:
+      $Term: a->b
+      Left -> Bareword: a
+      Operator: "->"
+      Right -> Bareword: b
+
+  # [
+  #     { string: ":",   direction: :right, declaration: true, opens_indent_block: true, },
+  #     { string: "=",   direction: :right, declaration: true, },
+  #     { string: "+=",  direction: :right, declaration: true, },
+  #     { string: "-=",  direction: :right, declaration: true, },
+  #     { string: "*=",  direction: :right, declaration: true, },
+  #     { string: "/=",  direction: :right, declaration: true, },
+  #     { string: "%=",  direction: :right, declaration: true, },
+  #     { string: "||=", direction: :right, declaration: true, },
+  #     { string: "&&=", direction: :right, declaration: true, },
+  #     { string: "??=", direction: :right, declaration: true, },
+  # ],
   - Berg: a:b
     Ast -> InfixOperation:
       $Term: a:b
@@ -310,6 +340,14 @@ BasicOperators:
 # All operators, with spaces between the operands and the expression
 #
 OperatorsSeparatedBySpace:
+  # [
+  #     # :BareDeclaration is handled outside the normal arity resolution rules because the rule is <!bareword>:bareword,
+  #     # which doesn't fit normal rules. Will have to think if there is a way ...
+  #     { string: ":", type: :prefix, resolve_manually: true },
+  # ],
+  - Berg: ": b"
+    Error: No value before ":"! Did you mean to put a value or variable there?
+
   # ". postfix.-- postfix.++",
   - Berg: a . b
     Ast -> InfixOperation:
@@ -621,6 +659,12 @@ OperatorsSeparatedBySpace:
 # All operators, with spaces between the operands and the expression
 #
 OperatorsSeparatedByNewline:
+  # [
+  #     { string: ":",   direction: :right, declaration: true, opens_indent_block: true, },
+  # ],
+  - Berg: ":\nb"
+    Error: No value before ":"! Did you mean to put a value or variable there?
+
   # ". postfix.-- postfix.++",
   - Berg: "a\n.\nb"
     Ast -> InfixOperation:
@@ -935,6 +979,14 @@ OperatorsSeparatedByNewline:
 # All operators, with spaces between the operands and the expression
 #
 OperatorsSeparatedByCommentNewlineAndSpace:
+  # [
+  #     # :BareDeclaration is handled outside the normal arity resolution rules because the rule is <!bareword>:bareword,
+  #     # which doesn't fit normal rules. Will have to think if there is a way ...
+  #     { string: ":", type: :prefix, resolve_manually: true },
+  # ],
+  - Berg: ":# comment \n b"
+    Error: No value before ":"! Did you mean to put a value or variable there?
+
   # ". postfix.-- postfix.++",
   - Berg: "a# comment \n .# comment \n b"
     Ast -> InfixOperation:

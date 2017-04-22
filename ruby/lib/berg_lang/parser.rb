@@ -5,6 +5,8 @@ require_relative "parser/tokenizer"
 require_relative "parser/unclosed_expression"
 require_relative "parser/syntax_errors"
 require_relative "parser/indent_operator"
+require_relative "expressions/bareword"
+require_relative "expressions/prefix_operation"
 require_relative "expressions/empty_expression"
 
 module BergLang
@@ -60,6 +62,7 @@ module BergLang
         attr_reader :tokenizer
         attr_reader :unclosed_expression
         attr_reader :token
+        attr_reader :previous_token
         attr_reader :current_indent
 
         # TODO handle this in the tokenizer.
@@ -72,13 +75,18 @@ module BergLang
                     return [operators, advance_token]
 
                 when Operator
-                    if empty_expression = handle_empty_block(token, operators)
-                        return [operators, empty_expression]
+                    if expression = handle_empty_block(token, operators)
+                        return [operators, expression]
+                    end
+
+                    if expression = handle_bare_declaration(token)
+                        return [operators, expression]
                     end
 
                     # Grab the indent before advancing token (in case we need it)
                     indent = current_indent
                     operator = token
+
                     operators << advance_token
 
                     handle_indent(operator, operators, indent)
@@ -100,6 +108,14 @@ module BergLang
                     return [operators, nil]
                 else
                     raise syntax_errors.internal_error(token, "Unknown token type #{token.class}")
+                end
+            end
+        end
+
+        def handle_bare_declaration(operator)
+            if operator.key == ":" && !previous_token.is_a?(Expressions::Bareword)
+                if next_token.is_a?(Expressions::Bareword)
+                    Expressions::PrefixOperation.new(advance_token, advance_token)
                 end
             end
         end
@@ -178,9 +194,18 @@ module BergLang
 
         def advance_token
             # We do this dance so we can essentially look at *three* tokens at once. TODO do that buffering in the tokenizer.
-            previous_token = token
-            @token = tokenizer.advance_token
+            @previous_token = token
+            if @next_token
+                @token = next_token
+                @next_token = nil
+            else
+                @token = tokenizer.advance_token
+            end
             previous_token
+        end
+
+        def next_token
+            @next_token ||= tokenizer.advance_token
         end
 
         def syntax_errors

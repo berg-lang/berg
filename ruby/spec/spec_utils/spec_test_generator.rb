@@ -93,7 +93,7 @@ module SpecUtils
                 if descriptions.any?
                     "#{property_description} is #{descriptions.join(" ")}"
                 end
-            end
+            end.reject { |desc| desc.nil? }
 
             it "When Berg source is #{source_description(test_spec)}, #{english_join(test_descriptions, "and")}" do
                 # Parse.

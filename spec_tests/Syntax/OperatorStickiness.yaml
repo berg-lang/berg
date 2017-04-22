@@ -1,4 +1,19 @@
 StickyPrefix:
+  # [
+  #     # :BareDeclaration is handled outside the normal arity resolution rules because the rule is <!bareword>:bareword,
+  #     # which doesn't fit normal rules. Will have to think if there is a way ...
+  #     { string: ":", type: :prefix, resolve_manually: true },
+  # ],
+  - Berg: a :b
+    Ast -> InfixOperation:
+      $Term: a :b
+      Left -> Bareword: a
+      Operator: "1@2+0 = "
+      Right -> PrefixOperation:
+        $Term: ":b"
+        Operator: ":"
+        Right -> Bareword: b
+
   # ". postfix.-- postfix.++",
   - Berg: a .b
     Ast -> InfixOperation:
@@ -197,12 +212,12 @@ StickyPrefix:
       Right -> Bareword: b
 
   # "right indent.: = += -= *= /= %= ||= &&= ??=",
-  - Berg: a :b
-    Ast -> InfixOperation:
-      $Term: a :b
-      Left -> Bareword: a
-      Operator: ":"
-      Right -> Bareword: b
+  # - Berg: a :b
+  #   Ast -> InfixOperation:
+  #     $Term: a :b
+  #     Left -> Bareword: a
+  #     Operator: ":"
+  #     Right -> Bareword: b
   - Berg: a =b
     Ast -> InfixOperation:
       $Term: a =b
@@ -354,6 +369,21 @@ StickyPrefix:
       Expression -> Bareword: a
 
 StickyPostfix:
+  # [
+  #     # :BareDeclaration is handled outside the normal arity resolution rules because the rule is <!bareword>:bareword,
+  #     # which doesn't fit normal rules. Will have to think if there is a way ...
+  #     { string: ":", type: :prefix, resolve_manually: true },
+  # ],
+  # - Berg: a: b
+  #   Ast -> InfixOperation:
+  #     $Term: a: b
+  #     Left -> Bareword: a
+  #     Operator: "1@2+0 = "
+  #     Right -> PrefixOperation:
+  #       $Term: : b
+  #       Operator: ":"
+  #       Right -> Bareword: b
+
   # ". postfix.-- postfix.++",
   - Berg: a. b
     Ast -> InfixOperation:
@@ -710,6 +740,21 @@ StickyPostfix:
       Expression -> Bareword: a
 
 StickyPrefixWithNewlines:
+  # [
+  #     # :BareDeclaration is handled outside the normal arity resolution rules because the rule is <!bareword>:bareword,
+  #     # which doesn't fit normal rules. Will have to think if there is a way ...
+  #     { string: ":", type: :prefix, resolve_manually: true },
+  # ],
+  - Berg: "a\n:b"
+    Ast -> InfixOperation:
+      $Term: "a\n:b"
+      Left -> Bareword: a
+      Operator: "\n"
+      Right -> PrefixOperation:
+        $Term: ":b"
+        Operator: ":"
+        Right -> Bareword: b
+
   # ". postfix.-- postfix.++",
   - Berg: "a\n.b"
     Ast -> InfixOperation:
@@ -908,12 +953,12 @@ StickyPrefixWithNewlines:
       Right -> Bareword: b
 
   # "right indent.: = += -= *= /= %= ||= &&= ??=",
-  - Berg: "a\n:b"
-    Ast -> InfixOperation:
-      $Term: "a\n:b"
-      Left -> Bareword: a
-      Operator: ":"
-      Right -> Bareword: b
+  # - Berg: "a\n:b"
+  #   Ast -> InfixOperation:
+  #     $Term: "a\n:b"
+  #     Left -> Bareword: a
+  #     Operator: ":"
+  #     Right -> Bareword: b
   - Berg: "a\n=b"
     Ast -> InfixOperation:
       $Term: "a\n=b"
@@ -1065,6 +1110,21 @@ StickyPrefixWithNewlines:
       Expression -> Bareword: a
 
 StickyPostfixWithNewlines:
+  # [
+  #     # :BareDeclaration is handled outside the normal arity resolution rules because the rule is <!bareword>:bareword,
+  #     # which doesn't fit normal rules. Will have to think if there is a way ...
+  #     { string: ":", type: :prefix, resolve_manually: true },
+  # ],
+  # - Berg: a:\nb
+  #   Ast -> InfixOperation:
+  #     $Term: a:\nb
+  #     Left -> Bareword: a
+  #     Operator: "1@2 = "
+  #     Right -> PrefixOperation:
+  #       $Term: :\nb
+  #       Operator: ":"
+  #       Right -> Bareword: b
+
   # ". postfix.-- postfix.++",
   - Berg: "a.\nb"
     Ast -> InfixOperation:

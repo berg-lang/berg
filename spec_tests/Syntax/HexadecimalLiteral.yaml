@@ -73,5 +73,5 @@ IllegalHexadecimals:
     - Berg: 0x1-
       Error:
         $Term: "-"
-        $Error: Missing a value on the right side of "-". Perhaps you closed the file earlier than intended, or didn't mean to put the "-" there at all?
+        $Error: No value after "-"! Did you mean to put a value or variable there?
 

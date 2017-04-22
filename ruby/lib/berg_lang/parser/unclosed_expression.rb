@@ -101,18 +101,30 @@ module BergLang
                 apply_prefix!(prefixes)
             end
 
-            def apply_prefix!(prefixes)
-                prefixes.each do |operator|
+            def apply_postfix!(operators)
+                arity_picker.assert_postfix!(operators)
+                operators.each do |operator|
+                    next if operator.is_a?(Whitespace)
+
+                    debug ""
+                    debug "Postfix: #{token_to_s(operator, operator.postfix)}"
+                    left_bind!(operator, operator.postfix) 
+                    debug unclosed_to_s(indent: "  ")
+                end
+            end
+
+            def apply_infix!(infix)
+                debug ""
+                debug "Infix: #{token_to_s(infix, infix.infix)}"
+                left_bind!(infix, infix.infix)
+                debug unclosed_to_s(indent: "  ")
+            end
+
+            def apply_prefix!(operators)
+                arity_picker.assert_prefix!(operators)
+                operators.each do |operator|
                     next if operator.is_a?(Whitespace)
                     debug "Applying Prefix Operator: #{token_to_s(operator, operator.prefix)}"
-                    if !operator.prefix
-                        # If there is an empty expression--(<whitespace>)--it may show up in prefixes.
-                        if operator.close
-                            close_delimited!(operator, operator.close)
-                        else
-                            raise syntax_errors.missing_left_hand_side_at_sof(operator, prefixes[0])
-                        end
-                    end
                     @unclosed << [ operator, operator.prefix ]
                     debug unclosed_to_s(indent: "  ")
                 end
@@ -123,28 +135,6 @@ module BergLang
                 debug "Expression: #{token_to_s(expression, nil)}"
                 @unclosed << expression
                 debug unclosed_to_s(indent: "  ")
-            end
-
-            def apply_infix!(infix)
-                debug ""
-                debug "Infix: #{token_to_s(infix, infix.infix)}"
-                left_bind!(infix, infix.infix)
-                debug unclosed_to_s(indent: "  ")
-            end
-
-            def apply_postfix!(postfixes)
-                postfixes.each do |operator|
-                    next if operator.is_a?(Whitespace)
-
-                    if !operator.postfix
-                        raise syntax_errors.missing_right_hand_side(operator, postfixes[-1])
-                    end
-
-                    debug ""
-                    debug "Postfix: #{token_to_s(operator, operator.postfix)}"
-                    left_bind!(operator, operator.postfix) 
-                    debug unclosed_to_s(indent: "  ")
-                end
             end
 
             private
@@ -243,7 +233,7 @@ module BergLang
                         # Explicit open operators (i.e. things other than indent) require explicit closes.
                         raise syntax_errors.unmatched_close(token, because_of)
                     elsif !right_hand_side
-                        raise syntax_errors.missing_right_hand_side(token, because_of)
+                        raise syntax_errors.missing_value_between_operators(token, because_of)
                     elsif operator.prefix?
                         expression = Expressions::PrefixOperation.new(token, right_hand_side)
                         [ expression, index ]

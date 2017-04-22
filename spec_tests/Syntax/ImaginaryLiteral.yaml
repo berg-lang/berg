@@ -335,9 +335,9 @@ IllegalImaginary:
 
   EmptyDecimal:
     - Berg: 0. * 10i
-      Error: Operators "." and "*" cannot appear together or are in the wrong order. Perhaps one of them was an error, or you meant to have a value between them?
+      Error: No value between "." and "*"! Did you mean to put a value or variable there? Or perhaps they are in the wrong order, or one of them is mistyped.
     - Berg: 0i. * 10
-      Error: Operators "." and "*" cannot appear together or are in the wrong order. Perhaps one of them was an error, or you meant to have a value between them?
+      Error: No value between "." and "*"! Did you mean to put a value or variable there? Or perhaps they are in the wrong order, or one of them is mistyped.
 
   ImaginaryWithTrailingIdentifier:
     - Berg: 0.0ai
@@ -417,16 +417,16 @@ IllegalImaginary:
 
   DotIsNotPrefix:
     - Berg: .ei
-      Error: Missing a value on the left side of ".". Did you mean for the "." to be there?
+      Error: No value before "."! Did you mean to put a value or variable there?
     - Berg: .e-i
-      Error: Missing a value on the left side of ".". Did you mean for the "." to be there?
+      Error: No value before "."! Did you mean to put a value or variable there?
     - Berg: .e+i
-      Error: Missing a value on the left side of ".". Did you mean for the "." to be there?
+      Error: No value before "."! Did you mean to put a value or variable there?
 
   DotByItself:
     - Berg: .i
-      Error: Missing a value on the left side of ".". Did you mean for the "." to be there?
+      Error: No value before "."! Did you mean to put a value or variable there?
 
   MissingRightHandSide:
     - Berg: "0i-"
-      Error: 1@3 = Missing a value on the right side of "-". Perhaps you closed the file earlier than intended, or didn't mean to put the "-" there at all?
+      Error: 1@3 = No value after "-"! Did you mean to put a value or variable there?

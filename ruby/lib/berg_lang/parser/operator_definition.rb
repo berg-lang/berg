@@ -32,16 +32,23 @@ module BergLang
                 @opens_indent_block
             end
 
-            # If this is true, and the operator is postfix or prefix, a -b and a+ b use the prefix and postfix instead of the infix + or -
+            # If this is true, the left side binds as tightly as possible. A: b, a = b
+            def declaration?
+                @declaration
+            end
+
+            # If this is true, a -b and a+ b use the prefix and postfix form, respectively, regardless of any other concern.
             def can_be_sticky?
                 @can_be_sticky
             end
 
-            def initialize(string: nil, key: string, type: :infix, precedence:, direction: :left, started_by: nil, ended_by: nil, opens_indent_block: nil, can_be_sticky: true)
-                if type == :indent
-                    type = :infix
-                    opens_indent_block = true
-                end
+            # If this is true, the operator is not allowed to be picked by the infix/prefix/postfix disambiguator.
+            # Used for special cases like :bareword (bare parameter declaration)
+            def resolve_manually?
+                @resolve_manually
+            end
+
+            def initialize(string: nil, key: string, type: :infix, precedence:, direction: :left, started_by: nil, ended_by: nil, opens_indent_block: nil, declaration: nil, can_be_sticky: true, resolve_manually: nil)
                 @string = string
                 @key = key
                 @type = type
@@ -51,6 +58,7 @@ module BergLang
                 @ended_by = ended_by
                 @opens_indent_block = opens_indent_block
                 @can_be_sticky = can_be_sticky
+                @resolve_manually = resolve_manually
             end
 
             def to_s
@@ -62,8 +70,9 @@ module BergLang
             end
 
             def can_have_left_child?(left_operator)
-                left_operator.precedence < precedence ||
-                    (left_operator.precedence == precedence && direction == :left)
+                return false if declaration?
+                return true if left_operator.precedence < precedence
+                return true if left_operator.precedence == precedence && direction == :left
             end
 
             def started_by?(left_operator)

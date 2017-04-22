@@ -22,6 +22,11 @@ module BergLang
 
             def self.berg_operators
                 @berg_operators ||= define(
+                    [
+                        # :BareDeclaration is handled outside the normal arity resolution rules because the rule is <!bareword>:bareword,
+                        # which doesn't fit normal rules. Will have to think if there is a way ...
+                        { string: ":", type: :prefix, resolve_manually: true },
+                    ],
                     ". postfix.-- postfix.++",
                     "prefix.-- prefix.++ prefix.- prefix.+ prefix.!",
                     "* / %",
@@ -31,22 +36,35 @@ module BergLang
                     "postfix.+ postfix.* postfix.?",
                     "&&",
                     "|| ??",
-                    "right indent.: = += -= *= /= %= ||= &&= ??=",
+                    "->",
+                    [
+                        { string: ":",   direction: :right, declaration: true, opens_indent_block: true, },
+                        { string: "=",   direction: :right, declaration: true, },
+                        { string: "+=",  direction: :right, declaration: true, },
+                        { string: "-=",  direction: :right, declaration: true, },
+                        { string: "*=",  direction: :right, declaration: true, },
+                        { string: "/=",  direction: :right, declaration: true, },
+                        { string: "%=",  direction: :right, declaration: true, },
+                        { string: "||=", direction: :right, declaration: true, },
+                        { string: "&&=", direction: :right, declaration: true, },
+                        { string: "??=", direction: :right, declaration: true, },
+                    ],
                     [ ",", { string: ",", type: :postfix, can_be_sticky: false } ],
+                    # TODO unsure if this is the right spot for intersect/union. Maybe closer to - and +
                     "&",
                     "|",
                     [ { key: :call } ],
                     [ "\n ;", { string: ";", type: :postfix, can_be_sticky: false } ],
                     # Delimiters want everything as children.
                     [
-                        { key: :indent, type: :open, ended_by: :undent, direction: :right },
+                        { key: :indent, type: :open,  ended_by: :undent,   direction: :right },
                         { key: :undent, type: :close, started_by: :indent, direction: :right },
-                        { string: "(", type: :open, ended_by: ")", direction: :right },
-                        { string: ")", type: :close, started_by: "(", direction: :right },
-                        { string: "{", type: :open, ended_by: "}", direction: :right },
-                        { string: "}", type: :close, started_by: "{", direction: :right },
-                        { key: :sof, type: :open, ended_by: :eof, direction: :right },
-                        { key: :eof, type: :close, started_by: :sof, direction: :right },
+                        { string: "(",  type: :open,  ended_by: ")",       direction: :right },
+                        { string: ")",  type: :close, started_by: "(",     direction: :right },
+                        { string: "{",  type: :open,  ended_by: "}",       direction: :right },
+                        { string: "}",  type: :close, started_by: "{",     direction: :right },
+                        { key: :sof,    type: :open,  ended_by: :eof,      direction: :right },
+                        { key: :eof,    type: :close, started_by: :sof,    direction: :right },
                     ],
                 )
             end

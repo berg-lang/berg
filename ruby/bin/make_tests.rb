@@ -10,7 +10,7 @@ class TestMaker
     end
 
     def run
-        generate_equal_precedence_tests
+        generate_precedence_tests
     end
 
     private
@@ -19,18 +19,18 @@ class TestMaker
     attr_reader :current_file
     attr_reader :current_indent
 
-    def generate_equal_precedence_tests
+    def generate_precedence_tests
         # Generate operator
         output_file "Syntax/OperatorPrecedence.yaml" do
             operators_by_precedence.each do |precedence1, operators1|
-                output_field "Precedence#{precedence1}" do
+                indented do
                     output "#"
                     output "# Precedence #{precedence1}: #{operators1.map { |op| op_output(op) }.join(" ")}"
                     output "#"
                     operators_by_precedence.each do |precedence2, operators2|
                         # Only process each pair of operators once.
                         next if precedence2 < precedence1
-                        output_field "AgainstPrecedence#{precedence2}" do
+                        indented do
                             output "#"
                             output "# Against precedence #{precedence2}: #{operators2.map { |op| op_output(op) }.join(" ")}"
                             output "#"
@@ -78,13 +78,12 @@ class TestMaker
             op2_indent = true
             op2 = colon
         end
-        # The one with the lower precedence binds tighter
-        if op1.precedence < op2.precedence
-            winner = :op1
-        elsif op1.precedence > op2.precedence
-            winner = :op2
-        else
+        if op1.precedence == op2.precedence
             winner = op1.direction
+        elsif op1.precedence < op2.precedence || op1.declaration?
+            winner = :op1
+        else
+            winner = :op2
         end
 
         case "#{op1.type} #{op2.type}"
@@ -181,21 +180,21 @@ class TestMaker
         output ""
         case op.type
         when :prefix
-            error_test prefix(op, ""), "Missing a value on the right side of \"#{op_source(op)}\". Perhaps you closed the file earlier than intended, or didn't mean to put the \"#{op_source(op)}\" there at all?"
+            error_test prefix(op, ""), "No value after \"#{op_source(op)}\"! Did you mean to put a value or variable there?"
 
         when :infix
-            error_test infix("a", op, ""), "Missing a value on the right side of \"#{op_source(op)}\". Perhaps you closed the file earlier than intended, or didn't mean to put the \"#{op_source(op)}\" there at all?"
-            error_test infix("", op, "b"), "Missing a value on the left side of \"#{op_source(op)}\". Did you mean for the \"#{op_source(op)}\" to be there?"
-            error_test infix("", op, ""), "Missing a value on the left side of \"#{op_source(op)}\". Did you mean for the \"#{op_source(op)}\" to be there?"
+            error_test infix("a", op, ""), "No value after \"#{op_source(op)}\"! Did you mean to put a value or variable there?"
+            error_test infix("", op, "b"), "No value before \"#{op_source(op)}\"! Did you mean to put a value or variable there?"
+            error_test infix("", op, ""), "No value before \"#{op_source(op)}\"! Did you mean to put a value or variable there?"
 
         when :postfix
-            error_test postfix("", op), "Missing a value on the left side of \"#{op_source(op)}\". Did you mean for the \"#{op_source(op)}\" to be there?"
+            error_test postfix("", op), "No value before \"#{op_source(op)}\"! Did you mean to put a value or variable there?"
 
         when :open
             if op.key == :indent
                 test infix("a", op, "")
-                error_test infix("", op, "b"), "Missing a value on the left side of \"#{op_source(colon)}\". Did you mean for the \"#{op_source(colon)}\" to be there?"
-                error_test infix("", op, ""), "Missing a value on the left side of \"#{op_source(colon)}\". Did you mean for the \"#{op_source(colon)}\" to be there?"
+                error_test infix("", op, "b"), "No value before \":\"! Did you mean to put a value or variable there?"
+                error_test infix("", op, ""), "No value before \":\"! Did you mean to put a value or variable there?"
             else
                 test delimited(op, "")
             end
@@ -278,18 +277,25 @@ class TestMaker
         expected = value[:expected]
         operator = expected["Operator"]
         type = value[:type]
+
+        return nil if operator == ":" && type == "PrefixOperation"
+
         case value[:source]
         when "(a:\n  b)"
             expected["Expression -> InfixOperation"]["Right -> DelimitedOperation"]["Close"] = ")"
+
         when "{a:\n  b}"
             expected["Expression -> InfixOperation"]["Right -> DelimitedOperation"]["Close"] = "}"
+
         when "a:\n  b:\n    c"
             expected["Right -> DelimitedOperation"]["Expression -> InfixOperation"]["Right -> DelimitedOperation"]["$Space"] = "\n    "
+
         when "a : \n"
             expected.delete("$SpaceRight")
             expected["Right -> DelimitedOperation"] = {
                 "Expression -> EmptyExpression" => "",
             }
+
         when "++a", "--a", "+++a", "---a"
             right_operator = expected["Right -> PrefixOperation"]["Operator"]
             if [ "+", "-" ].include?(operator)
@@ -335,6 +341,8 @@ class TestMaker
             }
 
         end
+
+        value
     end
 
     def bad_error_test?(value, error)
@@ -343,11 +351,14 @@ class TestMaker
         when "a ; ", "a , ", "a * ", "a + ", "a : ", "a   ", "a \n "
             true
         # Infix operators that are also prefix
-        when " + b", " - b", "   b", " \n b", " - ", " + ", "   ", " \n "
+        when " + b", " - b", "   b", " \n b", " : b", " : ", " - ", " + ", "   ", " \n "
             true
         # Postfix operators that are also prefix
         when "++", "--", "+"
             value[:type] == "PostfixOperation"
+        # TODO this should be an error, but right now isn't.'
+        when ":"
+            true
         end
     end
 
@@ -373,9 +384,10 @@ class TestMaker
 
     def test(test)
         test = bare(test)
+        test = fixup_precedence_test(test)
+        return false if test.nil?
         old_indent = current_indent
         begin
-            fixup_precedence_test(test)
             output "- Berg: #{escape_yaml(test[:source])}"
             indented do
                 output_expected_ast_field "Ast -> #{test[:type]}", test[:expected], source: test[:source], line: 1, column: 1
@@ -383,6 +395,7 @@ class TestMaker
         ensure
             @current_indent = old_indent
         end
+        true
     end
 
     def error_test(test, error)
