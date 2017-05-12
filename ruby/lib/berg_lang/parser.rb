@@ -1,14 +1,7 @@
 require_relative "output"
-require_relative "parser/arity_picker"
+require_relative "berg_tokens"
 require_relative "parser/syntax_errors"
-require_relative "parser/tokenizer"
-require_relative "parser/unclosed_expression"
-require_relative "ast/bareword"
-require_relative "ast/empty_expression"
-require_relative "ast/indent_operator"
-require_relative "ast/numeric_literal"
-require_relative "ast/operator"
-require_relative "ast/prefix_operation"
+require_relative "parser/resolver"
 
 module BergLang
     #
@@ -21,41 +14,35 @@ module BergLang
         def initialize(source, output: Output.new(STDOUT))
             @source = source
             @output = output
-            @tokenizer = Tokenizer.new(source, output)
-            @token = tokenizer.advance_token
-            @unclosed_expression = UnclosedExpression.new(self)
-            @current_indent = source.create_empty_range(0)
+            @resolver = Resolver.new(self)
         end
 
-        def all_operators
-            tokenizer.all_operators
+        def tokens
+            BergTokens
         end
 
         def parse
-            # Prefix <sof> PREFIX* E
-            operators, expression = next_expression_phrase
-            unclosed_expression.apply_prefix!(operators)
-            unclosed_expression.apply_expression!(expression) if expression
-
-            loop do
-                operators, expression = next_expression_phrase
-
-                # Infix (E POSTFIX* INFIX PREFIX* E)
-                if expression
-                    unclosed_expression.resolve_infix!(operators)
-                    unclosed_expression.apply_expression!(expression)
-
-                # Postfix (E POSTFIX* <eof>)
-                else
-                    unclosed_expression.apply_postfix!(operators)
-                    return unclosed_expression.expression
-                end
-
+            # Go through each token, find its left parent or child as you go, and set it.
+            # If it could have a left parent OR a left child (is ambiguous), move to the next one.
+            prefer_operator = false
+            while prefer_operator = resolver.parse_expression_sequence(prefer_operator)
+                set_parents
             end
         end
 
+        private
+
+
+        # Sets the parents/children of everything in ast from index on.
+        def build_tree(index)
+            if ast[index].left_is == :operator
+                if ast[index-1].right_is != :expression
+                    insert_call_or_newline()
+
+        end
+
         def source_range
-            [ unclosed.first[0], unclosed.last[1] ]
+            unclosed.source_range
         end
 
         private
@@ -66,99 +53,10 @@ module BergLang
         attr_reader :previous_token
         attr_reader :current_indent
 
-        #
-        # Grab a set of operators up to the next expression boundary.
-        #
-        # TODO handle this in the tokenizer.
-        def next_expression_phrase
-            operators = []
-            while true
-                output.debug "Token: #{token.to_s.inspect}"
-                case token
-                when Ast::Expression
-                    return [operators, advance_token]
-
-                when Ast::Operator
-                    if expression = handle_empty_block(token, operators)
-                        return [operators, expression]
-                    end
-
-                    if expression = handle_bare_declaration(token)
-                        return [operators, expression]
-                    end
-
-                    check_for_dot_number!(token)
-
-                    # Grab the indent before advancing token (in case we need it)
-                    indent = current_indent
-                    operator = token
-
-                    operators << advance_token
-
-                    handle_indent(operator, operators, indent)
-
-                when Ast::Whitespace
-                    # If there's a newline, handle the indent level.
-                    if token.newline
-                        # Save the current level of indent in case we see a new declaration on this line.
-                        @current_indent = token.indent
-
-                        if empty_expression = handle_undent(token, operators)
-                            return [operators, empty_expression]
-                        end
-                    end
-
-                    operators << advance_token
-
-                when nil
-                    return [operators, nil]
-                else
-                    raise syntax_errors.internal_error(token, "Unknown token type #{token.class}")
-                end
-            end
-        end
-
         def handle_bare_declaration(operator)
             if operator.key == ":" && !previous_token.is_a?(Ast::Bareword)
                 if next_token.is_a?(Ast::Bareword)
                     Ast::PrefixOperation.new(advance_token, advance_token)
-                end
-            end
-        end
-
-        def handle_empty_block(operator, operators)
-            # Anything that opens up an expression block can have an empty expression in it: (, { and :, for example.
-            # Empty expressions aren't neatly handled by our [operators, expression] abstraction because it's essentially
-            # an expression hidden in the operators; so we insert them here and terminate the [operators, expression]
-            # block early with an empty expression when they happen.
-            if operator.close
-                #
-                # Explicit end:
-                #   ()
-                #   {}.
-                #
-                # Infix blocks: empty infix blocks can happen if a ) or EOF happens on the same line as the open:
-                #
-                #   Decl: <eof>
-                #   (A: 1, B: 2, Decl: )
-                #
-                # Empty infix blocks can also happen if the next line is indented more, but that is handled by the "explicit end" case
-                # above.
-                case operators[-1]
-                when Ast::Operator
-                    prev_operator = operators[-1]
-                when Ast::Whitespace
-                    if operators[-2].is_a?(Ast::Operator)
-                        prev_operator = operators[-2]
-                    end
-                end
-                if prev_operator && (prev_operator.open || prev_operator.opens_indent_block?)
-                    output.debug("Empty Block: operation #{operator} #{prev_operator} found. Inserting empty expression between.")
-                    # The empty range is from the end of the starting operator (just after :, ( or { ) to the current position,
-                    # so it includes any whitespace.
-                    empty_range = SourceRange.new(source, prev_operator.source_range.end, operators[-1].source_range.end)
-                    # Don't advance the token, so that next time we come around after the empty expression, it will still pick up the )
-                    Ast::EmptyExpression.new(empty_range)
                 end
             end
         end
@@ -177,7 +75,7 @@ module BergLang
             if operator.opens_indent_block? && token.is_a?(Ast::Whitespace) && token.newline
                 output.debug("Indent: #{operator} followed by newline. Current indent is #{indent.string.inspect}.")
                 indent_start = source.create_empty_range(operator.source_range.end)
-                open_indent = Ast::IndentOperator.new(indent_start, indent, all_operators[:indent])
+                open_indent = Ast::IndentOperator.new(indent_start, indent, all_operators[:indent][:open])
                 operators << open_indent
             end
         end
@@ -195,33 +93,13 @@ module BergLang
                 break if whitespace.indent.size > open_indent.indent.size
 
                 output.debug("Undent: #{whitespace.indent.string.inspect} followed by newline")
-                undent = Ast::Operator.new(source.create_empty_range(whitespace.indent.end), all_operators[:undent])
+                undent = Ast::Operator.new(source.create_empty_range(whitespace.indent.end), all_operators[:undent][:close])
                 empty_expression = handle_empty_block(undent, operators)
                 return empty_expression if empty_expression
 
                 operators << undent
             end
             nil
-        end
-
-        def advance_token
-            # We do this dance so we can essentially look at *three* tokens at once. TODO do that buffering in the tokenizer.
-            @previous_token = token
-            if @next_token
-                @token = next_token
-                @next_token = nil
-            else
-                @token = tokenizer.advance_token
-            end
-            previous_token
-        end
-
-        def next_token
-            @next_token ||= tokenizer.advance_token
-        end
-
-        def syntax_errors
-            SyntaxErrors.new
         end
     end
 end

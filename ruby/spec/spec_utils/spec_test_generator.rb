@@ -1,5 +1,5 @@
 require "yaml"
-require "berg_lang/parser/source_stream"
+require "berg_lang/source_string"
 require "berg_lang/parser"
 
 module SpecUtils
@@ -198,7 +198,7 @@ module SpecUtils
         end
 
         def create_source(test_spec)
-            BergLang::Parser::SourceStream.new("spec_test", test_spec["Berg"])
+            BergLang::StringSource.new("spec_test", test_spec["Berg"])
         end
 
         # Read the error spec

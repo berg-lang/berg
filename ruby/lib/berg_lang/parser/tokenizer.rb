@@ -1,174 +1,135 @@
-require_relative "operator_list"
-require_relative "syntax_errors"
-require_relative "../ast/bareword"
-require_relative "../ast/float_literal"
-require_relative "../ast/hexadecimal_literal"
-require_relative "../ast/imaginary_literal"
-require_relative "../ast/integer_literal"
-require_relative "../ast/octal_literal"
-require_relative "../ast/operator"
-require_relative "../ast/string_literal"
-require_relative "../ast/unrecognized_character"
-require_relative "../ast/whitespace"
+require_relative "scanner"
+require_relative "token"
 
 module BergLang
     class Parser
         #
-        # Parses Berg.
-        #
+        # Scans the file and chunks the result into *tokens* with start, end, 
         class Tokenizer
-            attr_reader :source
-            attr_reader :output
+            attr_reader :parser
+            attr_reader :scanner
 
-            def initialize(source, output)
-                @source = source
-                @output = output
-                @token = Ast::Operator.new(source.create_empty_range, all_operators[:sof])
+            def initialize(parser)
+                @parser = parser
+                @scanner = Scanner.new(parser)
+                buffer_first_token
             end
 
-            def token
-                if @token == :next
-                    @token = parse_whitespace
-                    @token ||= parse_number
-                    @token ||= parse_operator
-                    @token ||= parse_string
-                    @token ||= parse_bareword
-                    @token ||= create_eof_token if source.eof?
-                    if !token
-                        raise syntax_errors.unrecognized_character(Ast::UnrecognizedCharacter.new(source.match(/./)))
+            #
+            # Reads a token, consolidating leading and trailing whitespace.
+            #
+            # @return [Token] The next token.
+            #
+            def read_token
+                return nil unless @trailing_token_type
+
+                # Appropriate the last trailing token and space
+                leading_space = @trailing_space
+                leading_newline = @trailing_newline
+                indent_start = @indent_start
+                indent_end = @indent_end
+                token_start = @trailing_token_start
+                token_type = @trailing_token_type
+                token_end = scanner.index
+
+                # Read trailing space and trailing token
+                @trailing_space = token_end
+                @trailing_newline = nil
+                while index = scanner.index && next_token = scanner.scan_token && next_token.whitespace?
+                    if next_token.newline?
+                        @indent_start = scanner.index
+                        @indent_end = nil
                     end
-                    @token
-                else
-                    @token
+                    @trailing_newline ||= index if next_token.newline?
                 end
-            end
+                @indent_end = index if @indent_start
+                @trailing_token_start = index
+                @trailing_token_type = next_token
 
-            # Pick up the current token, and ensure we will pick up a new token next time.
-            def advance_token
-                result = self.token
-                case result
-                when eof_token
-                    @token = nil
-                when nil
-                else
-                    @token = :next
-                end
-                result
-            end
-
-            def all_operators
-                OperatorList.berg_operators
+                Token.new(leading_space, leading_newline, indent_start, indent_end, token_start, token_type, token_end, @trailing_newline, @trailing_token_start)
             end
 
             private
 
-            def syntax_errors
-                SyntaxErrors.new
+            #
+            # Reads in the first token from the file.
+            #
+            def buffer_first_token
+                @trailing_space = scanner.index
+                @trailing_newline = nil
+                @trailing_token_type = scanner.scan
+                @trailing_token_start = scanner.index
+                raise "Expected first token to be non-whitespace" if @trailing_token_type.whitespace?
             end
+        end
+    end
+end
 
-            def parse_whitespace
-                match = source.match(/\A((((?<newline>\n)(?<indent>[ \t]*))|\s)+|#[^\n]+)+/)
-                Ast::Whitespace.new(match) if match
-            end
 
-            def parse_operator
-                match = source.match(operators_regexp)
-                if match
-                    Ast::Operator.new(match, all_operators[match.string])
-                end
-            end
+            # We buffer the current raw token and whitespace.
+            attr_reader :tokenizer
+            attr_reader :token
+            attr_reader :leading_newline
+            attr_reader :indent_start
+            attr_reader :indent_end
 
-            def parse_bareword
-                match = source.match(/\A(\w|[_$])+/)
-                Ast::Bareword.new(match) if match
-            end
+            def advance(open_indent_start, open_indent_end)
+                prev_token = self.token
 
-            def parse_string
-                if source.peek == '"'
-                    match = source.match(/\A"(\\.|[^\\"]+)*"/m)
-                    if match
-                        Ast::StringLiteral.new(match)
-                    else
-                        match = source.match(/\A"(\\.|[^\\"]+)*/m)
-                        raise syntax_errors.unclosed_string(match)
-                    end
-                end
-            end
+                @leading_newline = nil
+                leading_space = tokenizer.index
+                begin
+                    token_start = tokenizer.index
+                    token_type = tokenizer.read_token
+                    if token_type.whitespace
+                        # If it's a newline, record that and be ready to record the indent.
+                        if token_type == parser.token_types.newline
+                            @leading_newline = token_start
+                            @indent_start = token_end
 
-            def eof_token
-                @eof_token
-            end
-
-            def create_eof_token
-                @eof_token ||= Ast::Operator.new(source.create_empty_range, all_operators[:eof])
-            end
-
-            def parse_number
-                # Handle hex literals (0xDEADBEEF)
-                # prefix integer
-                match = source.match /\A(?<prefix>0[xX])(?<integer>(\d|[A-Fa-f])+)/
-                if match
-                    illegal_word_characters = source.match /\A(\w|[_$])+/
-                    # Word characters immediately following a number is illegal.
-                    if illegal_word_characters
-                        raise syntax_errors.variable_name_starting_with_an_integer(SourceRange.span(match, illegal_word_characters))
-                    end
-                    return Ast::HexadecimalLiteral.new(match)
-                end
-
-                #
-                # Handle floats, imaginaries and integers (hex is later in this function)
-                #
-                # integer (. decimal)? (e expsign? exponent)? i?
-                match = source.match /\A(?<integer>\d+)((\.)(?<decimal>\d+))?((e)(?<expsign>[-+])?(?<exp>\d+))?(?<imaginary>i)?/i
-                if match
-                    illegal_word_characters = source.match /\A(\w|[_$])+/
-                    # Word characters immediately following a number is illegal.
-                    if illegal_word_characters
-                        if !match[:exp] && !match[:imaginary] && illegal_word_characters.string.downcase == "e"
-                            raise syntax_errors.empty_exponent(SourceRange.span(match, illegal_word_characters))
-                        elsif match[:decimal]
-                            raise syntax_errors.float_with_trailing_identifier(SourceRange.span(match, illegal_word_characters))
-                        else
-                            raise syntax_errors.variable_name_starting_with_an_integer(SourceRange.span(match, illegal_word_characters))
+                        # Comments can end indent. They are visible.
+                        elsif token_type == parser.token_types.comment && leading_newline
+                            if should_undent?(token_start, open_indent_start, open_indent_end)
+                                next_token = Token.new(parser.token_type.undent, leading_space, token_start)
+                            end
                         end
-                    end
-
-                    is_imaginary = match[:imaginary]
-                    is_float = match[:decimal] || match[:exp]
-                    is_octal = !is_float && match[:integer] && match[:integer].length > 1 && match["integer"].start_with?("0")
-                    if is_imaginary
-                        Ast::ImaginaryLiteral.new(match)
-
-                    elsif is_float
-                        Ast::FloatLiteral.new(match)
-
-                    elsif is_octal
-                        if match[:integer] =~ /[89]/
-                            raise syntax_errors.illegal_octal_digit(match)
-                        end
-                        Ast::OctalLiteral.new(match)
-
-                    elsif match[:integer]
-                        Ast::IntegerLiteral.new(match)
-
                     else
-                        raise syntax_errors.internal_error(match, "ERROR: number that doesn't fit any category: #{match.string}")
+                        next_token = Token.new(token_type, leading_space, token_start)
                     end
+                end until next_token
+
+                # Record the whole indent.
+                @indent_end = next_token.start if next_token.leading_newline
+                @token = next_token
+                prev_token
+            end
+
+            private
+
+            def output
+                parser.output
+            end
+
+            def should_undent?(indent_end, open_indent_start, open_indent_end)
+                indent_size = indent_end - indent_start
+                open_indent_size = open_indent_end - open_indent_start
+                size = [indent_size, open_indent_size].max
+
+                # Truncate both indents and make sure they match as far as tabs/spaces go
+                open_indent = source.substring(open_indent_start, open_indent_start + size)
+                indent = source.substring(indent_start, indent_start + size)
+                if open_indent != indent
+                    raise syntax_errors.unmatchable_indent(open_indent_start, open_indent_end, indent_start, indent_end)
+                end
+
+                # If we're properly indented, we won't find any further smaller indents. Exit early.
+                if indent_size <= open_indent_size
+                    output.debug("Undent: #{indent.inspect} followed by newline")
+                    true
+                else
+                    false
                 end
             end
-
-            def operators_regexp
-                @operators_regexp ||= Regexp.new(
-                    "\\A(" +
-                    all_operators.keys.select { |key| key.is_a?(String) }
-                                      .sort_by { |key| -key.length }
-                                      .map { |key| Regexp.escape(key) }
-                                      .join("|") +
-                    ")"
-                )
-            end
-
         end
     end
 end
