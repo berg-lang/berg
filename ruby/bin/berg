@@ -1,13 +1,13 @@
 require "bundler/setup"
-require "berg_lang/source_string"
+require "berg_lang/string_source"
 require "berg_lang/parser"
 require "pp"
 
 str = ARGV[0]
-source = BergLang::Parser::SourceString.new("<argument>", str)
+source = BergLang::StringSource.new("<argument>", str)
 parser = BergLang::Parser.new(source)
-expression = parser.parse
+parser.parse
 puts "\n"
 puts str
 puts "---"
-puts expression
+puts parser.syntax_tree.root.expression_to_s

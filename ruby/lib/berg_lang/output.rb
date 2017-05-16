@@ -21,7 +21,7 @@ module BergLang
         end
 
         def debug(string)
-            puts string
+            puts "#{indent}#{string}"
         end
 
         def puts(string)

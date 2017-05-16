@@ -339,14 +339,14 @@ StickyPrefix:
 
   # # Delimiters want everything as children.
   # [
-  #     { key: :indent, type: :open, ended_by: :undent, direction: :right },
-  #     { key: :undent, type: :close, started_by: :indent, direction: :right },
-  #     { string: "(", type: :open, ended_by: ")", direction: :right },
-  #     { string: ")", type: :close, started_by: "(", direction: :right },
-  #     { string: "{", type: :open, ended_by: "}", direction: :right },
-  #     { string: "}", type: :close, started_by: "{", direction: :right },
-  #     { key: :sof, type: :open, ended_by: :eof, direction: :right },
-  #     { key: :eof, type: :close, started_by: :sof, direction: :right },
+  #     { key: :indent, type: :open, closed_by: :undent, direction: :right },
+  #     { key: :undent, type: :close, opened_by: :indent, direction: :right },
+  #     { string: "(", type: :open, closed_by: ")", direction: :right },
+  #     { string: ")", type: :close, opened_by: "(", direction: :right },
+  #     { string: "{", type: :open, closed_by: "}", direction: :right },
+  #     { string: "}", type: :close, opened_by: "{", direction: :right },
+  #     { key: :sof, type: :open, closed_by: :eof, direction: :right },
+  #     { key: :eof, type: :close, opened_by: :sof, direction: :right },
   # ],
   - Berg: "a:\n  b"
     Ast -> InfixOperation:
@@ -710,14 +710,14 @@ StickyPostfix:
 
   # # Delimiters want everything as children.
   # [
-  #     { key: :indent, type: :open, ended_by: :undent, direction: :right },
-  #     { key: :undent, type: :close, started_by: :indent, direction: :right },
-  #     { string: "(", type: :open, ended_by: ")", direction: :right },
-  #     { string: ")", type: :close, started_by: "(", direction: :right },
-  #     { string: "{", type: :open, ended_by: "}", direction: :right },
-  #     { string: "}", type: :close, started_by: "{", direction: :right },
-  #     { key: :sof, type: :open, ended_by: :eof, direction: :right },
-  #     { key: :eof, type: :close, started_by: :sof, direction: :right },
+  #     { key: :indent, type: :open, closed_by: :undent, direction: :right },
+  #     { key: :undent, type: :close, opened_by: :indent, direction: :right },
+  #     { string: "(", type: :open, closed_by: ")", direction: :right },
+  #     { string: ")", type: :close, opened_by: "(", direction: :right },
+  #     { string: "{", type: :open, closed_by: "}", direction: :right },
+  #     { string: "}", type: :close, opened_by: "{", direction: :right },
+  #     { key: :sof, type: :open, closed_by: :eof, direction: :right },
+  #     { key: :eof, type: :close, opened_by: :sof, direction: :right },
   # ],
   # - Berg: "a:\n  b"
   #   Ast -> InfixOperation:
@@ -1080,14 +1080,14 @@ StickyPrefixWithNewlines:
 
   # # Delimiters want everything as children.
   # [
-  #     { key: :indent, type: :open, ended_by: :undent, direction: :right },
-  #     { key: :undent, type: :close, started_by: :indent, direction: :right },
-  #     { string: "(", type: :open, ended_by: ")", direction: :right },
-  #     { string: ")", type: :close, started_by: "(", direction: :right },
-  #     { string: "{", type: :open, ended_by: "}", direction: :right },
-  #     { string: "}", type: :close, started_by: "{", direction: :right },
-  #     { key: :sof, type: :open, ended_by: :eof, direction: :right },
-  #     { key: :eof, type: :close, started_by: :sof, direction: :right },
+  #     { key: :indent, type: :open, closed_by: :undent, direction: :right },
+  #     { key: :undent, type: :close, opened_by: :indent, direction: :right },
+  #     { string: "(", type: :open, closed_by: ")", direction: :right },
+  #     { string: ")", type: :close, opened_by: "(", direction: :right },
+  #     { string: "{", type: :open, closed_by: "}", direction: :right },
+  #     { string: "}", type: :close, opened_by: "{", direction: :right },
+  #     { key: :sof, type: :open, closed_by: :eof, direction: :right },
+  #     { key: :eof, type: :close, opened_by: :sof, direction: :right },
   # ],
   # - Berg: "a:\n\n  b"
   #   Ast -> InfixOperation:
@@ -1451,14 +1451,14 @@ StickyPostfixWithNewlines:
 
   # # Delimiters want everything as children.
   # [
-  #     { key: :indent, type: :open, ended_by: :undent, direction: :right },
-  #     { key: :undent, type: :close, started_by: :indent, direction: :right },
-  #     { string: "(", type: :open, ended_by: ")", direction: :right },
-  #     { string: ")", type: :close, started_by: "(", direction: :right },
-  #     { string: "{", type: :open, ended_by: "}", direction: :right },
-  #     { string: "}", type: :close, started_by: "{", direction: :right },
-  #     { key: :sof, type: :open, ended_by: :eof, direction: :right },
-  #     { key: :eof, type: :close, started_by: :sof, direction: :right },
+  #     { key: :indent, type: :open, closed_by: :undent, direction: :right },
+  #     { key: :undent, type: :close, opened_by: :indent, direction: :right },
+  #     { string: "(", type: :open, closed_by: ")", direction: :right },
+  #     { string: ")", type: :close, opened_by: "(", direction: :right },
+  #     { string: "{", type: :open, closed_by: "}", direction: :right },
+  #     { string: "}", type: :close, opened_by: "{", direction: :right },
+  #     { key: :sof, type: :open, closed_by: :eof, direction: :right },
+  #     { key: :eof, type: :close, opened_by: :sof, direction: :right },
   # ],
   # - Berg: "a:\n \nb"
   #   Ast -> InfixOperation:

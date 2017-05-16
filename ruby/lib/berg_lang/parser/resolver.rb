@@ -38,7 +38,7 @@ module BergLang
             # Handles indent and undent as well (when it does this, it does not
             # consume the newline).
             #
-            def parse_next(left_prefers_operand, left_will_insert=NONE, expect_indent_block=nil)
+            def parse_next(left_prefers_operand, expect_indent_block, left_will_insert)
                 leading_space = false
                 result = nil
 
@@ -48,6 +48,8 @@ module BergLang
                         leading_space ||= :newline
                         term = handle_indent(expect_indent_block)
                         if term
+                            # If we did cause an indent or undent, we need to continue parsing in order to inform the
+                            # next term that it has a leading newline.
                             expect_indent_block = nil
                             result ||= term
                         end
@@ -83,24 +85,27 @@ module BergLang
                 term_end = scanner.index
                 return nil unless type
 
-                trailing_space = scanner.peek && scanner.peek.filler?
+                output.debug "#{type}: Resolving (prefer #{left_prefers_operand ? "operand" : "operator"}):"
+                output.indented do
 
-                # Handle empty/apply if no one else has.
-                will_insert = left_prefers_operand ? EMPTY : APPLY
-                will_insert = NEWLINE if will_insert == APPLY && leading_space == :newline
-                will_insert = nil if left_will_insert >= will_insert
+                    trailing_space = scanner.peek && scanner.peek.filler?
 
-                # Append the term and resolve its fixity.
-                term = syntax_tree.append(term_start, term_end)
-                term.type = choose_fixity(type, left_prefers_operand, will_insert || left_will_insert, leading_space, trailing_space)
+                    # Handle empty/apply if no one else has.
+                    will_insert = left_prefers_operand ? EMPTY : APPLY
+                    will_insert = NEWLINE if will_insert == APPLY && leading_space == :newline
+                    will_insert = nil if left_will_insert >= will_insert
 
-                # Insert the empty/apply if we need to.
-                if will_insert && left_prefers_operand != term.type.left_is_operand?
-                    output.debug("Inserting #{insert_type(will_insert).name} because #{term.name} is #{term.fixity}")
-                    term = term.insert(term_start, term_start, insert_type(will_insert))
+                    # Append the term and resolve its fixity.
+                    term = syntax_tree.append(term_start, term_end)
+                    term.type = choose_fixity(type, left_prefers_operand, will_insert || left_will_insert, leading_space, trailing_space)
+
+                    # Insert the empty/apply if we need to.
+                    if will_insert && left_prefers_operand != term.type.left_is_operand?
+                        output.debug("Inserting #{insert_type(will_insert).name} because #{term.type.name} is #{term.type.fixity} (prefer #{left_prefers_operand})")
+                        term = term.insert(term_start, term_start, insert_type(will_insert))
+                    end
+                    term
                 end
-
-                term
             end
 
             #
@@ -140,7 +145,8 @@ module BergLang
 
                     # Parse the next term and decide whether we are ambiguous from that.
                     output.debug("Reading next token to decide whether #{type.name} should be #{preferred.fixity} or #{secondary.fixity} ...")
-                    term = parse_next(preferred.right, left_will_insert)
+                    # NOTE: opens_indent_block? is guaranteed to be false if expr/post, see TermType::Ambiguous.validate
+                    term = parse_next(preferred.right, nil, left_will_insert)
                     preferred, secondary = secondary, nil unless preferred.right_is_operand? == !!term.type.left
                     output.debug("Resolving #{type.name} as #{preferred.fixity} because right side is #{term.type.fixity}")
                 else
@@ -158,7 +164,7 @@ module BergLang
                 indent = read_indent
                 syntax_tree.add_line(token_end, indent)
 
-                # Handle indent/undent if the next token is visible (comment or term)
+                # Handle indent/undent if the token after the indent is visible (comment or term)
                 if !scanner.peek.whitespace?
                     if expect_indent_block && indent > expect_indent_block
                         # Handle indent

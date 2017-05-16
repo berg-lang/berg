@@ -368,7 +368,7 @@ class TestMaker
             indented_source = expression[:source].lines.map { |line| "  #{line}" }.join("")
             source = "\n#{indented_source}"
         else
-            source = "#{op_source(op)}#{expression[:source]}#{op_source(op.ended_by)}"
+            source = "#{op_source(op)}#{expression[:source]}#{op_source(op.closed_by)}"
         end
         result = {
             type: "DelimitedOperation",
@@ -377,7 +377,7 @@ class TestMaker
                 "Open" => op_source(op),
                 "$Space" => (op.key == :indent ? "\n  " : ""),
                 "Expression -> #{expression[:type]}" => expression[:expected],
-                "Close" => op_source(op.ended_by),
+                "Close" => op_source(op.closed_by),
             },
         }
     end

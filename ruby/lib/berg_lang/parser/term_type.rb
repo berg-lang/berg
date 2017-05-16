@@ -8,7 +8,7 @@ module BergLang
             end
 
             def to_s
-                name
+                name.is_a?(String) ? name : name.inspect
             end
 
             def filler?

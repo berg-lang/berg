@@ -29,9 +29,16 @@ module BergLang
         def parse
             resolver = Resolver.new(self)
             left_accepts_operand = true
-            while term = resolver.parse_next(left_accepts_operand)
+            expect_indent_block = false
+            while term = resolver.parse_next(left_accepts_operand, expect_indent_block, Resolver::NONE)
                 associate_operators(term)
-                left_accepts_operand = !!syntax_tree[-1].type.right
+
+                if right = syntax_tree[-1].type.right
+                    left_accepts_operand = true
+                    expect_indent_block = right.opens_indent_block?
+                else
+                    left_accepts_operand = false
+                end
             end
         end
 

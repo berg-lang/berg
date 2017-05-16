@@ -13,7 +13,7 @@ module BergLang
             end
 
             def inspect
-                "#{string.inspect} (#{type.name}@#{source_range})"
+                "#{string.inspect} (#{type ? type.name : nil})@#{source_range})"
             end
 
             def to_s
@@ -61,6 +61,7 @@ module BergLang
                 term = term.parent while term && term.parent_index != index
                 term
             end
+
             def right_operand
                 term = next_term
                 term = term.parent while term && term.parent_index != index
@@ -86,13 +87,13 @@ module BergLang
                 if type.infix?
                     left = left_operand
                     right = right_operand
-                    "(#{left ? left.expression_to_s : "missing"} #{type.name} #{right ? right.expression_to_s : "missing"})"
+                    "(#{left ? left.expression_to_s : "missing"} #{type} #{right ? right.expression_to_s : "missing"})"
                 elsif type.postfix?
                     left = left_operand
-                    "#{left ? left.expression_to_s : "missing"}#{type.name}"
+                    "#{left ? left.expression_to_s : "missing"}#{type.name == :eof ? "" : type}"
                 elsif type.prefix?
                     right = right_operand
-                    "#{right ? right.expression_to_s : "missing"}"
+                    "#{type.name == :sof ? "" : type}#{right ? right.expression_to_s : "missing"}"
                 else
                     string
                 end
