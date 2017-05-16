@@ -2,7 +2,11 @@ require_relative "../syntax_error"
 
 module BergLang
     class Parser
-        class SyntaxErrors
+        module SyntaxErrors
+            def output
+                parser.output
+            end
+
             # The below methods *generate* the actual public syntax error methods
             private
 
@@ -66,13 +70,13 @@ module BergLang
 
             # TODO help more with this one. I hate this so much in programs.
             syntax_error :umatched_close,
-                error:  proc { |token| "Found ending #{token} with no corresponding #{token.close.started_by}." },
-                remedy: proc { |token| "Perhaps you have too many #{token}'s, or forgot to open with #{token.close.started_by}?" }
+                error:  proc { |token| "Found ending #{token} with no corresponding #{token.close.opened_by}." },
+                remedy: proc { |token| "Perhaps you have too many #{token}'s, or forgot to open with #{token.close.opened_by}?" }
 
             # TODO help more with this one. I hate this so much in programs.
             syntax_error :unmatched_close,
-                error:  proc { |token, closed_by| "#{token} found with no corresponding #{token.close.ended_by}." },
-                remedy: proc { |token, closed_by| "Perhaps you have too many #{token}'s, or forgot to end with #{token.close.ended_by}?"}
+                error:  proc { |token, closed_by| "#{token} found with no corresponding #{token.close.closed_by}." },
+                remedy: proc { |token, closed_by| "Perhaps you have too many #{token}'s, or forgot to end with #{token.close.closed_by}?"}
 
             syntax_error :unmatchable_indent,
                 error:  proc { |token, open_indent| "Indents cannot match due to difference in tabs and spaces." },

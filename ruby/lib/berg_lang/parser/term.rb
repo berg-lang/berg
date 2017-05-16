@@ -12,18 +12,41 @@ module BergLang
                 @index = index
             end
 
+            def inspect
+                "#{string.inspect} (#{type.name}@#{source_range})"
+            end
+
+            def to_s
+                string
+            end
+
+            def ==(other)
+                syntax_tree == other.syntax_tree && index == other.index
+            end
+
+            def insert(term_start, term_end, type=nil)
+                syntax_tree.insert(index, term_start, term_end, type)
+            end
+
+            def append(term_start, term_end, type=nil)
+                syntax_tree.insert(index+1, term_start, term_end, type)
+            end
+
+            def parent_index
+                syntax_tree.terms[index][3]
+            end
             def parent
-                syntax_tree[index][3]
+                syntax_tree[parent_index] if parent_index
             end
             def parent=(value)
-                syntax_tree[index][3] = value
+                syntax_tree.terms[index][3] = value ? value.index : value
             end
 
             def type
-                syntax_tree.nodes[index][2]
+                syntax_tree.terms[index][2]
             end
             def type=(value)
-                syntax_tree.nodes[index][2] = value
+                syntax_tree.terms[index][2] = value
             end
 
             def previous_term
@@ -35,29 +58,44 @@ module BergLang
 
             def left_operand
                 term = previous_term
-                term = term.parent while term.parent != self
+                term = term.parent while term && term.parent_index != index
                 term
             end
             def right_operand
                 term = next_term
-                term = term.parent while term.parent != self
+                term = term.parent while term && term.parent_index != index
                 term
             end
 
             def source_range
-                SourceRange.new(syntax_tree.source, start, self.end)
+                SourceRange.new(syntax_tree, start, self.end)
             end
 
-            def token_range
-                token_start, token_end = syntax_tree.nodes[index]
-                SourceRange.new(syntax_tree.source, token_start, token_end)
+            def string
+                source_range.string
             end
 
             def start
-                type.left.is_operator? ? left_operand.start : syntax_tree.nodes[index][0]
+                type.left && left_operand ? left_operand.start : syntax_tree.terms[index][0]
             end
             def end
-                type.right.is_operator? ? right_operand.end : syntax_tree.nodes[index][1]
+                type.right && right_operand ? right_operand.end : syntax_tree.terms[index][1]
+            end
+
+            def expression_to_s
+                if type.infix?
+                    left = left_operand
+                    right = right_operand
+                    "(#{left ? left.expression_to_s : "missing"} #{type.name} #{right ? right.expression_to_s : "missing"})"
+                elsif type.postfix?
+                    left = left_operand
+                    "#{left ? left.expression_to_s : "missing"}#{type.name}"
+                elsif type.prefix?
+                    right = right_operand
+                    "#{right ? right.expression_to_s : "missing"}"
+                else
+                    string
+                end
             end
         end
     end

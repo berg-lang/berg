@@ -8,76 +8,84 @@ module BergLang
         class Scanner
             attr_reader :parser
             attr_reader :stream
+            attr_reader :index
 
             def initialize(parser)
                 @parser = parser
-                @stream = source.open
-                @state = :not_started
+                @stream = parser.source.open
+                @next_token = parser.terms.sof
+                @index = 0
+                @eof = false
             end
 
-            def index
+            def eof?
+                @eof && !@next_token
+            end
+
+            def peek
+                @next_token
+            end
+
+            def peek_index
                 stream.index
             end
 
-            def read_token
-                case state
-                when :not_started
-                    @state = :parsing
-                    return parser.tokens.sof
-
-                when :parsing
-                    if stream.eof?
-                        @state = :eof
-                        return parser.tokens.eof
-                    end
-
-                    token = parse_whitespace || parse_number || parse_operator || parse_string || parse_bareword
-                    if !token
-                        raise syntax_errors.unrecognized_character(create_token(stream.match(/./), parser.tokens.unrecognized_character))
-                    end
-                    token
-
-                else
-                    nil
-                end
+            def next
+                token = @next_token
+                @index = stream.index
+                @next_token = scan_token
+                return token
             end
 
             private
 
-            attr_reader :state
+            def scan_token
+                # We're done when we've already 
+                if stream.eof?
+                    return nil if @eof
+                    @eof = true
+                    return parser.terms.eof
+                end
 
-            def syntax_errors
-                SyntaxErrors.new
+                token = parse_filler || parse_number || parse_operator || parse_string || parse_bareword
+                if !token
+                    raise unrecognized_character(create_token(stream.next, parser.terms.unrecognized_character))
+                end
+                token
             end
 
-            def parse_space
+            include SyntaxErrors
+
+            def parse_filler
                 if stream.match(/\A\r?\n/)
-                    parser.tokens.newline
+                    parser.terms.newline
                 elsif stream.match(/\A[[:blank:]]+/)
-                    parser.tokens.whitespace
+                    parser.terms.whitespace
                 elsif stream.match(/\A#[^\n]*/)
-                    parser.tokens.comment
+                    parser.terms.comment
                 end
             end
 
             def parse_operator
-                if stream.match(operators_regexp)
-                    parser.tokens.operators[match]
+                if match = stream.match(operators_regexp)
+                    parser.terms.operators[match.to_s]
                 end
             end
 
             def parse_bareword
                 if stream.match(/\A(\w|[_$])+/)
-                    parser.tokens.bareword
+                    parser.terms.bareword
                 end
             end
 
             def parse_string
                 if stream.peek == '"'
                     if stream.match(/\A"(\\.|[^\\"])*"/m)
-                        parser.tokens.string_literal
+                        parser.terms.string_literal
                     else
-                        raise syntax_errors.unclosed_string(stream.match(/\A"([\\.|[^\\"\n])/m))
+                        start_index = index
+                        raise internal_error("Expected to skip unclosed string, could not parse") unless stream.match(/\A"(\\.|[^\\"])*/m)
+                        raise unclosed_string(SourceRange.new(syntax_tree, start_index, index))
                     end
                 end
             end
@@ -85,29 +93,32 @@ module BergLang
             def parse_number
                 # Handle hex literals (0xDEADBEEF)
                 # prefix integer
+                start_index = index
                 if stream.match(/\A(?<prefix>0[xX])(?<integer>(\d|[A-Fa-f])+)/)
                     illegal_word_characters = stream.match /\A(\w|[_$])+/
                     # Word characters immediately following a number is illegal.
                     if illegal_word_characters
-                        raise syntax_errors.variable_name_starting_with_an_integer(SourceRange.span(match, illegal_word_characters))
+                        raise variable_name_starting_with_an_integer(SourceRange.new(syntax_tree, start_index, index), illegal_word_characters)
                     end
-                    return parser.tokens.hexadecimal_literal
+                    return parser.terms.hexadecimal_literal
                 end
 
                 #
                 # Handle floats, imaginaries and integers (hex is later in this function)
                 #
                 # integer (. decimal)? (e expsign? exponent)? i?
-                if match = stream.match /\A(?<integer>\d+)((\.)(?<decimal>\d+))?((e)(?<expsign>[-+])?(?<exp>\d+))?(?<imaginary>i)?/i
+                start_index = index
+                if match = stream.match(/\A(?<integer>\d+)((\.)(?<decimal>\d+))?((e)(?<expsign>[-+])?(?<exp>\d+))?(?<imaginary>i)?/i)
                     illegal_word_characters = stream.match /\A(\w|[_$])+/
                     # Word characters immediately following a number is illegal.
                     if illegal_word_characters
+                        range = SourceRange.new(syntax_tree, start_index, index)
                         if !match[:exp] && !match[:imaginary] && illegal_word_characters.string.downcase == "e"
-                            raise syntax_errors.empty_exponent(SourceRange.span(match, illegal_word_characters))
+                            raise empty_exponent(range)
                         elsif match[:decimal]
-                            raise syntax_errors.float_with_trailing_identifier(SourceRange.span(match, illegal_word_characters))
+                            raise float_with_trailing_identifier(range)
                         else
-                            raise syntax_errors.variable_name_starting_with_an_integer(SourceRange.span(match, illegal_word_characters))
+                            raise variable_name_starting_with_an_integer(range)
                         end
                     end
 
@@ -115,22 +126,22 @@ module BergLang
                     is_float = match[:decimal] || match[:exp]
                     is_octal = !is_float && match[:integer] && match[:integer].length > 1 && match["integer"].start_with?("0")
                     if is_imaginary
-                        parser.tokens.imaginary_literal
+                        parser.terms.imaginary_literal
 
                     elsif is_float
-                        parser.tokens.float_literal
+                        parser.terms.float_literal
 
                     elsif is_octal
                         if match[:integer] =~ /[89]/
-                            raise syntax_errors.illegal_octal_digit(match)
+                            raise illegal_octal_digit(SourceRange.new(syntax_tree, start_index, index))
                         end
-                        parser.tokens.octal_literal
+                        parser.terms.octal_literal
 
                     elsif match[:integer]
-                        parser.tokens.integer_literal
+                        parser.terms.integer_literal
 
                     else
-                        raise syntax_errors.internal_error(match, "ERROR: number that doesn't fit any category: #{match.string}")
+                        raise internal_error(SourceRange.new(syntax_tree, start_index, index), "ERROR: number that doesn't fit any category.")
                     end
                 end
             end
@@ -138,7 +149,7 @@ module BergLang
             def operators_regexp
                 @operators_regexp ||= Regexp.new(
                     "\\A(" +
-                    parser.tokens.operators.keys.select { |key| key.is_a?(String) }
+                    parser.terms.operators.keys.select { |key| key.is_a?(String) }
                                       .sort_by { |key| -key.length }
                                       .map { |key| Regexp.escape(key) }
                                       .join("|") +

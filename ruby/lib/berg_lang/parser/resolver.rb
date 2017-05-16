@@ -1,4 +1,7 @@
-require_relative "tokenizer"
+require_relative "scanner"
+require_relative "syntax_tree"
+require_relative "term_type/ambiguous"
+require_relative "syntax_errors"
 
 module BergLang
     class Parser
@@ -12,273 +15,197 @@ module BergLang
         #
         class Resolver
             attr_reader :parser
-            attr_reader :tokenizer
+            attr_reader :scanner
             attr_reader :syntax_tree
 
             def initialize(parser)
                 @parser = parser
-                @tokenizer = Tokenizer.new(parser)
-                @syntax_tree = SyntaxTree.new
-                @open_indents = []
+                @scanner = Scanner.new(parser)
+                @syntax_tree = parser.syntax_tree
+                @buried_open_indents = []
+                @open_indent_size = -1
+                syntax_tree.append_line(scanner.index, peek_indent)
             end
 
             #
-            # Parses, resolves, and creates a syntax tree for a source.
+            # Parse the next term.
             #
-            def parse
-                while parse_next
-                end
-            end
+            # Won't stop until it hits something unambiguous.
+            #
+            # Inserts empty, apply, or newline if the resolved term does not match
+            # what is needed (operator vs. expression).
+            #
+            # Handles indent and undent as well (when it does this, it does not
+            # consume the newline).
+            #
+            def parse_next(left_prefers_operand, left_will_insert=NONE, expect_indent_block=nil)
+                leading_space = false
+                result = nil
 
-            private
-
-            #
-            # Open indents
-            #
-            attr_reader :open_indents
-
-            #
-            # Parses, resolves, and associates a set of operator/expression tokens.
-            #
-            # May parse more than one token, if there is ambiguity (operators like + and - can be prefix/postfix
-            # as well as infix).
-            #
-            # @return [true,false] `true` if something was parsed, `false` if parsing is complete. 
-            #
-            def parse_next
-                last_token = syntax_tree[-1]
-                prefer_operator = last_token.type.right.needs_operator? if last_token
-                index = resolve_expression_sequence(prefer_operator)
-                if index
-                    associate_operators(syntax_tree[index])
-                    true
-                else
-                    false
-                end
-            end
-
-            #
-            # Associates the operators by setting their parents correctly (according to precedence).
-            #
-            # Will handle all nodes starting from the given node to the end of the tree.
-            #
-            # @param [SyntaxNode] The first node in the syntax tree to associate.
-            #
-            def associate_operators(node)
-                begin
-                    associate_operator(node)
-                end while node = node.next_term
-            end
-
-            #
-            # Associates a single operator with the rest of the tree by setting its parent and child correctly.
-            #
-            # @param [SyntaxNode] The node in the tree to associate.
-            #
-            def associate_operator(node)
-                parent = node.previous_term
-                left_side = node.type.left
-                if left_side.is_operator?
-                    while parent && left_side.can_have_child?(parent.type)
-                        left_child = parent
-                        parent = left_child.parent
-                    end
-                    if !left_child
-                        raise syntax_errors.internal_error(node, "#{node} cannot have left child #{parent}!")
-                    end
-                    left_child.parent = node
-                end
-                if !parent.type.right.can_have_child?(node.type)
-                    raise syntax_errors.internal_error(node, "#{node} cannot have parent #{parent}!")
-                end
-                node.parent = parent
-            end
-
-            #
-            # Reads the next token from the tokenizer, undenting if necessary
-            #
-            # @return [Token] the next token from the tokenizer
-            #
-            def read_token
-                token = @token || tokenizer.read_token
-                # Handle undent
-                if (@token || token.leading_newline?) && open_indents.any?
-                    if token.indent_size < open_indents[-1]
-                        open_indents.pop
-                        undent_token = token.dup
-                        undent_token.type = parser.types.undent
-                        undent_token.end = undent_token.start
-                        undent_token.trailing_space = undent_token.end
-                        token.leading_space = undent_token.start
-                        token.leading_newline = nil
-                        @token = token
-                        return undent_token
-                    end
-                end
-                @token = nil
-                token
-            end
-
-            #
-            # Parses and resolves tokens to form a valid expression sequence.
-            #
-            # May parse more than one token, if there is ambiguity (operators like + and - can be prefix/postfix
-            # as well as infix).
-            #
-            # Will avoid treating newline as an operator, or inserting call / empty, as long as possible.
-            #
-            # @param [true,false] prefer_operator `true` if we should be infix/postfix (i.e. take an operand on the
-            #        left side), `false` if we should be expression/prefix (no operand on the left side).
-            #
-            # @return [true,false] `true` if we are at EOF and could not do any work, `false` otherwise.
-            #
-            def resolve_expression_sequence(prefer_operator)
-                token = read_token
-                return nil unless token
-                index, next_type = process_token(token, prefer_operator, allow_newline_operator: true)
-
-                # If we have to insert call or empty to make it work, do that.
-                if next_type.left.is_operator?
-                    insert_empty(index) if !prefer_operator
-                else
-                    insert_call(index) if prefer_operator
-                end
-
-                index
-            end
-
-            private
-
-            #
-            # Process a single token in an expression sequence, disambiguating it so that the expression sequence
-            # is valid.
-            #
-            # @param [Token] token The token to process.
-            # @param [true,false] prefer_operator `true` if we should be infix/postfix (i.e. take an operand on
-            #        the left side), `false` if we should be expression/prefix (no operand on the left side).
-            # @param [true,false] allow_newline_operator `true` if we should insert a newline "statement separator"
-            #        infix operator if we can't be an operator and we have a newline we can use.
-            #
-            # @return [Integer] The index of the token in the tree.
-            #
-            def process_token(token, prefer_operator, allow_newline_operator)
-                # Add the token to the syntax tree so we can work with it.
-                index = syntax_tree.append(start: token.start, end: token.end)
-
-                # If we're asked for operator, but will end up being expression / prefix, we'll end up using a
-                # newline.
-                type = choose_token_type(token, prefer_operator, allow_newline_operator)
-                syntax_tree[index].type = type
-                if type.right.opens_indent_block? && type.trailing_newline?
-                    insert_indent(index+1)
-                end
-
-                if prefer_operator && !type.left.is_operator?
-                    return insert_newline(index, token) if allow_newline_operator && token.leading_newline?
-                end
-                [ index, type ]
-            end
-
-            #
-            # Decide a token's type.
-            #
-            # We use our token type and the preference of the previous token to decide what we should be.
-            #
-            # If the left token type is not enough to narrow the choices down to one, we call
-            # choose_ambiguous_token_type to handle the ambiguity.
-            #
-            # @param [Token] token The token to process.
-            # @param [true,false] prefer_operator `true` if we should be infix/postfix (i.e. take an operand on
-            #        the left side), `false` if we should be expression/prefix (no operand on the left side).
-            # @param [true,false] allow_newline_operator `true` if we should insert a newline "statement separator"
-            #        infix operator if we can't be an operator and we have a newline we can use.
-            #
-            # @return TokenType the token type we chose.
-            #
-            def choose_token_type(token, prefer_operator, allow_newline_operator)
-                # Handle sticky expressions: treat infix as if it weren't there if we are sticky postfix or
-                # prefix. There is no case in which we will pick infix over prefix or postfix in these situations.
-                token.infix = nil if token.leading_space? && !token.trailing_space? && token.prefix?
-                token.infix = nil if !token.leading_space? && token.trailing_space? && token.postfix?
-
-                # If our right side is unambiguous, we can decide our left side right now.
-                if token.right_is_operator? == true
-                    return token.prefix if prefer_operator == false || !token.infix?
-                    return token.infix
-                elsif token.right_is_operator? == false
-                    return token.postfix if prefer_operator == true || !token.expression?
-                    return token.expression
-                end
-
-                choose_ambiguous_token_type(token, prefer_operator, allow_newline_operator)
-            end
-
-            #
-            # Decide a token's type when there are multiple possibilities (infix or prefix, AND expression or postfix).
-            #
-            # We use the preference of the token on the left to decide what we should be.
-            #
-            # If the left token type is not enough to narrow the choices down to one, we parse the next
-            # token to narrow the field further, setting prefer_operator such that the next token will
-            # try to pick something that will honor *our* preference. (This may be the same as, or different from,
-            # our own prefer operator).
-            #
-            # If after parsing the token and taking the previous token's type into account, we don't have an
-            # answer, we pick infix over prefix, and expression over postfix.  We don't have to choose between
-            # expression/infix or prefix/postfix at this point, because the right side will be either an expression
-            # (in which case we prefer infix or prefix) or an operator (in which case we prefer expression or postfix).
-            #
-            # @param [Token] token The token to process.
-            # @param [true,false] prefer_operator `true` if we should be infix/postfix (i.e. take an operand on
-            #        the left side), `false` if we should be expression/prefix (no operand on the left side).
-            # @param [true,false] allow_newline_operator `true` if we should insert a newline "statement separator"
-            #        infix operator if we can't be an operator and we have a newline we can use.
-            #
-            # @return TokenType the token type we chose.
-            #
-            def choose_ambiguous_token_type(token, prefer_operator, allow_newline_operator)
-                if prefer_operator
-                    # If we can pick newline, don't let the next guy pick it (do it earlier rather than later).
-                    if allow_newline_operator && token.leading_newline?
-                        if (token.prefix && !token.prefix) || (token.expression && !token.postfix)
-                            allow_newline_operator = false
+                while scanner.peek && scanner.peek.filler?
+                    leading_space ||= true
+                    if scanner.next.newline?
+                        leading_space ||= :newline
+                        term = handle_indent(expect_indent_block)
+                        if term
+                            expect_indent_block = nil
+                            result ||= term
                         end
                     end
-                    preferred = token.infix || token.postfix || token.prefix || token.expression
-                else
-                    preferred = token.expression || token.prefix || token.infix || token.postfix
                 end
 
-                # Read the next token.
-                next_token = read_token
-                next_index, next_type = process_token(next_token, preferred.right.is_operator?, allow_newline_operator)
+                term = parse_term(left_prefers_operand, left_will_insert, leading_space)
+                result || term
+            end
+            
+            private
 
-                # Choose infix or prefix if the right side prefers we are an operator. Otherwise, expression/postfix.
-                if next_type.left.needs_operator?
-                    return prefer_operator ? token.infix || token.prefix : token.prefix || token.infix
+            include SyntaxErrors
+
+            NONE = 0
+            EMPTY = 1
+            APPLY = 2
+            NEWLINE = 3
+            NO_NEED_TO_INSERT = 4
+
+            attr_reader :buried_open_indents
+            attr_reader :open_indent_size
+
+            #
+            # Reads and resolves a term, adding it to the syntax tree.
+            #
+            # Will insert apply or empty in front of the term if it cannot satisfy
+            # `left_prefers_operand`.
+            #
+            def parse_term(left_prefers_operand, left_will_insert, leading_space)
+                term_start = scanner.index
+                type = scanner.next
+                term_end = scanner.index
+                return nil unless type
+
+                trailing_space = scanner.peek && scanner.peek.filler?
+
+                # Handle empty/apply if no one else has.
+                will_insert = left_prefers_operand ? EMPTY : APPLY
+                will_insert = NEWLINE if will_insert == APPLY && leading_space == :newline
+                will_insert = nil if left_will_insert >= will_insert
+
+                # Append the term and resolve its fixity.
+                term = syntax_tree.append(term_start, term_end)
+                term.type = choose_fixity(type, left_prefers_operand, will_insert || left_will_insert, leading_space, trailing_space)
+
+                # Insert the empty/apply if we need to.
+                if will_insert && left_prefers_operand != term.type.left_is_operand?
+                    output.debug("Inserting #{insert_type(will_insert).name} because #{term.name} is #{term.fixity}")
+                    term = term.insert(term_start, term_start, insert_type(will_insert))
+                end
+
+                term
+            end
+
+            #
+            # Decide a term's fixity (expression, infix, postfix, prefix).
+            #
+            # We choose according to these rules:
+            # - If we are sticky prefix or sticky postfix, we rule out infix entirely.
+            # - If there is only one choice, we pick that.
+            # - Otherwise, we resolve the next token and try to satisfy *both* sides first, or the right side if not.
+            #
+            def choose_fixity(type, left_prefers_operand, left_will_insert, leading_space, trailing_space)
+                if !type.is_a?(TermType::Ambiguous)
+                    output.debug("Resolving #{type.name} as #{type.fixity} because it is unambiguous.")
+                    return type
+                end
+
+                # Remove infix as a possibility if we are sticky prefix/postfix
+                if type.prefix? && type.infix? && leading_space && !trailing_space
+                    output.debug("Sticky prefix: eliminating infix as a possibility for #{type.name}.")
+                elsif type.postfix? && type.infix? && !leading_space && trailing_space
+                    output.debug("Sticky postfix: eliminating infix as a possibility for #{type.name}.")
                 else
-                    return prefer_operator ? token.postfix || token.expression : token.expression || token.postfix
+                    infix = type.infix
+                end
+
+                # We prefer whatever will satisfy both sides. If we can't, we satisfy the right side.
+                preferred = left_prefers_operand ? type.expression || type.postfix : infix   || type.prefix
+                secondary = left_prefers_operand ? type.prefix     || infix        : type.postfix || type.expression
+
+                if preferred && secondary
+                    # If the left sides are the same, we can pick whatever; prefer expression/infix over
+                    # postfix/prefix, and make sure the next term doesn't try to insert anything.
+                    if !preferred.left == !secondary.left
+                        preferred, secondary = secondary, preferred if preferred.prefix? || preferred.postfix?
+                        left_will_insert = NO_NEED_TO_INSERT
+                    end
+
+                    # Parse the next term and decide whether we are ambiguous from that.
+                    output.debug("Reading next token to decide whether #{type.name} should be #{preferred.fixity} or #{secondary.fixity} ...")
+                    term = parse_next(preferred.right, left_will_insert)
+                    preferred, secondary = secondary, nil unless preferred.right_is_operand? == !!term.type.left
+                    output.debug("Resolving #{type.name} as #{preferred.fixity} because right side is #{term.type.fixity}")
+                else
+                    output.debug("Resolving #{type.name} as #{(preferred || secondary).fixity} because it's the only thing that fits the left side.")
+                end
+
+                # If only one thing is possible, return it!
+                preferred || secondary
+            end
+
+            #
+            # Deal with indent and undent.
+            #
+            def handle_indent(expect_indent_block)
+                indent = read_indent
+                syntax_tree.add_line(token_end, indent)
+
+                # Handle indent/undent if the next token is visible (comment or term)
+                if !scanner.peek.whitespace?
+                    if expect_indent_block && indent > expect_indent_block
+                        # Handle indent
+                        buried_open_indents << open_indent_size if open_indent_size >= 0
+                        @open_indent_size = expect_indent_block
+                        return syntax_tree.append(token_start, token_start, parser.terms.indent)
+                    else
+                        result = nil
+                        while indent <= open_indent.size
+                            term = syntax_tree.append(token_start, token_start, parser.terms.indent)
+                            result ||= term
+                            @open_indent_size = buried_open_indents.pop || -1
+                        end
+                        return term
+                    end
                 end
             end
 
-            def insert_indent(index, token)
-                open_indents << token.indent_size
-                type = parser.tokens.indent
-                syntax_tree.insert(index, token.end, token.end, type)
+            #
+            # Read the next whitespace token (if any) to determine indent size.
+            #
+            def read_indent
+                result = peek_indent
+                scanner.next if result > 0
+                result
             end
 
-            def insert_newline(index, token)
-                type = parser.tokens.newline_operator
-                syntax_tree.insert(index, token.leading_newline, token.leading_newline, type)
-                [ index, type ]
+            #
+            # Peek at the next whitespace token (if any) to determine indent size.
+            #
+            def peek_indent
+                return 0 unless scanner.peek && scanner.peek.whitespace?
+                scanner.peek_index - scanner.index
             end
 
-            def insert_apply(index, token)
-                syntax_tree.insert(index, token.leading_space, token.leading_space, parser.tokens.apply_operator)
-            end
-
-            def insert_empty(index, token)
-                syntax_tree.insert(index, token.leading_space, token.leading_space, parser.tokens.empty)
+            #
+            # Get the type of token that needs to be inserted for a given will_insert value.
+            #
+            def insert_type(will_insert)
+                case will_insert
+                when EMPTY
+                    parser.terms.empty
+                when APPLY
+                    parser.terms.apply
+                when NEWLINE
+                    parser.terms.newline_operator
+                end
             end
         end
     end
