@@ -38,7 +38,7 @@ module BergLang
             # Handles indent and undent as well (when it does this, it does not
             # consume the newline).
             #
-            def parse_next(left_prefers_operand, expect_indent_block, left_will_insert)
+            def parse_next(prefer_operand, expect_indent_block, left_will_insert)
                 leading_space = false
                 result = nil
 
@@ -56,7 +56,7 @@ module BergLang
                     end
                 end
 
-                term = parse_term(left_prefers_operand, left_will_insert, leading_space)
+                term = parse_term(prefer_operand, left_will_insert, leading_space)
                 result || term
             end
             
@@ -77,31 +77,31 @@ module BergLang
             # Reads and resolves a term, adding it to the syntax tree.
             #
             # Will insert apply or empty in front of the term if it cannot satisfy
-            # `left_prefers_operand`.
+            # `prefer_operand`.
             #
-            def parse_term(left_prefers_operand, left_will_insert, leading_space)
+            def parse_term(prefer_operand, left_will_insert, leading_space)
                 term_start = scanner.index
                 type = scanner.next
                 term_end = scanner.index
                 return nil unless type
 
-                output.debug "#{type}: Resolving (prefer #{left_prefers_operand ? "operand" : "operator"}):"
+                output.debug "#{type}: Resolving (prefer #{prefer_operand ? "operand" : "operator"}):"
                 output.indented do
 
                     trailing_space = scanner.peek && scanner.peek.filler?
 
                     # Handle empty/apply if no one else has.
-                    will_insert = left_prefers_operand ? EMPTY : APPLY
+                    will_insert = prefer_operand ? EMPTY : APPLY
                     will_insert = NEWLINE if will_insert == APPLY && leading_space == :newline
                     will_insert = nil if left_will_insert >= will_insert
 
                     # Append the term and resolve its fixity.
                     term = syntax_tree.append(term_start, term_end)
-                    term.type = choose_fixity(type, left_prefers_operand, will_insert || left_will_insert, leading_space, trailing_space)
+                    term.type = choose_fixity(type, prefer_operand, will_insert || left_will_insert, leading_space, trailing_space)
 
                     # Insert the empty/apply if we need to.
-                    if will_insert && left_prefers_operand != term.type.left_is_operand?
-                        output.debug("Inserting #{insert_type(will_insert).name} because #{term.type.name} is #{term.type.fixity} (prefer #{left_prefers_operand})")
+                    if will_insert && prefer_operand != term.type.left_is_operand?
+                        output.debug("Inserting #{insert_type(will_insert).name} because #{term.type.name} is #{term.type.fixity} (prefer #{prefer_operand})")
                         term = term.insert(term_start, term_start, insert_type(will_insert))
                     end
                     term
@@ -116,7 +116,7 @@ module BergLang
             # - If there is only one choice, we pick that.
             # - Otherwise, we resolve the next token and try to satisfy *both* sides first, or the right side if not.
             #
-            def choose_fixity(type, left_prefers_operand, left_will_insert, leading_space, trailing_space)
+            def choose_fixity(type, prefer_operand, left_will_insert, leading_space, trailing_space)
                 if !type.is_a?(TermType::Ambiguous)
                     output.debug("Resolving #{type.name} as #{type.fixity} because it is unambiguous.")
                     return type
@@ -131,30 +131,31 @@ module BergLang
                     infix = type.infix
                 end
 
-                # We prefer whatever will satisfy both sides. If we can't, we satisfy the right side.
-                preferred = left_prefers_operand ? type.expression || type.postfix : infix   || type.prefix
-                secondary = left_prefers_operand ? type.prefix     || infix        : type.postfix || type.expression
+                # Preferred: we prefer expression > prefix and infix > postfix, whichever satisfies the left side.
+                preferred = prefer_operand ? type.expression || type.prefix : infix || type.postfix
+                # Alternate: we prefer whatever satisfies the right side, if we can't satisfy the left.
+                alternate = preferred.right ? type.expression || type.postfix : infix || type.prefix
 
-                if preferred && secondary
+                if preferred && alternate
                     # If the left sides are the same, we can pick whatever; prefer expression/infix over
                     # postfix/prefix, and make sure the next term doesn't try to insert anything.
-                    if !preferred.left == !secondary.left
-                        preferred, secondary = secondary, preferred if preferred.prefix? || preferred.postfix?
+                    if !preferred.left == !alternate.left
+                        preferred, alternate = alternate, preferred if preferred.prefix? || preferred.postfix?
                         left_will_insert = NO_NEED_TO_INSERT
                     end
 
                     # Parse the next term and decide whether we are ambiguous from that.
-                    output.debug("Reading next token to decide whether #{type.name} should be #{preferred.fixity} or #{secondary.fixity} ...")
+                    output.debug("Reading next token to decide whether #{type.name} should be #{preferred.fixity} or #{alternate.fixity} ...")
                     # NOTE: opens_indent_block? is guaranteed to be false if expr/post, see TermType::Ambiguous.validate
                     term = parse_next(preferred.right, nil, left_will_insert)
-                    preferred, secondary = secondary, nil unless preferred.right_is_operand? == !!term.type.left
+                    preferred, alternate = alternate, nil unless preferred.right_is_operand? == !!term.type.left
                     output.debug("Resolving #{type.name} as #{preferred.fixity} because right side is #{term.type.fixity}")
                 else
-                    output.debug("Resolving #{type.name} as #{(preferred || secondary).fixity} because it's the only thing that fits the left side.")
+                    output.debug("Resolving #{type.name} as #{(preferred || alternate).fixity} because it's the only thing that fits the left side.")
                 end
 
                 # If only one thing is possible, return it!
-                preferred || secondary
+                preferred || alternate
             end
 
             #
