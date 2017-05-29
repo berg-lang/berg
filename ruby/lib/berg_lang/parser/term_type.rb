@@ -1,3 +1,5 @@
+require_relative "term_type/ambiguous"
+
 module BergLang
     class Parser
         class TermType
@@ -11,16 +13,20 @@ module BergLang
                 name.is_a?(String) ? name : name.inspect
             end
 
+            def fixity
+                :error
+            end
+
             def filler?
                 false
+            end
+            def filler
+                nil
             end
             def term?
                 !filler?
             end
             def whitespace?
-                false
-            end
-            def newline?
                 false
             end
             def infix?
@@ -49,8 +55,8 @@ module BergLang
             end
 
             def +(term_type)
-                raise "#{self} cannot be combined with another term" if variants.empty?
-                raise "#{term_type} cannot be combined with another term" if term_type.variants.empty?
+                raise "#{self} cannot be combined with another term" if !variants.any?
+                raise "#{term_type} cannot be combined with another term" if !term_type.variants.any?
                 raise "#{self} and #{term_type} are both expressions and cannot be combined" if term_type.expression? && expression?
                 raise "#{self} and #{term_type} are both infix and cannot be combined" if term_type.infix? && infix?
                 raise "#{self} and #{term_type} are both prefix and cannot be combined" if term_type.prefix? && prefix?
@@ -59,7 +65,12 @@ module BergLang
             end
 
             def variants
-                [ expression, infix, prefix, postfix ].reject { |variant| variant.nil? }
+                return enum_for(:variants) if !block_given?
+                yield expression if expression?
+                yield infix if infix?
+                yield prefix if postfix?
+                yield postfix if postfix?
+                yield filler if filler?
             end
         end
     end

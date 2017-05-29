@@ -6,14 +6,16 @@ module BergLang
         # Scans for tokens from the stream (whitespace, numbers, strings, words).
         #
         class Scanner
-            attr_reader :parser
+            attr_reader :terms
+            attr_reader :source
             attr_reader :stream
             attr_reader :index
 
             def initialize(parser)
-                @parser = parser
-                @stream = parser.source.open
-                @next_token = parser.terms.sof
+                @source = parser.source
+                @terms = parser.terms
+                @stream = source.open
+                @next_token = terms.sof
                 @index = 0
                 @eof = false
             end
@@ -44,12 +46,12 @@ module BergLang
                 if stream.eof?
                     return nil if @eof
                     @eof = true
-                    return parser.terms.eof
+                    return terms.eof
                 end
 
                 token = parse_filler || parse_number || parse_operator || parse_string || parse_bareword
                 if !token
-                    raise unrecognized_character(create_token(stream.next, parser.terms.unrecognized_character))
+                    raise unrecognized_character(create_token(stream.next, terms.unrecognized_character))
                 end
                 token
             end
@@ -58,30 +60,30 @@ module BergLang
 
             def parse_filler
                 if stream.match(/\A\r?\n/)
-                    parser.terms.newline
+                    terms.newline
                 elsif stream.match(/\A[[:blank:]]+/)
-                    parser.terms.whitespace
+                    terms.whitespace
                 elsif stream.match(/\A#[^\n]*/)
-                    parser.terms.comment
+                    terms.comment
                 end
             end
 
             def parse_operator
                 if match = stream.match(operators_regexp)
-                    parser.terms.operators[match.to_s]
+                    terms.operators[match.to_s]
                 end
             end
 
             def parse_bareword
                 if stream.match(/\A(\w|[_$])+/)
-                    parser.terms.bareword
+                    terms.bareword
                 end
             end
 
             def parse_string
                 if stream.peek == '"'
                     if stream.match(/\A"(\\.|[^\\"])*"/m)
-                        parser.terms.string_literal
+                        terms.string_literal
                     else
                         start_index = index
                         raise internal_error("Expected to skip unclosed string, could not parse") unless stream.match(/\A"(\\.|[^\\"])*/m)
@@ -100,7 +102,7 @@ module BergLang
                     if illegal_word_characters
                         raise variable_name_starting_with_an_integer(SourceRange.new(syntax_tree, start_index, index), illegal_word_characters)
                     end
-                    return parser.terms.hexadecimal_literal
+                    return terms.hexadecimal_literal
                 end
 
                 #
@@ -126,19 +128,19 @@ module BergLang
                     is_float = match[:decimal] || match[:exp]
                     is_octal = !is_float && match[:integer] && match[:integer].length > 1 && match["integer"].start_with?("0")
                     if is_imaginary
-                        parser.terms.imaginary_literal
+                        terms.imaginary_literal
 
                     elsif is_float
-                        parser.terms.float_literal
+                        terms.float_literal
 
                     elsif is_octal
                         if match[:integer] =~ /[89]/
                             raise illegal_octal_digit(SourceRange.new(syntax_tree, start_index, index))
                         end
-                        parser.terms.octal_literal
+                        terms.octal_literal
 
                     elsif match[:integer]
-                        parser.terms.integer_literal
+                        terms.integer_literal
 
                     else
                         raise internal_error(SourceRange.new(syntax_tree, start_index, index), "ERROR: number that doesn't fit any category.")
@@ -149,7 +151,7 @@ module BergLang
             def operators_regexp
                 @operators_regexp ||= Regexp.new(
                     "\\A(" +
-                    parser.terms.operators.keys.select { |key| key.is_a?(String) }
+                    terms.operators.keys.select { |key| key.is_a?(String) }
                                       .sort_by { |key| -key.length }
                                       .map { |key| Regexp.escape(key) }
                                       .join("|") +

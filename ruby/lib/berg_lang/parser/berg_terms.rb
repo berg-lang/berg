@@ -1,3 +1,4 @@
+require_relative "outcome"
 require_relative "term_type"
 require_relative "term_type/definite"
 require_relative "term_type/filler"
@@ -30,7 +31,7 @@ module BergLang
             end
 
             def self.newline
-                @newline ||= define_filler("newline whitespace", whitespace: true, newline: true)
+                @newline ||= Ambiguous.new(filler: whitespace, infix: newline_operator)
             end
 
             def self.comment
@@ -38,7 +39,7 @@ module BergLang
             end
 
             def self.empty
-                @empty ||= define_expression_term("empty")
+                @empty ||= define_expression_term("empty", outcome: Outcome::EMPTY)
             end
 
             def self.bare_declaration
@@ -125,8 +126,8 @@ module BergLang
                     # TODO unsure if this is the right spot for intersect/union. Maybe closer to - and +
                     "&",
                     "|",
-                    [ { name: :apply } ],
-                    [ ";", { name: :newline } ],
+                    [ { name: :apply, outcome: Outcome::APPLY } ],
+                    [ ";", { name: :newline, outcome: Outcome::NEWLINE } ],
                     # Delimiters want everything as children.
                     [
                         { name: :indent, type: :open,  closed_by: :undent,   direction: :right },

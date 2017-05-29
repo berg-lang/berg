@@ -1,22 +1,25 @@
 require_relative "output"
 require_relative "parser/berg_terms"
+require_relative "parser/state"
 require_relative "parser/syntax_errors"
 require_relative "parser/syntax_tree"
-require_relative "parser/resolver"
+require_relative "parser/scanner"
 
 module BergLang
     #
     # Parses Berg.
     #
+    # Disambiguation rules:
+    # 1. The earliest thing we can insert, wins.
+    # 2. infix>postfix and expression>prefix if either one works fine.
     class Parser
         attr_reader :source
-        attr_reader :output
         attr_reader :syntax_tree
+        attr_reader :output
 
         def initialize(source, output: Output.new(STDOUT))
             @source = source
             @output = output
-            @syntax_tree = SyntaxTree.new(source)
         end
 
         def terms
@@ -24,35 +27,100 @@ module BergLang
         end
 
         #
-        # Parses, resolves, and creates a syntax tree for a source.
+        # Parses all terms from the source.
         #
         def parse
-            resolver = Resolver.new(self)
-            left_accepts_operand = true
-            expect_indent_block = false
-            while term = resolver.parse_next(left_accepts_operand, expect_indent_block, Resolver::NONE)
-                associate_operators(term)
+            scanner = Scanner.new(self)
+            state = State.new(source, prefer_next_to_be_operand: true, insert_if_need_operator: terms.apply, insert_if_need_operand: terms.empty)
 
-                if right = syntax_tree[-1].type.right
-                    left_accepts_operand = true
-                    expect_indent_block = right.opens_indent_block?
-                else
-                    left_accepts_operand = false
-                end
+            term_start = scanner.index
+            while type = scanner.next
+                term_end = scanner.index
+                resolve(state, term_start, term_end, type)
             end
         end
 
         private
 
-        include SyntaxErrors
+        def resolve(state, term_start, term_end, type)
+            if_next_is_operand, if_next_is_operator = choose_types(state, type)
+
+            if if_next_is_operand
+                if if_next_is_operator
+                    resolve_ambiguous(state, term_start, term_end, if_next_is_operand, if_next_is_operator)
+                else
+                    resolve_unambiguous(state, term_start, term_end, if_next_is_operand)
+                end
+            else
+                if if_next_is_operator
+                    resolve_unambiguous(state, term_start, term_end, if_next_is_operator)
+                else
+                    raise syntax_errors.internal_error(term_start, term_end, type, "No operator, operand or filler for #{type}")
+                end
+            end
+        end
+
+        def choose_types(state, type)
+            # When we have both right sides match, we know there is no insert, so we can safely pick whichever fits the left best. TODO not true. filler!
+            case state.prefer_next_to_be_operand?
+            when true
+                if_next_is_operand  = type.prefix     || type.filler  || type.infix
+                if_next_is_operator = type.expression || type.filler  || type.postfix
+            when false
+                if_next_is_operand  = type.infix      || type.filler  || type.prefix
+                if_next_is_operator = type.postfix    || type.filler  || type.expression
+            when nil
+                # When we can't use the ambiguity of the situation to guide us, we invoke the infix>prefix
+                # and expression>postfix rule.
+                if_next_is_operand  = type.infix      || type.prefix  || type.filler
+                if_next_is_operator = type.expression || type.postfix || type.filler
+            end
+            [ if_next_is_operand, if_next_is_operator ]
+        end
+
+        def resolve_unambiguous(state, term_start, term_end, type)
+            state.resolved_terms(term_start, type).each { |term| append(*term) }
+            state.reset(prefer_next_to_be_operand: !type.right_is_operand?)
+            append(term_start, term_end, type)
+        end
+
+        def resolve_ambiguous(state, term_start, term_end, if_next_is_operand, if_next_is_operator)
+            # If both sides are filler, it's actually unambiguous. Return.
+            return if if_next_is_operand.filler? && if_next_is_operator.filler?
+
+            # If the left hand side is unambiguous even though the right side is not (infix|postfix,
+            # prefix|expression, filler|expression, infix|filler), resolve the left side and reset if_operand/if_operator.
+            if_next_is_operand_is_operand = if_next_is_operand.filler? ? true : if_next_is_operand.left_is_operand?
+            if_next_is_operator_is_operand = if_next_is_operator.filler? ? false : if_next_is_operator.left_is_operand?
+            if if_next_is_operand_is_operand == if_next_is_operator_is_operand
+                state.resolved_terms(term_start, type).each { |term| append(*term) }
+                state.reset(prefer_next_to_be_operand: nil)
+            
+            # If we have infix|expression, flip if_operand/if_operator since it flips what we want next.
+            elsif if_next_is_operand.infix? && if_next_is_operator.expression?
+                state.swap
+
+            # If we have prefix|postfix, filler|postfix, or prefix|filler we don't mess with anything, no resolutions
+            # can be done and nothing needs to be swapped.
+            end
+
+            state.append(term_start, term_end, if_next_is_operand, if_next_is_operator)
+        end
+
+        def append(to_append)
+            to_append.each do |term_start, term_end, type|
+                next if term.filler?
+                term = syntax_tree.append(term_start, term_end, type)
+                associate(term)
+            end
+        end
 
         #
-        # Associates an operator (and any operators after it) with the rest of the tree by setting its
-        # parent and child correctly.
+        # Associates an operator with the rest of the tree by setting its parent and child correctly.
         #
         # @param [Term] The term in the tree to associate.
         #
-        def associate_operators(term)
+        def associate(term)
             parent = term.previous_term
             return unless parent
             type = term.type
@@ -79,10 +147,6 @@ module BergLang
                 left_operand.parent = term
             end
             term.parent = parent
-
-            # If there is another term to associate, take care of it.
-            next_term = term.next_term
-            associate_operators(next_term) if next_term
         end
     end
 end

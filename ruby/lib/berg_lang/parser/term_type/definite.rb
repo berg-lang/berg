@@ -1,4 +1,5 @@
 require_relative "../term_type"
+require_relative "../outcome"
 
 module BergLang
     class Parser
@@ -57,7 +58,8 @@ module BergLang
                 end
 
                 def variants
-                    [self]
+                    return enum_for(:variants) unless block_given?
+                    yield self
                 end
             end
         end
