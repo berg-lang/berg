@@ -27,6 +27,14 @@ module BergLang
                 def right
                     nil
                 end
+
+                def variants
+                    return enum_for(:variants) unless block_given?
+                    yield self
+                end
+                def preferred_variants(left, left_inserts_empty)
+                    [ self, self ]
+                end
             end
         end
     end

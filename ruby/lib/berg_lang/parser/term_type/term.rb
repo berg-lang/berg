@@ -1,10 +1,9 @@
 require_relative "../term_type"
-require_relative "../outcome"
 
 module BergLang
     class Parser
         class TermType
-            class Definite < TermType
+            class Term < TermType
                 attr_reader :string
                 attr_reader :left
                 attr_reader :right
@@ -60,6 +59,10 @@ module BergLang
                 def variants
                     return enum_for(:variants) unless block_given?
                     yield self
+                end
+
+                def preferred_variants(left, left_inserts_empty)
+                    [ self, self ]
                 end
             end
         end

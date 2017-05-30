@@ -38,12 +38,12 @@ module BergLang
                 terms.size
             end
 
-            def append(term_start, term_end, term_type=nil, parent=nil)
-                terms << [term_start, term_end, term_type, parent]
+            def append(term_start, term_end, type, parent=nil)
+                terms << [term_start, term_end, type, parent]
                 self[-1]
             end
 
-            def insert(index, term_start, term_end, type=nil, parent=nil)
+            def insert(index, term_start, term_end, type, parent=nil)
                 terms.insert(index, [term_start, term_end, type, parent])
                 self[index]
             end
@@ -82,13 +82,14 @@ module BergLang
                     line = 0
                 end
                 line -= 1 while line_locations[line][0] > source_index
-                line += 1 while line_locations[line][0] < source_index
+                line += 1 while line_locations[line+1] && line_locations[line+1][0] >= source_index
                 line + 1
             end
 
             def location_for(source_index)
                 line = line_for(source_index)
                 column = source_index - line_locations[line-1][0] + 1
+                [ line, column ]
             end
 
             def index_for(line)

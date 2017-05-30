@@ -1,6 +1,6 @@
-require_relative "outcome"
 require_relative "term_type"
-require_relative "term_type/definite"
+require_relative "term_type/ambiguous"
+require_relative "term_type/term"
 require_relative "term_type/filler"
 require_relative "term_type/side"
 require "set"
@@ -31,7 +31,7 @@ module BergLang
             end
 
             def self.newline
-                @newline ||= Ambiguous.new(filler: whitespace, infix: newline_operator)
+                @newline ||= TermType::Ambiguous.new(filler: whitespace, infix: newline_operator)
             end
 
             def self.comment
@@ -39,7 +39,7 @@ module BergLang
             end
 
             def self.empty
-                @empty ||= define_expression_term("empty", outcome: Outcome::EMPTY)
+                @empty ||= define_expression_term("empty")
             end
 
             def self.bare_declaration
@@ -126,8 +126,8 @@ module BergLang
                     # TODO unsure if this is the right spot for intersect/union. Maybe closer to - and +
                     "&",
                     "|",
-                    [ { name: :apply, outcome: Outcome::APPLY } ],
-                    [ ";", { name: :newline, outcome: Outcome::NEWLINE } ],
+                    [ { name: :apply } ],
+                    [ ";", { name: :newline } ],
                     # Delimiters want everything as children.
                     [
                         { name: :indent, type: :open,  closed_by: :undent,   direction: :right },
@@ -144,12 +144,12 @@ module BergLang
 
             private
 
-            def self.define_filler(name, newline: nil, whitespace: newline)
-                TermType::Filler.new(name, whitespace: whitespace, newline: newline)
+            def self.define_filler(name, whitespace:)
+                TermType::Filler.new(name, whitespace: whitespace)
             end
 
             def self.define_expression_term(name)
-                TermType::Definite.new(name)
+                TermType::Term.new(name)
             end
 
             def self.define_operators(*operator_defs)
@@ -192,7 +192,7 @@ module BergLang
                 if [:infix, :prefix, :open ].include?(type)
                     right = TermType::Side.new(opens_indent_block: opens_indent_block, opened_by: opened_by)
                 end
-                TermType::Definite.new(name, string: string, left: left, right: right)
+                TermType::Term.new(name, string: string, left: left, right: right)
             end
 
             def self.define_operator_groups(*groups)

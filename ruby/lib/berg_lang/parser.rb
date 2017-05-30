@@ -14,7 +14,6 @@ module BergLang
     # 2. infix>postfix and expression>prefix if either one works fine.
     class Parser
         attr_reader :source
-        attr_reader :syntax_tree
         attr_reader :output
 
         def initialize(source, output: Output.new(STDOUT))
@@ -31,88 +30,65 @@ module BergLang
         #
         def parse
             scanner = Scanner.new(self)
-            state = State.new(source, prefer_next_to_be_operand: true, insert_if_need_operator: terms.apply, insert_if_need_operand: terms.empty)
+            state = State.new(source, prefer_operand_next: true, insert_if_non_preferred: terms.apply)
 
-            term_start = scanner.index
+            # Read each token from the input
+            term_end = scanner.index
+            state.syntax_tree.append_line(term_end, 0)
             while type = scanner.next
-                term_end = scanner.index
+                term_start, term_end = term_end, scanner.index
+                puts "- token #{type}"
+                state.syntax_tree.append_line(term_end, 0) if type == terms.newline
+
                 resolve(state, term_start, term_end, type)
             end
+
+            state.syntax_tree
         end
 
         private
 
+        include SyntaxErrors
+
         def resolve(state, term_start, term_end, type)
-            if_next_is_operand, if_next_is_operator = choose_types(state, type)
+            # Decide what we'll choose if the right side is operand, or if it's operator.
+            if_operand, if_operator = type.preferred_variants(
+                state.prefer_operand_next?,
+                state.insert_if_non_preferred == terms.empty
+            )
 
-            if if_next_is_operand
-                if if_next_is_operator
-                    resolve_ambiguous(state, term_start, term_end, if_next_is_operand, if_next_is_operator)
-                else
-                    resolve_unambiguous(state, term_start, term_end, if_next_is_operand)
+            # If left sides are identical, we can resolve everything to the left.
+            if_operand_left  =  if_operand.filler?  || if_operand.left_is_operand?
+            if_operator_left = !if_operator.filler? && if_operator.left_is_operand?
+            if if_operand_left == if_operator_left
+                insert_type, resolved = state.resolve(if_operand_left)
+                output.debug "  left sides are both #{if_operand_left ? "operand" : "operator"}, resolving" if insert_type || resolved.any?
+                if insert_type
+                    next_term_start = terms.any? ? terms.first[0] : term_start
+                    append_term(state, next_term_start, next_term_start, insert_type)
                 end
+                resolved.each do |term_start, term_end, type|
+                    append_term(state, term_start, term_end, type)
+                end
+
+                # If both sides are identical, append. Otherwise, it's unresolved.
+                if if_operand == if_operator
+                    puts "  new state: #{type.right_is_operand? ? "operator" : "operand"}"
+                    append_term(state, term_start, term_end, if_operand)
+                    state.set(!type.right_is_operand?, type.right_is_operand? ? terms.empty : terms.apply)
+                else
+                    state.set_unresolved(term_start, term_end, if_operand, if_operator)
+                end
+            elsif if_operand.filler? && if_operator.filler?
             else
-                if if_next_is_operator
-                    resolve_unambiguous(state, term_start, term_end, if_next_is_operator)
-                else
-                    raise syntax_errors.internal_error(term_start, term_end, type, "No operator, operand or filler for #{type}")
-                end
+                state.append_unresolved(term_start, term_end, if_operand, if_operator)
             end
         end
 
-        def choose_types(state, type)
-            # When we have both right sides match, we know there is no insert, so we can safely pick whichever fits the left best. TODO not true. filler!
-            case state.prefer_next_to_be_operand?
-            when true
-                if_next_is_operand  = type.prefix     || type.filler  || type.infix
-                if_next_is_operator = type.expression || type.filler  || type.postfix
-            when false
-                if_next_is_operand  = type.infix      || type.filler  || type.prefix
-                if_next_is_operator = type.postfix    || type.filler  || type.expression
-            when nil
-                # When we can't use the ambiguity of the situation to guide us, we invoke the infix>prefix
-                # and expression>postfix rule.
-                if_next_is_operand  = type.infix      || type.prefix  || type.filler
-                if_next_is_operator = type.expression || type.postfix || type.filler
-            end
-            [ if_next_is_operand, if_next_is_operator ]
-        end
-
-        def resolve_unambiguous(state, term_start, term_end, type)
-            state.resolved_terms(term_start, type).each { |term| append(*term) }
-            state.reset(prefer_next_to_be_operand: !type.right_is_operand?)
-            append(term_start, term_end, type)
-        end
-
-        def resolve_ambiguous(state, term_start, term_end, if_next_is_operand, if_next_is_operator)
-            # If both sides are filler, it's actually unambiguous. Return.
-            return if if_next_is_operand.filler? && if_next_is_operator.filler?
-
-            # If the left hand side is unambiguous even though the right side is not (infix|postfix,
-            # prefix|expression, filler|expression, infix|filler), resolve the left side and reset if_operand/if_operator.
-            if_next_is_operand_is_operand = if_next_is_operand.filler? ? true : if_next_is_operand.left_is_operand?
-            if_next_is_operator_is_operand = if_next_is_operator.filler? ? false : if_next_is_operator.left_is_operand?
-            if if_next_is_operand_is_operand == if_next_is_operator_is_operand
-                state.resolved_terms(term_start, type).each { |term| append(*term) }
-                state.reset(prefer_next_to_be_operand: nil)
-            
-            # If we have infix|expression, flip if_operand/if_operator since it flips what we want next.
-            elsif if_next_is_operand.infix? && if_next_is_operator.expression?
-                state.swap
-
-            # If we have prefix|postfix, filler|postfix, or prefix|filler we don't mess with anything, no resolutions
-            # can be done and nothing needs to be swapped.
-            end
-
-            state.append(term_start, term_end, if_next_is_operand, if_next_is_operator)
-        end
-
-        def append(to_append)
-            to_append.each do |term_start, term_end, type|
-                next if term.filler?
-                term = syntax_tree.append(term_start, term_end, type)
-                associate(term)
-            end
+        def append_term(state, term_start, term_end, type)
+            output.debug "Appending #{type} (#{type.fixity})"
+            term = state.syntax_tree.append(term_start, term_end, type)
+            associate(term)
         end
 
         #
@@ -130,7 +106,7 @@ module BergLang
                     left_operand, parent = parent, parent.parent
                 end
                 if !left_operand
-                    raise internal_error(term, "#{term.inspect} cannot have left child #{parent.inspect}!")
+                    raise internal_error(term, "#{term} (#{term.type.fixity}) cannot have left child #{parent} (#{parent.type.fixity})!")
                 end
                 # If we are a close parentheses, and the chosen parent is our open parentheses (hopefully!),
                 # we make ourselves the parent of the open, and take the open's parent ourselves.

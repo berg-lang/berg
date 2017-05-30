@@ -6,8 +6,8 @@ require "pp"
 str = ARGV[0]
 source = BergLang::StringSource.new("<argument>", str)
 parser = BergLang::Parser.new(source)
-parser.parse
+syntax_tree = parser.parse
 puts "\n"
 puts str
 puts "---"
-puts parser.syntax_tree.root.expression_to_s
+puts syntax_tree.root.expression_to_s

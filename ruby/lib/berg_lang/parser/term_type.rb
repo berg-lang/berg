@@ -24,7 +24,7 @@ module BergLang
                 nil
             end
             def term?
-                !filler?
+                infix? || expression? || postfix? || prefix?
             end
             def whitespace?
                 false
@@ -52,6 +52,14 @@ module BergLang
             end
             def postfix
                 nil
+            end
+
+            def term(left, right)
+                if left
+                    right ? expression : prefix
+                else
+                    right ? postfix : infix
+                end
             end
 
             def +(term_type)

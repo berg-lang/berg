@@ -1,0 +1,38 @@
+StringSyntax:
+    BareString     := /[^"\\]*/
+    Backslash      := /\\./
+    Interpolate    := {ExpressionSyntax}
+
+ExpressionSyntax:
+    Filler:
+        Comment      := /#[^Unicode.Newline]*/
+        Horizontal   := /Unicode.HorizontalSpace*/
+        Newline      := /Unicode.Newline*/
+    Atom:
+        Bareword     := /[Unicode.Word][Unicode.Word|Unicode.Digit]*/
+        OctalLiteral := /[Unicode.Zero][Unicode.OctalLiteral]+(?![Unicode.Word|Unicode.Number])/
+        HexadecimalLiteral := /
+        IntegerLiteral := /[Unicode.Digit]+/
+        FloatLiteral := /[Unicode.Digit]+(\.[Unicode.Digit+])?(e[-+]?[Unicode.Digit]+)?(?![Unicode.Word|Unicode.Number])/
+        ImaginaryLiteral := /[Unicode.Digit]+(\.[Unicode.Digit+])?(e[-+]?[Unicode.Digit]+)?(?![Unicode.Word|Unicode.Number])i(?![Unicode.Word|Unicode.Number])/
+        StringLiteral := /["][Unicode.HorizontalSpace]*/ StringSyntax /["][Unicode.HorizontalSpace]*/
+    Operator:
+        MemberAccess := a.Bareword
+        InlineParameterDeclaration:= :Decl
+        UnaryMath    := Decl-- Decl++ --Decl ++Decl -b +b !b
+        Multiply     := a*b a/b a%b
+        Add          := a+b a-b
+        Compare      := a>b a>=b a<b a<=b
+        Equality     := a==b a!=b
+        Multiplicity := a+ a* a?
+        And          := a&&b
+        Or           := a||b a??b
+        Implies      := a->b
+        Declarations := Decl:Block Decl:=LineString Decl=b Decl+=b Decl-=b Decl*=b Decl/=b Decl%=b Decl||=b Decl&&=b Decl??=b
+        Together     := a,b
+        Intersection := a&b
+        Union        := a|b
+        Apply        := a<Call>b
+        Sequence     := a;b a<NewlineSeparator>b
+        Delimiters   := (a) {a} <StartOfFile>a<EndOfFile>
+        Indent       := <Indent>a<Undent>
