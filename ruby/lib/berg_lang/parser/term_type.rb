@@ -7,54 +7,40 @@ module BergLang
 
             def initialize(name)
                 @name = name
+                cache_next_state!
+                validate!
             end
 
             def to_s
                 name.is_a?(String) ? name : name.inspect
             end
 
-            def fixity
-                :error
-            end
-
-            def filler?
-                false
-            end
-            def filler
-                nil
-            end
-            def term?
-                infix? || expression? || postfix? || prefix?
-            end
-            def whitespace?
-                false
-            end
             def infix?
-                false
+                !!infix
             end
             def infix
                 nil
             end
             def expression?
-                false
+                !!expression
             end
             def expression
                 nil
             end
             def prefix?
-                false
+                !!prefix
             end
             def prefix
                 nil
             end
             def postfix?
-                false
+                !!postfix
             end
             def postfix
                 nil
             end
 
-            def term(left, right)
+            def variant(left, right)
                 if left
                     right ? expression : prefix
                 else
@@ -78,7 +64,93 @@ module BergLang
                 yield infix if infix?
                 yield prefix if postfix?
                 yield postfix if postfix?
-                yield filler if filler?
+            end
+
+            #
+            # Determine the best variant when the next operand is an operator, and when
+            # it is an operand.
+            #
+            # Pick the variant that fits perfectly, over the variant that fails earliest,
+            # over the variant that only fails once, over the variant that fails twice.
+            #
+            # @return [Boolean,Boolean] The preferred variant for operand and for operator
+            # @example if_operand, if_operator = type.next_state(true, true)
+            #
+            def next_state(prefer_operand)
+                next_state_cache[prefer_operand] ||= begin
+                    if_operand, if_operator = [ false, true ].map do |right_operand|
+                        # no issue > issue on left > issue on right > both
+                        variant( prefer_operand,  right_operand) ||
+                        variant(!prefer_operand,  right_operand) ||
+                        variant( prefer_operand, !right_operand) ||
+                        variant(!prefer_operand, !right_operand)
+                    end
+
+                    # If the right sides are the same (infix / prefix / expression /
+                    # postfix / infix|prefix / expression|postfix), we can't influence
+                    # the next outcome, so we just pick the one that is preferred.
+                    if if_operand.right_is_operand? == if_operator.right_is_operand?
+                        if_operator = if_operand = prefer_operand ? if_operand : if_operator
+                        prefer_operand_next = !if_operand.right_is_operand?
+                        action = :resolve_left
+
+                    # If the left sides are the same (infix|postfix / expression|prefix),
+                    # our preference can't be influenced by the prior preference, so
+                    # prefer the one with the higher priority. 
+                    elsif if_operand.left_is_operand? == if_operator.left_is_operand?
+                        prefer_operand_next = if_operand.priority > if_operator.priority
+                        action = :resolve_left
+
+                    # If left and right are different (infix|expression / postfix|prefix),
+                    # keep or swap prefer_operand.
+                    elsif if_operand.left_is_operand? == if_operand.right_is_operand?
+                        prefer_operand_next = !prefer_operand
+                        action = :swap
+
+                    else
+                        prefer_operand_next = prefer_operand
+                    end
+
+                    [ action, prefer_operand_next, if_operand, if_operator ]
+                end
+            end
+
+            private
+
+            attr_reader :next_state_cache
+
+            def cache_next_state!
+                @next_state_cache = {}
+                all_variants = variants.to_set
+                [ false, true ].each do |left|
+                    resolve, prefer_operand, operand, operator = next_state(left)
+                    all_variants.delete(operand)
+                    all_variants.delete(operator)
+                end
+                if all_variants.any?
+                    raise "We will never pick #{all_variants.map { |v| v.fixity }.join(", ")} for term #{name}"
+                end
+            end
+
+            def validate!
+                raise "expression variant of #{name} must have no operands" if expression && !expression.expression?
+                raise "infix variant of #{name} must have left and right operands" if infix && !infix.infix?
+                raise "prefix variant of #{name} must have only right operand" if prefix && !prefix.prefix?
+                raise "postfix variant of #{name} must have only left operand" if postfix && !postfix.postfix?
+
+                if infix? && postfix? && infix.priority == postfix.priority
+                    raise "infix and postfix variants of #{name} have the same priority (#{infix.priority}! Set them to different priorities, or we won't be able to disambiguate in some cases."
+                end
+                if expression? && prefix? && expression.priority == prefix.priority
+                    raise "expression and prefix variants of #{name} have the same priority (#{expression.priority}! Set them to different priorities, or we won't be able to disambiguate in some cases."
+                end
+
+                if (infix && infix.right.opens_indent_block?) || (prefix && prefix.right.opens_indent_block?)
+                    raise "#{name} has an infix or prefix that opens an indent block, but also has a postfix or expression variant. This ambiguity is not supported by the parser." if postfix || expression
+                    # If both infix and prefix are defined, and only one opens an indent block, we're still OK,
+                    # because infix and prefix together are not ambiguous (we know which to pick without looking
+                    # ahead to see what's on the right).
+                end
             end
         end
     end

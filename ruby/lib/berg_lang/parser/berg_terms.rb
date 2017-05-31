@@ -1,102 +1,59 @@
 require_relative "term_type"
 require_relative "term_type/ambiguous"
-require_relative "term_type/term"
-require_relative "term_type/filler"
+require_relative "term_type/variant"
 require_relative "term_type/side"
 require "set"
 
 module BergLang
     class Parser
         module BergTerms
-            def self.filler
-                @filler ||= Set.new([whitespace, newline, comment])
-            end
+            #
+            # Expressions
+            #
 
             def self.expressions
-                @expressions ||= Set.new([
-                    bare_declaration,
+                [
                     bareword,
                     string_literal,
-                    hexadecimal_literal,
-                    octal_literal,
                     integer_literal,
                     float_literal,
+                    hexadecimal_literal,
+                    octal_literal,
                     imaginary_literal,
-                    empty
-                ])
-            end
-
-            def self.whitespace
-                @whitespace ||= define_filler("whitespace", whitespace: true)
-            end
-
-            def self.newline
-                @newline ||= TermType::Ambiguous.new(filler: whitespace, infix: newline_operator)
-            end
-
-            def self.comment
-                @comment ||= define_filler("comment")
-            end
-
-            def self.empty
-                @empty ||= define_expression_term("empty")
-            end
-
-            def self.bare_declaration
-                @bare_declaration ||= define_expression_term("bare_declaration")
+                ]
             end
 
             def self.bareword
-                @bareword ||= define_expression_term("bareword")
+                @bareword ||= define_expression("bareword")
             end
 
             def self.string_literal
-                @string_literal ||= define_expression_term("string literal")
-            end
-
-            def self.hexadecimal_literal
-                @hexadecimal_literal ||= define_expression_term("hexadecimal literal")
-            end
-
-            def self.octal_literal
-                @octal_literal ||= define_expression_term("octal literal")
+                @string_literal ||= define_expression("string literal")
             end
 
             def self.integer_literal
-                @integer_literal ||= define_expression_term("integer literal")
+                @integer_literal ||= define_expression("integer literal")
             end
 
             def self.float_literal
-                @float_literal ||= define_expression_term("float literal")
+                @float_literal ||= define_expression("float literal")
+            end
+
+            def self.hexadecimal_literal
+                @hexadecimal_literal ||= define_expression("hexadecimal literal")
+            end
+
+            def self.octal_literal
+                @octal_literal ||= define_expression("octal literal")
             end
 
             def self.imaginary_literal
-                @imaginary_literal ||= define_expression_term("imaginary literal")
+                @imaginary_literal ||= define_expression("imaginary literal")
             end
 
-            def self.eof
-                operators[:eof]
-            end
-
-            def self.sof
-                operators[:sof]
-            end
-
-            def self.apply
-                operators[:apply]
-            end
-
-            def self.newline_operator
-                operators[:newline]
-            end
-
-            def self.indent
-                operators[:indent]
-            end
-
-            def self.undent
-                operators[:undent]
-            end
+            #
+            # Operators
+            #
 
             def self.operators
                 @operators ||= define_operator_groups(
@@ -128,6 +85,16 @@ module BergLang
                     "|",
                     [ { name: :apply } ],
                     [ ";", { name: :newline } ],
+                    [
+                        { name: :whitespace, type: :prefix, filler: true },
+                        { name: :whitespace, type: :postfix, filler: true },
+                        { name: :newline, type: :prefix, filler: true },
+                        { name: :newline, type: :postfix, filler: true },
+                        { name: :comment, type: :prefix, filler: true },
+                        { name: :comment, type: :postfix, filler: true },
+                        { name: :border, type: :prefix, filler: true },
+                        { name: :border, type: :postfix, filler: true },
+                    ],
                     # Delimiters want everything as children.
                     [
                         { name: :indent, type: :open,  closed_by: :undent,   direction: :right },
@@ -142,14 +109,54 @@ module BergLang
                )
             end
 
-            private
+            #
+            # Filler
+            #
 
-            def self.define_filler(name, whitespace:)
-                TermType::Filler.new(name, whitespace: whitespace)
+            def self.whitespace
+                operators[:whitespace]
             end
 
-            def self.define_expression_term(name)
-                TermType::Term.new(name)
+            def self.newline
+                operators[:newline]
+            end
+
+            def self.comment
+                operators[:comment]
+            end
+
+            def self.border
+                @border ||= apply + empty + operators[:border]
+            end
+
+            def self.apply
+                operators[:apply]
+            end
+
+            def self.empty
+                @empty ||= define_expression("empty")
+            end
+
+            def self.eof
+                operators[:eof]
+            end
+
+            def self.sof
+                operators[:sof]
+            end
+
+            def self.indent
+                operators[:indent]
+            end
+
+            def self.undent
+                operators[:undent]
+            end
+
+            private
+
+            def self.define_expression(name)
+                TermType::Variant.new(name)
             end
 
             def self.define_operators(*operator_defs)
@@ -185,14 +192,14 @@ module BergLang
                 [ direction, operators ]
             end
 
-            def self.define_operator(string: nil, name: string, type: :infix, opened_by: nil, closed_by: nil, opens_indent_block: nil, declaration: nil, direction: nil)
+            def self.define_operator(string: nil, name: string, type: :infix, opened_by: nil, closed_by: nil, opens_indent_block: nil, declaration: nil, direction: nil, filler: nil)
                 if [:infix, :postfix, :close ].include?(type)
                     left = TermType::Side.new(declaration: declaration, closed_by: closed_by)
                 end
                 if [:infix, :prefix, :open ].include?(type)
                     right = TermType::Side.new(opens_indent_block: opens_indent_block, opened_by: opened_by)
                 end
-                TermType::Term.new(name, string: string, left: left, right: right)
+                TermType::Variant.new(name, string: string, left: left, right: right, filler: filler)
             end
 
             def self.define_operator_groups(*groups)

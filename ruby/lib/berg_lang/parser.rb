@@ -37,7 +37,7 @@ module BergLang
             state.syntax_tree.append_line(term_end, 0)
             while type = scanner.next
                 term_start, term_end = term_end, scanner.index
-                puts "- token #{type}"
+                output.debug "- token #{type}, prefer #{state.prefer_operand_next? ? "operand" : "operator"}"
                 state.syntax_tree.append_line(term_end, 0) if type == terms.newline
 
                 resolve(state, term_start, term_end, type)
@@ -52,40 +52,44 @@ module BergLang
 
         def resolve(state, term_start, term_end, type)
             # Decide what we'll choose if the right side is operand, or if it's operator.
-            if_operand, if_operator = type.preferred_variants(
-                state.prefer_operand_next?,
-                state.insert_if_non_preferred == terms.empty
-            )
+            action, prefer_operand_next, if_operand, if_operator =
+                type.next_state(state.prefer_operand_next?)
 
-            # If left sides are identical, we can resolve everything to the left.
-            if_operand_left  =  if_operand.filler?  || if_operand.left_is_operand?
-            if_operator_left = !if_operator.filler? && if_operator.left_is_operand?
-            if if_operand_left == if_operator_left
-                insert_type, resolved = state.resolve(if_operand_left)
-                output.debug "  left sides are both #{if_operand_left ? "operand" : "operator"}, resolving" if insert_type || resolved.any?
-                if insert_type
-                    next_term_start = terms.any? ? terms.first[0] : term_start
-                    append_term(state, next_term_start, next_term_start, insert_type)
-                end
+            output.debug "  - action: #{action}, next: #{prefer_operand_next}, if_operand: #{if_operand.fixity}, if_operator: #{if_operator.fixity}"
+            # Handle the left side according to what we've been told.
+            case action
+            when :resolve_left
+                resolve_left(state, if_operand.left_is_operand?)
+            when :swap
+                state.swap_unresolved
+            end
+
+            # Append the actual term if unambiguous.
+            if if_operand == if_operator
+                append_term(state, term_start, term_end, if_operand)
+            else
+                state.if_operand_next << [ term_start, term_end, if_operand ] unless if_operand.filler?
+                state.if_operator_next << [ term_start, term_end, if_operator ] unless if_operator.filler?
+                puts state.possibilities_to_s("    ")
+            end
+            state.prefer_operand_next = prefer_operand_next
+
+            # Insert empty/apply (or ambiguous empty/apply) if there is a need
+            resolve(state, term_end, term_end, terms.border) if if_operand.right_is_operand? || !if_operator.right_is_operand?
+        end
+
+        def resolve_left(state, left_is_operand)
+            resolved = state.resolve(left_is_operand)
+            if resolved.any?
+                output.debug "  left sides are both #{left_is_operand ? "operand" : "operator"}, resolving to #{resolved.map { |s,e,type| "#{type}(#{type.fixity})" }.join(" ")}"
                 resolved.each do |term_start, term_end, type|
                     append_term(state, term_start, term_end, type)
                 end
-
-                # If both sides are identical, append. Otherwise, it's unresolved.
-                if if_operand == if_operator
-                    puts "  new state: #{type.right_is_operand? ? "operator" : "operand"}"
-                    append_term(state, term_start, term_end, if_operand)
-                    state.set(!type.right_is_operand?, type.right_is_operand? ? terms.empty : terms.apply)
-                else
-                    state.set_unresolved(term_start, term_end, if_operand, if_operator)
-                end
-            elsif if_operand.filler? && if_operator.filler?
-            else
-                state.append_unresolved(term_start, term_end, if_operand, if_operator)
             end
         end
 
         def append_term(state, term_start, term_end, type)
+            last_term = state.syntax_tree[-1]
             output.debug "Appending #{type} (#{type.fixity})"
             term = state.syntax_tree.append(term_start, term_end, type)
             associate(term)
@@ -106,7 +110,7 @@ module BergLang
                     left_operand, parent = parent, parent.parent
                 end
                 if !left_operand
-                    raise internal_error(term, "#{term} (#{term.type.fixity}) cannot have left child #{parent} (#{parent.type.fixity})!")
+                    raise internal_error(term, "#{term} (#{term.type.fixity} #{type}) cannot have left child #{parent} (#{parent.type.fixity} #{parent.type})!")
                 end
                 # If we are a close parentheses, and the chosen parent is our open parentheses (hopefully!),
                 # we make ourselves the parent of the open, and take the open's parent ourselves.
