@@ -14,8 +14,8 @@ module BergLang
                 attr_accessor :accepts_operands
                 attr_reader :opens_indent_block
                 attr_reader :declaration
-                attr_reader :opened_by
-                attr_reader :closed_by
+                attr_accessor :opened_by
+                attr_accessor :closed_by
 
                 def initialize(accepts_operands: Set.new, opens_indent_block: nil, declaration: false, opened_by: nil, closed_by: nil)
                     @accepts_operands = accepts_operands
@@ -26,6 +26,8 @@ module BergLang
                 end
 
                 def accepts_operand?(term_type)
+                    return term_type != opened_by if opened_by
+                    return term_type != closed_by if closed_by
                     accepts_operands.include?(term_type)
                 end
 

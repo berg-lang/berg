@@ -1,14 +1,44 @@
-require_relative "term_type/ambiguous"
+require_relative "term_type/side"
+require_relative "term_type/variant"
 
 module BergLang
     class Parser
         class TermType
             attr_reader :name
+            attr_reader :string
+            attr_reader :expression
+            attr_reader :infix
+            attr_reader :prefix
+            attr_reader :postfix
 
-            def initialize(name)
+            def initialize(name, string: nil, expression: nil, infix: nil, prefix: nil, postfix: nil)
                 @name = name
-                cache_next_state!
+                @string = string
+                @expression = expression
+                @infix = infix
+                @prefix = prefix
+                @postfix = postfix
                 validate!
+                cache_next_state!
+            end
+
+            def self.define(name, string: nil, left: nil, right: nil, space: nil)
+                left = TermType::Side.new(**left) if left
+                right = TermType::Side.new(**right) if right
+                variant = TermType::Variant.new(name, string: string, left: left, right: right, space: space)
+                if left
+                    if right
+                        self.new(name, string: string, infix: variant)
+                    else
+                        self.new(name, string: string, postfix: variant)
+                    end
+                else
+                    if right
+                        self.new(name, string: string, prefix: variant)
+                    else
+                        self.new(name, string: string, expression: variant)
+                    end
+                end
             end
 
             def to_s
@@ -18,26 +48,14 @@ module BergLang
             def infix?
                 !!infix
             end
-            def infix
-                nil
-            end
             def expression?
                 !!expression
-            end
-            def expression
-                nil
             end
             def prefix?
                 !!prefix
             end
-            def prefix
-                nil
-            end
             def postfix?
                 !!postfix
-            end
-            def postfix
-                nil
             end
 
             def variant(left, right)
@@ -49,20 +67,20 @@ module BergLang
             end
 
             def +(term_type)
-                raise "#{self} cannot be combined with another term" if !variants.any?
-                raise "#{term_type} cannot be combined with another term" if !term_type.variants.any?
                 raise "#{self} and #{term_type} are both expressions and cannot be combined" if term_type.expression? && expression?
                 raise "#{self} and #{term_type} are both infix and cannot be combined" if term_type.infix? && infix?
                 raise "#{self} and #{term_type} are both prefix and cannot be combined" if term_type.prefix? && prefix?
                 raise "#{self} and #{term_type} are both postfix and cannot be combined" if term_type.postfix? && postfix?
-                Ambiguous.new(infix: term_type.infix || infix, expression: term_type.expression || expression, prefix: term_type.prefix || prefix, postfix: term_type.postfix || postfix)
+                raise "Cannot combine differently named variants #{name} and #{term_type.name}!" unless name == term_type.name
+                raise "Cannot share variants of #{name} with different strings (#{string.inspect} and #{term_typestring.inspect}!" unless string == term_type.string
+                TermType.new(name, string: string, infix: term_type.infix || infix, expression: term_type.expression || expression, prefix: term_type.prefix || prefix, postfix: term_type.postfix || postfix)
             end
 
             def variants
                 return enum_for(:variants) if !block_given?
                 yield expression if expression?
                 yield infix if infix?
-                yield prefix if postfix?
+                yield prefix if prefix?
                 yield postfix if postfix?
             end
 
@@ -133,6 +151,11 @@ module BergLang
             end
 
             def validate!
+                variants.each do |variant|
+                    raise "#{variant.fixity} variant of #{name} is not a Variant!" unless variant.is_a?(TermType::Variant)
+                end
+                raise "Must have non-nil, non-empty name: #{name.inspect}" if name.nil? || name == ""
+                raise "must have at least one variant of #{name}!" if !variants.any?
                 raise "expression variant of #{name} must have no operands" if expression && !expression.expression?
                 raise "infix variant of #{name} must have left and right operands" if infix && !infix.infix?
                 raise "prefix variant of #{name} must have only right operand" if prefix && !prefix.prefix?

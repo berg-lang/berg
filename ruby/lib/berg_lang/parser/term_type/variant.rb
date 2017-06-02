@@ -1,33 +1,36 @@
-require_relative "../term_type"
-
 module BergLang
     class Parser
         class TermType
-            class Variant < TermType
+            class Variant
+                attr_reader :name
                 attr_reader :string
                 attr_reader :left
                 attr_reader :right
                 attr_reader :priority
 
-                def initialize(name, string: name, left: nil, right: nil, filler: nil)
-                    super(name)
+                def initialize(name, string: nil, left: nil, right: nil, space: nil)
                     raise "opens_indent_block unsupported on the left side" if left && left.opens_indent_block?
+                    @name = name
                     @string = string
                     @left = left
                     @right = right
-                    @filler = filler
+                    @space = space
                     if !left == !right
-                        raise "Filler term #{name} cannot be #{fixity} (must be prefix or postfix)" if filler?
+                        raise "space term cannot be #{fixity} (must be prefix or postfix)" if space?
                         @priority = EXPRESSION_INFIX_PRIORITY
-                    elsif filler?
-                        @priority = FILLER_PRIORITY
+                    elsif space?
+                        @priority = SPACE_PRIORITY
                     else
                         @priority = PREFIX_POSTFIX_PRIORITY
                     end
                 end
 
-                def filler?
-                    @filler
+                def to_s
+                    name.to_s
+                end
+
+                def space?
+                    @space
                 end
 
                 def fixity
@@ -38,17 +41,17 @@ module BergLang
                     end
                 end
 
-                def expression
-                    self if !left && !right
+                def expression?
+                    !left && !right
                 end
-                def infix
-                    self if left && right
+                def infix?
+                    left && right
                 end
-                def prefix
-                    self if !left && right
+                def prefix?
+                    !left && right
                 end
-                def postfix
-                    self if left && !right
+                def postfix?
+                    left && !right
                 end
 
                 def left_is_operand?
@@ -58,16 +61,18 @@ module BergLang
                     !right
                 end
 
-                def variants
-                    return enum_for(:variants) unless block_given?
-                    yield self
+                def left_accepts_operand?(type)
+                    type.right.nil? || left.accepts_operand?(type)
+                end
+                def right_accepts_operand?(type)
+                    type.left.nil? || right.accepts_operand?(type)
                 end
 
                 private
 
                 PREFIX_POSTFIX_PRIORITY = 1
                 EXPRESSION_INFIX_PRIORITY = 2
-                FILLER_PRIORITY = 3
+                SPACE_PRIORITY = 3
             end
         end
     end

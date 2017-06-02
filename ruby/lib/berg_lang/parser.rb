@@ -68,9 +68,8 @@ module BergLang
             if if_operand == if_operator
                 append_term(state, term_start, term_end, if_operand)
             else
-                state.if_operand_next << [ term_start, term_end, if_operand ] unless if_operand.filler?
-                state.if_operator_next << [ term_start, term_end, if_operator ] unless if_operator.filler?
-                puts state.possibilities_to_s("    ")
+                state.if_operand_next << [ term_start, term_end, if_operand ] unless if_operand.space?
+                state.if_operator_next << [ term_start, term_end, if_operator ] unless if_operator.space?
             end
             state.prefer_operand_next = prefer_operand_next
 
@@ -106,7 +105,7 @@ module BergLang
             type = term.type
             # If we have room for left children, pick the widest left child we can.
             if type.left
-                while parent && type.left.accepts_operand?(parent.type)
+                while parent && type.left_accepts_operand?(parent.type)
                     left_operand, parent = parent, parent.parent
                 end
                 if !left_operand
@@ -115,12 +114,12 @@ module BergLang
                 # If we are a close parentheses, and the chosen parent is our open parentheses (hopefully!),
                 # we make ourselves the parent of the open, and take the open's parent ourselves.
                 if type.left.opened_by
-                    if type.left.opened_by == parent.type
+                    if parent && type.left.opened_by == parent.type
                         left_operand, parent = parent, parent.parent
                     else
                         raise mismatched_open_close(parent, term)
                     end
-                elsif parent && !parent.type.right.accepts_operand?(type)
+                elsif parent && !parent.type.right_accepts_operand?(type)
                     raise internal_error(term, "#{term} cannot have parent #{parent}!")
                 end
 

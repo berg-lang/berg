@@ -4,7 +4,7 @@ StringSyntax:
     Interpolate    := {ExpressionSyntax}
 
 ExpressionSyntax:
-    Filler:
+    metadata:
         Comment      := /#[^Unicode.Newline]*/
         Horizontal   := /Unicode.HorizontalSpace*/
         Newline      := /Unicode.Newline*/

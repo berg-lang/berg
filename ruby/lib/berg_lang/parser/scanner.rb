@@ -49,7 +49,7 @@ module BergLang
                     return terms.eof
                 end
 
-                token = parse_filler || parse_number || parse_operator || parse_string || parse_bareword
+                token = parse_metadata || parse_number || parse_operator || parse_string || parse_bareword
                 if !token
                     raise unrecognized_character(create_token(stream.next, terms.unrecognized_character))
                 end
@@ -58,7 +58,7 @@ module BergLang
 
             include SyntaxErrors
 
-            def parse_filler
+            def parse_metadata
                 if stream.match(/\A\r?\n/)
                     terms.newline
                 elsif stream.match(/\A[[:blank:]]+/)
