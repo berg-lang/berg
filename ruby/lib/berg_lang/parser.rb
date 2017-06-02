@@ -30,16 +30,25 @@ module BergLang
         #
         def parse
             scanner = Scanner.new(self)
-            state = State.new(source, prefer_operand_next: true, insert_if_non_preferred: tokens.apply)
+            state = State.new(source, true)
 
             # Read each token from the input
             term_end = scanner.index
             state.syntax_tree.append_line(term_end, 0)
+            is_space, next_is_space = false
             while type = scanner.next
+                # Get term start/end, figure out if we have leading or trailing space around this term.
                 term_start, term_end = term_end, scanner.index
-                output.debug "- token #{type}, prefer #{state.prefer_operand_next? ? "operand" : "operator"}"
-                state.syntax_tree.append_line(term_end, 0) if type == tokens.newline
+                prev_is_space, is_space, next_is_space = is_space, next_is_space, scanner.next_is_space?
+                if prev_is_space && !is_space && !next_is_space
+                    state.space = :leading
+                elsif !prev_is_space && !is_space && next_is_space
+                    state.space = :trailing
+                else
+                    state.space = nil
+                end
 
+                state.syntax_tree.append_line(term_end, 0) if type == tokens.newline
                 resolve(state, term_start, term_end, type)
             end
 
@@ -51,9 +60,10 @@ module BergLang
         include SyntaxErrors
 
         def resolve(state, term_start, term_end, type)
+            output.debug "- token #{type}, prefer #{state.prefer_operand_next? ? "operand" : "operator"}#{state.space ? ", #{state.space} space" : ""}"
             # Decide what we'll choose if the right side is operand, or if it's operator.
             action, prefer_operand_next, if_operand, if_operator =
-                type.next_state(state.prefer_operand_next?)
+                type.next_state(state.prefer_operand_next?, state.space)
 
             output.debug "  - action: #{action}, next: #{prefer_operand_next}, if_operand: #{if_operand.fixity}, if_operator: #{if_operator.fixity}"
             # Handle the left side according to what we've been told.
@@ -62,6 +72,9 @@ module BergLang
                 resolve_left(state, if_operand.left_is_operand?)
             when :swap
                 state.swap_unresolved
+            when nil
+            else
+                raise "Unknown action #{action}"
             end
 
             # Append the actual term if unambiguous.
@@ -117,7 +130,7 @@ module BergLang
                     if parent && type.left.opened_by == parent.type
                         left_operand, parent = parent, parent.parent
                     else
-                        raise mismatched_open_close(parent, term)
+                        raise unmatched_close(parent, term)
                     end
                 elsif parent && !parent.type.right_accepts_operand?(type)
                     raise internal_error(term, "#{term} cannot have parent #{parent}!")

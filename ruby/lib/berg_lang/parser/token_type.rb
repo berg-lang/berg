@@ -21,23 +21,6 @@ module BergLang
                 cache_next_state!
             end
 
-            def self.define(name, string: nil, left: nil, right: nil, space: nil)
-                type = TermType.new(name, string: string, left: left, right: right, space: space)
-                if left
-                    if right
-                        self.new(name, string: string, infix: type)
-                    else
-                        self.new(name, string: string, postfix: type)
-                    end
-                else
-                    if right
-                        self.new(name, string: string, prefix: type)
-                    else
-                        self.new(name, string: string, expression: type)
-                    end
-                end
-            end
-
             def to_s
                 name.is_a?(String) ? name : name.inspect
             end
@@ -55,22 +38,16 @@ module BergLang
                 !!postfix
             end
 
+            def space?
+                (postfix? && postfix.space?) || (prefix? && prefix.space?)
+            end
+
             def variant(left, right)
                 if left
                     right ? expression : prefix
                 else
                     right ? postfix : infix
                 end
-            end
-
-            def +(token_type)
-                raise "#{self} and #{token_type} are both expressions and cannot be combined" if token_type.expression? && expression?
-                raise "#{self} and #{token_type} are both infix and cannot be combined" if token_type.infix? && infix?
-                raise "#{self} and #{token_type} are both prefix and cannot be combined" if token_type.prefix? && prefix?
-                raise "#{self} and #{token_type} are both postfix and cannot be combined" if token_type.postfix? && postfix?
-                raise "Cannot combine differently named variants #{name} and #{token_type.name}!" unless name == token_type.name
-                raise "Cannot share variants of #{name} with different strings (#{string.inspect} and #{token_typestring.inspect}!" unless string == token_type.string
-                TokenType.new(name, string: string, infix: token_type.infix || infix, expression: token_type.expression || expression, prefix: token_type.prefix || prefix, postfix: token_type.postfix || postfix)
             end
 
             def variants
@@ -86,19 +63,35 @@ module BergLang
             # it is an operand.
             #
             # Pick the variant that fits perfectly, over the variant that fails earliest,
-            # over the variant that only fails once, over the variant that fails twice.
+            # over the variant that fails twice.
             #
             # @return [Boolean,Boolean] The preferred variant for operand and for operator
             # @example if_operand, if_operator = type.next_state(true, true)
             #
-            def next_state(prefer_operand)
-                next_state_cache[prefer_operand] ||= begin
+            def next_state(prefer_operand, space)
+                raise "yarr prefer_operand cannot be #{prefer_operand.class}" unless prefer_operand == true || prefer_operand == false
+                case space
+                when :leading
+                    index = 0x2 + (prefer_operand ? 0x0 : 0x1)
+                when :trailing
+                    index = 0x4 + (prefer_operand ? 0x0 : 0x1)
+                when nil
+                    index = 0x6 + (prefer_operand ? 0x0 : 0x1)
+                else
+                    raise "yarr space cannot be #{space}"
+                end
+
+                next_state_cache[index] ||= begin
+                    space = nil if space?
                     if_operand, if_operator = [ false, true ].map do |right_operand|
+                        # Handle compound terms: we prefer leading / trailing terms to be expressions, unless they cannot be.
+                        right_operand = true if space == :trailing
+                        left_operand = (space == :leading ? false : prefer_operand)
                         # no issue > issue on left > issue on right > both
-                        variant( prefer_operand,  right_operand) ||
-                        variant(!prefer_operand,  right_operand) ||
-                        variant( prefer_operand, !right_operand) ||
-                        variant(!prefer_operand, !right_operand)
+                        variant( left_operand,  right_operand) ||
+                        variant(!left_operand,  right_operand) ||
+                        variant( left_operand, !right_operand) ||
+                        variant(!left_operand, !right_operand)
                     end
 
                     # If the right sides are the same (infix / prefix / expression /
@@ -135,12 +128,14 @@ module BergLang
             attr_reader :next_state_cache
 
             def cache_next_state!
-                @next_state_cache = {}
+                @next_state_cache = []
                 all_variants = variants.to_set
                 [ false, true ].each do |left|
-                    resolve, prefer_operand, operand, operator = next_state(left)
-                    all_variants.delete(operand)
-                    all_variants.delete(operator)
+                    [ nil, :leading, :trailing ].each do |space|
+                        resolve, prefer_operand, operand, operator = next_state(left, space)
+                        all_variants.delete(operand)
+                        all_variants.delete(operator)
+                    end
                 end
                 if all_variants.any?
                     raise "We will never pick #{all_variants.map { |v| v.fixity }.join(", ")} for term #{name}"

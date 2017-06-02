@@ -3,18 +3,25 @@ module BergLang
         class State
             attr_reader :syntax_tree
             attr_accessor :prefer_operand_next
+            attr_accessor :space
             attr_reader :if_operand_next
             attr_reader :if_operator_next
 
             def initialize(source, prefer_operand_next)
                 @syntax_tree = SyntaxTree.new(source)
                 @prefer_operand_next = prefer_operand_next
+                @space = nil
                 @if_operand_next = []
                 @if_operator_next = []
             end
 
             def prefer_operand_next?
                 @prefer_operand_next
+            end
+
+            def prefer_operand_next=(value)
+                raise "yarr prefer_operand_next cannot be #{value}" unless value == true || value == false
+                @prefer_operand_next = value
             end
 
             #

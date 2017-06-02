@@ -2,16 +2,18 @@ module BergLang
     class Parser
         class TermType
             attr_reader :name
+            attr_reader :token_name
             attr_reader :string
             attr_reader :left
             attr_reader :right
             attr_reader :priority
 
-            def initialize(name, string: nil, left: nil, right: nil, space: nil)
+            def initialize(name, token_name: name, string: nil, left: nil, right: nil, space: nil)
                 left = Side.new(**left) if left
                 right = Side.new(**right) if right
                 raise "opens_indent_block unsupported on the left side" if left && left.opens_indent_block?
                 @name = name
+                @token_name = token_name
                 @string = string
                 @left = left
                 @right = right

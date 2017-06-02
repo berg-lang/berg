@@ -69,12 +69,12 @@ module BergLang
                 }
 
             # TODO help more with this one. I hate this so much in programs.
-            syntax_error :umatched_close,
+            syntax_error :unmatched_close,
                 error:  proc { |token| "Found ending #{token} with no corresponding #{token.close.opened_by}." },
                 remedy: proc { |token| "Perhaps you have too many #{token}'s, or forgot to open with #{token.close.opened_by}?" }
 
             # TODO help more with this one. I hate this so much in programs.
-            syntax_error :unmatched_close,
+            syntax_error :unmatched_open,
                 error:  proc { |token, closed_by| "#{token} found with no corresponding #{token.close.closed_by}." },
                 remedy: proc { |token, closed_by| "Perhaps you have too many #{token}'s, or forgot to end with #{token.close.closed_by}?"}
 

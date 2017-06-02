@@ -9,43 +9,46 @@ module BergLang
             attr_reader :tokens
             attr_reader :source
             attr_reader :stream
-            attr_reader :index
 
             def initialize(parser)
                 @source = parser.source
                 @tokens = parser.tokens
                 @stream = source.open
-                @next_token = tokens.sof
-                @index = 0
-                @eof = false
+                @state = nil
             end
 
             def eof?
-                @eof && !@next_token
+                stream.eof?
             end
 
-            def peek
-                @next_token
-            end
-
-            def peek_index
+            def index
                 stream.index
             end
 
             def next
-                token = @next_token
-                @index = stream.index
-                @next_token = scan_token
-                return token
+                scan_token
+            end
+
+            def next_is_space?
+                stream.peek =~ /\s/ || stream.peek == '#'
             end
 
             private
 
+            attr_reader :state
+
             def scan_token
-                # We're done when we've already 
+                case state
+                when nil
+                    @state = :started
+                    return tokens.sof
+                when :finished
+                    return nil
+                end
+
+                # We're done when we've already emitted eof
                 if stream.eof?
-                    return nil if @eof
-                    @eof = true
+                    @state = :finished
                     return tokens.eof
                 end
 
@@ -70,7 +73,7 @@ module BergLang
 
             def parse_operator
                 if match = stream.match(operators_regexp)
-                    tokens.operators[match.to_s]
+                    tokens.tokens[match.to_s]
                 end
             end
 
@@ -151,7 +154,7 @@ module BergLang
             def operators_regexp
                 @operators_regexp ||= Regexp.new(
                     "\\A(" +
-                    tokens.operators.keys.select { |key| key.is_a?(String) }
+                    tokens.tokens.keys.select { |key| key.is_a?(String) }
                                       .sort_by { |key| -key.length }
                                       .map { |key| Regexp.escape(key) }
                                       .join("|") +
