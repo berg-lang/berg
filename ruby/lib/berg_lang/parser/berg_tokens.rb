@@ -1,9 +1,9 @@
-require_relative "term_type"
+require_relative "token_type"
 require "set"
 
 module BergLang
     class Parser
-        module BergTerms
+        module BergTokens
             #
             # Expressions
             #
@@ -153,7 +153,7 @@ module BergLang
             private
 
             def self.define_expression(name)
-                TermType.define(name)
+                TokenType.define(name)
             end
 
             def self.define_operators(*operator_defs)
@@ -196,7 +196,7 @@ module BergLang
                 if [:infix, :prefix, :open ].include?(type)
                     right = { opens_indent_block: opens_indent_block, closed_by: closed_by }
                 end
-                TermType.define(name, string: string, left: left, right: right, space: space)
+                TokenType.define(name, string: string, left: left, right: right, space: space)
             end
 
             def self.define_operator_groups(*groups)

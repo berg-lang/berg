@@ -1,5 +1,5 @@
 require_relative "output"
-require_relative "parser/berg_terms"
+require_relative "parser/berg_tokens"
 require_relative "parser/state"
 require_relative "parser/syntax_errors"
 require_relative "parser/syntax_tree"
@@ -21,16 +21,16 @@ module BergLang
             @output = output
         end
 
-        def terms
-            BergTerms
+        def tokens
+            BergTokens
         end
 
         #
-        # Parses all terms from the source.
+        # Parses all tokens from the source.
         #
         def parse
             scanner = Scanner.new(self)
-            state = State.new(source, prefer_operand_next: true, insert_if_non_preferred: terms.apply)
+            state = State.new(source, prefer_operand_next: true, insert_if_non_preferred: tokens.apply)
 
             # Read each token from the input
             term_end = scanner.index
@@ -38,7 +38,7 @@ module BergLang
             while type = scanner.next
                 term_start, term_end = term_end, scanner.index
                 output.debug "- token #{type}, prefer #{state.prefer_operand_next? ? "operand" : "operator"}"
-                state.syntax_tree.append_line(term_end, 0) if type == terms.newline
+                state.syntax_tree.append_line(term_end, 0) if type == tokens.newline
 
                 resolve(state, term_start, term_end, type)
             end
@@ -74,7 +74,7 @@ module BergLang
             state.prefer_operand_next = prefer_operand_next
 
             # Insert empty/apply (or ambiguous empty/apply) if there is a need
-            resolve(state, term_end, term_end, terms.border) if if_operand.right_is_operand? || !if_operator.right_is_operand?
+            resolve(state, term_end, term_end, tokens.border) if if_operand.right_is_operand? || !if_operator.right_is_operand?
         end
 
         def resolve_left(state, left_is_operand)
