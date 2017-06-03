@@ -1,6 +1,7 @@
 module BergLang
     class Parser
         class TermType
+            attr_reader :grammar
             attr_reader :name
             attr_reader :token_name
             attr_reader :string
@@ -8,7 +9,9 @@ module BergLang
             attr_reader :right
             attr_reader :priority
 
-            def initialize(name, token_name: name, string: nil, left: nil, right: nil, space: nil)
+            def initialize(grammar, name, token_name: name, string: nil, left: nil, right: nil, space: nil)
+                @grammar = grammar
+
                 left = Side.new(**left) if left
                 right = Side.new(**right) if right
                 raise "opens_indent_block unsupported on the left side" if left && left.opens_indent_block?
@@ -28,8 +31,12 @@ module BergLang
                 end
             end
 
+            def output
+                grammar.output
+            end
+
             def to_s
-                name.to_s
+                name.is_a?(String) ? name : name.inspect
             end
 
             def space?

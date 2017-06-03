@@ -6,13 +6,13 @@ module BergLang
         # Scans for tokens from the stream (whitespace, numbers, strings, words).
         #
         class Scanner
-            attr_reader :tokens
+            attr_reader :grammar
             attr_reader :source
             attr_reader :stream
 
             def initialize(parser)
                 @source = parser.source
-                @tokens = parser.tokens
+                @grammar = parser.grammar
                 @stream = source.open
                 @state = nil
             end
@@ -30,7 +30,7 @@ module BergLang
             end
 
             def next_is_space?
-                stream.peek =~ /\s/ || stream.peek == '#'
+                !!(stream.peek =~ /\s/) || stream.peek == '#'
             end
 
             private
@@ -41,7 +41,7 @@ module BergLang
                 case state
                 when nil
                     @state = :started
-                    return tokens.sof
+                    return grammar.sof
                 when :finished
                     return nil
                 end
@@ -49,12 +49,12 @@ module BergLang
                 # We're done when we've already emitted eof
                 if stream.eof?
                     @state = :finished
-                    return tokens.eof
+                    return grammar.eof
                 end
 
                 token = parse_space || parse_number || parse_operator || parse_string || parse_bareword
                 if !token
-                    raise unrecognized_character(create_token(stream.next, tokens.unrecognized_character))
+                    raise unrecognized_character(create_token(stream.next, grammar.unrecognized_character))
                 end
                 token
             end
@@ -63,30 +63,30 @@ module BergLang
 
             def parse_space
                 if stream.match(/\A\r?\n/)
-                    tokens.newline
+                    grammar.newline
                 elsif stream.match(/\A[[:blank:]]+/)
-                    tokens.whitespace
+                    grammar.whitespace
                 elsif stream.match(/\A#[^\n]*/)
-                    tokens.comment
+                    grammar.comment
                 end
             end
 
             def parse_operator
                 if match = stream.match(operators_regexp)
-                    tokens.tokens[match.to_s]
+                    grammar.tokens[match.to_s]
                 end
             end
 
             def parse_bareword
                 if stream.match(/\A(\w|[_$])+/)
-                    tokens.bareword
+                    grammar.bareword
                 end
             end
 
             def parse_string
                 if stream.peek == '"'
                     if stream.match(/\A"(\\.|[^\\"])*"/m)
-                        tokens.string_literal
+                        grammar.string_literal
                     else
                         start_index = index
                         raise internal_error("Expected to skip unclosed string, could not parse") unless stream.match(/\A"(\\.|[^\\"])*/m)
@@ -105,7 +105,7 @@ module BergLang
                     if illegal_word_characters
                         raise variable_name_starting_with_an_integer(SourceRange.new(syntax_tree, start_index, index), illegal_word_characters)
                     end
-                    return tokens.hexadecimal_literal
+                    return grammar.hexadecimal_literal
                 end
 
                 #
@@ -131,19 +131,19 @@ module BergLang
                     is_float = match[:decimal] || match[:exp]
                     is_octal = !is_float && match[:integer] && match[:integer].length > 1 && match["integer"].start_with?("0")
                     if is_imaginary
-                        tokens.imaginary_literal
+                        grammar.imaginary_literal
 
                     elsif is_float
-                        tokens.float_literal
+                        grammar.float_literal
 
                     elsif is_octal
                         if match[:integer] =~ /[89]/
                             raise illegal_octal_digit(SourceRange.new(syntax_tree, start_index, index))
                         end
-                        tokens.octal_literal
+                        grammar.octal_literal
 
                     elsif match[:integer]
-                        tokens.integer_literal
+                        grammar.integer_literal
 
                     else
                         raise internal_error(SourceRange.new(syntax_tree, start_index, index), "ERROR: number that doesn't fit any category.")
@@ -154,7 +154,7 @@ module BergLang
             def operators_regexp
                 @operators_regexp ||= Regexp.new(
                     "\\A(" +
-                    tokens.tokens.keys.select { |key| key.is_a?(String) }
+                    grammar.tokens.keys.select { |key| key.is_a?(String) }
                                       .sort_by { |key| -key.length }
                                       .map { |key| Regexp.escape(key) }
                                       .join("|") +

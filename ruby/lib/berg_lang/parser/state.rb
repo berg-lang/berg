@@ -3,16 +3,20 @@ module BergLang
         class State
             attr_reader :syntax_tree
             attr_accessor :prefer_operand_next
-            attr_accessor :space
-            attr_reader :if_operand_next
-            attr_reader :if_operator_next
+            attr_accessor :prev_is_space
+            attr_accessor :if_operand_next
+            attr_accessor :if_operator_next
 
-            def initialize(source, prefer_operand_next)
-                @syntax_tree = SyntaxTree.new(source)
+            def initialize(parser, prefer_operand_next: true, prev_is_space: false, if_operand_next: nil, if_operator_next: nil)
+                @syntax_tree = SyntaxTree.new(parser.source)
                 @prefer_operand_next = prefer_operand_next
-                @space = nil
-                @if_operand_next = []
-                @if_operator_next = []
+                @prev_is_space = prev_is_space
+                @if_operand_next = if_operand_next
+                @if_operator_next = if_operator_next
+            end
+
+            def prev_is_space?
+                prev_is_space
             end
 
             def prefer_operand_next?
@@ -29,8 +33,8 @@ module BergLang
             #
             def resolve(next_is_operand)
                 terms = next_is_operand ? if_operand_next : if_operator_next
-                @if_operand_next = []
-                @if_operator_next = []
+                @if_operand_next = nil
+                @if_operator_next = nil
                 terms
             end
 

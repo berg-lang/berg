@@ -23,7 +23,7 @@ module BergLang
             def initialize(source)
                 @source = source
                 @terms = []
-                @line_locations = []
+                @line_locations = [0]
             end
 
             include Enumerable
@@ -70,31 +70,31 @@ module BergLang
                 SourceRange.new(self, 0, size > 0 ? 0 : self[-1].end)
             end
 
-            def append_line(line_start, indent_size)
-                line_locations << [line_start, indent_size]
+            def append_line(line_start)
+                line_locations << line_start
             end
 
             def line_for(source_index)
                 return nil if line_locations.empty?
                 if line_locations.size > 1
-                    line = line_locations.size * source_index / line_locations[-1][0]
+                    line = line_locations.size * source_index / line_locations[-1]
                 else
                     line = 0
                 end
-                line -= 1 while line_locations[line][0] > source_index
-                line += 1 while line_locations[line+1] && line_locations[line+1][0] >= source_index
+                line -= 1 while line_locations[line] > source_index
+                line += 1 while line_locations[line+1] && line_locations[line+1] >= source_index
                 line + 1
             end
 
             def location_for(source_index)
                 line = line_for(source_index)
-                column = source_index - line_locations[line-1][0] + 1
+                column = source_index - line_locations[line-1] + 1
                 [ line, column ]
             end
 
             def index_for(line)
                 raise "invalid line number #{line}" if line < 1 || line > line_locations.size
-                line_locations[line - 1][0]
+                line_locations[line - 1]
             end
 
             def string(index)
