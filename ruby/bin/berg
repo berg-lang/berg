@@ -3,7 +3,12 @@ require "berg_lang/string_source"
 require "berg_lang/parser"
 require "pp"
 
-str = ARGV[0]
+if ARGV[0] == "-e"
+    filename = "-e"
+    str = ARGV[1]
+else
+    str = IO.read(ARGV[0])
+end
 parser = BergLang::Parser.new
 source = BergLang::StringSource.new("<argument>", str)
 syntax_tree = parser.parse(source)

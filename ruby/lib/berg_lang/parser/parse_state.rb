@@ -6,19 +6,23 @@ module BergLang
             #
             # The scanner that will be used for the next token.
             #
-            attr_accessor :scanner
-            attr_accessor :prefer_operand_next
-            attr_accessor :if_operand_next
-            attr_accessor :if_operator_next
-            attr_accessor :prev_is_space
+            attr_reader :scanner
+            attr_reader :prefer_operand_next
+            attr_reader :if_operand_next
+            attr_reader :if_operator_next
+            attr_reader :prev_is_space
+            attr_reader :previous_indent
+            attr_reader :current_indent
 
-            def initialize(source, scanner, prefer_operand_next: true, prev_is_space: false, if_operand_next: nil, if_operator_next: nil)
+            def initialize(source, scanner, prefer_operand_next: true, prev_is_space: :newline, if_operand_next: nil, if_operator_next: nil, previous_indent: nil)
                 @syntax_tree = SyntaxTree.new(source)
                 @scanner = scanner
                 @prefer_operand_next = prefer_operand_next
                 @prev_is_space = prev_is_space
                 @if_operand_next = if_operand_next
                 @if_operator_next = if_operator_next
+                @previous_indent = previous_indent
+                @current_indent = current_indent
             end
 
             def output
@@ -35,9 +39,32 @@ module BergLang
                 end
             end
 
+            def handle_whitespace(token_type, token_end, next_is_space)
+                # Handle newline
+                syntax_tree.append_line(token_end) if token_type.name == :newline
+
+                # If we find newline <non-space> or newline <whitespace> <non-space>,
+                # we have a significant indent. Set previous indent to current, and current to
+                if !next_is_space
+                    if token_type == :newline
+                        @previous_indent = current_indent
+                        @current_indent = [ token_end, token_end ]
+                    elsif prev_is_space == :newline && token_type == :whitespace
+                        @previous_indent = current_indent
+                        @current_indent = [ token_start, token_end ]
+                    end
+                end
+
+                # Return trailing / leading if we're surrounded on one side by space
+                if prev_is_space && !next_is_space
+                    :leading
+                elsif !prev_is_space && next_is_space
+                    :trailing
+                end
+            end
+
             def advance(token_start, token_type, token_end, next_is_space)
-                space = leading_or_trailing_space(next_is_space)
-                syntax_tree.append_line(token_end) if token_type == scanner.grammar.newline
+                space = handle_whitespace(token_type, token_end, next_is_space)
 
                 output.debug "- token #{token_type.name} (#{token_start}-#{token_end}), prefer #{prefer_operand_next? ? "operand" : "operator"}#{space ? ", #{space} space" : ""}"
 
@@ -50,7 +77,7 @@ module BergLang
 
                 # Set the next preference
                 @prefer_operand_next = prefer_operand_next
-                @prev_is_space = token_type.space? unless token_start == token_end
+                @prev_is_space = token_type.space? && token_type.name unless token_start == token_end
                 if if_operand.grammar && if_operand.grammar != scanner.grammar
                     @scanner = if_operand.grammar.scanner(scanner.stream)
                 end
@@ -59,14 +86,6 @@ module BergLang
                 if if_operand.right_is_operand? || !if_operator.right_is_operand?
                     advance(token_end, scanner.grammar.insert, token_end, next_is_space)
                 end
-            end
-
-            def prev_is_space?
-                prev_is_space
-            end
-
-            def prev_is_space?
-                prev_is_space
             end
 
             def prefer_operand_next?
@@ -82,12 +101,6 @@ module BergLang
             end
 
             private
-
-            def leading_or_trailing_space(next_is_space)
-                if prev_is_space? != next_is_space
-                    next_is_space ? :trailing : :leading
-                end
-            end
 
             def append_term(token_start, token_end, type)
                 if !type.space?

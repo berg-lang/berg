@@ -8,6 +8,7 @@ module BergLang
             attr_reader :left
             attr_reader :right
             attr_reader :priority
+            attr_reader :space
             attr_reader :next_grammar
 
             def initialize(grammar, name, token_name: name, string: nil, left: nil, right: nil, space: nil, next_grammar: nil)
@@ -33,16 +34,16 @@ module BergLang
                 end
             end
 
+            def space?
+                space
+            end
+
             def output
                 grammar.output
             end
 
             def to_s
                 name.is_a?(String) ? name : name.inspect
-            end
-
-            def space?
-                @space
             end
 
             def fixity
