@@ -11,7 +11,7 @@ module BergLang
             term_alias :bareword
             term_alias :string_literal
             term_alias :integer_literal, :float_literal, :hexadecimal_literal, :octal_literal, :imaginary_literal
-            term_alias :whitespace, :newline, :comment, :border, :eof, :sof, :indent, :undent
+            term_alias :whitespace, :newline, :comment, :insert, :eof, :sof, :indent, :undent
 
             #
             # tokens
@@ -26,7 +26,7 @@ module BergLang
                         { name: :float_literal, type: :expression },
                         { name: :hexadecimal_literal, type: :expression },
                         { name: :octal_literal, type: :expression },
-                        { name: :empty, token_name: :border, type: :expression },
+                        { name: :empty, token_name: :insert, type: :expression },
                     ],
                     ". postfix.-- postfix.++",
                     "right prefix.-- prefix.++ prefix.- prefix.+ prefix.!",
@@ -54,7 +54,7 @@ module BergLang
                     # TODO unsure if this is the right spot for intersect/union. Maybe closer to - and +
                     "&",
                     "|",
-                    [ { name: :apply, token_name: :border } ],
+                    [ { name: :apply, token_name: :insert } ],
                     [ ";", { name: :newline } ],
                     [
                         { name: :whitespace, type: :prefix, space: true },
@@ -63,8 +63,8 @@ module BergLang
                         { name: :newline, type: :postfix, space: true },
                         { name: :comment, type: :prefix, space: true },
                         { name: :comment, type: :postfix, space: true },
-                        { name: :border, type: :prefix, space: true },
-                        { name: :border, type: :postfix, space: true },
+                        { name: :insert, type: :prefix, space: true },
+                        { name: :insert, type: :postfix, space: true },
                     ],
                     # Delimiters want everything as children.
                     [

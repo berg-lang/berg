@@ -29,8 +29,8 @@ module BergLang
             include Enumerable
 
             def to_s
-                terms.map do |term_start, term_end, type, parent|
-                    "[#{term_start},#{term_end},#{type ? type.name : nil},#{parent.inspect}]"
+                terms.map do |token_start, token_end, type, parent|
+                    "[#{token_start},#{token_end},#{type ? type.name : nil},#{parent.inspect}]"
                 end.join(", ")
             end
 
@@ -38,13 +38,13 @@ module BergLang
                 terms.size
             end
 
-            def append(term_start, term_end, type, parent=nil)
-                terms << [term_start, term_end, type, parent]
+            def append(token_start, token_end, type, parent=nil)
+                terms << [token_start, token_end, type, parent]
                 self[-1]
             end
 
-            def insert(index, term_start, term_end, type, parent=nil)
-                terms.insert(index, [term_start, term_end, type, parent])
+            def insert(index, token_start, token_end, type, parent=nil)
+                terms.insert(index, [token_start, token_end, type, parent])
                 self[index]
             end
 

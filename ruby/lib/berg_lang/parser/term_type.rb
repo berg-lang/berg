@@ -8,8 +8,9 @@ module BergLang
             attr_reader :left
             attr_reader :right
             attr_reader :priority
+            attr_reader :next_grammar
 
-            def initialize(grammar, name, token_name: name, string: nil, left: nil, right: nil, space: nil)
+            def initialize(grammar, name, token_name: name, string: nil, left: nil, right: nil, space: nil, next_grammar: nil)
                 @grammar = grammar
 
                 left = Side.new(**left) if left
@@ -21,6 +22,7 @@ module BergLang
                 @left = left
                 @right = right
                 @space = space
+                @next_grammar = next_grammar
                 if !left == !right
                     raise "space term cannot be #{fixity} (must be prefix or postfix)" if space?
                     @priority = EXPRESSION_INFIX_PRIORITY

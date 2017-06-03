@@ -7,14 +7,13 @@ module BergLang
         #
         class Scanner
             attr_reader :grammar
-            attr_reader :source
             attr_reader :stream
+            attr_reader :output
 
-            def initialize(parser)
-                @source = parser.source
-                @grammar = parser.grammar
-                @stream = source.open
-                @state = nil
+            def initialize(grammar, stream, output)
+                @grammar = grammar
+                @stream = stream
+                @output = output
             end
 
             def eof?
@@ -35,22 +34,8 @@ module BergLang
 
             private
 
-            attr_reader :state
-
             def scan_token
-                case state
-                when nil
-                    @state = :started
-                    return grammar.sof
-                when :finished
-                    return nil
-                end
-
-                # We're done when we've already emitted eof
-                if stream.eof?
-                    @state = :finished
-                    return grammar.eof
-                end
+                return nil if stream.eof?
 
                 token = parse_space || parse_number || parse_operator || parse_string || parse_bareword
                 if !token

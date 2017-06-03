@@ -1,4 +1,5 @@
 require_relative "token_type"
+require_relative "scanner"
 require "set"
 
 module BergLang
@@ -10,9 +11,9 @@ module BergLang
                 @output = output
             end
 
-            #
-            # Expressions
-            #
+            def scanner(stream, output=self.output)
+                Scanner.new(self, stream, output)
+            end
 
             def self.term_alias(*names)
                 names.each do |name|

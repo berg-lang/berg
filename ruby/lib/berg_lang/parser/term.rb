@@ -24,12 +24,12 @@ module BergLang
                 syntax_tree == other.syntax_tree && index == other.index
             end
 
-            def insert(term_start, term_end, type=nil)
-                syntax_tree.insert(index, term_start, term_end, type)
+            def insert(token_start, token_end, type=nil)
+                syntax_tree.insert(index, token_start, token_end, type)
             end
 
-            def append(term_start, term_end, type=nil)
-                syntax_tree.insert(index+1, term_start, term_end, type)
+            def append(token_start, token_end, type=nil)
+                syntax_tree.insert(index+1, token_start, token_end, type)
             end
 
             def parent_index

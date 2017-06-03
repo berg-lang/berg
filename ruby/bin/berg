@@ -4,9 +4,9 @@ require "berg_lang/parser"
 require "pp"
 
 str = ARGV[0]
+parser = BergLang::Parser.new
 source = BergLang::StringSource.new("<argument>", str)
-parser = BergLang::Parser.new(source)
-syntax_tree = parser.parse
+syntax_tree = parser.parse(source)
 puts "\n"
 puts str
 puts "---"
