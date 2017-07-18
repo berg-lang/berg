@@ -1,28 +1,31 @@
 module BergLang
     class Parser
         class ParseState
-            attr_reader :syntax_tree
+            attr_reader :parse_result
 
             #
             # The scanner that will be used for the next token.
             #
             attr_reader :scanner
-            attr_reader :prefer_operand_next
-            attr_reader :if_operand_next
-            attr_reader :if_operator_next
             attr_reader :prev_is_space
-            attr_reader :previous_indent
             attr_reader :current_indent
+            attr_reader :prefer_operand_next
 
-            def initialize(source, scanner, prefer_operand_next: true, prev_is_space: :newline, if_operand_next: nil, if_operator_next: nil, previous_indent: nil)
-                @syntax_tree = SyntaxTree.new(source)
+            attr_reader :if_operand_next
+            attr_reader :statement_indent_if_operand_next
+            attr_reader :if_operator_next
+            attr_reader :statement_indent_if_operator_next
+
+            def initialize(parse_result, scanner)
+                @parse_result = parse_result
                 @scanner = scanner
-                @prefer_operand_next = prefer_operand_next
-                @prev_is_space = prev_is_space
-                @if_operand_next = if_operand_next
-                @if_operator_next = if_operator_next
-                @previous_indent = previous_indent
-                @current_indent = current_indent
+                @prev_is_space = :newline
+                @current_indent = nil
+                @prefer_operand_next = true
+                @if_operand_next = nil
+                @if_operator_next = nil
+                @statement_indent_if_operand_next = nil
+                @statement_indent_if_operand_next = nil
             end
 
             def output
@@ -39,51 +42,32 @@ module BergLang
                 end
             end
 
-            def handle_whitespace(token_type, token_end, next_is_space)
-                # Handle newline
-                syntax_tree.append_line(token_end) if token_type.name == :newline
-
-                # If we find newline <non-space> or newline <whitespace> <non-space>,
-                # we have a significant indent. Set previous indent to current, and current to
-                if !next_is_space
-                    if token_type == :newline
-                        @previous_indent = current_indent
-                        @current_indent = [ token_end, token_end ]
-                    elsif prev_is_space == :newline && token_type == :whitespace
-                        @previous_indent = current_indent
-                        @current_indent = [ token_start, token_end ]
-                    end
-                end
-
-                # Return trailing / leading if we're surrounded on one side by space
-                if prev_is_space && !next_is_space
-                    :leading
-                elsif !prev_is_space && next_is_space
-                    :trailing
-                end
-            end
-
             def advance(token_start, token_type, token_end, next_is_space)
-                space = handle_whitespace(token_type, token_end, next_is_space)
+                space = surrounding_space(next_is_space) unless token_start == token_end
 
-                output.debug "- token #{token_type.name} (#{token_start}-#{token_end}), prefer #{prefer_operand_next? ? "operand" : "operator"}#{space ? ", #{space} space" : ""}"
+                output.debug "- token #{token_type.name} (#{token_start}-#{token_end}), prefer #{prefer_operand_next? ? "operand" : "operator"}, indent #{current_indent}#{space ? ", #{space} space" : ""}"
 
                 # Read and resolve the next term
                 action, prefer_operand_next, if_operand, if_operator =
                     token_type.next_state(prefer_operand_next?, space)
                 output.debug "  action: #{action}, next: #{prefer_operand_next}, if_operand: #{if_operand.fixity}, if_operator: #{if_operator.fixity}"
+                set_statement_indent(if_operand, if_operator)
+                set_line_data(token_start, token_type, token_end, next_is_space)
                 resolve_left(action, if_operand.left_is_operand?) if action
                 resolve_term(token_start, token_end, if_operand, if_operator)
+                set_statement_boundary(if_operand, if_operator)
 
                 # Set the next preference
                 @prefer_operand_next = prefer_operand_next
-                @prev_is_space = token_type.space? && token_type.name unless token_start == token_end
+                @prev_is_space = token_type.space unless token_start == token_end
+
                 if if_operand.grammar && if_operand.grammar != scanner.grammar
                     @scanner = if_operand.grammar.scanner(scanner.stream)
                 end
 
                 # Auto-insert empty/apply if needed
-                if if_operand.right_is_operand? || !if_operator.right_is_operand?
+                if (if_operand.significant? && if_operand.right_is_operand?) ||
+                   (if_operator.significant? && !if_operator.right_is_operand?)
                     advance(token_end, scanner.grammar.insert, token_end, next_is_space)
                 end
             end
@@ -102,11 +86,37 @@ module BergLang
 
             private
 
-            def append_term(token_start, token_end, type)
-                if !type.space?
-                    output.debug "Appending #{type} (#{type.fixity})"
-                    term = syntax_tree.append(token_start, token_end, type)
-                    associate(term)
+            def set_line_data(token_start, token_type, token_end, next_is_space)
+                if prev_is_space == :newline
+                    if token_type.space == :whitespace
+                        parse_result.line_data.append_line(token_start, token_end, next_is_space)
+                    else
+                        parse_result.line_data.append_line(token_start, token_start, token_type == :newline)
+                    end
+                    @current_indent = parse_result.line_data.current_indent
+                end
+            end
+
+            def set_statement_indent(if_operand, if_operator)
+                @statement_indent_if_operand_next ||= current_indent if if_operand.significant?
+                @statement_indent_if_operator_next ||= current_indent if if_operator.significant?
+            end
+
+            def set_statement_boundary(if_operand, if_operator)
+                if if_operand.statement_boundary
+                    @statement_indent_if_operand_next = nil
+                end
+                if if_operator.statement_boundary
+                    @statement_indent_if_operator_next = nil
+                end
+            end
+
+            def surrounding_space(next_is_space)
+                # Return trailing / leading if we're surrounded on one side by space
+                if prev_is_space && !next_is_space
+                    :leading
+                elsif !prev_is_space && next_is_space
+                    :trailing
                 end
             end
 
@@ -119,15 +129,16 @@ module BergLang
                 when :resolve
                     terms = next_is_operand ? if_operand_next : if_operator_next
                     if terms
-                        output.debug "  left sides are both #{next_is_operand ? "operand" : "operator"}, resolving to #{terms.map { |s,e,type| "#{type}(#{type.fixity})" }.join(" ")}"
-                        terms.each do |token_start, token_end, type|
-                            append_term(token_start, token_end, type)
+                        output.debug "  left sides are both #{next_is_operand ? "operand" : "operator"}, resolving to #{terms.map { |s,e,i,type| "#{type}(#{type.fixity})" }.join(" ")}"
+                        terms.each do |token_start, token_end, statement_indent, type|
+                            parse_result.append_term(token_start, token_end, statement_indent, type)
                         end
                     end
                     @if_operand_next = nil
                     @if_operator_next = nil
                 when :swap
                     @if_operand_next, @if_operator_next = if_operator_next, if_operand_next
+                    @statement_indent_if_operand_next, @statement_indent_if_operator_next = statement_indent_if_operator_next, statement_indent_if_operand_next
                 when nil
                 else
                     raise "Unknown action #{action}"
@@ -137,53 +148,15 @@ module BergLang
             def resolve_term(token_start, token_end, if_operand, if_operator)
                 # Append the actual term if unambiguous.
                 if if_operand == if_operator
-                    append_term(token_start, token_end, if_operand)
-                else
-                    if !if_operand.space?
-                        @if_operand_next ||= []
-                        @if_operand_next << [ token_start, token_end, if_operand ]
-                    end
-                    if !if_operator.space?
-                        @if_operator_next ||= []
-                        @if_operator_next << [ token_start, token_end, if_operator ]
-                    end
+                    statement_indent = if_operand.left_is_operand? ? statement_indent_if_operand_next : statement_indent_if_operator_next
+                    return parse_result.append_term(token_start, token_end, statement_indent, if_operand)
                 end
-            end
 
+                @if_operand_next ||= []
+                @if_operand_next << [ token_start, token_end, statement_indent_if_operand_next, if_operand ]
 
-            #
-            # Associates an operator with the rest of the tree by setting its parent and
-            # child correctly.
-            #
-            # @param [Term] The term in the tree to associate.
-            #
-            def associate(term)
-                parent = term.previous_term
-                return unless parent
-                # If we have room for left children, pick the widest left child we can.
-                type = term.type
-                if type.left
-                    while parent && type.left_accepts_operand?(parent.type)
-                        left_operand, parent = parent, parent.parent
-                    end
-                    if !left_operand
-                        raise internal_error(term, "#{term} (#{term.type.fixity} #{type}) cannot have left child #{parent} (#{parent.type.fixity} #{parent.type})!")
-                    end
-                    # If we are a close parentheses, and the chosen parent is our open parentheses (hopefully!),
-                    # we make ourselves the parent of the open, and take the open's parent ourselves.
-                    if type.left.opened_by
-                        if parent && type.left.opened_by == parent.type
-                            left_operand, parent = parent, parent.parent
-                        else
-                            raise unmatched_close(parent, term)
-                        end
-                    elsif parent && !parent.type.right_accepts_operand?(type)
-                        raise internal_error(term, "#{term} cannot have parent #{parent}!")
-                    end
-
-                    left_operand.parent = term
-                end
-                term.parent = parent
+                @if_operator_next ||= []
+                @if_operator_next << [ token_start, token_end, statement_indent_if_operator_next, if_operator ]
             end
         end
     end

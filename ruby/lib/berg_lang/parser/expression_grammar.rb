@@ -8,10 +8,11 @@ module BergLang
                 tokens
             end
 
-            term_alias :bareword
-            term_alias :string_literal
-            term_alias :integer_literal, :float_literal, :hexadecimal_literal, :octal_literal, :imaginary_literal
-            term_alias :whitespace, :newline, :comment, :insert, :eof, :sof, :indent, :undent
+            token_alias :bareword
+            token_alias :string_literal
+            token_alias :integer_literal, :float_literal, :hexadecimal_literal, :octal_literal, :imaginary_literal
+            token_alias :whitespace, :comment, :insert, :eof, :sof
+            token_alias :newline
 
             #
             # tokens
@@ -39,7 +40,7 @@ module BergLang
                     "|| ??",
                     "->",
                     [
-                        { string: ":",   direction: :right, declaration: true, opens_indent_block: true, },
+                        { string: ":",   direction: :right, declaration: true, indented_variant_name: ": (indented)" },
                         { string: "=",   direction: :right, declaration: true, },
                         { string: "+=",  direction: :right, declaration: true, },
                         { string: "-=",  direction: :right, declaration: true, },
@@ -55,27 +56,26 @@ module BergLang
                     "&",
                     "|",
                     [ { name: :apply, token_name: :insert } ],
-                    [ ";", { name: :newline } ],
+                    [ { string: ";", statement_boundary: :end } ],
+                    [ { name: :apply_block, token_name: :newline, space: :newline, significant: true, indented_variant_name: :apply }],
                     [
-                        { name: :whitespace, type: :prefix, space: true },
-                        { name: :whitespace, type: :postfix, space: true },
-                        { name: :newline, type: :prefix, space: true },
-                        { name: :newline, type: :postfix, space: true },
-                        { name: :comment, type: :prefix, space: true },
-                        { name: :comment, type: :postfix, space: true },
-                        { name: :insert, type: :prefix, space: true },
-                        { name: :insert, type: :postfix, space: true },
+                        { name: :whitespace, type: :prefix, space: :whitespace },
+                        { name: :whitespace, type: :postfix, space: :whitespace },
+                        { name: :newline, type: :prefix, space: :newline },
+                        { name: :newline, type: :postfix, space: :newline },
+                        { name: :comment, type: :prefix, space: :comment },
+                        { name: :comment, type: :postfix, space: :comment },
+                        { name: :noinsert, token_name: :insert, type: :prefix, significant: false },
+                        { name: :noinsert, token_name: :insert, type: :postfix, significant: false },
                     ],
                     # Delimiters want everything as children.
                     [
-                        { name: :indent, type: :open,  closed_by: :undent,   direction: :right },
-                        { name: :undent, type: :close, opened_by: :indent, direction: :right },
-                        { string: "(",  type: :open,  closed_by: ")",       direction: :right },
-                        { string: ")",  type: :close, opened_by: "(",     direction: :right },
-                        { string: "{",  type: :open,  closed_by: "}",       direction: :right },
-                        { string: "}",  type: :close, opened_by: "{",     direction: :right },
-                        { name: :sof,    type: :open,  closed_by: :eof,      direction: :right, space: true },
-                        { name: :eof,    type: :close, opened_by: :sof,    direction: :right, space: true },
+                        { string: "(",  type: :open,  closed_by: ")",       direction: :right, statement_boundary: :start },
+                        { string: ")",  type: :close, opened_by: "(",     direction: :right, statement_boundary: :end },
+                        { string: "{",  type: :open,  closed_by: "}",       direction: :right, statement_boundary: :start },
+                        { string: "}",  type: :close, opened_by: "{",     direction: :right, statement_boundary: :end },
+                        { name: :sof,    type: :open,  closed_by: :eof,      direction: :right, space: :newline, significant: true, statement_boundary: :start },
+                        { name: :eof,    type: :close, opened_by: :sof,    direction: :right, space: :newline, significant: true, statement_boundary: :end },
                     ],
                )
             end

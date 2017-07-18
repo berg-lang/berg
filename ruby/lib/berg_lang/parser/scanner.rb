@@ -46,10 +46,12 @@ module BergLang
 
             include SyntaxErrors
 
+            WHITESPACE = /\A[[:blank:]]+/
+
             def parse_space
                 if stream.match(/\A\r?\n/)
                     grammar.newline
-                elsif stream.match(/\A[[:blank:]]+/)
+                elsif stream.match(WHITESPACE)
                     grammar.whitespace
                 elsif stream.match(/\A#[^\n]*/)
                     grammar.comment

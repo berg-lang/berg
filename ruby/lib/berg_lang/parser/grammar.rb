@@ -15,7 +15,7 @@ module BergLang
                 Scanner.new(self, stream, output)
             end
 
-            def self.term_alias(*names)
+            def self.token_alias(*names)
                 names.each do |name|
                     define_method(name) { tokens[name] }
                 end
@@ -50,20 +50,24 @@ module BergLang
                         end
                     else
                         direction ||= term_def.delete(:direction)
-                        define_term(**term_def)
+                        indented_variant_name = term_def.delete(:indented_variant_name)
+                        if indented_variant_name
+                            indented_variant = define_term(**term_def, name: indented_variant_name, statement_boundary: :nest)
+                        end
+                        define_term(**term_def, indented_variant: indented_variant)
                     end
                 end
                 [ direction, tokens ]
             end
 
-            def define_term(string: nil, name: string, token_name: name, type: :infix, opened_by: nil, closed_by: nil, opens_indent_block: nil, declaration: nil, direction: nil, space: nil)
+            def define_term(string: nil, name: string, token_name: name, type: :infix, opened_by: nil, closed_by: nil, declaration: nil, direction: nil, space: false, significant: !space, indented_variant: nil, statement_boundary: !!indented_variant)
                 if [:infix, :postfix, :close ].include?(type)
                     left = { declaration: declaration, opened_by: opened_by }
                 end
                 if [:infix, :prefix, :open ].include?(type)
-                    right = { opens_indent_block: opens_indent_block, closed_by: closed_by }
+                    right = { closed_by: closed_by }
                 end
-                TermType.new(self, name, token_name: token_name, left: left, right: right, space: space)
+                TermType.new(self, name, token_name: token_name, left: left, right: right, space: space, significant: significant, indented_variant: indented_variant, statement_boundary: statement_boundary)
             end
 
             def define_tokens(*groups)

@@ -1,5 +1,6 @@
 require_relative "output"
 require_relative "parser/expression_grammar"
+require_relative "parser/parse_result"
 require_relative "parser/parse_state"
 require_relative "parser/syntax_errors"
 require_relative "parser/syntax_tree"
@@ -22,24 +23,17 @@ module BergLang
         # Parses all tokens from the source.
         #
         def parse(source)
+            parse_result = ParseResult.new(source, output)
             stream = source.open
-            state = ParseState.new(source, base_grammar.scanner(stream))
+            state = ParseState.new(parse_result, base_grammar.scanner(stream))
 
             # Read each token from the input
-            state.advance(stream.index,state.scanner.grammar.sof, stream.index, state.scanner.next_is_space?)
+            state.advance(stream.index, state.scanner.grammar.sof, stream.index, state.scanner.next_is_space?)
             while state.scan_next
             end
             state.advance(stream.index, state.scanner.grammar.eof, stream.index, false)
 
-            state.syntax_tree
-        end
-
-        def resolve(scanner, state, token_start, token_end, type)
-            next_grammar = type.resolve(state, token_start, token_end, scanner.next_is_space?)
-            if next_grammar && next_grammar != scanner.grammar
-                scanner = next_grammar.scanner(stream)
-            end
-            scanner
+            parse_result
         end
 
         private

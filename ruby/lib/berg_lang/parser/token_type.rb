@@ -44,8 +44,16 @@ module BergLang
                 !!postfix
             end
 
+            def space
+                variants.first.space
+            end
+
             def space?
-                (postfix? && postfix.space?) || (prefix? && prefix.space?)
+                variants.first.space?
+            end
+
+            def significant?
+                variants.any? { |variant| variant.significant? }
             end
 
             def variant(left, right)
@@ -89,22 +97,18 @@ module BergLang
 
                 next_state_cache[index] ||= begin
                     space = nil if space?
-                    if_operand, if_operator = [ false, true ].map do |right_operand|
-                        # Handle compound terms: we prefer leading / trailing terms to be expressions, unless they cannot be.
-                        left_operand = (space == :leading ? true : prefer_operand)
-                        right_operand = true if space == :trailing
-                        # no issue > issue on left > issue on right > both
-                        variant( left_operand,  right_operand) ||
-                        variant(!left_operand,  right_operand) ||
-                        variant( left_operand, !right_operand) ||
-                        variant(!left_operand, !right_operand)
-                    end
+                    if_operand = preferred_variant(space, prefer_operand, right_operand: false)
+                    if_operator = preferred_variant(space, prefer_operand, right_operand: true)
 
                     # If the right sides are the same (infix / prefix / expression /
                     # postfix / infix|prefix / expression|postfix), we can't influence
                     # the next outcome, so we just pick the one that is preferred.
                     if if_operand.right_is_operand? == if_operator.right_is_operand?
-                        if_operator = if_operand = prefer_operand ? if_operand : if_operator
+                        if prefer_operand
+                            if_operator = if_operand
+                        else
+                            if_operand = if_operator
+                        end
                         prefer_operand_next = !if_operand.right_is_operand?
                         action = :resolve
 
@@ -115,12 +119,13 @@ module BergLang
                         prefer_operand_next = if_operand.priority > if_operator.priority
                         action = :resolve
 
-                    # If left and right are different (infix|expression / postfix|prefix),
-                    # keep or swap prefer_operand.
+                    # Left and right are different (infix|expression / postfix|prefix).
+                    # If they are infix/expression, swap prefer_operand.
                     elsif if_operand.left_is_operand? == if_operand.right_is_operand?
                         prefer_operand_next = !prefer_operand
                         action = :swap
 
+                    # If it's postfix/prefix, keep prefer_operand.
                     else
                         prefer_operand_next = prefer_operand
                     end
@@ -133,14 +138,25 @@ module BergLang
 
             attr_reader :next_state_cache
 
+            def preferred_variant(space, prefer_operand, right_operand:)
+                # Handle compound terms: we prefer leading / trailing terms to be expressions, unless they cannot be.
+                left_operand = (space == :leading ? true : prefer_operand)
+                right_operand = true if space == :trailing
+                # no issue > issue on left > issue on right > both
+                variant( left_operand,  right_operand) ||
+                variant(!left_operand,  right_operand) ||
+                variant( left_operand, !right_operand) ||
+                variant(!left_operand, !right_operand)
+            end
+
             def cache_next_state!
                 @next_state_cache = []
                 all_variants = variants.to_set
                 [ false, true ].each do |left|
                     [ nil, :leading, :trailing ].each do |space|
-                        resolve, prefer_operand, operand, operator = next_state(left, space)
-                        all_variants.delete(operand)
-                        all_variants.delete(operator)
+                        resolve, prefer_operand, if_operand, if_operator = next_state(left, space)
+                        all_variants.delete(if_operand)
+                        all_variants.delete(if_operator)
                     end
                 end
                 if all_variants.any?
@@ -149,8 +165,10 @@ module BergLang
             end
 
             def validate!
+                space = variants.first.space
                 variants.each do |variant|
                     raise "#{variant.fixity} variant of #{name} is not a TermType!" unless variant.is_a?(TermType)
+                    raise "All variants of #{name} must have the same value for `space`! #{variant.fixity} has #{variant.space.inspect}, while #{variants.first.fixity} has #{space.inspect}" unless variant.space == space
                 end
                 raise "Must have non-nil, non-empty name: #{name.inspect}" if name.nil? || name == ""
                 raise "must have at least one variant of #{name}!" if !variants.any?
@@ -164,13 +182,6 @@ module BergLang
                 end
                 if expression? && prefix? && expression.priority == prefix.priority
                     raise "expression and prefix variants of #{name} have the same priority (#{expression.priority}! Set them to different priorities, or we won't be able to disambiguate in some cases."
-                end
-
-                if (infix && infix.right.opens_indent_block?) || (prefix && prefix.right.opens_indent_block?)
-                    raise "#{name} has an infix or prefix that opens an indent block, but also has a postfix or expression variant. This ambiguity is not supported by the parser." if postfix || expression
-                    # If both infix and prefix are defined, and only one opens an indent block, we're still OK,
-                    # because infix and prefix together are not ambiguous (we know which to pick without looking
-                    # ahead to see what's on the right).
                 end
             end
         end

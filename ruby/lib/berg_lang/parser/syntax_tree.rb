@@ -17,20 +17,20 @@ module BergLang
         #
         class SyntaxTree
             attr_reader :source
+            attr_reader :line_data
             attr_reader :terms
-            attr_reader :line_locations
 
-            def initialize(source)
+            def initialize(source, line_data)
                 @source = source
+                @line_data = line_data
                 @terms = []
-                @line_locations = [0]
             end
 
             include Enumerable
 
             def to_s
-                terms.map do |token_start, token_end, type, parent|
-                    "[#{token_start},#{token_end},#{type ? type.name : nil},#{parent.inspect}]"
+                terms.map do |token_start, token_end, statement_indent, type, parent|
+                    "[#{token_start},#{token_end},#{statement_indent}#{type ? type.name : nil},#{parent.inspect}]"
                 end.join(", ")
             end
 
@@ -38,13 +38,13 @@ module BergLang
                 terms.size
             end
 
-            def append(token_start, token_end, type, parent=nil)
-                terms << [token_start, token_end, type, parent]
+            def append(token_start, token_end, statement_indent, type, parent=nil)
+                terms << [token_start, token_end, statement_indent, type, parent]
                 self[-1]
             end
 
-            def insert(index, token_start, token_end, type, parent=nil)
-                terms.insert(index, [token_start, token_end, type, parent])
+            def insert(index, token_start, token_end, statement_indent, type, parent=nil)
+                terms.insert(index, [token_start, token_end, statement_indent, type, parent])
                 self[index]
             end
 
@@ -66,35 +66,8 @@ module BergLang
                 root
             end
 
-            def source_range
-                SourceRange.new(self, 0, size > 0 ? 0 : self[-1].end)
-            end
-
-            def append_line(line_start)
-                line_locations << line_start
-            end
-
-            def line_for(source_index)
-                return nil if line_locations.empty?
-                if line_locations.size > 1
-                    line = line_locations.size * source_index / line_locations[-1]
-                else
-                    line = 0
-                end
-                line -= 1 while line_locations[line] > source_index
-                line += 1 while line_locations[line+1] && line_locations[line+1] >= source_index
-                line + 1
-            end
-
-            def location_for(source_index)
-                line = line_for(source_index)
-                column = source_index - line_locations[line-1] + 1
-                [ line, column ]
-            end
-
-            def index_for(line)
-                raise "invalid line number #{line}" if line < 1 || line > line_locations.size
-                line_locations[line - 1]
+            def source_range(line_data)
+                SourceRange.new(line_data, 0, size > 0 ? 0 : self[-1].end)
             end
 
             def string(index)

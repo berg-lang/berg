@@ -33,20 +33,20 @@ module BergLang
             end
 
             def parent_index
-                syntax_tree.terms[index][3]
+                syntax_tree.terms[index][PARENT_INDEX]
             end
             def parent
                 syntax_tree[parent_index] if parent_index
             end
             def parent=(value)
-                syntax_tree.terms[index][3] = value ? value.index : value
+                syntax_tree.terms[index][PARENT_INDEX] = value ? value.index : value
             end
 
             def type
-                syntax_tree.terms[index][2]
+                syntax_tree.terms[index][TERM_TYPE]
             end
             def type=(value)
-                syntax_tree.terms[index][2] = value
+                syntax_tree.terms[index][TERM_TYPE] = value
             end
 
             def previous_term
@@ -54,6 +54,16 @@ module BergLang
             end
             def next_term
                 syntax_tree[index+1]
+            end
+
+            def left_accepts_operand?(term)
+                return false if term.type.statement_boundary == :nest && term.statement_indent <= statement_indent && !type.left.opened_by
+                type.left_accepts_operand_type?(term.type)
+            end
+
+            def right_accepts_operand?(term)
+                return true if type.statement_boundary == :nest && statement_indent < term.statement_indent
+                type.right_accepts_operand_type?(term.type)
             end
 
             def left_operand
@@ -69,18 +79,22 @@ module BergLang
             end
 
             def source_range
-                SourceRange.new(syntax_tree, start, self.end)
+                SourceRange.new(syntax_tree.line_data, start, self.end)
             end
 
             def string
                 source_range.string
             end
 
+            def statement_indent
+                syntax_tree.terms[index][STATEMENT_INDENT]
+            end
+
             def start
-                type.left && left_operand ? left_operand.start : syntax_tree.terms[index][0]
+                type.left && left_operand ? left_operand.start : syntax_tree.terms[index][TOKEN_START]
             end
             def end
-                type.right && right_operand ? right_operand.end : syntax_tree.terms[index][1]
+                type.right && right_operand ? right_operand.end : syntax_tree.terms[index][TOKEN_END]
             end
 
             def expression_to_s
@@ -98,6 +112,14 @@ module BergLang
                     string
                 end
             end
+
+            private
+
+            TOKEN_START = 0
+            TOKEN_END = 1
+            STATEMENT_INDENT = 2
+            TERM_TYPE = 3
+            PARENT_INDEX = 4
         end
     end
 end

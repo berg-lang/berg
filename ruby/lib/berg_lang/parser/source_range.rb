@@ -1,22 +1,24 @@
+require_relative "line_data"
+
 module BergLang
     class Parser
         #
         # Represents a source range (with possible match data).
         #
         class SourceRange
-            attr_reader :syntax_tree
+            attr_reader :line_data
             attr_reader :begin
             attr_reader :end
 
-            def initialize(syntax_tree, begin_offset, end_offset)
-                raise "nooo" unless syntax_tree.is_a?(SyntaxTree)
-                @syntax_tree = syntax_tree
+            def initialize(line_data, begin_offset, end_offset)
+                raise "nooo" unless line_data.is_a?(LineData)
+                @line_data = line_data
                 @begin = begin_offset
                 @end = end_offset
             end
 
             def source
-                syntax_tree.source
+                line_data.source
             end
 
             def ==(other)
@@ -35,8 +37,8 @@ module BergLang
             # Create a region that includes both ranges
             #
             def self.span(begin_range, end_range)
-                raise "COMPILER ERROR: different sources in span!" if begin_range.source_range.syntax_tree != end_range.source_range.syntax_tree
-                SourceRange.new(begin_range.source_range.syntax_tree, begin_range.source_range.begin, end_range.source_range.end)
+                raise "COMPILER ERROR: different sources in span!" if begin_range.source_range.line_data != end_range.source_range.line_data
+                SourceRange.new(begin_range.source_range.line_data, begin_range.source_range.begin, end_range.source_range.end)
             end
 
             def string
@@ -52,7 +54,7 @@ module BergLang
             end
 
             def begin_location
-                syntax_tree.location_for(self.begin)
+                line_data.location_for(self.begin)
             end
 
             def begin_line
@@ -64,7 +66,7 @@ module BergLang
             end
 
             def end_location
-                syntax_tree.location_for(self.end-1) if self.end > self.begin
+                line_data.location_for(self.end-1) if self.end > self.begin
             end
 
             def end_line
