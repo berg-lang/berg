@@ -116,6 +116,10 @@ The stream outputs errors into the error list: error characters are yielded as U
 
 The scanner reads characters from the stream based on a grammar, producing a symbol for each distinct "word" or operator.
 
+#### Space
+
+Spaces are not significant in Berg except for indentation and compound terms. Spaces are skipped in the scanner (except in strings, comments and indentation).
+
 #### Compound Terms
 
 The scanner can take into account *local* context, such as surrounding space, when deciding what symbol to output. For example, compound term rules are implemented by looking at preceding and following space when there are many variants of a symbol, and emitting a symbol type with only the valid variants if it's at the beginning or end of a compound term:
@@ -124,10 +128,6 @@ The scanner can take into account *local* context, such as surrounding space, wh
 - If there is leading space only, and the symbol has an expression variant, return a symbol type without the postfix variant.
 - If there is trailing space only, and the symbol has a postfix variant, return a symbol type without the infix variant.
 - If there is trailing space only, and the symbol has an expression variant, return a symbol type without the prefix variant.
-
-#### Space
-
-Spaces are not significant in Berg except for indentation and compound terms. Spaces are skipped in the scanner (except in strings, comments and indentation).
 
 ##### Indentation
 
@@ -215,18 +215,11 @@ Indents mean multiple things depending on whether they actually start an express
 
 The generated block operators `extend`, `apply` and `block` *always* have lower precedence than any normal operator, and they all associate left. They are generated with a "nesting level" that corresponds to the size of the stack, and precedence between the operators depends entirely on nesting level. *All* blocks in the file are separated by these operators. These two facts mean that every expression in the Berg source (with the exception of any at the very top level) is inside the block operator to its left.
 
+As a universal closer, the `extend` operator is special in that it has higher precedence than open operators like `(`, even on their left side. When an `extend` operator takes an open operator as a left child, it will generate the "unclosed ( operator" error. When `extend` takes `}` onto its right side, 
+
+This applies to `{` as well, and is the source of the "redundant `{` `}`" error. Anytime `{` is followed by `block` and `}` is followed by `extend`, and the `{` is preceded by `apply` or `block`, the block parentheses are redundant.
+
 ```
-# === extend ===
-# x = 1
-# y = 2
-# print x + y
-#
-# === apply ===
-#
-# myfunction
-#     x: 1
-#     y: 2
-#     x + y
 If infix indent
     Pop all > indent
     If indent == open indent
@@ -236,53 +229,25 @@ If infix indent
         If any popped, or Paragraph Indent, emit Misaligned Indent Error
         Output `apply`
 
-# === continuation ===
-# foobar:
-#     CheckForFirstProblem
-#     || CheckForSecondProblem
-#     || CheckForThirdProblem
-#
-# foobar:
-#        CheckForFirstProblem
-#     || CheckForSecondProblem
-#     || CheckForThirdProblem
-#
-# foobar:
-#     CheckForFirstProblem
-#         || CheckForSecondProblem
-#         || CheckForThirdProblem
 If postfix indent
     If previous token is indent, skip as continuation
     Pop until > parent open indent
     If any popped, emit Continuation Undent Error unless already errored
     Skip as continuation
 
-# === block ===
-# a:
-#    b: 1
-#    c: 2
-#
-# === continuation ===
-# CheckForFirstProblem ||
-#   CheckForSecondProblem ||
-#   CheckForThirdProblem
-#
-# CheckForFirstProblem ||
-# CheckForSecondProblem ||
-# CheckForThirdProblem
 If prefix indent
     If previous token starts a block (like ':' '(' or '{')
         If indent > open indent
             Output `block`
         Else
             Pop all >= indent
-            Error: Output `missing parameter` token unless already errored
+            Error: Output `missing parameter` token unless already errored.
             Output `extend`
     Else
         Pop until > parent open indent
         If indent == open indent
             If previous token is indent, skip as continuation
-            Error: Output `missing parameter` (or `redundant semicolon at end of statement` if previous token was `;`) token unless already errored
+            Error: Output `missing parameter` (or `redundant semicolon at end of statement` if previous token was `;`, or `redundant { at end of line` if previous token was `{`) token unless already errored
             Output `extend`
         Else
             If any popped
@@ -306,6 +271,12 @@ If token is space: skip
 Insert into syntax tree or comment subtree.
 Insert into open tokens at correct place according to precedence & associativity, popping and setting parents as needed.
 ```
+
+#### Error Detection
+
+While associating, there are a couple of errors that can be detected based on the tokens:
+
+* **Redundant Braces:** `{` and `}` are surrounded by `block`/`apply`/`:` (infix block operator) and `extend`, and therefore can (and should) be removed without having any effect.
 
 OTHER STUFF FOR PROBABLY THE FUTURE
 ==================================

@@ -654,6 +654,8 @@ Syntax Errors
 * **Undented Continuation Error:** when a continuation line lies on or above the parent margin.
 * **Misaligned Indent Error:** when a new statement starts *between* two margins.
 * **Ambiguous Continuation Error:** when a continuation line *could* be a new statement (previous line ends with an operator, next starts with operand), and starts *between* the two margins.
+* **Redundant Braces:** `{` and `}` are surrounded by `block`/`apply`/`:` (infix block operator) and `extend`, and therefore can (and should) be removed without having any effect. This is a style error enforced by the compiler to keep a measure of visual consistency across Berg source.
+* **Redundant Semicolon:** `;` at the end of a line (even if there is a comment after it). This is a style error enforced by the compiler to keep a measure of visual consistency across Berg source.
 
 ### Identifier Errors
 
