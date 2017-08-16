@@ -1,0 +1,58 @@
+Samples.CodeAbbey.SumOfTwo
+==========================
+
+    Problem: read two numbers from input and sum them.
+
+    @see http://www.codeabbey.com/index/task_view/sum-of-two
+
+###
+
+sum: SumInput Console.Input
+
+Console.WriteLine sum
+
+
+SumInput(input)
+---------------
+
+    Reads two numbers from an input stream using the Match function, and sums them.
+
+    NOTE: this has bugs. It doesn't throw exceptions :)
+
+    @param input The input stream.
+    @return The parsed integer
+
+###
+
+first = readNumber(input)
+skipSpace(input)
+second = readNumber(input)
+
+return first + second
+
+
+readNumber(input)
+-----------------
+
+    Read a single multi-digit number from the input.
+
+###
+
+number = 0
+while input.Peek in "0".."9"
+    digit = input.Read
+    number *= 10
+    number += digit.Codepoint - "0".Codepoint
+end while
+number
+
+
+digitValue(digit): digit.Codepoint - "0".Codepoint
+
+readDigit(input):
+    if digit = input.Peek && digit in "0".."9"
+        input.Read
+
+skipSpace(input):
+    while input.Peek == " "
+        input.Read

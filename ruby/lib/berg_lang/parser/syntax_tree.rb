@@ -1,78 +1,79 @@
 require_relative "term"
+require_relative "source_data"
 
 module BergLang
-    class Parser
-        #
-        # Represents the entire syntax tree of a given Source.
-        #
-        # The set of terms is an array with parent pointers to indicate expression children.
-        # Terms are in the same order as the source, and are complete--anything between one term's
-        # end and the next term's start is insignificant whitespace.
-        #
-        # Tree traversal is done by looking at the parent index of each term. If the parent is to the
-        # left, it is a right operand of its parent; if it is to the right, it is a left operand.
-        #
-        # Because the terms are stored in lexical order, one's left operand is always one of the parents
-        # of the previous term; and one's right operand is always one of the parents of the next term.
-        #
-        class SyntaxTree
-            attr_reader :source
-            attr_reader :line_data
-            attr_reader :terms
+    #
+    # Represents the entire syntax tree of a given Source.
+    #
+    # The set of nodes is an array with parent pointers to indicate expression children.
+    # nodes are in the same order as the source, and are complete--anything between one term's
+    # end and the next term's start is insignificant whitespace.
+    #
+    # Tree traversal is done by looking at the parent index of each term. If the parent is to the
+    # left, it is a right operand of its parent; if it is to the right, it is a left operand.
+    #
+    # Because the nodes are stored in lexical order, one's left operand is always one of the parents
+    # of the previous term; and one's right operand is always one of the parents of the next term.
+    #
+    class SyntaxTree
+        attr_reader :source_data
+        attr_reader :comments
+        attr_reader :nodes
 
-            def initialize(source, line_data)
-                @source = source
-                @line_data = line_data
-                @terms = []
+        def initialize(source_data)
+            @source_data = source_data
+            @comments = {}
+            @nodes = []
+        end
+
+        include Enumerable
+
+        def source
+            source_data.source
+        end
+
+        def to_s
+            nodes.map do |token_type, index, string, parent|
+                "[#{string.inspect} (#{index}#{string.size ? "-#{index+string.size}" : ""}) #{token_type ? token_type.name : nil}, parent=#{parent.}]"
+            end.join(", ")
+        end
+
+        def size
+            nodes.size
+        end
+
+        def root
+            root = first_token
+            return nil unless root
+            while root.parent_operator
+                root = root.parent_operator
             end
+            root
+        end
 
-            include Enumerable
+        def first_token
+            self[0]
+        end
 
-            def to_s
-                terms.map do |token_start, token_end, statement_indent, type, parent|
-                    "[#{token_start},#{token_end},#{statement_indent}#{type ? type.name : nil},#{parent.inspect}]"
-                end.join(", ")
-            end
+        def last_token
+            self[-1]
+        end
 
-            def size
-                terms.size
-            end
+        def append(token_type, index, string, parent=nil)
+            nodes << [token_type, index, string, parent]
+            self[-1]
+        end
 
-            def append(token_start, token_end, statement_indent, type, parent=nil)
-                terms << [token_start, token_end, statement_indent, type, parent]
-                self[-1]
-            end
+        def each
+            return enum_for(:each) unless block_given?
+            0.upto(size-1).each { |index| yield SyntaxNode.new(self, index) }
+        end
 
-            def insert(index, token_start, token_end, statement_indent, type, parent=nil)
-                terms.insert(index, [token_start, token_end, statement_indent, type, parent])
-                self[index]
-            end
-
-            def each
-                return enum_for(:each) unless block_given?
-                0.upto(size-1).each { |index| yield Term.new(self, index) }
-            end
-
-            def [](index)
-                index = terms.size + index if index < 0
-                return nil if index >= terms.size
-                Term.new(self, index)
-            end
-
-            def root
-                root = self[0]
-                return nil unless root
-                root = root.parent while root.parent
-                root
-            end
-
-            def source_range(line_data)
-                SourceRange.new(line_data, 0, size > 0 ? 0 : self[-1].end)
-            end
-
-            def string(index)
-                source_range(index).string
-            end
+        def [](index)
+            return nil if nodes.empty?
+            index = nodes.size + index if index < 0
+            return nil if index >= nodes.size
+            SyntaxNode.new(self, index)
         end
     end
 end

@@ -2,7 +2,9 @@ module BergLang
     #
     # Represents a Berg source.
     #
-    class Source
-        attr_reader :name
+    module Source
+        def name
+            raise NotImplementedException, "#{self.class}.name"
+        end
     end
 end

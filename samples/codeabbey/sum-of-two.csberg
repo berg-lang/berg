@@ -1,0 +1,65 @@
+namespace CodeAbbey
+{
+    //
+    /// Problem: read two numbers from input and sum them.
+    ///
+    /// @see http://www.codeabbey.com/index/task_view/sum-of-two
+    ///
+    public class SumOfTwo
+    {
+        public void Main()
+        {
+            int sum = SumInput(Console.Input);
+            Console.WriteLine sum;
+        }
+
+        ///
+        /// Reads two numbers from an input stream using the Match function, and sums them.
+        ///
+        /// NOTE: this has bugs. It doesn't throw exceptions :)
+        ///
+        /// @param input The input stream.
+        /// @return The parsed integer
+        ///
+        public int SumInput(StreamReader input)
+        {
+            int first = readNumber(input);
+            skipSpace(input);
+            int second = readNumber(input);
+            return first + second;
+        }
+
+        ///
+        /// Read a single multi-digit number from the input.
+        ///
+        int readNumber(StreamReader input)
+        {
+            int number = 0;
+            while(char digit = readDigit(input))
+            {
+                number *= 10;
+                number += digit - '0';
+            }
+            return number;
+        }
+
+        int digitValue(char digit)
+        {
+            return digit.Codepoint - "0".Codepoint;
+        }
+
+        char readDigit(StreamReader input)
+        {
+            int digit = input.Peek()
+            if (digit != -1 && digit >= '0' && digit <= '9')
+                return input.Read();
+            return null;
+        }
+
+        void skipSpace(StreamReader input)
+        {
+            while (input.Peek() == ' ')
+                input.Read();
+        }
+    }
+}
