@@ -1,35 +1,29 @@
-require_relative "source_stream"
+require_relative "../parser/scanner/bbuffered_stream"
 
 module BergLang
     module Source
         class StringSourceStream
-            include SourceStream
+            include Parser::Scanner::BufferedStream
 
-            attr_reader :source
-            attr_reader :codepoint_index
-
-            def initialize(source)
-                @source = source
-                @codepoint_index = 0
+            def initialize(*args)
+                super
+                @string = source.string
             end
 
-            def peek(size=1)
-                actual_lookahead = source.string.size - codepoint_index
-                actual_lookahead = size if size < actual_lookahead
-                return nil unless actual_lookahead >= 1
-                source.string[codepoint_index...codepoint_index+actual_lookahead]
+            def substr(range)
+                string[range]
             end
 
-            def consume(size=1, append_to: nil)
-                actual_lookahead = source.string.size - codepoint_index
-                actual_lookahead = size if size < actual_lookahead
-                return nil unless actual_lookahead >= 1
-                if append_to
-                    append_to << source.string[codepoint_index...codepoint_index+actual_lookahead]
-                end
-                @codepoint_index += actual_lookahead
-                actual_lookahead
+            def advance(amount=1)
+                remaining_amount = string.size - index
+                amount = remaining_amount if remaining_amount < amount
+                @index += amount
+                amount
             end
+
+            private
+
+            attr_reader :string
         end
     end
 end

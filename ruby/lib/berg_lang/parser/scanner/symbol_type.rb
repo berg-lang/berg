@@ -19,9 +19,9 @@ module BergLang
 
             def add_token_type(token_type)
                 operation_type = token_type.operation_type
-                current_value = instance_variable_get("@#{operation_type}")
-                if current_value
-                    raise ArgumentError, "Cannot set #{operation_type} #{name} twice! Is already #{current_value}, tried to set to #{token_type}"
+                current_operation_type = instance_variable_get("@#{operation_type}")
+                if current_operation_type
+                    raise ArgumentError, "Cannot set #{operation_type} #{name} twice! Is already #{current_operation_type}, tried to set to #{token_type}"
                 end
 
                 if operation_type == :expression || operation_type == :suffix
@@ -40,16 +40,6 @@ module BergLang
                     end
                 end
 
-                # TODO support this particular ambiguity ...
-                if (binary.statement_break == :child || prefix.statement_break == :child) && (expression || suffix)
-                    raise "#{token_type} has a binary or prefix with statement_break == :child, AND an expression or suffix variant. The Berg grammar does not support this particular ambiguity."
-                end
-
-                if token_type.symbol_type
-                    raise ArgumentError, "Cannot add #{token_type} to two separate symbols! Is already #{current_value}, tried to set to #{token_type}."
-                end
-
-                token_type.symbol_type = self
                 instance_variable_set("@#{operation_type}", token_type)
             end
 

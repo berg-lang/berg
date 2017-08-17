@@ -21,6 +21,36 @@ Blocks and Expressions
 
 ### Values
 
+Values represent the results of computational processes (from something as simple as retrieving the integer literal `1`, to the result of a fibonacci sequence). Everything--primitives, processes, objects, functions--is a value.
+
+Values are accessible solely through their **properties**, which may perform visible **side effects** such as I/O, logging, or network API calls, in the course of their computation. Properties always have the same value and will only ever perform side effects once, making values essentially **readonly** things that converge on values.
+
+A value can be **forked** (possibly with parameters), creating a new value based off the old one. Properties that have already been calculated will not change their value; side effects that have already been performed will not be re-performed.
+
+### Types
+
+A **type** describes the range of things that can be done with a property:
+
+* The set of properties and their types.
+* All possible pending side effects of completing the property.
+* Whether the property is complete.
+* Whether the property *can* complete, and reason why not (e.g. it is not bound).
+* The origin expressions for the value of this property
+
+### Side Effect Descriptions
+
+A side effect description describes an external change that may happen in the course of completing a value. These descriptions are domain-specific and built so that the type system and compiler can order side effects that need to be ordered without forcing everything to happen in order. System calls generally have types with side effects.
+
+### Blocks
+
+A block forkable code--a set of Berg statements which:
+
+* Is a **process**.
+* May be **partial**--i.e. have unbound global or local properties which may be *applied* to it. Code with unbound variables cannot be run and will throw an exception if accessed.
+* Can be **forked** by applying arguments to it.
+
+### Values
+
 A **value** is a concrete set of properties. Everything in Berg is a value. Examples include function calls and objects.
 
 A **property** is a name with a value (instance). A property value may be **not set** (in which case callers will wait on it) or **abstract** (has not been set, like a function parameter or a class member).
@@ -326,73 +356,6 @@ Grammar:
     OctalDigit: "0".."7"
     ```
 
-### Numeric Literal Errors
-
-The following errors are specific to numeric literals:
-
-* Numbers *must not* be followed immediately by property names.
-
-    ```
-    # ERROR: names cannot begin with numbers. Perhaps you meant to place an operator between `99.99` and `Percent`?
-    2001ASpaceOdyssey
-    99.99Percent
-    99.99iRobot
-    0x1y
-    ```
-
-* Floating-point numbers starting only with `.` (without any digits) are **illegal** to prevent confusions between it and the `.` operator.
-
-    ```
-    # ERROR: Floating-point numbers must have a leading zero before the decimal point. Did you mean "0.123"?
-    .123
-    # ERROR: Integers cannot be prefaced with zero. Remove the leading zero to compile, or use Integer.FromOctal("0666").
-    00
-    0666
-    0999
-    ```
-
-* `0`-prefixed octal numbers are **not supported** and any multi-digit integer starting with 0 is illegal. Because some languages support 0xxx as octal representation and some do not, it is now ambiguous from an intuition standpoint. Treated it as an error prevents misunderstandings.
-
-    ```
-    # ERROR: Integers cannot be prefaced with zero. Did you mean "666" or perhaps octal "0o666"?
-    00
-    000666
-    0999
-    ```
-
-* Floating-point numbers ending with `e`, `e+` or `e-` without a following digit yield the "empty exponent" error.
-
-    ```
-    # ERROR: Exponents must have integers. Did you mean "123e1"?
-    123e
-    123e-
-    123e+
-    ```
-
-* Hexadecimal, binary and octal numbers cannot have decimal points or be imaginary.
-
-    ```
-    # ERROR: Hexadecimal numbers cannot have decimal points. Perhaps you meant "1.1" instead?
-    0x1.1
-    0o1.1
-    0b1.1
-    ```
-
-    ```
-    # ERROR: Binary numbers cannot be imaginary. Did you mean to place an operator like * or + between "0x1" and "i"?
-    0x1i
-    0o1i
-    0b1i
-    ```
-
-* Hexadecimal numbers must have at least one digit.
-
-    ```
-    # ERROR: Hexadecimal numbers must have at least one digit. Did you mean "0x0"?
-    0x
-    ```
-
-
 String Literals
 ---------------
 
@@ -410,6 +373,7 @@ Grammar:
     EscapeSequence: "\\" ("0"|"\\"|"t"|"n"|"r"|"\"" | "u" HexDigit+ | "u{" HexDigit+ "}")
     Newline: "\r" | "\n"
     ```
+
 ### String Escapes
 
 Escape sequences starting with the `\` character are supported:
@@ -439,64 +403,6 @@ Interpolated strings may be nested arbitrarily.
 
     ```
     "the quick brown \(animal == "fox" ? "fox" : "non-fox") jumped over the lazy dog"
-    ```
-
-### String Literal Error Messages
-
-* String is not closed or contains unescaped quotes. Attempts to guess the right place to close based on the location of the first operator, or if there are multiple lines with this error, suggests it may be a multiline string requiring \n.
-
-    ```
-    # ERROR: String is not closed or contains unescaped quotes. Did you mean '"hi there"'?
-    if x == "hi there || x == "hello there"
-       friendlyX = x + " my friend"
-    ```
-
-    ```
-    # ERROR: String contains unescaped quote(s) or is unclosed. Did you mean '"look at my \"air quote\""'?
-    Out.Print "look at my "air quote""
-    ```
-
-    ```
-    # ERROR: String contains unescaped quote(s), has multiple lines, or is unclosed.
-    Out.Print "look at my
-       favorite string!"
-    ```
-
-* String escape character not supported.
-
-    ```
-    # ERROR: String escape "\k" not supported. Did you mean "\\k"?
-    Out.Print "Hi there \k"
-    ```
-
-* Unicode escape sequence out of range.
-
-    ```
-    # ERROR: Unicode escape sequence references a character that is out of range for valid Unicode (between \u000000 and \u110000). Did you mean "\u{FFFFF}FFUUUUUUUUU"?
-    Out.Print "\uFFFFFFFUUUUUUUUU"
-    ```
-
-* Unicode escape sequence is not closed.
-
-    ```
-    # ERROR: Unicode escape sequence is missing a } at the end. Did you mean "First Line\u{0A}Second Line"?
-    Out.Print "First Line\u{0ASecond Line"
-    ```
-
-* Expression inside string is not closed.
-
-    ```
-    # ERROR: Expression inside string is missing a ) at the end. Did you mean \(i+1)"?
-    Out.Print "Number is \(i+1"
-    Out.Print "hi"
-    ```
-
-* Cannot have a multiline expression inside a string.
-
-    ```
-    # ERROR: Strings cannot contain multiline expressions. Did you mean \(i+1)?
-    Out.Print "Number is \(i+
-      1)"
     ```
 
 Whitespace
@@ -670,13 +576,139 @@ Syntax Errors
 * **Octal Literal With Decimal Digits:** A binary literal with decimal digits 8-9 in it. If there are identifier characters after these digits, IdentifierStartingWithNumber is emitted instead.
 * **Float Literal With Empty Exponent:** A float like `1.2e` not followed by a number. `1.2e-` or `1.2e+` with no digits will emit the error against `1.2e` and parse the sign as a separate symbol. If there are identifier characters following `1.2e`, IdentifierStartingWithNumber is emitted instead.
 
-### String Literal Errors
-
-* **Unterminated String:** A string containing a newline. When this is found, all errors after the open quote are erased.
-* **Unrecognized Escape Character:** An unrecognized character following `\`.
-
 ### Encoding Errors
 
 * **Unsupported Encoding:** if a zero appears in the first 1024 bytes, the file is considered to be an unsupported encoding. If FEFF or FFFE shows up at the beginning of the file, we specifically suggest it is UCS-2. Invalid UTF-8 (see [the UTF-8 RFC](https://tools.ietf.org/html/rfc3629#section-3) and [Wikipedia](https://en.wikipedia.org/wiki/UTF-8#Invalid_byte_sequences) for details). This causes parsing to stop.
 * **Invalid Unicode Character:** if an invalid Unicode character (outside the range or unused in Unicode 10.0) is encountered. These are ignored and not emitted. TODO use FEFF as a File Separator?
 * **Ridiculously Long Unicode Character:** If a Unicode character (grapheme) larger than 64 codepoints (for a max of 256 bytes) is encountered. These may be truncated before passing to the scanner.
+
+### Numeric Literal Errors
+
+The following errors are specific to numeric literals:
+
+* **Identifier Starts With Number:** Numbers *must not* be followed immediately by property names.
+
+    ```
+    # ERROR: names cannot begin with numbers. Perhaps you meant to place an operator between `99.99` and `Percent`?
+    2001ASpaceOdyssey
+    99.99Percent
+    99.99iRobot
+    0x1y
+    ```
+
+* **Floating Point Number Without Leading Zero:** Floating-point numbers starting only with `.` (without any digits) are **illegal** to prevent confusions between it and the `.` operator.
+
+    ```
+    # ERROR: Floating-point numbers must have a leading zero before the decimal point. Did you mean "0.123"?
+    .123
+    # ERROR: Integers cannot be prefaced with zero. Remove the leading zero to compile, or use Integer.FromOctal("0666").
+    00
+    0666
+    0999
+    ```
+
+* **Integer cannot start with zero:** `0`-prefixed octal numbers are **not supported** and any multi-digit integer starting with 0 is illegal. Because some languages support 0xxx as octal representation and some do not, it is now ambiguous from an intuition standpoint. Treated it as an error prevents misunderstandings.
+
+    ```
+    # ERROR: Integers cannot be prefaced with zero. Did you mean "666" or perhaps octal "0o666"?
+    00
+    000666
+    0999
+    ```
+
+* **Decimal digits in binary or octal number:** When `0b01241235` or `0o9999` happen.
+
+* Floating-point numbers ending with `e`, `e+` or `e-` without a following digit yield the "empty exponent" error.
+
+    ```
+    # ERROR: Exponents must have integers. Did you mean "123e1"?
+    123e
+    123e-
+    123e+
+    ```
+
+* **Floating point hexadecimal, binary or octal number.** Hexadecimal, binary and octal numbers cannot have decimal points or be imaginary.
+
+    ```
+    # ERROR: Hexadecimal numbers cannot have decimal points. Perhaps you meant "1.1" instead?
+    0x1.1
+    0o1.1
+    0b1.1
+    ```
+
+    ```
+    # ERROR: Binary numbers cannot be imaginary. Did you mean to place an operator like * or + between "0x1" and "i"?
+    0x1i
+    0o1i
+    0b1i
+    ```
+
+* **Missing digits in hexadecimal, binary or octal number.** Hexadecimal numbers must have at least one digit.
+
+    ```
+    # ERROR: Hexadecimal, binary and octal numbers must have at least one digit. Did you mean "0x0"?
+    0x
+    ```
+
+### String Literal Error Messages
+
+* **Unterminated String Literal:** String is not closed or contains unescaped quotes. Attempts to guess the right place to close based on the location of the first operator, or if there are multiple lines with this error, suggests it may be a multiline string requiring \n.
+
+    ```
+    # ERROR: String is not closed or contains unescaped quotes. Did you mean '"hi there"'?
+    if x == "hi there || x == "hello there"
+       friendlyX = x + " my friend"
+    ```
+
+    ```
+    # ERROR: String contains unescaped quote(s) or is unclosed. Did you mean '"look at my \"air quote\""'?
+    Out.Print "look at my "air quote""
+    ```
+
+    ```
+    # ERROR: String contains unescaped quote(s), has multiple lines, or is unclosed.
+    Out.Print "look at my
+       favorite string!"
+    ```
+
+* **Unsupported string escape character:** String escape character not supported.
+
+    ```
+    # ERROR: String escape "\k" not supported. Did you mean "\\k"?
+    Out.Print "Hi there \k"
+    ```
+
+* **Missing Unicode character in Unicode escape:** If \u or \U is not followed by hex or {
+
+* **Unrecognized character in Unicode escape block:** Anything except space or hexadecimal digits inside a Unicode escape block.
+
+* **Out-of-range Unicode character in Unicode escape escape:** Unicode escape sequence out of range.
+
+    ```
+    # ERROR: Unicode escape sequence references a character that is out of range for valid Unicode (between \U000000 and \U10FFFF). Did you mean "\u{FFFFF}FFUUUUUUUUU"?
+    Out.Print "\uFFFFFFFUUUUUUUUU"
+    ```
+
+* **Unterminated Unicode escape block:** Unicode escape sequence is not closed.
+
+    ```
+    # ERROR: Unicode escape sequence is missing a } at the end. Did you mean "First Line\u{0A}Second Line"?
+    Out.Print "First Line\u{0ASecond Line"
+    ```
+
+* **Unterminated interpolated expression:** Expression inside string is not closed.
+
+    ```
+    # ERROR: Expression inside string is missing a ) at the end. Did you mean \(i+1)"?
+    Out.Print "Number is \(i+1"
+    Out.Print "hi"
+    ```
+
+* **Multiline expression in string:** Cannot have a multiline expression inside a string.
+
+    ```
+    # ERROR: Strings cannot contain multiline expressions. Did you mean \(i+1)?
+    Out.Print "Number is \(i+
+      1)"
+    ```
+

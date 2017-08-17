@@ -1,3 +1,7 @@
+require_relative "token_type"
+require_relative "symbol_type"
+require_relative "error_type"
+
 module BergLang
     module Parser
         module GrammarDefinition
@@ -46,7 +50,14 @@ module BergLang
             def characters(**character_definitions)
                 return @characters if character_definitions.empty?
                 character_definitions.each do |name, value|
-                    define_character(name, value)
+                    errors[name] = define_character(name, value)
+                end
+            end
+
+            def errors(**error_definitions)
+                return @errors if error_definitions.empty?
+                error_definitinos.each do |name, value|
+                    errors[name] = define_error(name, value)
                 end
             end
 
@@ -70,6 +81,12 @@ module BergLang
                 end
             end
 
+            def define_error(name, message)
+                code = 1
+                error = ErrorType.new(code, message)
+                define_method(name) { error }
+            end
+
             def define_character(name, value)
                 value = expand_character_definition(value, character_definitions)
                 define_method(name) { value }
@@ -81,7 +98,7 @@ module BergLang
                         if character_definitions[name]
                             define_character(name, character_definitions[name])
                         end
-                        expand_character_definitions(character_definitions[value])
+                        expand_character_definition(character_definitions[value])
                     else
                         value
                     end

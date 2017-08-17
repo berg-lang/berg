@@ -82,16 +82,19 @@ Plain whitespace symbols are not emitted by the tokenizer or saved into the tree
 
 Newlines indicate the beginning of a new statement or block, *unless* the lines are joined by an operator. Since we need to know what is on the next line before we can decide this, we treat it as normal space (with a treat can be normal space (if either side is an operator), or they can mean `extend` or `apply` (depending on indentation). We treat newline as an ambiguous symbol with prefix and postfix space variants, *and* an infix variant. The postfix variant is *preferred* over the infix variant, meaning we'd rather not break  where postfix variant is preferred (otherwise if the next line started with an ambiguous .  checks the current indentation, decides whether to `apply` or `extend`, and creates a unique token with the indent level embedded in it (as a number).
 
+Scanner
+-------
 
-Stream
-------
+The scanner reads characters from the stream based on a grammar, producing a symbol for each distinct "word" or operator.
 
-The stream actually reads the UTF-8 source, yielding Unicode characters. Invalid UTF-8 sequences are detected here, emitted as errors (treating the invalid sequence as a single character), and skipped. The stream keeps track of both the character index and the byte index into the source UTF-8. The stream is responsible for adding source line/column information to the debug data.
+### Stream
+
+The scanner gets characters from the *stream*, which actually reads the UTF-8 source, yielding Unicode characters. Invalid UTF-8 sequences are detected here, emitted as errors (treating the invalid sequence as a single character), and skipped. The stream keeps track of both the character index and the byte index into the source UTF-8. The stream is responsible for adding source line/column information to the debug data.
 
 * **Codepoint:** We specify characters in terms of Unicode, and codepoints are single unicode values. A codepoint is what is typically thought of when one reads Unicode in most languages; however, a codepoint is only a *part* of a single character.
 * **Character:** The definition of character is important. When we say character in this specification, we universally  mean a single printed character (in particular, a Unicode *default extended grapheme cluster* a la [http://www.unicode.org/reports/tr29/#Default_Grapheme_Cluster_Table](http://www.unicode.org/reports/tr29/#Conformance) or rules [in this chart](http://www.unicode.org/Public/10.0.0/ucd/auxiliary/GraphemeBreakTest.html#rules). NOTE that this means CRLF is a *single character*.
 
-### Line Debug Data
+#### Line Debug Data
 
 The scanner writes out newlines. Any newline character (the `BK` class from [Unicode Line Breaking](http://www.unicode.org/reports/tr14/tr14-32.html#BK)) anywhere in the text causes the byte, codepoint and character index for the given line to be written out to debug data.
 
@@ -108,19 +111,15 @@ The specific list of characters as of the last reading:
  PS:    Paragraph Separator, U+2029
 ```
 
-### Stream Errors
+#### Stream Errors
 
 The stream outputs errors into the error list: error characters are yielded as U+FEFF (not a character).
 
-### Scanner
-
-The scanner reads characters from the stream based on a grammar, producing a symbol for each distinct "word" or operator.
-
-#### Space
+### Space
 
 Spaces are not significant in Berg except for indentation and compound terms. Spaces are skipped in the scanner (except in strings, comments and indentation).
 
-#### Compound Terms
+### Compound Terms
 
 The scanner can take into account *local* context, such as surrounding space, when deciding what symbol to output. For example, compound term rules are implemented by looking at preceding and following space when there are many variants of a symbol, and emitting a symbol type with only the valid variants if it's at the beginning or end of a compound term:
 
@@ -129,7 +128,7 @@ The scanner can take into account *local* context, such as surrounding space, wh
 - If there is trailing space only, and the symbol has a postfix variant, return a symbol type without the infix variant.
 - If there is trailing space only, and the symbol has an expression variant, return a symbol type without the prefix variant.
 
-##### Indentation
+### Indentation
 
 The scanner *does* emit a special space symbol for indentation. When a new non-blank line is found, the spaces at the beginning of the line are considered indent. Non-blank line indent is defined as:
 
@@ -139,21 +138,20 @@ Non-Blank Line: (StartOfFile | Newline) Indent = Space* !(EndOfFile | Newline)
 
 The indent symbol has infix, prefix and postfix variants so that looking at the indent will tell us how the previous and next lines start and end (with operators or operands). If the Newline is a Line Separator, no indent symbol is output. If it is a Paragraph Separator character, a Paragraph Indent symbol (infix-only) is output.
 
-Indent symbols are used and stripped in the tokenizer, though in some cases they are replaced with `apply`, `extend` or `block` operators to join blocks together.
+Indent symbols are used and stripped in the tokenizer, though in some cases they are replaced with `apply` or `extend` operators to join blocks together.
 
-#### Comments
+### Comments
 
 Comments are placed in the comment data section and not emitted as symbols. They will be given proper parents after parsing.
 
-### Tokenizer
+Tokenizer
+---------
 
-The *tokenizer* takes the stream of symbols, decides which variants to use (infix/prefix/postfix/expression) and inserts `extend`, `apply` and `block` at block and statement boundaries.
+The *tokenizer* takes the stream of symbols, resolves what actual tokens are meant (infix/prefix/postfix operations, or expressions), and appends them to the syntax tree (without parents). When the tokenizer is complete, the *exact* set of tokens in the AST are known.
+
+### Symbol Resolution
 
 In general, Berg symbols are resolved with their *preferred* variant--if you say `(-2)`, the `-` will be prefix, and if you say `1-2` it will be infix.
-
-#### Preferred Variant
-
-Tokenization starts by reading through the symbols picking a preferred variant for each one.
 
 1. We prefer an operand to start with (i.e. we would rather the entire file start with `1` or `x` than `/` or `||`).
 2. We prefer the matching variant (infix or postfix if we prefer operator, prefix or expression if we prefer operand).
@@ -203,21 +201,41 @@ The actual rules:
 
 To output safe symbols, we pick the preferred matching variant of each.
 
-#### Comment Attachment
+### Block Recognition
 
-After outputting an infix or postfix token, we set the parent of any comments before it to the previous token. After outputting a prefix or expression token, we set the parent of those comments to the token we outputted. This allows doc comments to be attached to the correct things.
+Indents mean multiple things depending on whether they actually start an expression (or are just a continuation), and whether they are more or less indented than previous indents. Block recognition uses token information and indent level to decide whether to skip indents or to generate `extend`, `apply`, `child block` or `root block` operators.
 
-On close, we set the parent of any comments to the last token.
+#### Continuations
 
-#### Block Recognition
+A block is considered a *continuation* if the indent operator is prefix or postfix (meaning there is a complete expression to one side or the other). In these cases, the indent is skipped. The one exception to this rule is when the prior token is a block operator (like `:`).
 
-Indents mean multiple things depending on whether they actually start an expression (or are just a continuation), and whether they are more or less indented than previous indents. Block recognition generates `extend`, `apply` or `block` operators depending on relative indent levels.
+Error detection is still important, however:
 
-The generated block operators `extend`, `apply` and `block` *always* have lower precedence than any normal operator, and they all associate left. They are generated with a "nesting level" that corresponds to the size of the stack, and precedence between the operators depends entirely on nesting level. *All* blocks in the file are separated by these operators. These two facts mean that every expression in the Berg source (with the exception of any at the very top level) is inside the block operator to its left.
+* If the indent is *postfix*, this line starts with an operator.
 
-As a universal closer, the `extend` operator is special in that it has higher precedence than open operators like `(`, even on their left side. When an `extend` operator takes an open operator as a left child, it will generate the "unclosed ( operator" error. When `extend` takes `}` onto its right side, 
+  - If the indent is *greater than* the parent margin, the indent is skipped (valid continuation).
+  - If the indent is *less than or equal to* the parent block margin, generate a Multiple Undent Error, close all blocks until the indent is greater than the parent margin, and the indent is skipped as a continuation.
 
-This applies to `{` as well, and is the source of the "redundant `{` `}`" error. Anytime `{` is followed by `block` and `}` is followed by `extend`, and the `{` is preceded by `apply` or `block`, the block parentheses are redundant.
+* If the indent is *prefix*, and the last emitted token is a block operator (like `:`), this starts a block:
+
+  - If the indent is *greater than* the current margin, we mark the operator with the nesting level and skip the indent.
+  - Error: If the last emitted token is a block operator (like `:`), and the indent is *less than or equal to* the current margin, we generate a Missing Operand token/error, and treat this like it is infix (extend/apply), 
+
+* If the indent is *prefix*, the previous line ended in an operator.
+
+  - If the indent is *greater than or equal to* the current margin, the indent is skipped (valid continuation).
+  - Error: If the indent is *greater than or equal to* the parent margin (and not on either one), generate the Missing Operand token (not error), emit Ambiguous Continuation Error and treat this like infix (`extend` or `apply`).
+  - Error: If the indent is *less than* the parent margin, treat this like `infix`.
+  - Error: If the indent is *less than or equal to* the parent margin, we treat this like infix. If it is larger than the parent block, it is an Ambiguous Continuation error; otherwise, it is Multiple Undent Error. In either case, we close any blocks whose margin is past the indent, and generate either `extend` or `apply`.
+
+* If the indent is *infix*, the previous line ended in 
+
+* If the indent is *postfix*, the previous line 
+#### Block Operators
+
+The indented block operators `extend`, `apply`, `child block` and `root block` *always* have lower precedence than non-indented versions, and they all associate left. *All* blocks in the file are separated by these operators. These two facts mean that every expression in the Berg source is inside the block operator to its left.
+
+As a universal closer, the `extend` operator is special in that it has higher precedence than open operators like `(`, even on their left side. When an `extend` operator takes an open operator as a left child, it will generate the "unclosed ( operator" error.
 
 ```
 If infix indent
@@ -258,6 +276,10 @@ If prefix indent
 
 On close, we close all blocks simultaneously.
 
+#### Tree Initialization
+
+As soon as we decide what tokens the file will consist of, we append them directly to the syntax tree (with no parent). The parser will perform the association.
+
 ### Parser
 
 The *parser* takes the stream of tokens and builds the syntax tree. It picks the correct expression hierarchy / order of operations using precedence and associativity.
@@ -267,16 +289,15 @@ The *parser* takes the stream of tokens and builds the syntax tree. It picks the
 Association takes normal tokens and builds the syntax tree from them using normal precedence and association rules. It does not allow hierarchy outside the bounds of the current block, however.
 
 ```
-If token is space: skip
 Insert into syntax tree or comment subtree.
-Insert into open tokens at correct place according to precedence & associativity, popping and setting parents as needed.
+Insert into open tokens at correct place according to precedence & associativity, popping and setting parents as needed, and generating "unclosed" errors when an open token has no corresponding close token.
 ```
 
 #### Error Detection
 
 While associating, there are a couple of errors that can be detected based on the tokens:
 
-* **Redundant Braces:** `{` and `}` are surrounded by `block`/`apply`/`:` (infix block operator) and `extend`, and therefore can (and should) be removed without having any effect.
+* **Redundant Braces:** `{` and `}` are surrounded by `apply`/`:` (infix block operator) and `extend`, and therefore can (and should) be removed without having any effect.
 
 OTHER STUFF FOR PROBABLY THE FUTURE
 ==================================
