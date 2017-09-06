@@ -1,0 +1,589 @@
+:stream
+:Root = ReadExpression(indent: indent, Token: Token)
+
+:NONE:        Family: , String: "" }
+:APPLY:       { Family: OPERATOR, String: "" }
+:APPLY_BLOCK: { Family: OPERATOR, String: "" }
+:EXTEND:      { Family: OPERATOR, String: "" }
+
+:Token
+    :Family
+    :String
+
+:SyntaxTree
+    :[](index)
+    :tokenTree = []
+    :tokenStarts = []
+    :comments = []
+
+    :AppendToken(:Token, :Start, :Parent, :LeftChild)
+        :index = tokenTree.Append { Token: Token, Parent: Parent, LeftChild: LeftChild }
+        tokenTree[Parent].RightChild = index
+        tokenTree[LeftChild].Parent = index
+        tokenStarts.Append Start
+
+    :AppendComment(:Start, :String)
+        comments.Append(Start: Start, String: String)
+
+    :[](Index):
+        :Node: tokenTree[Index]
+        :Token:        Node.Token
+        :IsOperator:   Token.IsOperator
+        :IsExpression: Token.IsExpression
+        :LeftChild:    Node.LeftChild
+        :RightChild:   Node.RightChild
+        :Parent:       Node.Parent
+
+        :TokenStart: tokenStarts[Index]
+        :TokenEnd:   tokenStarts[Index] + TokenString.Length
+        :TokenRange: TokenStart...TokenEnd
+
+        :Expression: TokenNode.IsOperator ? none : this
+        :Operator: TokenNode.IsOperator ? this : none
+
+        :Comments: TokenNode.comments where :comment.Start in Range
+
+:TermBuilder: ExpressionBuilder postfixOk: true, prefixOk: true
+
+# Builds a subexpression into the tree
+:ExpressionBuilder(:join, :postfixOk, :prefixOk)
+    :Expression
+    :Operator
+
+    # Append a token to this expression
+    :AppendToken(token)
+        if token.Expression
+            # Add the join and join the existing expression to the operator
+            if Expression
+                Operator ??= AppendToken(join)
+                Operator.RightChild = Expression
+                Expression.Parent = Operator
+            else if Operator
+                ReportError MissingLeftOperand(Operator) unless prefixOk
+
+            # Append the expression and make it an operand to any operator
+            Expression = SyntaxTree.AppendToken(token)
+            Expression = Expression.Parent = take(Operator) if Operator
+            return Expression
+
+        else if token.Operator
+            if Operator
+                ReportError MissingRightOperand(Operator)                
+                AppendToken(NONE, Parent: Operator)
+                Expression = Operator
+            Operator = SyntaxTree.AppendToken(token)
+            return Operator
+        #
+    # AddToken(token)
+
+    # Start the join 
+    :StartJoin(:join: join)
+        AppendToken(join) unless Operator
+    # StartJoin(join)
+
+    # TODO can we ensure Join will put a compile error unless we're certain an operator
+    # has been added or StartJoin has been called? ... maybe
+    :Join(node)
+        if node.Expression
+            type_assert Operator, "Compiler did not insert an operator before Join"
+            # Add the join and join the existing expression to the operator
+            if Expression
+                Expression.Parent = Operator
+            else if Operator
+                ReportError MissingLeftOperand(Operator) unless prefixOk
+
+            # Append the expression and make it an operand to any operator
+            Expression = Node.Parent = take(Operator)
+
+        if node.Operator
+            type_assert !Operator, "Compiler did not continue block or term properly after operator"
+            Operator = node.Operator
+    #
+
+    # Close the expression, making the operator postfix if it can be
+    :Close
+        if Operator
+            ReportError MissingRightOperand(Operator) unless postfixOk
+            Expression = Expression.Parent = Operator
+        #
+        Expression
+    # Close
+#
+
+:ExpressionBuilder(:Parent):
+    :Expression
+
+    :OnOperator(:token)
+    :OnToken(:token)
+    :OnIndent(:indent, top: this): Parent.OnIndent(indent, top) if Parent
+
+    :Join(child)
+        if expression = take(child.Expression)
+            if Expression
+                expression.Parent = Expression
+            else
+                Expression = expression
+            #
+        #
+    # Join
+
+    :Close: take(Parent).Join(this) if Parent
+
+    :CloseUntil(builder)
+        if this != builder
+            Close
+            Parent.CloseUntil(builder)
+        #
+    # CloseUntil
+
+:BlockBuilder(:Parent, :Margin): ExpressionBuilder(Parent)
+    :OnToken(token):
+        Expression = AppendToken(EXTEND, LeftChild: Expression) if Expression
+        return StatementBuilder(this).OnToken(token)
+    :OnIndent(indent, top: this):
+        top.CloseUntil(this) if indent < Margin
+
+:BlockBuilder: ExpressionBuilder(Parent)
+    :HasOperator
+
+    # Lone operator means we can keep building!
+    :OnOperator(token)
+        ReportError MissingRightOperand(Expression) if HasOperator
+        Expression = AppendToken(token.Token, token.Start, LeftChild: Expression)
+        ReportError MissingLeftOperand(Expression) unless Expression.LeftChild
+        HasOperator = true
+
+    # Start building a term (possibly with APPLY between terms)
+    :OnToken(token):
+        if Expression && !take(HasOperator)
+            Expression = AppendToken(APPLY, LeftChild: Expression)
+        return TermBuilder(this).OnToken(token)
+
+    # Indent
+    :OnIndent(indent, top: this)
+        if indent == Parent.Margin
+            # Check for a continuation
+            if !HasOperator && :token = ReadToken
+                if token.IsOperator && PeekTokenFamily == SPACE
+                    OnOperator(token)
+                else
+                    Expression = AppendToken(APPLY, LeftChild: Expression)
+                    return TermBuilder(this).OnToken(token)
+                    Close
+                #
+            #
+                #
+            if !HasOperator
+        else if indent > Parent.Margin
+
+        else
+            Parent.OnIndent(indent, top)
+        if indent == Parent.Margin
+            StatementBreak = true
+        else if indent > Parent.Margin
+            return Parent.OnIndent(indent)
+        else
+            return Parent.OnIndent(indent)
+
+    :Join(child)
+        if Expression
+            Expression = child.Expression.Parent = AppendToken
+
+    :OnChildClosing
+        if Child.BlockParser
+        if Child.OperatorToken
+            if Expression
+                Expression = Expression.Parent = AppendToken(Child.OperatorToken)
+            else
+                Expression = AppendToken(NONE)
+                Expression = Expression.Parent = AppendToken(Child.OperatorToken)
+                SyntaxTree.ReportError MissingLeftOperand(Child.Operator)
+            #
+        #
+    
+    :OnIndent(indent)
+        if indent == Parent.Margin
+            StatementBreak = true unless Expression.IsOperator
+
+
+        #
+        expression =
+        if Child.Operator
+            if !Expression
+                Expression =  
+        if Expression
+            
+            Expression = Expression.Parent = take Child.Operator            expression.Parent = Expression
+        else
+            Expression = expression
+        #
+    # OnChildClosing
+
+    :OnIndent(indent)
+        Child.Close if Child
+        return if 
+        if indent > Parent.Margin
+        else 
+
+:TermBuilder: ExpressionBuilder()
+    :OnOperator(operator)
+        Parent.
+
+    :OnToken(token)
+        else
+        #
+
+    :OnNonToken
+        Close
+
+
+:DelimitedBuilder(:Parent, :OpenToken)
+
+
+:StatementExpressionBuilder
+
+:DelimitedExpressionBuilder(:openDelimiter): ExpressionBuilder
+    :open = SyntaxTree.AppendToken(openDelimiter)
+
+    :AppendToken(token)
+        if token.IsCloseDelimiter
+            if token != openDelimiter.CloseDelimiter
+                # TODO read parents and maybe close one of those
+            
+
+
+    :Close
+        ReportError MissingRightOperand(Operator)
+        return parent.Join(this)
+
+:ReadExpression
+    # Read terms, from the beginning
+    :builder = BlockBuilder
+
+:ReadLine(expression, hasOperator)
+    :indent = ReadIndent until !ReadNewline
+    builder = builder.OnIndent(take indent) if indent
+    until ReadNewline || EOF
+        while :token = ReadToken
+            P
+        SkipSpace
+        SkipComment
+        :term
+        if :token = ReadToken
+            if token.IsOperator && PeekTokenFamily.IsInsignificant
+                
+
+
+        builder = builder.OnToken(token) if token = ReadToken
+        SkipSpace
+        SkipComment
+        :indent = ReadIndent while ReadNewline
+    #
+#
+
+# Read the expression block with the given indent. Can pass an ExpressionBuilder if you
+# have a head start on the block already.
+:ReadBlock(margin: Indent, :openDelimiter)
+    :Indent
+    :Expression
+
+    # Bring in the expression from the previous 
+    :block = ExpressionBuilder(join: EXTEND)
+    block.Join(take Expression) if Expression
+
+    openDelimiter = AppendToken(openDelimiter) if openDelimiter
+
+    until Indent <? margin
+        # Statement
+        :statement = ExpressionBuilder(join: APPLY)
+        while Indent == margin
+            # Term (series of operators and )
+            :term = TermExpressionBuilder(join: APPLY)
+            while :token ??= ReadToken
+                break if token.IsCloseDelimiter
+                if token.IsOpenDelimiter
+                    term.ExpectExpression
+                    term.Join ReadBlock(Indent: Indent, openDelimiter: take(token))
+                else
+                    term.AddToken take(token)
+                #
+            statement.Join term
+            break if token.IsCloseDelimiter
+            # end term
+
+            # Skip to the next phrase
+            SkipSpaceAndComments
+            if ReadNewline
+                Indent = SkipBlankAndCommentLines(margin, Indent)
+                # Add next statement's operator to check continuation
+                if !statement.Operator && Indent == margin
+                    token = ReadToken
+                    break if token.IsCloseDelimiter
+                    statement.AddToken take(token) if token.Operator
+                break unless statement.Operator
+            # end skip to the next phrase
+        # end statement lines
+        statement.Close
+        break if token.IsCloseDelimiter
+
+        # Child Block
+        if Indent >? margin
+            statement.ExpectExpression(APPLY_BLOCK)
+            do
+                childBlock = ReadBlock(Indent: Indent, previous: childBlock.Close, token: token)
+                Indent = childBlock.Indent
+                Indent = SkipBlankAndCommentLines if Indent == margin && PeekTokenFamily == COMMENT
+            while childBlock.Indent >? margin
+            statement.Join childBlock.Close
+
+            # Child blocks sometimes end on comments so things can be undented.
+            # When that happens, recover.
+                
+        # end Child Block
+
+        block.Join statement.Close
+    #
+
+    Expression = block.Close
+    honorCloseDelimiter
+
+    honorCloseDelimiter:
+        assert !token || token.IsCloseDelimiter
+        if openDelimiter
+            # Handle unmatched close delimiter
+            # TODO close delimiter has real width; need to find a way to insert without actually affecting start/end range
+            Expression ??= SyntaxNode.AppendToken(NONE)
+            closeDelimiter = AppendToken(token ?? openDelimiter.CloseDelimiter)
+            if !token
+                ReportError UnclosedOperatorAtEndOfBlock(openDelimiter, block.End)
+            else if closeDelimiter.Token != openDelimiter.CloseDelimiter
+                ReportError UnclosedOperatorAtEndDelimiter(openDelimiter, closeDelimiter)
+
+            # This will result in closeDelimiter being the ultimate parent
+            Expression.Parent = openDelimiter
+            openDelimiter.Parent = closeDelimiter
+            Expression = closeDelimiter
+        else if token
+            # We don't insert this into the tree, no way to do it reasonably.
+            ReportError UnopenedOperatorInBlock(block.Start, token)
+        #
+    # handleCloseDelimiter
+# ReadBlock
+
+SkipSpaceAndComment:
+    return false unless PeekTokenFamily in SPACE,COMMENT
+    stream.Consume while PeekTokenFamily == SPACE
+    SkipComment
+    return true
+#
+
+SkipComment:
+    if PeekTokenFamily == COMMENT
+        :start = stream.Index
+        stream.Consume until PeekTokenFamily == NEWLINE
+        SyntaxTree.AddComment(Start: start, String: stream.ConsumeSubstring(Start: start))
+
+
+# Skip blank and comment-only lines, and return the final indent
+SkipBlankAndCommentLines(margin):
+    loop
+        :start = stream.Index
+        stream.Consume while PeekTokenFamily == SPACE
+        :family = PeekTokenFamily
+        return none unless family
+        next if family == NEWLINE
+
+        :indent = stream.ConsumeSubstring(start)
+        if family == COMMENT
+            return indent if indent < margin
+            SkipBlankAndCommentLines
+        else if family != NEWLINE
+            return indent
+        #
+    #
+# SkipBlankAndCommentLines
+
+# ReadToken
+ReadToken:
+    :Start = stream.Index
+    :Token =
+        :Family = PeekTokenFamily
+        :String
+    #
+
+    match Token.Family
+    when IDENTIFIER
+        stream.Consume while PeekTokenFamily matches IDENTIFIER, INTEGER
+    when DELIMITER, OPEN_DELIMITER, CLOSE_DELIMITER
+        stream.Consume
+    when OPERATOR
+        stream.Consume while PeekTokenFamily == OPERATOR
+    when SPACE, NEWLINE
+        return none
+    when INTEGER
+        Token.Family = ReadNumberLiteral
+    #
+
+    Token.String = stream.Substring(Start: Start)
+#
+
+ReadNumberLiteral:
+    if stream.Peek == "0"
+        match stream.Peek(PeekAhead: 2)
+        when "x", "X"
+            :family = HEXADECIMAL_INTEGER
+        when "o", "O"
+            :family = OCTAL_INTEGER
+        when "b", "B"
+            :family = BINARY_INTEGER
+        #
+        if family
+            match ReadDigits(Skip: 2, AllowHexadecimal: family && family == HEXADECIMAL_INTEGER)
+            when INTEGER
+                if family != HEXADECIMAL_INTEGER
+                    ERROR: octal or binary contains decimal digits
+                    return NUMBER_ERROR
+                #
+            when OCTAL_INTEGER
+                if family == BINARY_INTEGER
+                    ERROR: identifier starts with number
+                    return NUMBER_ERROR
+                #
+            when BINARY_INTEGER, HEXADECIMAL_INTEGER
+            when NUMBER_ERROR
+                return NUMBER_ERROR
+            #
+            return family
+        #
+        else
+            digitsAfterZero = ReadDigits(Skip: 1)
+            if digitsAfterZero && digitsAfterZero != NUMBER_ERROR
+                ERROR: Integer prefixed with zero (could be confused with octal)
+                return NUMBER_ERROR
+            #
+        #
+    #
+    
+    :family = INTEGER
+    stream.Consume while PeekTokenFamily == INTEGER
+    if stream.Peek == "."
+        :digitsFamily = ReadDigits(Skip: 1)
+        return family if !digitsFamily
+        return NUMBER_ERROR if digitsFamily == NUMBER_ERROR
+        family = FLOAT
+    #
+    if stream.Peek == "e"
+        peekAhead = 2
+        if stream.Peek(PeekAhead: peekAhead) matches "+", "-"
+            peekAhead = 3
+        #
+        match ReadDigits(Skip: 1)
+        when IDENTIFIER
+            ERROR: identifier starts with number
+            return NUMBER_ERROR
+        when none
+            return family
+        else
+            family = FLOAT
+        #
+    #
+    if stream.Peek == "i"
+        stream.Consume
+        family = IMAGINARY
+    #
+
+    # Check trailing digits/identifier
+    if ReadDigits
+        ERROR: identifier starts with number
+        return NUMBER_ERROR
+    #
+
+    family
+
+ReadDigits(Skip: 0, AllowHexadecimal: false)
+    return none if PeekTokenFamily(PeekAhead: Skip+1) != INTEGER
+    for i in 0..(Skip+1)
+        stream.Consume
+    #
+    while stream.Peek matches "0".."1"
+        stream.Consume
+        family = BINARY_INTEGER
+    while stream.Peek matches "0".."7"
+        stream.Consume
+        family = OCTAL_INTEGER
+    while stream.Peek matches "0".."9"
+        stream.Consume
+        family = INTEGER
+    if AllowHexadecimal
+        while stream.Peek matches "0".."9", "A".."F", "a".."f"
+            stream.Consume
+            family = HEXADECIMAL_INTEGER
+        #
+    #
+    while PeekTokenFamily matches IDENTIFIER
+        stream.Consume
+        family = IDENTIFIER
+    #
+    return family
+#
+
+Family:
+    :Name
+    IsExpression: false
+    IsOperator: IsDelimiter
+    IsDelimiter: IsOpenDelimiter || IsCloseDelimiter
+    IsOpenDelimiter: false
+    IsCloseDelimiter: false
+    IsSpace: IsNewline
+    IsNewline: false
+    
+IDENTIFIER: Family Name: "Identifier", IsExpression: true
+INTEGER: Family Name: "Number", IsExpression: true
+DELIMITER: Family Name: "Delimiter", IsDelimiter: true
+OPEN_DELIMITER: "OpenDelimiter", IsOpenDelimiter: true
+CLOSE_DELIMITER: "CloseDelimiter", IsCloseDelimiter: true
+OPERATOR: "Operator", IsOperator: true
+SPACE: "Space", IsSpace: true
+NEWLINE: "Newline", IsNewline: true
+
+PeekTokenFamily:
+    case stream.Peek
+    when "A".."Z", "a".."z", "_"
+        IDENTIFIER
+    when "0".."9"
+        INTEGER
+    when ":", ";", ","
+        SEPARATOR
+    when "\"", "(", "{", "["
+        OPEN_DELIMITER
+    when ")", "}", "]"
+        CLOSE_DELIMITER
+    when " ", "\t"
+        SPACE
+    when "\r", "\n", "\r\n"
+        NEWLINE
+    # TODO check for invisible (control) characters
+    else
+        OPERATOR
+    #
+
+
+        else
+            tokens[]
+
+        :token = tokens[tokenIndex]
+        if token.Token.Type matches OPERATOR, DELIMITED
+            tokens[termIndex].Parent = tokenIndex if termIndex
+            termIndex = tokenIndex
+        else
+            tokens[tokenIndex.Parent]
+        #
+        else
+            if expression
+        #
+    #
+    return none unless !type
+        expression = ParseExpression
+        
+    if operator = Read Operator
+        

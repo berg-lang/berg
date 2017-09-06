@@ -84,9 +84,53 @@ A **type** is a description of the properties an expression can or will have.
 Block Structure
 ---------------
 
-Blocks and statements are the visual structure defining the flow of Berg expressions.
+Blocks and statements are the visual structure defining the flow of Berg expressions. Berg is designed to make it possible to reliably intuit the relationship between lines and blocks of code just by scanning the shape of their left side.
 
-A *block* is a rectangular block of text containing a series of horizontally aligned statements. A block has a *margin*--the indent level that all statements start on--and a *boundary*, a minimum indent level that all lines in the block must stay inside.
+This involves *both* indentation *and* what you actually write on the line.
+
+### Blocks and Lines
+
+*Blocks* and *Lines*--rectangular and horizontal regions of text--define the hierarchy and flow of Berg source code. Before any other parsing is done, Berg divides the file based on these blocks.
+
+* A *line* is the text between two newlines and has a leading *indent*.
+* A *block* includes all lines (in both directions) indented within its *margin,* as well as blank lines.
+* A block is closed when a line is found indented *less* than its margin, or at the end of the file.
+* No more than one block may be closed at a time (double unindent is illegal).
+
+### Expression Blocks
+
+Berg source code is an *expression block*, a series of lines with expressions.
+
+* Any line has the entire block below and to its right (on or past its margin) as a child, up to the first line with an operator on the left. If the line is on the same margin as its immediate successor, it is joined with `extend`. If its successor is more indented, it is joined with `apply`.
+* Any line with an operator on the left has the entire block so far as a left child.
+At each line, we hook up the line and the block expression by hooking up the one with the operatorto the block expression to the line with the operator.
+
+### Statements
+
+When a line starts *beyond* the current 
+
+> *Blank lines*--lines with nothing but space--are ignored.
+
+Blocks are *closed* when a line indented *less than* the margin is found, and when the file ends. The initial block is a Berg expression block.
+
+### Statements
+
+Each line in Berg is considered a *statement*. Statements 
+*Expression blocks* 
+* **Statement Lines:** Any line that starts with a complete expression (a declaration or function call, for example) begins a *statement.*
+* **Continuations:** A line that starts with an operator (like `||` or `+`) is a *continuation.*
+
+```
+Line: Indent=Space* (PostfixOperator|InfixOperator) Expression (PrefixOperator|InfixOperator) Comment Newline
+```
+
+Line expressions are *independent* of each other, interpreted as if they had parentheses around them. This means that operators in the expression can't have children other lines, or have unclosed parentheses. (Unclosed parentheses may, however, be used as connecting operators.)
+
+If an expression absolutely must continue across multiple physical lines without following the statement break and , a `\` at the end of the line will treat the newline as if it were space, joining it to the next line.
+
+### Blocks
+
+A *block* is a rectangular block of text with a *margin* that all statement lines start on. A block can have a *parent block*, and every single 
 
 ```
 # The margin of this block is 0. It has no boundary.
@@ -96,6 +140,83 @@ if x == y
     z = x * x
     z *= 2
 ```
+
+
+### Line Relationships
+
+Lines are related to each other based on their *indent*. The less indented line is the parent; if they are equal, the second line is the parent.
+
+
+
+You cannot jump more than one parent at a time. Therefore, if the second line is the parent, there are a couple of caveats:
+
+* If the second line is the parent, and does *not* have an operator, it must be *more* indented than the parent block.
+* If the second line is the parent, and *does* have a connecting operator, it must be *more* indented than the parent block margin.
+
+### Line Precedence
+
+Ambiguous connecting operators (ones that can be either infix or prefix/postfix) are always considered infix.
+
+### Blocks and Statements
+
+If it is *more* indented, it begins a new *block*. How a statement is interpreted depends on a few things:
+
+* **Child Block (Apply):** If the line is *more indented* than the previous line, it starts a new child block. If there is no operator on the previous line, it is *applied* to the previous line with the `apply` operator.
+* **Sibling (Extend):** If the line is *equally indented* to the previous line, it *extends* the block with the `extend` operator.
+* **Parent (Extend):** If the line is *less indented* than the previous line, it *closes* the block and extends the *parent* block.
+
+If the previous line ends with an operator, and the line is *equally indented*
+
+expression.started by any phrase that starts an expression--i.e. does not start with a connecting operator. All statements must begin on a block margin (see below).
+
+
+- If the second is a child, it is *applied* to the first as a function call with the `apply` operator.
+- If the second is a parent and the indents are *equal*, it *extends* the first's block with the `extend` operator.
+- If the second is a parent, it *extends* the first's block.
+
+### Continuations
+
+Lines that start with a connecting operator are *continuations*. These lines may be indented anywhere between the parent and current blocks' margins (but may not be *on* the parent margin). This allows for either indenting or outdenting such operators, and is the preferred way to join expression lines.
+
+### Blocks
+
+Lines are connected by their *indents*.
+All lines are connected by *connecting operators* at the end of the first or the beginning of the second. If a connecting operator is not there, an `extend` or `apply` will be added (see the statement and block rules outlined below).
+
+### Comment Lines
+
+ are either direct children or direct parents of each other. The indent of lines is the sole dictator of nesting. (If two lines are equally indented, the latter is the parent.)
+
+### Phrase Relationships
+
+* If there is a connecting operator, it must be on the parent line.
+* If there is no connecting operator, `apply` is used if the first is parent; `extend` otherwise.
+
+### Blocks
+
+*Blocks* in Berg start on any 
+
+Phrase relationships are solely related to their relative indent. The more indented phrase in a pair is *always* the parent. This can have impact when the second phrase has no connecting operator because of the *statement line*.
+
+### Blocks
+
+
+
+### Statements
+
+Statements are a special series of *sequential phrases*
+
+
+### 
+
+Comment-only lines are considered "comment phrases" and affect 
+
+
+### Indentation and phrase relat
+
+When 
+
+### Blocks
 
 ### Statement Breaks
 

@@ -132,8 +132,7 @@ module BergLang
             #
             characters(
                 # Space
-                newline_strings: [ "\r\n", :newline_start_characters ],
-                newline_start_characters: [ "\r", "\n" ]
+                newline_characters: [ "\r\n", "\r", "\n" ],
                 space_characters: [ " ", "\t" ],
                 invisible_characters: [ :space_characters, :newline_start_characters ],
 

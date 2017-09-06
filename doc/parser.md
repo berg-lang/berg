@@ -3,22 +3,6 @@ Berg Parser
 
 The Berg parser is designed to be small, fast, extensible, and produce friendly error messages.
 
-* **Fast and Small:** Allocations happen infrequently. It is cache-friendly, minimizing lookups and dependencies. Tokens (including strings) are interned, keeping size (and thus cache) low and comparison fast.
-* **Replicable:** The parser core is simple, small, unchanging, and replicable in multiple languages. The core is designed to load in most of the actual language definition and errors from Berg files.
-* **Delightful Errors:** Errors tell you your actual mistake and how to remedy it. We find more than one error if there is one. There are no warnings, only errors.
-* **Berg-Shaped Features:** Indented blocks and multiline strings, string interpolation, postfix match operators (`a+`), and operatorless function calls (`a b`) all cause interesting decisions as to the shape of the parser.
-
-Design
-------
-
-The parser is designed to *bootstrap*--that is, it has a small core parser algorithm that parses a subset of the language, and then loads some core Berg files to flesh out the rest of the language. This allows the language definition to evolve
-
-The bootstrap parser is designed to be *configurable*--it can be given operator and identifier information, and will parse files into AST. This allows us to bootstrap like so:
-
-1. Initialize the core parser class with a minimum, hardcoded grammar.
-2. Initialize the core parser class based on the resulting ASTs.
-3. Now you have a fully functional Berg parser!
-
 Core Parser Design
 ------------------
 
@@ -27,8 +11,14 @@ A parser takes in a set of grammar definitions and a UTF-8 file or stream, and o
 The parser is entirely geared toward parsing operators and literals with precedence. It splits parsing into three phases: scanning, tokenizing and tree building. Each phase *will continue* if there is an error, doing its best to guess the intent and find more errors.
 
 - **Stream:** The *stream* yields Unicode characters from the source.
-- **Scanner**: Breaks the character stream up into distinct *symbols.*
-- **Tokenizer**: *Directionalizes* the symbols into a coherent ordering of *tokens*, where every operator has an operand.
+- **Scanner**: Breaks the character stream up into distinct *tokens.*
+- **Code Block Parser**::
+- **Source Data**: Location of start and end, indent
+- **Block Data**: start and end line, indent, expression
+- **Expression Fragment**: begin operator, end operator, expression
+- **Line Data**: block, line, start column, expression fragment
+- **Atom Data**: Block
+
 - **Parser**: *Nests* the tokens into an expression tree, determining block and statement boundaries, and ordering operations with precedence and associativity.
 
 ### Core Concepts:
