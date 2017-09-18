@@ -1,4 +1,4 @@
-use compiler::internals::*;
+use internals::*;
 
 pub enum CompileError {
     SourceNotFound(io::Error),

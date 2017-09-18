@@ -1,4 +1,4 @@
-use compiler::internals::*;
+use internals::*;
 
 pub struct LineColumn {
     pub line: usize,

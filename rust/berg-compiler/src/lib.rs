@@ -1,3 +1,6 @@
+#![feature(io)]
+#![allow(dead_code)]
+
 mod compile_error;
 mod compile_error_reporter;
 mod internals;
@@ -6,7 +9,7 @@ mod parser;
 mod source;
 mod source_metadata;
 
-use compiler::internals::*;
+use internals::*;
 
 pub struct Compiler {
     sources: Vec<Source>,

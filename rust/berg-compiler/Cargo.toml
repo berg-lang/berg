@@ -1,8 +1,6 @@
 [package]
-name = "berg"
+name = "berg-compiler"
 version = "0.1.0"
 authors = ["John Keiser <john@johnkeiser.com>"]
 
 [dependencies]
-log = "0.3"
-env_logger = "0.3"

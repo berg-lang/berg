@@ -1,7 +1,7 @@
 mod internals;
 mod source_reader;
 
-use compiler::parser::internals::*;
+use parser::internals::*;
 
 /// Shared parsing state
 pub struct Parser {

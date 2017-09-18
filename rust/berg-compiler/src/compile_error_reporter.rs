@@ -1,4 +1,4 @@
-use compiler::internals::*;
+use internals::*;
 use std::cell::RefCell;
 
 pub struct CompileErrorReporter {

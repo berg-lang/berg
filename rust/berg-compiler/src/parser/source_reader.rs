@@ -2,10 +2,10 @@ use std::io::*;
 use std::fs::File;
 use std::ops::Range;
 
-use compiler::compile_error::CompileError::*;
-use compiler::compile_error_reporter::*;
-use compiler::source::*;
-use compiler::source_metadata::*;
+use compile_error::CompileError::*;
+use compile_error_reporter::*;
+use source::*;
+use source_metadata::*;
 
 /// Stream wrapper built for parsing:
 /// - reports errors when UTF-8 is bad or I/O fails

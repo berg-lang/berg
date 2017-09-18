@@ -1,10 +1,8 @@
-#![feature(io)]
-#![allow(dead_code)]
+//#[macro_use] extern crate log;
 extern crate env_logger;
+extern crate berg_compiler;
 
-mod compiler;
-
-use compiler::Compiler;
+use berg_compiler::Compiler;
 
 fn main() {
     // Initialize logging
