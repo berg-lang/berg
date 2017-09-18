@@ -55,3 +55,15 @@ declarative programming language and proactively lazy actor-model runtime for di
 - Scannability: There should be enough markers to visually find pieces of the code you're looking for.
 - Debuggable: The compiler and runtime *must* emit humane error messages that give useful information on the point of the error.
 - Speedy Development Cycle:
+
+Developer Getting Started
+-------------------------
+
+1. Install Rust. On Windows, [install rustup.exe](https://win.rustup.rs/).
+2. Go to a command prompt, and run:
+
+```
+cd rust
+cargo build
+```
+
