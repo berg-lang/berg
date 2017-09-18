@@ -1,10 +1,26 @@
 # Berg
 
-Berg is a practical declarative programming language for distributed systems.
+Berg is a practical declarative programming language for distributed systems. It focuses on ease of adoption, safety, concurrency and deployability (in roughly that order).
 
-The language itself should *optimize for the human eye*, *minimize ceremony required to write code*, *minimize context required to read code*, be *right by default.*
+The language syntax *enables smooth adoption*, *minimizes cognitive load*, and strives to be *correct by default.*
 
-Some of its design goals:
+Its major features include:
+
+* Structurally typed: objects with the right properties can be used *anywhere.*
+* Optionally typed: types are optional everywhere (inferred from caller context), enabling a smooth ramp from wild, rapid prototyping to well-specified, self-documented production code.
+* Implicit async/await: fundamentally lazy property access works just like async/await, making declarative programs much easier to write.
+* Compiled: Berg can be compiled to native code and packaged as a single executable.
+* Prototype inheritance: Objects inherit from other objects, allowing for things like "partial classes" and curried functions.
+* First class types, modules and functions: Everything in Berg is first class, allowing powerful dependency injection.
+* Actor model: Berg processes are "actors," with message passing mediated by lazy properties
+* Ownership model: Actors own their memory but can transfer ownership to other actors through messages.
+* RAII/Lifetime managed memory: Berg is not garbage collected;
+* Dependency injectable: Any module dependency can be overridden or removed, allowing for limitless sandboxing and test dependency injection.
+* Extensible: All language constructs, including operators, parsing and even execution, are written in Berg and overrideable. DSLs can be written either with or without parsing.
+
+## Goals
+
+A huge list of design goals:
 
 * Easy to pick up and use for Java, C++, Javascript, Ruby, and Python users.
 * Prototyping with safety: Ceremony such as types are inferred by default. Berg is strongly typed, you don't write types until you need them for performance or interoperability with external systems.

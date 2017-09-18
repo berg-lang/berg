@@ -1,27 +1,18 @@
-mod scanner;
+mod internals;
+mod source_reader;
 
-use source::Source;
-use compiler::Compiler;
-use std::io;
-use std::io::Read;
+use compiler::parser::internals::*;
 
-pub struct Parser<'a, R: io::Read> {
-    compiler: &'a Compiler,
-    source_index: usize,
-    reader: io::BufReader<R>,
+/// Shared parsing state
+pub struct Parser {
+    /// The stream we are parsing.
+    reader: SourceReader,
 }
 
-impl<'a, R: io::Read> Parser<'a, R> {
-    pub fn new(compiler: &Compiler, source_index: usize, reader: io::BufReader<R>) -> Parser<R> {
-        Parser { compiler, source_index, reader }
-    }
-    pub fn source(&mut self) -> &Source {
-        &self.compiler.sources[self.source_index]
-    }
-    pub fn parse(&mut self) {
-        let mut str = String::new();
-        self.source().name();
-        self.reader.read_to_string(&mut str).unwrap();
-        println!("{}", str)
+impl Parser {
+    pub fn parse(source: &Source) -> Parser {
+        let errors = CompileErrorReporter::new();
+        let reader = SourceReader::start(source, errors);
+        Parser { reader }
     }
 }

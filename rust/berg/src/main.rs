@@ -1,8 +1,8 @@
-extern crate log;
+#![feature(io)]
+#![allow(dead_code)]
 extern crate env_logger;
 
 mod compiler;
-mod source;
 
 use compiler::Compiler;
 
@@ -11,6 +11,6 @@ fn main() {
     env_logger::init().unwrap();
 
     // Get filename from command line
-    let mut compiler = Compiler::from_env();
-    compiler.parse().unwrap()
+    let compiler = Compiler::from_env();
+    compiler.parse();
 }

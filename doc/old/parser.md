@@ -1,6 +1,8 @@
 Berg Parser
 ===========
 
+NOTE: this is old and needs to be fixed to describe the new, precedence-having world I just couldn't (or didn't want to) properly work around.
+
 The Berg parser is designed to be small, fast, extensible, and produce friendly error messages.
 
 Core Parser Design
