@@ -1,5 +1,6 @@
 use internals::*;
 
+#[derive(Debug)]
 pub struct LineColumn {
     pub line: usize,
     pub column: usize,

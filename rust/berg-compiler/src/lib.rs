@@ -1,5 +1,4 @@
 #![feature(io)]
-#![allow(dead_code)]
 
 mod compile_error;
 mod compile_errors;

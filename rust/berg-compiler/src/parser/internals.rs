@@ -1,4 +1,5 @@
 pub use internals::*;
+pub use parser::parse_result::*;
 pub use parser::source_reader::*;
 pub use parser::syntax_expression::*;
 pub use parser::syntax_expression::SyntaxExpressionType::*;

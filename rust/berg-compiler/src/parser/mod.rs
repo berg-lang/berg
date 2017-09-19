@@ -1,8 +1,10 @@
 mod internals;
+mod parse_result;
 mod source_reader;
 mod syntax_expression;
 mod tokenizer;
 
+pub use parser::parse_result::ParseResult;
 pub use parser::syntax_expression::SyntaxExpression;
 pub use parser::syntax_expression::SyntaxExpressionType;
 
@@ -13,17 +15,11 @@ pub struct Parser {
     tokenizer: Tokenizer,
 }
 
-pub struct ParseResult {
-    metadata: SourceMetadata,
-    expressions: Vec<SyntaxExpression>,
-    errors: CompileErrors,
-}
-
 impl Parser {
-    pub fn parse(source: &Source) -> ParseResult {
+    pub fn parse<'s>(source: &'s Source) -> ParseResult<'s> {
         let mut parser = Self::new(source);
         parser.step();
-        parser.close()
+        parser.close(source)
     }
 
     fn new(source: &Source) -> Parser {
@@ -37,8 +33,8 @@ impl Parser {
         self.tokenizer.next();
     }
 
-    fn close(self) -> ParseResult {
+    fn close<'s>(self, source: &'s Source) -> ParseResult<'s> {
         let (metadata, expressions, errors) = self.tokenizer.close();
-        ParseResult { metadata, expressions, errors }
+        ParseResult { source, metadata, expressions, errors }
     }
 }

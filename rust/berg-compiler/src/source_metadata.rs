@@ -1,10 +1,11 @@
 use internals::*;
 
+#[derive(Debug)]
 pub struct SourceMetadata {
     // size in bytes
     // byte_size: usize,
     // Size in Unicode codepoints
-    char_size: usize,
+    pub char_size: usize,
     // checksum
     // time retrieved
     // time modified
@@ -15,7 +16,9 @@ pub struct SourceMetadata {
 
 impl SourceMetadata {
     pub fn new(char_size: usize) -> SourceMetadata {
-        SourceMetadata { char_size, line_starts: vec![0] }
+        let mut result = SourceMetadata { char_size, line_starts: vec![] };
+        result.append_line(0);
+        result
     }
     fn append_line(&mut self, line_start_index: usize) {
         self.line_starts.push(line_start_index);

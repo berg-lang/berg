@@ -11,6 +11,7 @@ pub use source::*;
 pub use std::cmp::Ordering;
 pub use std::env;
 pub use std::ffi::OsStr;
+pub use std::fmt;
 pub use std::io;
 pub use std::iter::FromIterator;
 pub use std::ops::Range;
