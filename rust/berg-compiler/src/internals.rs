@@ -2,7 +2,7 @@
 
 pub use Compiler;
 pub use parser::*;
-pub use compile_error_reporter::*;
+pub use compile_errors::*;
 pub use compile_error::*;
 pub use compile_error::CompileError::*;
 pub use line_column::*;

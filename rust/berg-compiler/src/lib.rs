@@ -2,7 +2,7 @@
 #![allow(dead_code)]
 
 mod compile_error;
-mod compile_error_reporter;
+mod compile_errors;
 mod internals;
 mod line_column;
 mod parser;
