@@ -1,23 +1,27 @@
 use parser::internals::*;
 
-pub struct Tokenizer {
-    reader: SourceReader,
-    start: usize,
+pub struct Tokenizer<'a, R: SourceReader<'a>> {
+    reader: R,
+    start: SourceIndex,
     buffer: String,
-    expressions: Vec<SyntaxExpression>
+    expressions: Vec<SyntaxExpression>,
+    _marker: PhantomData<&'a ()>
 }
 
-impl Tokenizer {
-    pub fn new(reader: SourceReader) -> Tokenizer {
-        let start = reader.index;
+impl<'a, R: SourceReader<'a>> Tokenizer<'a, R> {
+    pub fn from_source(source: &'a Source) -> Tokenizer<'a, R> {
+        let reader = R::from_source(source);
+        let start = reader.index();
         let buffer = String::new();
         let expressions = vec![];
-        Tokenizer { reader, start, buffer, expressions }
+        Tokenizer { reader, start, buffer, expressions, _marker: PhantomData }
     }
-
-    pub fn close(self) -> (SourceMetadata, Vec<SyntaxExpression>, CompileErrors) {
-        let (source, errors) = self.reader.close();
-        (source, self.expressions, errors)
+    pub fn open(&mut self, berg: &Berg) -> bool {
+        self.reader.open(berg)
+    }
+    pub fn close(self) -> (SourceMetadata<'a>, Vec<SyntaxExpression>, CompileErrors) {
+        let (metadata, errors) = self.reader.close();
+        (metadata, self.expressions, errors)
     }
 
     pub fn next(&mut self) -> Option<usize> {
@@ -38,8 +42,8 @@ impl Tokenizer {
         }
     }
 
-    fn range(&self) -> Range<usize> {
-        Range { start: self.start, end: self.reader.index-1 }
+    fn range(&self) -> Range<SourceIndex> {
+        Range { start: self.start, end: self.reader.index()-1 }
     }
 
     fn is_digit(ch: char) -> bool { ch >= '0' && ch <= '9' }
@@ -68,7 +72,7 @@ impl Tokenizer {
             start: self.start,
         };
         mem::swap(&mut self.buffer, &mut expression.string);
-        self.start = self.reader.index;
+        self.start = self.reader.index();
         self.expressions.push(expression);
         Some(self.expressions.len()-1)
     }
@@ -77,7 +81,7 @@ impl Tokenizer {
         self.consume(expression_type)
     }
     fn discard(&mut self) {
-        self.start = self.reader.index;
+        self.start = self.reader.index();
         self.buffer = String::new();
     }
     fn discard_while(&mut self, valid_char: fn(char) -> bool) -> bool {

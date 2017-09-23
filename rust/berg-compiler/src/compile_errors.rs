@@ -1,5 +1,6 @@
 use internals::*;
 
+#[derive(Debug)]
 pub struct CompileErrors {
     errors: Vec<CompileError>,
 }

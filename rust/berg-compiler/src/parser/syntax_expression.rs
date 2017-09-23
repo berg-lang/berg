@@ -1,6 +1,7 @@
 use parser::internals::*;
 
 // ExpressionType, String, LeftChild, RightChild
+#[derive(Debug)]
 pub struct SyntaxExpression {
     pub expression_type: SyntaxExpressionType,
     pub string: String,
@@ -15,6 +16,7 @@ impl<'a> fmt::Display for SyntaxExpression {
     }
 }
 
+#[derive(Debug)]
 pub enum SyntaxExpressionType {
     IntegerLiteral,
 }

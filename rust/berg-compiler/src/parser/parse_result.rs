@@ -1,15 +1,21 @@
 use parser::internals::*;
 
-pub struct ParseResult<'s> {
-    pub source: &'s Source,
-    pub metadata: SourceMetadata,
+#[derive(Debug)]
+pub struct ParseResult<'a> {
+    pub metadata: SourceMetadata<'a>,
     pub expressions: Vec<SyntaxExpression>,
     pub errors: CompileErrors,
 }
 
-impl<'s> fmt::Display for ParseResult<'s> {
+impl<'a> ParseResult<'a> {
+    pub fn source(&self) -> &'a Source {
+        self.metadata.source()
+    }
+}
+
+impl<'a> fmt::Display for ParseResult<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Source: {:?}", self.source.name())?;
+        write!(f, "Source: {:?}", self.source().name())?;
         if self.expressions.len() > 0 {
             write!(f, "  Expressions:")?;
             for ref expression in &self.expressions {
@@ -19,7 +25,7 @@ impl<'s> fmt::Display for ParseResult<'s> {
         if self.errors.len() > 0 {
             write!(f, "  Errors:")?;
             for ref error in self.errors.all() {
-                error.format(f, &self)?;
+                error.format(f, &self.metadata)?;
             }
         }
         Ok(())
