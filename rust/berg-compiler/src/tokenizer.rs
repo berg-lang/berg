@@ -1,8 +1,15 @@
-use parser::internals::*;
+use berg::*;
+use berg::SyntaxExpressionType::*;
+use compile_errors::*;
+use source_reader::*;
+
+use std::marker::PhantomData;
+use std::mem;
+use std::ops::Range;
 
 pub struct Tokenizer<'a, R: SourceReader<'a>> {
     reader: R,
-    start: SourceIndex,
+    start: GraphemeIndex,
     buffer: String,
     expressions: Vec<SyntaxExpression>,
     _marker: PhantomData<&'a ()>
@@ -42,12 +49,13 @@ impl<'a, R: SourceReader<'a>> Tokenizer<'a, R> {
         }
     }
 
-    fn range(&self) -> Range<SourceIndex> {
+    fn range(&self) -> Range<GraphemeIndex> {
         Range { start: self.start, end: self.reader.index()-1 }
     }
 
     fn is_digit(ch: char) -> bool { ch >= '0' && ch <= '9' }
-    fn is_unsupported(ch: char) -> bool { !Self::is_digit(ch) }
+    fn is_significant(ch: char) -> bool { Self::is_digit(ch)  }
+    fn is_unsupported(ch: char) -> bool { !Self::is_significant(ch) }
 
     fn read_if(&mut self, valid_char: fn(char) -> bool) -> bool {
         if let Some(ch) = self.reader.read_if(valid_char) {

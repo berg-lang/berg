@@ -1,15 +1,6 @@
-mod internals;
-mod source_reader;
-mod file_source_reader;
-mod string_source_reader;
-mod parse_result;
-mod syntax_expression;
-mod tokenizer;
-
-pub use parser::parse_result::ParseResult;
-pub use parser::syntax_expression::SyntaxExpression;
-pub use parser::syntax_expression::SyntaxExpressionType;
-use parser::internals::*;
+use berg::*;
+use source_reader::*;
+use tokenizer::*;
 
 /// Shared parsing state
 pub struct Parser<'a, R: SourceReader<'a>> {
