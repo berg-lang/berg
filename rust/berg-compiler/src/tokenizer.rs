@@ -20,9 +20,6 @@ impl<'a, R: SourceReader + 'a> Tokenizer<'a, R> {
         let expressions = vec![];
         Tokenizer { reader, start, buffer, expressions }
     }
-    pub fn open(&mut self, berg: &Berg) -> bool {
-        self.reader.open(berg)
-    }
     pub fn close(self) -> Vec<SyntaxExpression> {
         self.expressions
     }

@@ -1,7 +1,7 @@
 use berg::*;
+use compile_errors::*;
 use parser::Parser;
-use source_reader::FileSourceReader;
-use source_reader::StringSourceReader;
+use source_reader::*;
 use std::path::PathBuf;
 use std::ffi::OsStr;
 
@@ -37,8 +37,16 @@ impl Source for FileSource {
         self.path.file_name().unwrap()
     }
     fn parse(&self, berg: &Berg) -> ParseResult {
-        let reader = FileSourceReader::new(self);
-        Parser::parse(reader, berg)
+        let mut errors = CompileErrors::new();
+        let (expressions, metadata) = 
+            if let Some(mut reader) = FileSourceReader::open(self, &mut errors, berg) {
+                let expressions = Parser::new(&mut reader).parse();
+                let metadata = reader.close();
+                (expressions, metadata)
+            } else {
+                (vec![], SourceMetadata::new())
+            };
+        ParseResult { expressions, metadata, errors }        
     }
 }
 
@@ -54,9 +62,15 @@ impl Source for StringSource {
     fn name<'a>(&'a self) -> &'a OsStr {
         String::as_ref(&self.name)
     }
-    fn parse(&self, berg: &Berg) -> ParseResult {
-        let reader = StringSourceReader::new(self);
-        Parser::parse(reader, berg)
+    fn parse<'a>(&'a self, _: &Berg) -> ParseResult {
+        let mut errors = CompileErrors::new();
+        let (expressions, metadata) = {
+            let mut reader = StringSourceReader::open(self, &mut errors);
+            let expressions = Parser::new(&mut reader).parse();
+            let metadata = reader.close();
+            (expressions, metadata)
+        };
+        ParseResult { expressions, metadata, errors }
     }
 }
 

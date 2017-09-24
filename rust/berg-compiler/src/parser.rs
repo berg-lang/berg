@@ -8,23 +8,13 @@ pub struct Parser<'a, R: SourceReader + 'a> {
 }
 
 impl<'a, R: SourceReader + 'a> Parser<'a, R> {
-    pub fn parse(mut reader: R, berg: &Berg) -> ParseResult {
-        let expressions = {
-            let mut parser = Self::new(&mut reader);
-            if parser.open(berg) {
-                while parser.step() {};
-            }
-            parser.close()
-        };
-        let (metadata, errors) = reader.close();
-        ParseResult { metadata, expressions, errors }
-    }
-    fn new(reader: &'a mut R) -> Parser<'a, R> {
+    pub fn new(reader: &'a mut R) -> Parser<'a, R> {
         let tokenizer = Tokenizer::new(reader);
         Parser { tokenizer }
     }
-    fn open(&mut self, berg: &Berg) -> bool {
-        self.tokenizer.open(berg)
+    pub fn parse(mut self) -> Vec<SyntaxExpression> {
+        while self.step() {};
+        self.close()
     }
 
     fn step(&mut self) -> bool {

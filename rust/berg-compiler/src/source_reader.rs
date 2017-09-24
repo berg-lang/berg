@@ -14,11 +14,10 @@ use std::str;
 /// - ensures stream is peekable
 
 pub trait SourceReader {
-    fn open(&mut self, berg: &Berg) -> bool;
     fn index(&self) -> GraphemeIndex;
     fn peek(&mut self) -> Option<char>;
     fn read(&mut self) -> Option<char>;
-    fn close(self) -> (SourceMetadata, CompileErrors);
+    fn close(self) -> SourceMetadata;
     fn report(&mut self, error: CompileError);
     fn source<'a>(&'a self) -> &'a Source;
 
@@ -46,56 +45,62 @@ pub trait SourceReader {
 pub struct FileSourceReader<'a> {
     source: &'a FileSource,
     metadata: SourceMetadata,
-    errors: CompileErrors,
+    errors: &'a mut CompileErrors,
     index: GraphemeIndex,
     peek_char: Option<char>,
-    chars: Option<io::Chars<BufReader<File>>>,
+    chars: io::Chars<BufReader<File>>,
 }
 
 pub struct StringSourceReader<'a> {
     source: &'a StringSource,
     metadata: SourceMetadata,
-    errors: CompileErrors,
+    errors: &'a mut CompileErrors,
     index: GraphemeIndex,
     peek_char: Option<char>,
-    chars: Option<str::Chars<'a>>,
+    chars: str::Chars<'a>,
 }
 
 impl<'a> FileSourceReader<'a> {
-    pub fn new(source: &'a FileSource) -> FileSourceReader<'a> {
-        let errors = CompileErrors::new();
-        let metadata = SourceMetadata::new();
-        FileSourceReader { source, metadata, errors, chars: None, index: 0, peek_char: None }
-    }
-
-    fn get_chars(&mut self) -> &mut io::Chars<BufReader<File>> {
-        if let Some(ref mut chars) = self.chars {
-            chars
+    pub fn open(source: &'a FileSource, errors: &'a mut CompileErrors, berg: &Berg) -> Option<FileSourceReader<'a>> {
+        let path = source.path();
+        if path.is_absolute() {
+            Self::open_file(path.clone(), source, errors)
         } else {
-            panic!("Peek or read called on unopened FileSourceReader")
+            match *berg.root() {
+                Ok(ref root) => {
+                    Self::open_file(root.join(path), source, errors)
+                },
+                Err(ref error) => {
+                    let error_string = format!("{}", error);
+                    errors.report(IoCurrentDirectoryError(path.clone(), error.kind(), error_string));
+                    None
+                },
+            }
         }
     }
 
-    fn open_file(&mut self, path: PathBuf) -> bool {
+    fn open_file(path: PathBuf, source: &'a FileSource, errors: &'a mut CompileErrors) -> Option<FileSourceReader<'a>> {
         match File::open(path) {
             Ok(file) => {
-                self.chars = Some(BufReader::new(file).chars());
-                self.peek_char = self.read_next_char();
-                true
+                let metadata = SourceMetadata::new();
+                let chars = BufReader::new(file).chars();
+                let mut reader = FileSourceReader { source, metadata, errors, chars, index: 0, peek_char: None };
+                reader.peek_char = reader.read_next_char();
+                Some(reader)
             },
             Err(error) => {
                 let compile_error = match error.kind() {
                     ErrorKind::NotFound => SourceNotFound(error),
                     _ => IoOpenError(error)
                 };
-                self.report(compile_error);
-                false
+                errors.report(compile_error);
+                None
             },
         }
     }
 
     fn read_next_char(&mut self) -> Option<char> {
-        match self.get_chars().next() {
+        match self.chars.next() {
             Some(Ok(ch)) => {
                 self.index += 1;
                 Some(ch)
@@ -120,25 +125,8 @@ impl<'a> FileSourceReader<'a> {
 }
 
 impl<'a> SourceReader for FileSourceReader<'a> {
-    fn open(&mut self, berg: &Berg) -> bool {
-        let path = self.source.path();
-        if path.is_absolute() {
-            self.open_file(path.clone())
-        } else {
-            match *berg.root() {
-                Ok(ref root) => {
-                    self.open_file(root.join(path))
-                },
-                Err(ref error) => {
-                    let error_string = format!("{}", error);
-                    self.report(IoCurrentDirectoryError(path.clone(), error.kind(), error_string));
-                    false
-                },
-            }
-        }
-    }
-    fn close(self) -> (SourceMetadata, CompileErrors) {
-        (self.metadata, self.errors)
+    fn close(self) -> SourceMetadata {
+        self.metadata
     }
     fn report(&mut self, error: CompileError) {
         self.errors.report(error);
@@ -175,17 +163,11 @@ impl<'a> SourceReader for FileSourceReader<'a> {
 }
 
 impl<'a> StringSourceReader<'a> {
-    pub fn new(source: &'a StringSource) -> StringSourceReader<'a> {
-        let errors = CompileErrors::new();
+    pub fn open(source: &'a StringSource, errors: &'a mut CompileErrors) -> StringSourceReader<'a> {
         let metadata = SourceMetadata::new();
-        StringSourceReader { source, metadata, errors, chars: None, index: 0, peek_char: None }
-    }
-    fn get_chars(&mut self) -> &mut str::Chars<'a> {
-        if let Some(ref mut chars) = self.chars {
-            chars
-        } else {
-            panic!("Peek or read called on unopened StringSourceReader")
-        }
+        let mut chars = source.contents().chars();
+        let peek_char = chars.next();
+        StringSourceReader { source, metadata, errors, chars, index: 0, peek_char }
     }
     fn append_line(&mut self, index: GraphemeIndex) {
         self.metadata.append_line(index);
@@ -193,13 +175,8 @@ impl<'a> StringSourceReader<'a> {
 }
 
 impl<'a> SourceReader for StringSourceReader<'a> {
-    fn open(&mut self, _: &Berg) -> bool {
-        self.chars = Some(self.source.contents().chars());
-        self.peek_char = self.get_chars().next();
-        true
-    }
-    fn close(self) -> (SourceMetadata, CompileErrors) {
-        (self.metadata, self.errors)
+    fn close(self) -> SourceMetadata {
+        self.metadata
     }
     fn report(&mut self, error: CompileError) {
         self.errors.report(error);
@@ -214,7 +191,7 @@ impl<'a> SourceReader for StringSourceReader<'a> {
     fn read(&mut self) -> Option<char> {
         // TODO it is gross that we repeat all this logic.
         let result = self.peek_char;
-        self.peek_char = self.get_chars().next();
+        self.peek_char = self.chars.next();
         if self.peek_char.is_some() {
             self.index += 1;
         }
