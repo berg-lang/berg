@@ -39,18 +39,19 @@ fn main() {
     assert!(args.cmd_check);
     assert!(args.cmd_syntax);
 
-    let berg = Berg::from_env();
-    let source = get_source(&berg, &args);
-    let result = berg.parse(&source);
-    print!("{:?}", result)
+    let mut berg = Berg::from_env();
+    add_source(&mut berg, &args);
+    for result in berg.parse().iter() {
+        print!("{:?}", result);
+    }
 }
 
-fn get_source(berg: &Berg, args: &Args) -> Source {
+fn add_source(berg: &mut Berg, args: &Args) {
     if let Some(ref file) = args.arg_file {
         assert!(args.flag_e.is_none());
-        berg.file(PathBuf::from(file))
+        berg.add_file_source(PathBuf::from(file))
     } else if let Some(ref expr) = args.flag_e {
-        berg.string(String::from("expr"), expr.clone())
+        berg.add_string_source(String::from("expr"), expr.clone())
     } else {
         panic!("No source passed: {:?}", args)
     }

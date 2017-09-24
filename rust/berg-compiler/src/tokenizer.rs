@@ -3,32 +3,28 @@ use berg::SyntaxExpressionType::*;
 use compile_errors::*;
 use source_reader::*;
 
-use std::marker::PhantomData;
 use std::mem;
 use std::ops::Range;
 
-pub struct Tokenizer<'a, R: SourceReader<'a>> {
-    reader: R,
+pub struct Tokenizer<'a, R: SourceReader + 'a> {
+    reader: &'a mut R,
     start: GraphemeIndex,
     buffer: String,
     expressions: Vec<SyntaxExpression>,
-    _marker: PhantomData<&'a ()>
 }
 
-impl<'a, R: SourceReader<'a>> Tokenizer<'a, R> {
-    pub fn from_source(source: &'a Source) -> Tokenizer<'a, R> {
-        let reader = R::from_source(source);
+impl<'a, R: SourceReader + 'a> Tokenizer<'a, R> {
+    pub fn new(reader: &'a mut R) -> Tokenizer<'a, R> {
         let start = reader.index();
         let buffer = String::new();
         let expressions = vec![];
-        Tokenizer { reader, start, buffer, expressions, _marker: PhantomData }
+        Tokenizer { reader, start, buffer, expressions }
     }
     pub fn open(&mut self, berg: &Berg) -> bool {
         self.reader.open(berg)
     }
-    pub fn close(self) -> (SourceMetadata<'a>, Vec<SyntaxExpression>, CompileErrors) {
-        let (metadata, errors) = self.reader.close();
-        (metadata, self.expressions, errors)
+    pub fn close(self) -> Vec<SyntaxExpression> {
+        self.expressions
     }
 
     pub fn next(&mut self) -> Option<usize> {

@@ -2,6 +2,7 @@
 mod berg;
 mod compile_errors;
 mod parser;
+mod source;
 mod source_reader;
 mod tokenizer;
 
