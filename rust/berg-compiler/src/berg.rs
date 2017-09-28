@@ -14,12 +14,11 @@ pub struct Berg {
 }
 
 // TODO make these struct X(usize) to make accidental cross-casting impossible
-pub type GraphemeIndex = usize;
 pub type ByteIndex = usize;
 
 #[derive(Debug)]
 pub struct ParseResult {
-    pub metadata: SourceMetadata,
+    pub char_data: CharData,
     pub expressions: Vec<SyntaxExpression>,
     pub errors: CompileErrors,
 }
@@ -38,17 +37,17 @@ pub enum SyntaxExpressionType {
 }
 
 #[derive(Debug)]
-pub struct SourceMetadata {
+pub struct CharData {
     // size in bytes
     // byte_size: usize,
     // Size in Unicode codepoints
-    char_size: GraphemeIndex,
+    char_size: ByteIndex,
     // checksum
     // time retrieved
     // time modified
     // system retrieved on
     // Start indices of each line
-    line_starts: Vec<GraphemeIndex>,
+    line_starts: Vec<ByteIndex>,
 }
 
 #[derive(Debug)]
@@ -102,14 +101,14 @@ impl PartialOrd for LineColumn {
     }
 }
 
-impl SourceMetadata {
-    pub fn new() -> SourceMetadata {
-        SourceMetadata { char_size: 0, line_starts: vec![0] }
+impl CharData {
+    pub fn new() -> CharData {
+        CharData { char_size: 0, line_starts: vec![0] }
     }
-    pub fn append_line(&mut self, line_start_index: GraphemeIndex) {
+    pub fn append_line(&mut self, line_start_index: ByteIndex) {
         self.line_starts.push(line_start_index);
     }
-    pub fn location(&self, index: GraphemeIndex) -> LineColumn {
+    pub fn location(&self, index: ByteIndex) -> LineColumn {
         // TODO binary search to make it faster. But, meh.
         let mut line = self.line_starts.len();
         while self.line_starts[line-1] > index {
@@ -120,12 +119,12 @@ impl SourceMetadata {
         LineColumn { line, column }
     }
 
-    pub fn range(&self, range: &Range<GraphemeIndex>) -> Range<LineColumn> {
+    pub fn range(&self, range: &Range<ByteIndex>) -> Range<LineColumn> {
         let start = self.location(range.start);
         let end = self.location(range.end);
         Range { start, end }
     }
-    pub fn char_size(&self) -> GraphemeIndex {
+    pub fn char_size(&self) -> ByteIndex {
         self.char_size
     }
 }

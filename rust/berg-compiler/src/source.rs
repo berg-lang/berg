@@ -5,12 +5,26 @@ use source_reader::*;
 use std::path::PathBuf;
 use std::ffi::OsStr;
 
-pub trait Source {
-    fn name<'a>(&'a self) -> &'a OsStr;
-    // TODO we need (or want) this so that the parser gets constructed with the
-    // specific source-type's implementation, but this is icky and we didn't want it
-    // exposed to the public in the first place.
-    fn parse(&self, berg: &Berg) -> ParseResult;
+pub enum Source {
+    File(PathBuf),
+    Memory(Box<[u8]>),
+}
+
+pub fn main() {
+    let source = Source::File("c:\\blah.txt");
+    let x = open(&mut source);
+    let y = open(source);
+}
+
+pub fn open(source: &mut       Source) {
+    match source {
+        Source::File(path) => {
+            File::open(path)
+        },
+        Memory(mem) => {
+
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -22,6 +36,24 @@ pub struct FileSource {
 pub struct StringSource {
     name: String,
     contents: String,
+}
+
+impl<'a> SourceContext<'a> {
+    pub fn new(berg: &'a Berg, source: &'a Source) -> SourceContext<'a> {
+        SourceContext { berg, source, errors }
+    }
+    pub fn berg(&self) -> &'a Berg {
+        self.berg
+    }
+    pub fn source(&self) -> &'a Source {
+        self.source
+    }
+    pub fn report(error: CompileErrors) {
+        errors.report()
+    }
+    pub fn close(self) -> CompileErrors {
+        self.errors
+    }
 }
 
 impl FileSource {
@@ -38,15 +70,15 @@ impl Source for FileSource {
     }
     fn parse(&self, berg: &Berg) -> ParseResult {
         let mut errors = CompileErrors::new();
-        let (expressions, metadata) = 
+        let (expressions, char_data) = 
             if let Some(mut reader) = FileSourceReader::open(self, &mut errors, berg) {
                 let expressions = Parser::new(&mut reader).parse();
-                let metadata = reader.close();
-                (expressions, metadata)
+                let char_data = reader.close();
+                (expressions, char_data)
             } else {
-                (vec![], SourceMetadata::new())
+                (vec![], CharData::new())
             };
-        ParseResult { expressions, metadata, errors }        
+        ParseResult { expressions, char_data, errors }        
     }
 }
 
@@ -64,13 +96,13 @@ impl Source for StringSource {
     }
     fn parse<'a>(&'a self, _: &Berg) -> ParseResult {
         let mut errors = CompileErrors::new();
-        let (expressions, metadata) = {
+        let (expressions, char_data) = {
             let mut reader = StringSourceReader::open(self, &mut errors);
             let expressions = Parser::new(&mut reader).parse();
-            let metadata = reader.close();
-            (expressions, metadata)
+            let char_data = reader.close();
+            (expressions, char_data)
         };
-        ParseResult { expressions, metadata, errors }
+        ParseResult { expressions, char_data, errors }
     }
 }
 

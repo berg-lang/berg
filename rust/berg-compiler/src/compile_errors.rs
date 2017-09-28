@@ -10,9 +10,9 @@ pub use compile_errors::CompileError::*;
 pub enum CompileError {
     SourceNotFound(io::Error),
     InvalidUtf8(Range<ByteIndex>),
-    UnsupportedCharacters(Range<usize>),
+    UnsupportedCharacters(Range<ByteIndex>),
     IoOpenError(io::Error),
-    IoReadError(usize,io::Error),
+    IoReadError(ByteIndex,io::Error),
     IoCurrentDirectoryError(PathBuf,io::ErrorKind,String),
 }
 
@@ -38,14 +38,14 @@ impl CompileError {
             IoCurrentDirectoryError(..) => 9003,
         }
     }
-    pub fn format(&self, f: &mut fmt::Formatter, source: &Source, metadata: &SourceMetadata) -> fmt::Result {
-        write!(f, "{:?} {:?} - BRGR-{} {}", source.name(), self.range(&metadata), self.code(), self.message(source))
+    pub fn format(&self, f: &mut fmt::Formatter, source: &Source, char_data: &CharData) -> fmt::Result {
+        write!(f, "{:?} {:?} - BRGR-{} {}", source.name(), self.range(&char_data), self.code(), self.message(source))
     }
-    pub fn range(&self, metadata: &SourceMetadata) -> Range<LineColumn> {
+    pub fn range(&self, char_data: &CharData) -> Range<LineColumn> {
         match *self {
             SourceNotFound(..)|IoOpenError(..)|IoCurrentDirectoryError(..) => Range { start: LineColumn::none(), end: LineColumn::none() },
-            InvalidUtf8(ref range)|UnsupportedCharacters(ref range) => metadata.range(range),
-            IoReadError(loc, _) => metadata.range(&(loc..loc)),
+            InvalidUtf8(ref range)|UnsupportedCharacters(ref range) => char_data.range(range),
+            IoReadError(loc, _) => char_data.range(&(loc..loc)),
         }
     }
     pub fn message(&self, source: &Source) -> String {
