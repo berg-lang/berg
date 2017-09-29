@@ -1,16 +1,15 @@
 use std::io;
-use std::ops::Index;
-use std::ops::Range;
+use std::ptr;
 
-pub trait StreamBuffer<'a> : Index<usize>, Index<Range<usize>> {
-    pub fn offset(&self) -> usize;
-    pub fn consume(&mut self, size: usize) -> Box<[u8]>;
-    pub fn discard(&mut self, size: usize);
-    pub fn current_buffer(&self) -> &'a [u8];
-    pub fn fill_buffer(&mut self, min: usize=0, max: usize=READ_SIZE) -> io::Result<&'a [u8]>;
-    pub fn eof(&'a mut self) -> bool {
-        if let Err(error) = self.slice(1) {
-            error.kind == io::ErrorKind::UnexpectedEof
+pub trait StreamBuffer {
+    fn offset(&self) -> usize;
+    fn consume(&mut self, size: usize) -> Vec<u8>;
+    fn discard(&mut self, size: usize);
+    fn current_buffer<'a>(&'a self) -> &'a [u8];
+    fn fill_buffer<'a>(&'a mut self, min: usize) -> io::Result<&'a [u8]>;
+    fn eof(&mut self) -> bool {
+        if let Err(error) = self.fill_buffer(1) {
+            error.kind() == io::ErrorKind::UnexpectedEof
         } else {
             false
         }
@@ -18,7 +17,7 @@ pub trait StreamBuffer<'a> : Index<usize>, Index<Range<usize>> {
 }
 
 fn new_eof_error<T>() -> io::Result<T> {
-    Err(io::Error::new(io::ErrorKind::UnexpectedEof));
+    Err(io::Error::new(io::ErrorKind::UnexpectedEof, "failed to fill whole buffer"))
 }
 
 ///
@@ -35,53 +34,53 @@ impl<'a> MemoryStreamBuffer<'a> {
     }
 }
 
-impl<'a> StreamBuffer<'a> for MemoryStreamBuffer<'a> {
-    pub fn offset(&self) -> usize {
+impl<'a> StreamBuffer for MemoryStreamBuffer<'a> {
+    fn offset(&self) -> usize {
         self.offset
     }
-    pub fn current_buffer(&self) -> &'a [u8] {
-        self.fill_buffer[self.offset..]
+    fn current_buffer<'b>(&'b self) -> &'b [u8] {
+        &self.buffer[self.offset..]
     }
-    pub fn fill_buffer(&mut self, min: usize = 0, max: usize = MIN_READ_SIZE) -> io::Result<&'a [u8]> {
+    fn fill_buffer<'b>(&'b mut self, min: usize) -> io::Result<&'b [u8]> {
         let end = self.offset + min;
-        if end <= self.fill_buffer.len() {
-            Ok(self.fill_buffer[self.offset..])
+        if end <= self.buffer.len() {
+            Ok(&self.buffer[self.offset..])
         } else {
-            BufferResult::Eof
+            new_eof_error()
         }
     }
-    pub fn consume(&mut self, size: usize) -> Box<[u8]> {
+    fn consume(&mut self, size: usize) -> Vec<u8> {
         let end = self.offset + size;
-        let result = self.fill_buffer[self.offset..end];
+        let result = self.buffer[self.offset..end].to_vec();
         self.offset = end;
         result
     }
-    pub fn discard(&mut self, size: usize) {
+    fn discard(&mut self, size: usize) {
         self.offset += size;
     }
 }
 
-impl<'a> Index<usize,Output=io::Result<u8>> for MemoryStreamBuffer<'a> {
-    fn index(&self, index: usize) -> io::Result<u8> { self.fill_buffer(index+1)?[index] }
-}
-impl<'a, R: RangeFull<usize>> Index<R,Output=io::Result<u8>> for MemoryStreamBuffer<'a> {
-    fn index(&self, range: R) -> u8 { self.current_buffer() }
-}
-impl<'a, R: Range<usize>> Index<R,Output=io::Result<u8>> for MemoryStreamBuffer<'a> {
-    fn index(&self, range: R) -> io::Result<u8> { self.fill_buffer(range.end)?[range] }
-}
-impl<'a, R: RangeFrom<usize>> Index<R,Output=io::Result<u8>> for MemoryStreamBuffer<'a> {
-    fn index(&self, range: R) -> io::Result<u8> { self.fill_buffer(range.start)?[range] }
-}
-impl<'a, R: RangeTo<usize>> Index<R,Output=io::Result<u8>> for MemoryStreamBuffer<'a> {
-    fn index(&self, range: R) -> io::Result<u8> { self.fill_buffer(range.end)?[range] }
-}
-impl<'a, R: RangeInclusive<usize>> Index<R,Output=io::Result<u8>> for MemoryStreamBuffer<'a> {
-    fn index(&self, range: R) -> io::Result<u8> { self.fill_buffer(range.end+1)?[range] }
-}
-impl<'a, R: RangeToInclusive<usize>> Index<R,Output=io::Result<u8>> for MemoryStreamBuffer<'a> {
-    fn index(&self, range: R) -> io::Result<u8> { self.fill_buffer(range.end+1)?[range] }
-}
+// impl<'a> Index<usize,Output=io::Result<u8>> for MemoryStreamBuffer<'a> {
+//     fn index(&self, index: usize) -> io::Result<u8> { self.fill_buffer(index+1)?[index] }
+// }
+// impl<'a, R: RangeFull<usize>> Index<R,Output=io::Result<u8>> for MemoryStreamBuffer<'a> {
+//     fn index(&self, range: R) -> u8 { self.current_buffer() }
+// }
+// impl<'a, R: Range<usize>> Index<R,Output=io::Result<u8>> for MemoryStreamBuffer<'a> {
+//     fn index(&self, range: R) -> io::Result<u8> { self.fill_buffer(range.end)?[range] }
+// }
+// impl<'a, R: RangeFrom<usize>> Index<R,Output=io::Result<u8>> for MemoryStreamBuffer<'a> {
+//     fn index(&self, range: R) -> io::Result<u8> { self.fill_buffer(range.start)?[range] }
+// }
+// impl<'a, R: RangeTo<usize>> Index<R,Output=io::Result<u8>> for MemoryStreamBuffer<'a> {
+//     fn index(&self, range: R) -> io::Result<u8> { self.fill_buffer(range.end)?[range] }
+// }
+// impl<'a, R: RangeInclusive<usize>> Index<R,Output=io::Result<u8>> for MemoryStreamBuffer<'a> {
+//     fn index(&self, range: R) -> io::Result<u8> { self.fill_buffer(range.end+1)?[range] }
+// }
+// impl<'a, R: RangeToInclusive<usize>> Index<R,Output=io::Result<u8>> for MemoryStreamBuffer<'a> {
+//     fn index(&self, range: R) -> io::Result<u8> { self.fill_buffer(range.end+1)?[range] }
+// }
 
 pub struct IoStreamBuffer<R: io::Read> {
     reader: R,
@@ -90,51 +89,51 @@ pub struct IoStreamBuffer<R: io::Read> {
     offset: usize,
 }
 
-const MIN_READ_SIZE = 4096*1024;
+const MIN_READ_SIZE: usize = 4096*1024;
 
 impl<R: io::Read> IoStreamBuffer<R> {
-    pub fn new(reader: R, reader_offset: usize = 0) -> Self {
+    pub fn new(reader: R, reader_offset: usize) -> Self {
         let buffer = Vec::with_capacity(MIN_READ_SIZE*2);
         let offset = 0;
         Self { reader, reader_offset, buffer, offset }
     }
-    fn read_more(&mut self, max: usize = MIN_READ_SIZE) -> io::Result<usize> {
+    fn read_more(&mut self, max: usize) -> io::Result<usize> {
         self.ensure_unused_capacity(max);
-        let old_len = self.fill_buffer.len();
+        let old_len = self.buffer.len();
+        let capacity = self.buffer.capacity();
         // Grab the buffer, let it be written to, and then record what we read.
         unsafe {
-            self.fill_buffer.set_len(self.fill_buffer.capacity());
-            let read_buffer = self.fill_buffer.get_mut_slice()[old_len..];
-            let result = reader.read(read_buffer);
+            self.buffer.set_len(capacity);
+            let result = self.reader.read(&mut self.buffer[old_len..]);
             if let Ok(read_size) = result {
-                self.fill_buffer.set_len(old_len + read_size);
-                if (read_size == 0) {
-                    new_eof_error();
+                self.buffer.set_len(old_len + read_size);
+                if read_size == 0 {
+                    return new_eof_error();
                 }
             } else {
-                self.fill_buffer.set_len(old_len)
+                self.buffer.set_len(old_len)
             }
             result
         }
     }
     fn ensure_unused_capacity(&mut self, bytes: usize) {
-        let unused_capacity = self.fill_buffer.capacity() - self.fill_buffer.len();
+        let mut unused_capacity = self.buffer.capacity() - self.buffer.len();
         if unused_capacity < bytes {
             unused_capacity += self.trim_consumed();
             if unused_capacity < bytes {
-                self.fill_buffer.reserve(unused_capacity);
+                self.buffer.reserve(unused_capacity);
             }
         }
     }
     fn trim_consumed(&mut self) -> usize {
         // Move the actually-used space to the beginning of the buffer.
-        let unconsumed = self.fill_buffer.len() - self.offset;
+        let unconsumed = self.buffer.len() - self.offset;
         let consumed = self.offset;
         if consumed > 0 {
             unsafe {
-                let p = self.fill_buffer.as_mut_ptr();
-                ptr::copy(p.offset(consumed), p, unconsumed);
-                self.fill_buffer.set_len(unconsumed);
+                let p = self.buffer.as_mut_ptr();
+                ptr::copy(p.offset(consumed as isize), p, unconsumed);
+                self.buffer.set_len(unconsumed);
             }
             self.offset = 0;
         }
@@ -142,52 +141,52 @@ impl<R: io::Read> IoStreamBuffer<R> {
     }
 }
 
-impl<'a, R: io::Read> StreamBuffer<'a> for IoStreamBuffer<R> {
-    pub fn offset(&self) -> usize {
+impl<R: io::Read> StreamBuffer for IoStreamBuffer<R> {
+    fn offset(&self) -> usize {
         self.reader_offset + self.offset
     }
-    pub fn current_buffer(&self) -> &'a [u8] {
-        self.fill_buffer.as_slice()[self.offset..]
+    fn current_buffer<'a>(&'a self) -> &'a [u8] {
+        &self.buffer[self.offset..]
     }
-    pub fn fill_buffer(&mut self, min: usize=0, max: usize=MIN_READ_SIZE) -> io::Result<&'a u8> {
-        while self.fill_buffer.len() < self.offset+min {
-            if self.read_more(max)? == 0 {
+    fn fill_buffer<'a>(&'a mut self, min: usize) -> io::Result<&'a [u8]> {
+        while self.buffer.len() < self.offset+min {
+            if self.read_more(MIN_READ_SIZE)? == 0 {
                 return new_eof_error();
             }
         }
         Ok(self.current_buffer())
     }
-    pub fn consume(&mut self, size: usize) -> Box<[u8]> {
+    fn consume(&mut self, size: usize) -> Vec<u8> {
         let end = self.offset + size;
-        let result = self.fill_buffer[self.offset..end];
+        let result = self.buffer[self.offset..end].to_vec();
         self.offset = end;
         self.reader_offset += size;
-        Box::new(result.clone())
+        result
     }
-    pub fn discard(&mut self, size: usize) {
+    fn discard(&mut self, size: usize) {
         self.offset = self.offset + size;
         self.reader_offset += size;
     }
 }
 
-impl<'a> Index<usize,Output=io::Result<u8>> for IoStreamBuffer<'a> {
-    fn index(&self, index: usize) -> io::Result<u8> { self.fill_buffer(index+1)?[index] }
-}
-impl<'a, R: RangeFull<usize>> Index<R,Output=io::Result<u8>> for IoStreamBuffer<'a> {
-    fn index(&self, range: R) -> u8 { self.current_buffer() }
-}
-impl<'a, R: Range<usize>> Index<R,Output=io::Result<u8>> for IoStreamBuffer<'a> {
-    fn index(&self, range: R) -> io::Result<u8> { self.fill_buffer(range.end)?[range] }
-}
-impl<'a, R: RangeFrom<usize>> Index<R,Output=io::Result<u8>> for IoStreamBuffer<'a> {
-    fn index(&self, range: R) -> io::Result<u8> { self.fill_buffer(range.start)?[range] }
-}
-impl<'a, R: RangeTo<usize>> Index<R,Output=io::Result<u8>> for IoStreamBuffer<'a> {
-    fn index(&self, range: R) -> io::Result<u8> { self.fill_buffer(range.end)?[range] }
-}
-impl<'a, R: RangeInclusive<usize>> Index<R,Output=io::Result<u8>> for IoStreamBuffer<'a> {
-    fn index(&self, range: R) -> io::Result<u8> { self.fill_buffer(range.end+1)?[range] }
-}
-impl<'a, R: RangeToInclusive<usize>> Index<R,Output=io::Result<u8>> for IoStreamBuffer<'a> {
-    fn index(&self, range: R) -> io::Result<u8> { self.fill_buffer(range.end+1)?[range] }
-}
+// impl<'a> Index<usize,Output=io::Result<u8>> for IoStreamBuffer<'a> {
+//     fn index(&self, index: usize) -> io::Result<u8> { self.fill_buffer(index+1)?[index] }
+// }
+// impl<'a, R: RangeFull<usize>> Index<R,Output=io::Result<u8>> for IoStreamBuffer<'a> {
+//     fn index(&self, range: R) -> u8 { self.current_buffer() }
+// }
+// impl<'a, R: Range<usize>> Index<R,Output=io::Result<u8>> for IoStreamBuffer<'a> {
+//     fn index(&self, range: R) -> io::Result<u8> { self.fill_buffer(range.end)?[range] }
+// }
+// impl<'a, R: RangeFrom<usize>> Index<R,Output=io::Result<u8>> for IoStreamBuffer<'a> {
+//     fn index(&self, range: R) -> io::Result<u8> { self.fill_buffer(range.start)?[range] }
+// }
+// impl<'a, R: RangeTo<usize>> Index<R,Output=io::Result<u8>> for IoStreamBuffer<'a> {
+//     fn index(&self, range: R) -> io::Result<u8> { self.fill_buffer(range.end)?[range] }
+// }
+// impl<'a, R: RangeInclusive<usize>> Index<R,Output=io::Result<u8>> for IoStreamBuffer<'a> {
+//     fn index(&self, range: R) -> io::Result<u8> { self.fill_buffer(range.end+1)?[range] }
+// }
+// impl<'a, R: RangeToInclusive<usize>> Index<R,Output=io::Result<u8>> for IoStreamBuffer<'a> {
+//     fn index(&self, range: R) -> io::Result<u8> { self.fill_buffer(range.end+1)?[range] }
+// }
