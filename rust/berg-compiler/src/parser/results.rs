@@ -1,35 +1,37 @@
-use compile_errors::*;
+pub use compiler::compile_error::*;
+pub use parser::results::SyntaxExpressionType::*;
 
 use std::cmp::Ordering;
-use std::env;
-use std::io;
 use std::ops::Range;
-use std::path::PathBuf;
-
-pub use source::*;
-
-pub struct Berg {
-    root: io::Result<PathBuf>,
-    sources: Vec<Box<Source>>,
-}
-
-// TODO make these struct X(usize) to make accidental cross-casting impossible
-pub type ByteIndex = usize;
 
 #[derive(Debug)]
 pub struct ParseResult {
-    pub char_data: CharData,
-    pub expressions: Vec<SyntaxExpression>,
-    pub errors: CompileErrors,
+    char_data: CharData,
+    expressions: Vec<SyntaxExpression>,
+}
+
+impl ParseResult {
+    pub fn new(char_data: CharData, expressions: Vec<SyntaxExpression>) -> ParseResult {
+        ParseResult { char_data, expressions }
+    }
 }
 
 // ExpressionType, String, LeftChild, RightChild
 #[derive(Debug)]
 pub struct SyntaxExpression {
     pub expression_type: SyntaxExpressionType,
+    pub start: ByteIndex,
     pub string: String,
-    pub start: usize,
 }
+
+impl SyntaxExpression {
+    pub fn new(expression_type: SyntaxExpressionType, start: ByteIndex, string: String) -> SyntaxExpression {
+        SyntaxExpression { expression_type, start, string }
+    }
+}
+
+// TODO make this struct X(usize) to make accidental cross-casting impossible
+pub type ByteIndex = usize;
 
 #[derive(Debug)]
 pub enum SyntaxExpressionType {
@@ -54,29 +56,6 @@ pub struct CharData {
 pub struct LineColumn {
     pub line: usize,
     pub column: usize,
-}
-
-impl Berg {
-    pub fn from_env() -> Berg {
-        Berg { root: env::current_dir(), sources: vec![] }
-    }
-    pub fn new(root: PathBuf) -> Berg {
-        Berg { root: Ok(root), sources: vec![] }
-    }
-
-    pub fn root(&self) -> &io::Result<PathBuf> {
-        &self.root
-    }
-
-    pub fn add_file_source(&mut self, path: PathBuf) {
-        self.sources.push(Box::new(FileSource::new(path)))
-    }
-    pub fn add_string_source(&mut self, name: String, contents: String) {
-        self.sources.push(Box::new(StringSource::new(name, contents)))
-    }
-    pub fn parse(&self) -> Vec<ParseResult> {
-        self.sources.iter().map(|source| source.parse(&self)).collect()
-    }
 }
 
 impl LineColumn {
@@ -128,3 +107,4 @@ impl CharData {
         self.char_size
     }
 }
+
