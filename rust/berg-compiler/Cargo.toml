@@ -2,3 +2,5 @@
 name = "berg-compiler"
 version = "0.1.0"
 authors = ["John Keiser <john@johnkeiser.com>"]
+
+[dependencies]

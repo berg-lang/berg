@@ -2,21 +2,10 @@
 #![feature(inclusive_range_syntax)]
 #![feature(inclusive_range)]
 #![feature(range_contains)]
+#![feature(collections_range)]
 
 mod compiler;
 mod parser;
+mod public;
 
-pub use compiler::Compiler;
-
-// mod compiler;
-// mod compile_errors;
-// mod parser;
-// mod source;
-// mod source_reader;
-// mod tokenizer;
-// mod utf8_buffer;
-
-// pub use compiler::*;
-// pub use compile_errors::CompileErrors;
-// pub use compile_errors::CompileError;
-
+pub use public::*;

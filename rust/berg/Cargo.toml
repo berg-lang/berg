@@ -10,4 +10,4 @@ docopt = "0.8"
 docopt_macros = "0.8"
 serde = "1.0" # if you're using `derive(Deserialize)`
 serde_derive = "1.0" # if you're using `derive(Deserialize)`
-berg-compiler = { path = "berg-compiler" }
+berg-compiler = { path = "../berg-compiler" }

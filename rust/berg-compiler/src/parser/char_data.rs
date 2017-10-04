@@ -1,42 +1,8 @@
-pub use compiler::compile_error::*;
-pub use parser::results::SyntaxExpressionType::*;
-
 use std::cmp::Ordering;
 use std::ops::Range;
 
-#[derive(Debug)]
-pub struct ParseResult {
-    char_data: CharData,
-    expressions: Vec<SyntaxExpression>,
-}
-
-impl ParseResult {
-    pub fn new(char_data: CharData, expressions: Vec<SyntaxExpression>) -> ParseResult {
-        ParseResult { char_data, expressions }
-    }
-}
-
-// ExpressionType, String, LeftChild, RightChild
-#[derive(Debug)]
-pub struct SyntaxExpression {
-    pub expression_type: SyntaxExpressionType,
-    pub start: ByteIndex,
-    pub string: String,
-}
-
-impl SyntaxExpression {
-    pub fn new(expression_type: SyntaxExpressionType, start: ByteIndex, string: String) -> SyntaxExpression {
-        SyntaxExpression { expression_type, start, string }
-    }
-}
-
 // TODO make this struct X(usize) to make accidental cross-casting impossible
 pub type ByteIndex = usize;
-
-#[derive(Debug)]
-pub enum SyntaxExpressionType {
-    IntegerLiteral,
-}
 
 #[derive(Debug)]
 pub struct CharData {
@@ -56,28 +22,6 @@ pub struct CharData {
 pub struct LineColumn {
     pub line: usize,
     pub column: usize,
-}
-
-impl LineColumn {
-    pub fn none() -> LineColumn {
-        LineColumn { line: 0, column: 0 }
-    }
-}
-
-impl PartialEq for LineColumn {
-    fn eq(&self, other: &LineColumn) -> bool {
-        self.line == other.line && self.column == other.column
-    }
-}
-
-impl PartialOrd for LineColumn {
-    fn partial_cmp(&self, other: &LineColumn) -> Option<Ordering> {
-        let result = self.line.partial_cmp(&other.column);
-        match result {
-            Some(Ordering::Equal) => self.column.partial_cmp(&other.column),
-            _ => result,
-        }
-    }
 }
 
 impl CharData {
@@ -108,3 +52,24 @@ impl CharData {
     }
 }
 
+impl LineColumn {
+    pub fn none() -> LineColumn {
+        LineColumn { line: 0, column: 0 }
+    }
+}
+
+impl PartialEq for LineColumn {
+    fn eq(&self, other: &LineColumn) -> bool {
+        self.line == other.line && self.column == other.column
+    }
+}
+
+impl PartialOrd for LineColumn {
+    fn partial_cmp(&self, other: &LineColumn) -> Option<Ordering> {
+        let result = self.line.partial_cmp(&other.column);
+        match result {
+            Some(Ordering::Equal) => self.column.partial_cmp(&other.column),
+            _ => result,
+        }
+    }
+}

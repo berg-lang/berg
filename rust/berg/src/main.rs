@@ -6,7 +6,6 @@ extern crate env_logger;
 extern crate berg_compiler;
 
 use berg_compiler::*;
-use std::path::PathBuf;
 use docopt::Docopt;
 
 const USAGE: &str = "
@@ -39,19 +38,16 @@ fn main() {
     assert!(args.cmd_check);
     assert!(args.cmd_syntax);
 
-    let mut berg = Berg::from_env();
-    add_source(&mut berg, &args);
-    for result in berg.parse().iter() {
-        print!("{:?}", result);
-    }
+    let mut compiler = Compiler::from_env();
+    add_source(&mut compiler, &args);
 }
 
-fn add_source(berg: &mut Berg, args: &Args) {
+fn add_source(compiler: &mut Compiler, args: &Args) {
     if let Some(ref file) = args.arg_file {
         assert!(args.flag_e.is_none());
-        berg.add_file_source(PathBuf::from(file))
+        compiler.add_file_source(file)
     } else if let Some(ref expr) = args.flag_e {
-        berg.add_string_source(String::from("expr"), expr.clone())
+        compiler.add_memory_source(String::from("expr"), expr.clone())
     } else {
         panic!("No source passed: {:?}", args)
     }

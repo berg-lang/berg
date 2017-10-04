@@ -1,58 +1,137 @@
 pub mod compile_error;
 pub mod source;
 
-pub use compiler::source::Source;
-pub use compiler::compile_error::*;
-pub use compiler::compile_error::ErrorType::*;
+use public::*;
+use parser::Parser;
 
-use parser;
-use parser::results::*;
 use std::env;
+use std::fmt::*;
 use std::io;
 use std::io::Write;
+use std::ops::Index;
+use std::ops::IndexMut;
 use std::path::PathBuf;
 use std::sync::RwLock;
+use std::u32;
 
 pub struct Compiler<'c> {
-    root: io::Result<PathBuf>,
+    root: Option<PathBuf>,
+    root_error: RwLock<Option<io::Error>>,
     out: Box<Write>,
     err: Box<Write>,
 
-    sources: Vec<Source>,
-    errors: RwLock<Vec<CompileError<'c>>>
+    sources: RwLock<Vec<SourceData<'c>>>,
+    errors: RwLock<Vec<CompileError>>,
 }
 
+#[derive(Debug,Copy,Clone,PartialEq,Eq)]
+pub struct SourceIndex(pub u32);
+
+impl<'c> Debug for Compiler<'c> {
+    fn fmt(&self, f: &mut Formatter) -> Result {
+        f.debug_struct("Foo")
+         .field("root", &self.root)
+         .field("root_error", &self.root_error)
+         .field("sources", &self.sources)
+         .field("errors", &self.errors)
+         .finish()
+    }
+}
+
+impl<'c> Index<SourceIndex> for Vec<SourceData<'c>> {
+    type Output = SourceData<'c>;
+    fn index(&self, index: SourceIndex) -> &SourceData<'c> {
+        &self[index.0 as usize]
+    }
+}
+impl<'c> IndexMut<SourceIndex> for Vec<SourceData<'c>> {
+    fn index_mut(&mut self, index: SourceIndex) -> &mut SourceData<'c> {
+        &mut self[index.0 as usize]
+    }
+}
+
+//
+// Implementation
+//
+
 impl<'c> Compiler<'c> {
-    pub fn from_env() -> Compiler<'c> {
-        let root = env::current_dir();
+    pub fn from_env() -> Self {
+        let mut root = None;
+        let mut root_error = None;
+        match env::current_dir() {
+            Ok(path) => root = Some(path),
+            Err(error) => root_error = Some(error),
+        }
         let out = Box::new(io::stdout());
         let err = Box::new(io::stderr());
-        let errors = RwLock::new(vec![]);
-        Compiler { root, out, err, errors, sources: vec![] }
-    }
-    pub fn new<P: Into<PathBuf>, Out: Into<Box<Write>>, Err: Into<Box<Write>>>(root: P, out: Out, err: Err) -> Self {
-        let errors = RwLock::new(vec![]);
-        Compiler { root: Ok(root.into()), out: out.into(), err: err.into(), errors, sources: vec![] }
+        Self::new(root, root_error, out, err)
     }
 
-    pub fn root(&self) -> &io::Result<PathBuf> {
-        &self.root
-    }
-
-    pub fn report(&self, error: CompileError<'c>) {
-        let mut guard = self.errors.write().unwrap();
-        guard.push(error)
+    pub fn new(root: Option<PathBuf>, root_error: Option<io::Error>, out: Box<Write>, err: Box<Write>) -> Self {
+        let root_error = RwLock::new(root_error);
+        let out = out.into();
+        let err = err.into();
+        let sources = RwLock::new(vec![]);
+        let errors = RwLock::new(vec![]);
+        Compiler { root, root_error, out, err, sources, errors }
     }
 
     pub fn add_file_source<P: Into<PathBuf>>(&mut self, path: P) {
-        self.sources.push(Source::file(path))
+        let source = Source::file(path.into());
+        self.add_source(source)
     }
 
-    pub fn add_memory_source<S: Into<String>, B: Into<Vec<u8>>>(&mut self, name: S, contents: B) {
-        self.sources.push(Source::memory(name, contents))
+    pub fn add_memory_source<Str: Into<String>, Buf: Into<Vec<u8>>>(&mut self, name: Str, contents: Buf) {
+        let source = Source::memory(name.into(), contents.into());
+        self.add_source(source)
     }
 
-    pub fn parse(&'c self) -> Vec<(&'c Source, Option<ParseResult>)> {
-        self.sources.iter().map(|source| (source, parser::parse(&self, &source)) ).collect()
+    pub(crate) fn with_source<T, F: FnOnce(&SourceData) -> T>(&self, index: SourceIndex, f: F) -> T {
+        let sources = self.sources.read().unwrap();
+        let source_data = &sources[index.0 as usize];
+        f(source_data)
+    }
+    pub(crate) fn with_source_mut<T, F: FnOnce(&mut SourceData) -> T>(&self, index: SourceIndex, f: F) -> T {
+        let mut sources = self.sources.write().unwrap();
+        let source_data = &mut sources[index.0 as usize];
+        f(source_data)
+    }
+    pub(crate) fn add_source(&self, source: Source) {
+        let index = {
+            let mut sources = self.sources.write().unwrap();
+            if sources.len() + 1 > (u32::MAX as usize) { panic!("Too many source files opened! Max is {}", u32::MAX) }
+            sources.push(SourceData::new(source));
+            SourceIndex((sources.len() - 1) as u32)
+        };
+        Parser::parse(self, index)
+    }
+
+    fn maybe_report_path_error(&self, source: SourceIndex) {
+        // Only report the "bad root directory" error once.
+        let mut root_error = self.root_error.write().unwrap();
+        if let Some(ref error) = *root_error {
+            self.report(IoCurrentDirectoryError.io_generic(source, error));
+        } else {
+            return;
+        }
+        *root_error = None;
+    }
+
+    pub(crate) fn absolute_path(&self, path: &PathBuf, source: SourceIndex) -> Option<PathBuf> {
+        if path.is_relative() {
+            if let Some(ref root) = self.root {
+                Some(root.join(path))
+            } else {
+                self.maybe_report_path_error(source);
+                None
+            }
+        } else {
+            None
+        }
+    }
+
+    pub(crate) fn report(&self, error: CompileError) {
+        let mut errors = self.errors.write().unwrap();
+        errors.push(error)
     }
 }
