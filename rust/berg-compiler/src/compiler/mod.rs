@@ -103,7 +103,8 @@ impl<'c> Compiler<'c> {
             sources.push(SourceData::new(source));
             SourceIndex((sources.len() - 1) as u32)
         };
-        Parser::parse(self, index)
+        Parser::parse(self, index);
+        self.with_source(index, |source| println!("{:?}", source));
     }
 
     fn maybe_report_path_error(&self, source: SourceIndex) {
