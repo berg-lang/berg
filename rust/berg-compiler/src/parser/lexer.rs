@@ -5,8 +5,7 @@ use std::ops::Range;
 use std::ops::RangeInclusive;
 
 fn match_all<'c, 'b>(range: RangeInclusive<u8>, parser: &mut Parser<'c, 'b>, mut index: ByteIndex) -> ByteIndex {
-    let len = parser.buffer.len();
-    while index < len && range.contains(parser.buffer[index]) {
+    while index < parser.buffer.len() && range.contains(parser.buffer[index]) {
         index += 1;
     }
     index
@@ -21,7 +20,7 @@ pub fn term<'c, 'b>(parser: &mut Parser<'c, 'b>) -> bool {
             index = match_all(b'0'..=b'9', parser, index+1);
             token(IntegerLiteral, parser, index)
         },
-        _ => invalid_or_unsupported(parser, index+1)
+        _ => invalid_or_unsupported(parser, index)
     }
 }
 

@@ -4,6 +4,7 @@ use std::path::PathBuf;
 use std::fs::File;
 use std::io;
 use std::io::Read;
+use std::u32;
 
 pub enum SourceBuffer<'b> {
     Empty,
@@ -13,11 +14,15 @@ pub enum SourceBuffer<'b> {
 
 impl<'b> SourceBuffer<'b> {
     pub fn with_buffer<'c: 'b, T, F: FnOnce(&[u8]) -> T>(compiler: &Compiler<'c>, source: SourceIndex, s: &Source, f: F) -> T {
-        let buffer = match s {
+        let guard = match s {
             &Source::File { ref path, .. } => Self::open_file(&compiler, source, path),
             &Source::Memory { ref contents, .. } => SourceBuffer::Ref { buffer: contents.as_slice() },
         };
-        f(buffer.buffer())
+        let buffer = guard.buffer();
+        if buffer.len() > (u32::MAX as usize) {
+            panic!("Files larger than 4GB are not supported.")
+        }
+        f(buffer)
     }
     fn open_file(compiler: &Compiler, source: SourceIndex, path: &PathBuf) -> SourceBuffer<'b> {
         if let Some(ref path) = compiler.absolute_path(path, source) {
@@ -25,7 +30,7 @@ impl<'b> SourceBuffer<'b> {
                 Ok(mut read) => {
                     let mut buffer = Vec::new();
                     if let Err(error) = read.read_to_end(&mut buffer) {
-                        compiler.report(IoReadError.io_read(source, buffer.len(), error));
+                        compiler.report(IoReadError.io_read(source, buffer.len() as u32, error));
                     }
                     return SourceBuffer::Vec { buffer }
                 },

@@ -86,6 +86,35 @@ impl<'c> Compiler<'c> {
         self.add_source(source)
     }
 
+    pub(crate) fn add_source(&self, source: Source) {
+        let index = {
+            let mut sources = self.sources.write().unwrap();
+            if sources.len() + 1 > (u32::MAX as usize) { panic!("Too many source files opened! Max is {}", u32::MAX) }
+            sources.push(SourceData::new(source));
+            SourceIndex((sources.len() - 1) as u32)
+        };
+        Parser::parse(self, index);
+        self.with_source(index, |source| {
+            println!("{}", source.source.name().to_string_lossy());
+            println!("--------------------");
+            println!("Result:");
+            if let Some(ref char_data) = source.char_data {
+                if let Some(ref expressions) = source.expressions {
+                    for expression in expressions {
+                        println!("- {}: {:?} \"{}\"", char_data.range(expression.range()), expression.expression_type, expression.string);
+                    }
+                }
+            }
+        });
+        let errors = self.errors.read().unwrap();
+        if errors.len() > 0 {
+            println!("");
+            println!("ERRORS:");
+            for error in errors.iter() {
+                println!("- {:?}", error);
+            }
+        }
+    }
     pub(crate) fn with_source<T, F: FnOnce(&SourceData) -> T>(&self, index: SourceIndex, f: F) -> T {
         let sources = self.sources.read().unwrap();
         let source_data = &sources[index.0 as usize];
@@ -95,16 +124,6 @@ impl<'c> Compiler<'c> {
         let mut sources = self.sources.write().unwrap();
         let source_data = &mut sources[index.0 as usize];
         f(source_data)
-    }
-    pub(crate) fn add_source(&self, source: Source) {
-        let index = {
-            let mut sources = self.sources.write().unwrap();
-            if sources.len() + 1 > (u32::MAX as usize) { panic!("Too many source files opened! Max is {}", u32::MAX) }
-            sources.push(SourceData::new(source));
-            SourceIndex((sources.len() - 1) as u32)
-        };
-        Parser::parse(self, index);
-        self.with_source(index, |source| println!("{:?}", source));
     }
 
     fn maybe_report_path_error(&self, source: SourceIndex) {

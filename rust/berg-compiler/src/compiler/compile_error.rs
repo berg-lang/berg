@@ -80,7 +80,8 @@ impl CompileErrorType {
     }
     pub fn invalid<T: AsRef<[u8]>>(self, source: SourceIndex, start: ByteIndex, string: T) -> CompileError {
         let string = string.as_ref();
-        let range = Range { start: start, end: start + string.len() };
+        let len = string.len() as ByteIndex;
+        let range = Range { start: start, end: start + len };
         let error_message = match self {
             InvalidUtf8 => format!("Invalid UTF-8 bytes: '{}'", string.iter().map(|b| format!("{:02X}", b)).collect::<Vec<String>>().join("")),
             _ => unreachable!(),
@@ -89,7 +90,7 @@ impl CompileErrorType {
         CompileError::new(self, vec![message])
     }
     pub fn at(self, source: SourceIndex, start: ByteIndex, string: &str) -> CompileError {
-        let range = Range { start: start, end: start + string.len() };
+        let range = Range { start: start, end: start + (string.len() as u32) };
         let error_message = match self {
             UnsupportedCharacters => format!("Unsupported characters {:?}", string),
             _ => unreachable!(),
