@@ -5,7 +5,7 @@ use std::fmt::*;
 // TODO make this struct X(usize) to make accidental cross-casting impossible
 pub type ByteIndex = u32;
 
-#[derive(Debug)]
+#[derive(Debug,Default)]
 pub struct CharData {
     // size in bytes
     // byte_size: usize,

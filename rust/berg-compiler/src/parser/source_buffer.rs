@@ -14,9 +14,9 @@ pub enum SourceBuffer<'b> {
 
 impl<'b> SourceBuffer<'b> {
     pub fn with_buffer<'c: 'b, T, F: FnOnce(&[u8]) -> T>(compiler: &Compiler<'c>, source: SourceIndex, s: &Source, f: F) -> T {
-        let guard = match s {
-            &Source::File { ref path, .. } => Self::open_file(&compiler, source, path),
-            &Source::Memory { ref contents, .. } => SourceBuffer::Ref { buffer: contents.as_slice() },
+        let guard = match *s {
+            Source::File { ref path, .. } => Self::open_file(compiler, source, path),
+            Source::Memory { ref contents, .. } => SourceBuffer::Ref { buffer: contents.as_slice() },
         };
         let buffer = guard.buffer();
         if buffer.len() > (u32::MAX as usize) {

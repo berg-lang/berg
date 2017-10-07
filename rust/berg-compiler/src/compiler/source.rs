@@ -19,7 +19,7 @@ impl Source {
         let contents = contents;
         Source::Memory { name, contents }
     }
-    pub fn name<'a>(&'a self) -> &'a OsStr {
+    pub fn name(&self) -> &OsStr {
         match *self {
             Source::File { ref path, .. } => path.as_ref(),
             Source::Memory { ref name, .. } => name.as_ref(),

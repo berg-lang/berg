@@ -4,7 +4,7 @@ use parser::Parser;
 use std::ops::Range;
 use std::ops::RangeInclusive;
 
-fn match_all<'c, 'b>(range: RangeInclusive<u8>, parser: &mut Parser<'c, 'b>, mut index: ByteIndex) -> ByteIndex {
+fn match_all<'c, 'b>(range: &RangeInclusive<u8>, parser: &mut Parser<'c, 'b>, mut index: ByteIndex) -> ByteIndex {
     while index < parser.buffer.len() && range.contains(parser.buffer[index]) {
         index += 1;
     }
@@ -17,7 +17,7 @@ pub fn term<'c, 'b>(parser: &mut Parser<'c, 'b>) -> bool {
 
     match parser.buffer[index] {
         b'0'...b'9' => {
-            index = match_all(b'0'..=b'9', parser, index+1);
+            index = match_all(&(b'0'..=b'9'), parser, index+1);
             token(IntegerLiteral, parser, index)
         },
         _ => invalid_or_unsupported(parser, index)
@@ -91,15 +91,15 @@ fn token<'c, 'b>(expression_type: SyntaxExpressionType, parser: &mut Parser<'c, 
 }
 
 // Start of a UTF-8 continuation byte
-const UTF8_CONT_START: u8    = 0b10000000;
+const UTF8_CONT_START: u8    = 0b1000_0000;
 // Start of a UTF-8 2-byte leading byte
-const UTF8_2_START: u8       = 0b11000000;
+const UTF8_2_START: u8       = 0b1100_0000;
 // Start of a UTF-8 3-byte leading byte
-const UTF8_3_START: u8       = 0b11100000;
+const UTF8_3_START: u8       = 0b1110_0000;
 // Start of a UTF-8 3-byte leading byte
-const UTF8_4_START: u8       = 0b11110000;
+const UTF8_4_START: u8       = 0b1111_0000;
 // Invalid UTF-8 bytes from here to 256. Can never occur.
-const UTF8_INVALID_START: u8 = 0b11111000;
+const UTF8_INVALID_START: u8 = 0b1111_1000;
 
 // const ASCII: Range<u8> = 0x00..UTF8_CONT_START;
 const UTF8_CONT: Range<u8> = UTF8_CONT_START..UTF8_2_START;
