@@ -3,7 +3,7 @@ use std::io;
 use std::ops::Range;
 use std::path::Path;
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct CompileError {
     error_type: CompileErrorType,
     messages: Vec<CompileErrorMessage>,
@@ -24,16 +24,16 @@ impl CompileError {
     }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct CompileErrorMessage {
-    source: Option<SourceIndex>,
-    range: Option<Range<ByteIndex>>,
-    replacement: Option<String>,
-    message: String,
+    pub source: Option<SourceIndex>,
+    pub range: Option<Range<ByteIndex>>,
+    pub replacement: Option<String>,
+    pub message: String,
 }
 
 impl CompileErrorMessage {
-    pub fn replacement(
+    pub fn new_replacement(
         source: SourceIndex,
         range: Range<ByteIndex>,
         replacement: String,
@@ -70,9 +70,22 @@ impl CompileErrorMessage {
             replacement: None,
         }
     }
+
+    pub fn source(&self) -> Option<SourceIndex> {
+        self.source
+    }
+    pub fn range(&self) -> &Option<Range<ByteIndex>> {
+        &self.range
+    }
+    pub fn replacement(&self) -> &Option<String> {
+        &self.replacement
+    }
+    pub fn message(&self) -> &String {
+        &self.message
+    }
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum CompileErrorType {
     SourceNotFound = 101,
     InvalidUtf8 = 102,

@@ -19,14 +19,14 @@ pub struct CharData {
     line_starts: Vec<ByteIndex>,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct LineColumn {
     pub line: u32,
     pub column: u32,
 }
 
 // Inclusive line/column range
-#[derive(Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct LineColumnRange {
     pub start: LineColumn,
     pub end: Option<LineColumn>,
@@ -70,14 +70,17 @@ impl CharData {
 }
 
 impl LineColumn {
-    pub fn none() -> LineColumn {
-        LineColumn { line: 0, column: 0 }
+    pub fn new(line: ByteIndex, column: ByteIndex) -> LineColumn {
+        LineColumn { line, column }
     }
 }
 
-impl PartialEq for LineColumn {
-    fn eq(&self, other: &LineColumn) -> bool {
-        self.line == other.line && self.column == other.column
+impl LineColumnRange {
+    pub fn new(start: LineColumn, end: LineColumn) -> LineColumnRange {
+        LineColumnRange { start, end: Some(end) }
+    }
+    pub fn zero_width(start: LineColumn) -> LineColumnRange {
+        LineColumnRange { start, end: None }
     }
 }
 

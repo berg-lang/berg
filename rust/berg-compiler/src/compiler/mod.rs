@@ -102,7 +102,31 @@ impl<'c> Compiler<'c> {
         self.add_source(source)
     }
 
-    pub(crate) fn add_source(&self, source: Source) {
+    pub fn with_sources<T, F: FnOnce(&[SourceData]) -> T>(
+        &self,
+        f: F,
+    ) -> T {
+        let sources = self.sources.read().unwrap();
+        f(sources.as_slice())
+    }
+
+    pub fn with_errors<T, F: FnOnce(&[CompileError]) -> T>(
+        &self,
+        f: F,
+    ) -> T {
+        let errors = self.errors.read().unwrap();
+        f(errors.as_slice())
+    }
+
+    pub fn with_source<T, F: FnOnce(&SourceData) -> T>(
+        &self,
+        index: SourceIndex,
+        f: F,
+    ) -> T {
+        self.with_sources(|sources| f(&sources[index.0 as usize]))
+    }
+
+    fn add_source(&self, source: Source) {
         let index = {
             let mut sources = self.sources.write().unwrap();
             if sources.len() + 1 > (u32::MAX as usize) {
@@ -138,15 +162,7 @@ impl<'c> Compiler<'c> {
             }
         }
     }
-    pub(crate) fn with_source<T, F: FnOnce(&SourceData) -> T>(
-        &self,
-        index: SourceIndex,
-        f: F,
-    ) -> T {
-        let sources = self.sources.read().unwrap();
-        let source_data = &sources[index.0 as usize];
-        f(source_data)
-    }
+
     pub(crate) fn with_source_mut<T, F: FnOnce(&mut SourceData) -> T>(
         &self,
         index: SourceIndex,
