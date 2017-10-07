@@ -13,10 +13,17 @@ pub enum SourceBuffer<'b> {
 }
 
 impl<'b> SourceBuffer<'b> {
-    pub fn with_buffer<'c: 'b, T, F: FnOnce(&[u8]) -> T>(compiler: &Compiler<'c>, source: SourceIndex, s: &Source, f: F) -> T {
+    pub fn with_buffer<'c: 'b, T, F: FnOnce(&[u8]) -> T>(
+        compiler: &Compiler<'c>,
+        source: SourceIndex,
+        s: &Source,
+        f: F,
+    ) -> T {
         let guard = match *s {
             Source::File { ref path, .. } => Self::open_file(compiler, source, path),
-            Source::Memory { ref contents, .. } => SourceBuffer::Ref { buffer: contents.as_slice() },
+            Source::Memory { ref contents, .. } => SourceBuffer::Ref {
+                buffer: contents.as_slice(),
+            },
         };
         let buffer = guard.buffer();
         if buffer.len() > (u32::MAX as usize) {
@@ -32,8 +39,8 @@ impl<'b> SourceBuffer<'b> {
                     if let Err(error) = read.read_to_end(&mut buffer) {
                         compiler.report(IoReadError.io_read(source, buffer.len() as u32, error));
                     }
-                    return SourceBuffer::Vec { buffer }
-                },
+                    return SourceBuffer::Vec { buffer };
+                }
                 Err(error) => {
                     let error_type = match error.kind() {
                         io::ErrorKind::NotFound => SourceNotFound,

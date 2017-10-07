@@ -5,7 +5,7 @@ use std::fmt::*;
 // TODO make this struct X(usize) to make accidental cross-casting impossible
 pub type ByteIndex = u32;
 
-#[derive(Debug,Default)]
+#[derive(Debug, Default)]
 pub struct CharData {
     // size in bytes
     // byte_size: usize,
@@ -34,7 +34,10 @@ pub struct LineColumnRange {
 
 impl CharData {
     pub fn new() -> CharData {
-        CharData { char_size: 0, line_starts: vec![0] }
+        CharData {
+            char_size: 0,
+            line_starts: vec![0],
+        }
     }
     pub fn append_line(&mut self, line_start_index: ByteIndex) {
         self.line_starts.push(line_start_index);
@@ -42,11 +45,11 @@ impl CharData {
     pub fn location(&self, index: ByteIndex) -> LineColumn {
         // TODO binary search to make it faster. But, meh.
         let mut line = self.line_starts.len();
-        while self.line_starts[line-1] > index {
+        while self.line_starts[line - 1] > index {
             line -= 1
         }
 
-        let column = index - self.line_starts[line-1] + 1;
+        let column = index - self.line_starts[line - 1] + 1;
         let line = line as u32;
         LineColumn { line, column }
     }
@@ -56,7 +59,7 @@ impl CharData {
         if range.start == range.end {
             LineColumnRange { start, end: None }
         } else {
-            let end = Some(self.location(range.end-1));
+            let end = Some(self.location(range.end - 1));
             LineColumnRange { start, end }
         }
     }
@@ -101,10 +104,23 @@ impl Display for LineColumnRange {
                 if self.start.column == end.column {
                     write!(f, "{}:{}", self.start.line, self.start.column)
                 } else {
-                    write!(f, "{}:{}-{}", self.start.line, self.start.column, end.column)
+                    write!(
+                        f,
+                        "{}:{}-{}",
+                        self.start.line,
+                        self.start.column,
+                        end.column
+                    )
                 }
             } else {
-                write!(f, "{}:{}-{}:{}", self.start.line, self.start.column, end.line, end.column)
+                write!(
+                    f,
+                    "{}:{}-{}:{}",
+                    self.start.line,
+                    self.start.column,
+                    end.line,
+                    end.column
+                )
             }
         } else {
             write!(f, "{}:{}", self.start.line, self.start.column)

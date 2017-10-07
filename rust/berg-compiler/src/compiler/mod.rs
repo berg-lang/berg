@@ -24,17 +24,17 @@ pub struct Compiler<'c> {
     errors: RwLock<Vec<CompileError>>,
 }
 
-#[derive(Debug,Copy,Clone,PartialEq,Eq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct SourceIndex(pub u32);
 
 impl<'c> Debug for Compiler<'c> {
     fn fmt(&self, f: &mut Formatter) -> Result {
         f.debug_struct("Foo")
-         .field("root", &self.root)
-         .field("root_error", &self.root_error)
-         .field("sources", &self.sources)
-         .field("errors", &self.errors)
-         .finish()
+            .field("root", &self.root)
+            .field("root_error", &self.root_error)
+            .field("sources", &self.sources)
+            .field("errors", &self.errors)
+            .finish()
     }
 }
 
@@ -67,13 +67,25 @@ impl<'c> Compiler<'c> {
         Self::new(root, root_error, out, err)
     }
 
-    pub fn new(root: Option<PathBuf>, root_error: Option<io::Error>, out: Box<Write>, err: Box<Write>) -> Self {
+    pub fn new(
+        root: Option<PathBuf>,
+        root_error: Option<io::Error>,
+        out: Box<Write>,
+        err: Box<Write>,
+    ) -> Self {
         let root_error = RwLock::new(root_error);
         let out = out.into();
         let err = err.into();
         let sources = RwLock::new(vec![]);
         let errors = RwLock::new(vec![]);
-        Compiler { root, root_error, out, err, sources, errors }
+        Compiler {
+            root,
+            root_error,
+            out,
+            err,
+            sources,
+            errors,
+        }
     }
 
     pub fn add_file_source<P: Into<PathBuf>>(&mut self, path: P) {
@@ -81,7 +93,11 @@ impl<'c> Compiler<'c> {
         self.add_source(source)
     }
 
-    pub fn add_memory_source<Str: Into<String>, Buf: Into<Vec<u8>>>(&mut self, name: Str, contents: Buf) {
+    pub fn add_memory_source<Str: Into<String>, Buf: Into<Vec<u8>>>(
+        &mut self,
+        name: Str,
+        contents: Buf,
+    ) {
         let source = Source::memory(name.into(), contents.into());
         self.add_source(source)
     }
@@ -89,7 +105,9 @@ impl<'c> Compiler<'c> {
     pub(crate) fn add_source(&self, source: Source) {
         let index = {
             let mut sources = self.sources.write().unwrap();
-            if sources.len() + 1 > (u32::MAX as usize) { panic!("Too many source files opened! Max is {}", u32::MAX) }
+            if sources.len() + 1 > (u32::MAX as usize) {
+                panic!("Too many source files opened! Max is {}", u32::MAX)
+            }
             sources.push(SourceData::new(source));
             SourceIndex((sources.len() - 1) as u32)
         };
@@ -101,7 +119,12 @@ impl<'c> Compiler<'c> {
             if let Some(ref char_data) = source.char_data {
                 if let Some(ref expressions) = source.expressions {
                     for expression in expressions {
-                        println!("- {}: {:?} \"{}\"", char_data.range(expression.range()), expression.expression_type, expression.string);
+                        println!(
+                            "- {}: {:?} \"{}\"",
+                            char_data.range(expression.range()),
+                            expression.expression_type,
+                            expression.string
+                        );
                     }
                 }
             }
@@ -115,12 +138,20 @@ impl<'c> Compiler<'c> {
             }
         }
     }
-    pub(crate) fn with_source<T, F: FnOnce(&SourceData) -> T>(&self, index: SourceIndex, f: F) -> T {
+    pub(crate) fn with_source<T, F: FnOnce(&SourceData) -> T>(
+        &self,
+        index: SourceIndex,
+        f: F,
+    ) -> T {
         let sources = self.sources.read().unwrap();
         let source_data = &sources[index.0 as usize];
         f(source_data)
     }
-    pub(crate) fn with_source_mut<T, F: FnOnce(&mut SourceData) -> T>(&self, index: SourceIndex, f: F) -> T {
+    pub(crate) fn with_source_mut<T, F: FnOnce(&mut SourceData) -> T>(
+        &self,
+        index: SourceIndex,
+        f: F,
+    ) -> T {
         let mut sources = self.sources.write().unwrap();
         let source_data = &mut sources[index.0 as usize];
         f(source_data)

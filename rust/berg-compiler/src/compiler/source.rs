@@ -32,11 +32,16 @@ pub struct SourceData<'c> {
     pub source: Source,
     pub char_data: Option<CharData>,
     pub expressions: Option<Vec<SyntaxExpression>>,
-    phantom: PhantomData<&'c Compiler<'c>>
+    phantom: PhantomData<&'c Compiler<'c>>,
 }
 
 impl<'c> SourceData<'c> {
     pub fn new(source: Source) -> Self {
-        SourceData { source, char_data: None, expressions: None, phantom: PhantomData }
+        SourceData {
+            source,
+            char_data: None,
+            expressions: None,
+            phantom: PhantomData,
+        }
     }
 }

@@ -27,15 +27,20 @@ impl<'p> Index<ByteIndex> for ParseBuffer<'p> {
 impl<'p> Index<Range<ByteIndex>> for ParseBuffer<'p> {
     type Output = [u8];
     fn index(&self, range: Range<ByteIndex>) -> &[u8] {
-        let range = Range { start: range.start as usize, end: range.end as usize };
+        let range = Range {
+            start: range.start as usize,
+            end: range.end as usize,
+        };
         &self.buffer[range]
     }
 }
 impl<'p> Index<RangeInclusive<ByteIndex>> for ParseBuffer<'p> {
     type Output = [u8];
     fn index(&self, range: RangeInclusive<ByteIndex>) -> &[u8] {
-        let range = Range { start: range.start as usize, end: range.end as usize };
+        let range = Range {
+            start: range.start as usize,
+            end: range.end as usize,
+        };
         &self.buffer[range]
     }
 }
-

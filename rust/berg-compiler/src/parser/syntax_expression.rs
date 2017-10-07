@@ -10,12 +10,23 @@ pub struct SyntaxExpression {
 }
 
 impl SyntaxExpression {
-    pub fn new(expression_type: SyntaxExpressionType, start: ByteIndex, string: String) -> SyntaxExpression {
-        SyntaxExpression { expression_type, start, string }
+    pub fn new(
+        expression_type: SyntaxExpressionType,
+        start: ByteIndex,
+        string: String,
+    ) -> SyntaxExpression {
+        SyntaxExpression {
+            expression_type,
+            start,
+            string,
+        }
     }
     pub fn range(&self) -> Range<ByteIndex> {
         let len = self.string.len() as ByteIndex;
-        Range { start: self.start, end: self.start + len }
+        Range {
+            start: self.start,
+            end: self.start + len,
+        }
     }
 }
 
