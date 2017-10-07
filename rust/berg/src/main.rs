@@ -1,9 +1,9 @@
 //#[macro_use] extern crate log;
-#[macro_use]
-extern crate serde_derive;
+extern crate berg_compiler;
 extern crate docopt;
 extern crate env_logger;
-extern crate berg_compiler;
+#[macro_use]
+extern crate serde_derive;
 
 use berg_compiler::*;
 use docopt::Docopt;
@@ -33,8 +33,8 @@ struct Args {
 fn main() {
     env_logger::init().unwrap();
     let args: Args = Docopt::new(USAGE)
-                            .and_then(|d| d.deserialize())
-                            .unwrap_or_else(|e| e.exit());
+        .and_then(|d| d.deserialize())
+        .unwrap_or_else(|e| e.exit());
     assert!(args.cmd_check);
     assert!(args.cmd_syntax);
 
