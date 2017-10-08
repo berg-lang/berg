@@ -34,12 +34,12 @@ pub fn invalid_or_unsupported<'c, 'b>(parser: &mut Parser<'c, 'b>, mut index: By
     match parser.buffer[index] {
         0x00..UTF8_CONT_START => {
             return error(UnsupportedCharacters, parser, index + 1);
-        }
-        UTF8_2_START..UTF8_3_START => {
-            if parser.buffer.len() > index + 1 && UTF8_CONT.contains(parser.buffer[index + 1]) {
-                return error(UnsupportedCharacters, parser, index + 2);
-            }
-        }
+        },
+        UTF8_2_START..UTF8_3_START => if parser.buffer.len() > index + 1
+            && UTF8_CONT.contains(parser.buffer[index + 1])
+        {
+            return error(UnsupportedCharacters, parser, index + 2);
+        },
         UTF8_3_START..UTF8_4_START => if parser.buffer.len() > index + 2
             && UTF8_CONT.contains(parser.buffer[index + 1])
             && UTF8_CONT.contains(parser.buffer[index + 2])
