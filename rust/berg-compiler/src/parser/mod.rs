@@ -50,6 +50,6 @@ impl<'p, 'c: 'p> Parser<'p, 'c> {
     }
 
     fn step(&mut self) -> bool {
-        lexer::term(self)
+        lexer::advance(self, lexer::term)
     }
 }
