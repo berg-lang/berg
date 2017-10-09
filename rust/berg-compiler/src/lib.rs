@@ -4,8 +4,11 @@
 #![feature(range_contains)]
 #![feature(collections_range)]
 
+extern crate num;
+
 mod compiler;
 mod parser;
+mod platonic_runtime;
 mod public;
 
 pub use public::*;

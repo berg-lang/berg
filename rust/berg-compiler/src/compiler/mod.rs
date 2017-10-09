@@ -137,20 +137,16 @@ impl<'c> Compiler<'c> {
         };
         Parser::parse(self, index);
         self.with_source(index, |source| {
-            println!("{}", source.source.name().to_string_lossy());
+            println!("{}", source.name().to_string_lossy());
             println!("--------------------");
             println!("Result:");
-            if let Some(ref char_data) = source.char_data {
-                if let Some(ref expressions) = source.expressions {
-                    for expression in expressions {
-                        println!(
-                            "- {}: {:?} \"{}\"",
-                            char_data.range(expression.range()),
-                            expression.expression_type,
-                            expression.string
-                        );
-                    }
-                }
+            for expression in source.expressions() {
+                println!(
+                    "- {}: {:?} \"{}\"",
+                    source.char_data().range(expression.range()),
+                    expression.expression_type,
+                    expression.string
+                );
             }
         });
         let errors = self.errors.read().unwrap();

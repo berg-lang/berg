@@ -13,3 +13,5 @@ pub use parser::char_data::LineColumnRange;
 pub use parser::syntax_expression::SyntaxExpression;
 pub use parser::syntax_expression::SyntaxExpressionType;
 pub use parser::syntax_expression::SyntaxExpressionType::*;
+pub use platonic_runtime::PlatonicRuntime;
+pub use platonic_runtime::PlatonicValue;

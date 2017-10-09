@@ -4,97 +4,65 @@ pub use compiler_test::berg_compiler::*;
 use std::ops::Range;
 
 macro_rules! compiler_tests {
-    ($($name:ident: $source:tt => $rule:ident($($arg:tt)*),)+) => {
+    ($($name:ident: $source:tt => $($rule:ident($($arg:tt)*))+,)+) => {
         use compiler_test::*;
         $(
             #[test]
             fn $name() {
-                compiler_tests!(@rule $source $rule $($arg)*);
+                let source = compiler_tests!(@source $source);
+                let mut test = CompilerTest::new(source.as_bytes());
+                $( compiler_tests!(@rule test $rule $($arg)*); )+
             }
         )+
     };
-    (@rule $source:tt error $error:ident@$at:tt) => {
-        compiler_tests!(@rule $source errors $error@$at)
+    (@source [$($e:tt)*]) => { &[$($e)*] };
+    (@source $source:tt) => { $source };
+    (@rule $test:ident error $error:ident@$at:tt) => {
+        compiler_tests!(@rule $test errors $error@$at)
     };
-    (@rule $source:tt errors $($error:ident@$at:tt),+) => {
-        expect_compile_errors($source, vec![ $(
+    (@rule $test:ident errors $($error:ident@$at:tt),+) => {
+        $test.assert_errors(vec![ $(
             ($error, compiler_tests!(@at $at))
         ),+ ]);
+    };
+    (@rule $test:ident result nothing) => {
+        $test.assert_result(PlatonicValue::Nothing)
+    };
+    (@rule $test:ident result $result:tt) => {
+        $test.assert_result($result)
     };
     (@at [$loc:tt (zero width)]) => { $loc..$loc };
     (@at [$start:tt-$end:tt]) => { $start..$end+1 };
     (@at $loc:tt) => { $loc..$loc+1 };
 }
 
-// macro_rules! compiler_tests {
-//     // Single test
-//     ($name:ident: { $($def:tt)+ }) => {
-//         #[test]
-//         pub fn $name() {
-//             compiler_test_body!($($def)*)
-//         }
-//     };
-//     // Test; Test
-//     ($name:ident: { $($def:tt)+ }; $($e:tt)*) => {
-//         compiler_tests! { $name: { $($def)+ } };
-//         compiler_tests! { $($e)* }
-//     };
-//     // Build up a test
-//     ($name:ident: { $($def:tt)+ } $next:tt $($e:tt)*) => {
-//         compiler_tests! { $name: { $($def)+ $next } $($e)* }
-//     };
-//     // First token in a test
-//     ($name:ident: $def:tt $($e:tt)*) => {
-//         compiler_tests! { $name: { $def } $($e:tt)* }
-//     };
-//     // Handles empty test_compile!(), or terminating semicolon
-//     () => {};
-// }
-// macro_rules! compiler_test_body {
-//     (bytes $bytes:tt $($e:tt)*) => { compiler_test_builder!({ compiler_test::expect_compile($bytes) } $($e)*) };
-//     (source $string:tt $($e:tt)*) => { compiler_test_builder!({ compiler_test::expect_compile(&$string.as_bytes()) } $($e)*) };
-//     (berg[$($berg:tt)*] $($e:tt)*) => { compiler_test_builder!({ compiler_test::expect_compile(stringify!($($berg)*).as_bytes()) } $($e)*) };
-//     (berg $berg:tt $($e:tt)*) => { compiler_test_builder!({ compiler_test::expect_compile(stringify!($berg).as_bytes()) } $($e)*) };
-//     ($string:tt $($e:tt)*) => { compiler_test_builder!({ compiler_test::expect_compile(&$string.as_bytes()) } $($e)*) };
-// }
-// macro_rules! compiler_test_builder {
-//     ($builder:tt) => { $builder.run() };
-//     (@error $builder:tt) => { $builder.run() };
-//     ($builder:tt has error $error_type:ident $($e:tt)*) => { compiler_test_builder!(@error { $builder.to_report(compiler_test::$error_type) } $($e:tt)*) };
-//     (@error $builder:tt has error $error_type:ident $($e:tt)*) => { compiler_test_builder!(@error { $builder.and_report($error_type) } $($e:tt)*) };
-
-//     (@error $builder:tt at $start:tt-$end:tt $($e:tt)*) => { compiler_test_builder!(@error { $builder.at($start,$end+1) } $($e)*) };
-//     (@error $builder:tt at $start:tt (zero width) $($e:tt)*) => { compiler_test_builder!(@error { $builder.at($start,$start) } $($e)*) };
-//     (@error $builder:tt at $start:tt $($e:tt)*) => { compiler_test_builder!(@error { $builder.at($start,$start+1) } $($e)*) };
-// }
-
 pub struct CompilerTest<'t> {
-    source: &'t [u8],
-    compiler: Option<Compiler<'t>>,
+//    source: &'t [u8],
+    compiler: Compiler<'t>,
 }
 impl<'t> CompilerTest<'t> {
-    fn ensure_compiler<'r>(&'r mut self) -> &'r Compiler<'t> {
-        if self.compiler.is_none() {
-            let out: Vec<u8> = vec![];
-            let err: Vec<u8> = vec![];
-            let mut compiler = Compiler::new(None, None, Box::new(out), Box::new(err));
-            compiler.add_memory_source("[test expr]", self.source);
-            self.compiler = Some(compiler);
-        }
-        if let Some(ref compiler) = self.compiler {
-            compiler
-        } else {
-            unreachable!()
-        }
+    pub fn new(source: &'t [u8]) -> CompilerTest<'t> {
+        let out: Vec<u8> = vec![];
+        let err: Vec<u8> = vec![];
+        let mut compiler = Compiler::new(None, None, Box::new(out), Box::new(err));
+        compiler.add_memory_source("[test expr]", source);
+        CompilerTest { compiler }
     }
 
-    fn assert_compile_errors(&mut self, mut expected_errors: Vec<ExpectedCompileError>) {
-        self.ensure_compiler().with_errors(|actual_errors| {
-            let mut actual_errors = actual_errors.to_vec();
-            actual_errors.retain(|actual| {
+    pub fn assert_result<T: Into<PlatonicValue>>(&mut self, expected: T) {
+        let expected = expected.into();
+        self.compiler.with_sources(|sources| assert_eq!(sources.len(), 1));
+        assert_eq!(expected, PlatonicRuntime::run(&self.compiler, SourceIndex(0)));
+    }
+
+    pub fn assert_errors<Err: Into<ExpectedCompileError>>(&mut self, mut expected: Vec<Err>) {
+        let mut expected: Vec<ExpectedCompileError> = expected.drain(..).map(|error| error.into()).collect();
+        self.compiler.with_errors(|actual| {
+            let mut actual = actual.to_vec().clone();
+            actual.retain(|actual_error| {
                 let mut found = false;
-                expected_errors.retain(|expected| {
-                    if !found && expected.matches(actual) {
+                expected.retain(|expected_error| {
+                    if !found && expected_error.matches(actual_error) {
                         found = true;
                         false
                     } else {
@@ -103,31 +71,19 @@ impl<'t> CompilerTest<'t> {
                 });
                 !found
             });
-            assert!(expected_errors.len() == 0, "Expected errors not produced!\n{:?}", expected_errors);
-            assert!(actual_errors.len() == 0, "Unexpected compiler errors!\n{:?}", actual_errors)
+            assert!(expected.len() == 0, "Expected errors not produced!\n{:?}", expected);
+            assert!(actual.len() == 0, "Unexpected compiler errors!\n{:?}", actual)
         })
     }
 }
-impl<'t> From<&'t str> for CompilerTest<'t> {
-    fn from(source: &'t str) -> Self {
-        CompilerTest { source: source.as_bytes(), compiler: None }
-    }
+pub trait AsBytes {
+    fn as_bytes<'t>(&'t self) -> &'t [u8];
 }
-impl<'t> From<&'t [u8]> for CompilerTest<'t> {
-    fn from(source: &'t [u8]) -> Self {
-        CompilerTest { source, compiler: None }
-    }
+impl AsBytes for str {
+    fn as_bytes<'t>(&'t self) -> &'t [u8] { self.as_bytes() }
 }
-impl<'t> From<&'t Vec<u8>> for CompilerTest<'t> {
-    fn from(source: &'t Vec<u8>) -> Self {
-        CompilerTest { source: source.as_slice(), compiler: None }
-    }
-}
-
-pub fn expect_compile_errors<'t, Test: Into<CompilerTest<'t>>, Err: Into<ExpectedCompileError>>(test: Test, mut expected: Vec<Err>) {
-    let mut test = test.into();
-    let expected: Vec<ExpectedCompileError> = expected.drain(..).map(|error| error.into()).collect();
-    test.assert_compile_errors(expected);
+impl AsBytes for [u8] {
+    fn as_bytes<'t>(&'t self) -> &'t [u8] { self }
 }
 
 #[derive(Debug)]

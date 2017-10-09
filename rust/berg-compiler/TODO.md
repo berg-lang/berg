@@ -3,155 +3,148 @@ Integer Math
 
 Tests
 -----
-- Unit Test Project
-- Invalid UTF-8 Error Test
-- Unsupported Character Error Test
-- Both Errors (Alternating) Test
-
-Types
------
-- Value
-- Value::Number
-- IntegerLiteral.Value() -> Value::Number
+[X] Unit Test Project
+[X] Invalid UTF-8 Error Test
+[X] Unsupported Character Error Test
+[X] Both Errors (Alternating) Test
 
 Runtime
 -------
-- Compiler.Parse(Source) -> SyntaxExpression
-- NativeRuntime { Compile(SyntaxExpression) -> Code, Run(Code) -> Value }
-- SyntaxExpressionCode { Evaluate }
-- Value::BigInt
+[ ] TypeChecker: Type, Number, IntegerLiteral.Value() -> Number
+[ ] TypeRuntime { Run(Type) -> Print Result }
+[ ] Integer tests
 
 Math
 ----
-- Add/Subtract Operators
+[ ] Add/Subtract Operators
 
-- Multiply/Divide Operators
-- Precedence
+[ ] Multiply/Divide Operators
+[ ] Precedence
 
-- ProducesBecause { Values(): ValueSet, BecauseAll(): Iterator<(Expression, ValueSet)> }
-- Expression { Produces() -> Iterator<ProducesBecause> }
-- ValueSet.Contains(value)
-- ValueSet::Single(Value)
-- Expression as Producer
-- Type Error: Divide By Zero
+[ ] ProducesBecause { Values(): ValueSet, BecauseAll(): Iterator<(Expression, ValueSet)> }
+[ ] Expression { Produces() -> Iterator<ProducesBecause> }
+[ ] Type.Contains(value)
+[ ] Type::Single(Value)
+[ ] Expression as Producer
+[ ] Type Error: Divide By Zero
 
-- Negative/Positive Operators
+[ ] Negative/Positive Operators
 
 Parens
 ------
-- Expression Operator "(", ")"
-- Parse Error: Unclosed Paren
-- Parse Error: Unopened Paren Error
+[ ] Expression Operator "(", ")"
+[ ] Parse Error: Unclosed Paren
+[ ] Parse Error: Unopened Paren Error
 
 Space
 -----
-- Whitespace, Tabs
+[ ] Whitespace, Tabs
 
-- Compound Term Grouping
+[ ] Compound Term Grouping
 
-- Newlines; Record Line / Column Data
-- Parse Error: Line Too Long (4K characters)
+[ ] Newlines; Record Line / Column Data
+[ ] Parse Error: Line Too Long (4K characters)
 
-- Single-Line Comment
-- Errors: Invalid UTF-8, Comment Too Long. Denormalized OK. Unsupported Characters OK.
+[ ] Single-Line Comment
+[ ] Errors: Invalid UTF-8, Comment Too Long. Denormalized OK. Unsupported Characters OK.
 
 Errors
 ------
-- Display error context
+[ ] Display error context
 
-- Display context with possible fixes
+[ ] Display context with possible fixes
 
-- Parse Error: Improve Unsupported Character Error (many characters)
+[X] Parse Error: Improve Unsupported Character Error (many characters)
 
 Objects
 =======
 
 Nothing
 -------
-- "nothing"
-- NativeResult::Nothing
+[ ] "nothing"
+[ ] Type::Nothing
 
-- Empty source file -> nothing
+[ ] Empty source file -> nothing
 
-- Empty parentheses -> nothing
+[ ] Empty parentheses -> nothing
 
-- Error: cannot apply operator [/*+-] to "nothing" (either left or right side or both)
+[ ] Error: cannot apply operator [/*+-] to "nothing" (either left or right side or both)
 
 Sequences
 ---------
-- Sequence Operator ";"
-- Trailing Semicolon Acceptable
-- Final Operator In Sequence is Return Value
+[ ] Sequence Operator ";"
+[ ] Trailing Semicolon Acceptable
+[ ] Final Operator In Sequence is Return Value
 
 Newline Sequences
 -----------------
-- Newline Statement Separation
-- Newline Statement Continuation
+[ ] Newline Statement Separation
+[ ] Newline Statement Continuation
 
 Properties
 ----------
-- Property Declaration
-- "Missing" Value
-- Parse Error: Identifier Too Large
-- Parse Error: Identifier Starts With Number
-- Parse Error: Identifier Must Be Immediately After ":"
-- Parse Error: Identifier Required In Declaration
+[ ] Property Declaration
+[ ] "Missing" Value
+[ ] Parse Error: Identifier Too Large
+[ ] Parse Error: Identifier Starts With Number
+[ ] Parse Error: Identifier Must Be Immediately After ":"
+[ ] Parse Error: Identifier Required In Declaration
 
-- Object Extend On ";" and "\n" (combine / overwrite properties)
+[ ] Object Extend On ";" and "\n" (combine / overwrite properties)
 
-- Property Assignment (=)
-- Parse Error: Missing Operand
+[ ] Property Assignment (=)
+[ ] Parse Error: Missing Operand
 
-- Property Reference (Identifier)
-- Object.GetProperty(Identifier) -> Object
-- Error: Property not declared
+[ ] Property Reference (Identifier)
+[ ] Object.GetProperty(Identifier) -> Object
+[ ] Error: Property not declared
 
-- Error: Property not declared - check for misspelled, give suggestion
+[ ] Error: Property not declared - check for misspelled, give suggestion
 
 Lazy Declaration
 ----------------
-- Out Of Order Declaration ("[:]A: B; :B: 2")
-- Parse Error: Missing : in front of declaration
+[ ] Out Of Order Declaration ("[:]A: B; :B: 2")
+[ ] Parse Error: Missing : in front of declaration
 
 Apply
 -----
-- Apply Operator (Extend With Block) "F <+ A: 1" or "F <+ { A: 1; B: 2 }"
-- BecauseOf multiple reasons! Figure out error dedup strategies here ...
+[ ] Apply Operator (Extend With Block) "F <+ A: 1" or "F <+ { A: 1; B: 2 }"
+[ ] BecauseOf multiple reasons! Figure out error dedup strategies here ...
 
 Functions
 =========
 
 Series
 ------
-- Series Operator (,)
+[ ] Series Operator (,)
 
-- Trailing Comma Acceptable
+[ ] Trailing Comma Acceptable
 
 Function Calls
 --------------
 
-- Call Operator Overload: ("Call :: { :Arguments, ... }")
+[ ] Call Operator Overload: ("Call :: { :Arguments, ... }")
 
-- Function Call: "F Arguments"
+[ ] Function Call: "F Arguments"
 
-- Function Declaration Syntax: ":F(:A,:B,:C)"
+[ ] Function Declaration Syntax: ":F(:A,:B,:C)"
 
-- Inline Function Declaration Syntax
+[ ] Inline Function Declaration Syntax
 
 Indented Function Calls
 -----------------------
-- Child Block Function Arguments
-- Parse Error: Inconsistent Indent Characters (space vs. tab)
-- Parse Error: Multiple Undent
+[ ] Child Block Function Arguments
+[ ] Parse Error: Inconsistent Indent Characters (space vs. tab)
+[ ] Parse Error: Multiple Undent
 
 Conditionals
 ============
 
 Booleans
 --------
-- "true", "false"
-- Value::True, Value::False
-- Error: Appropriate Operator Errors
+[ ] "true", "false"
+[ ] Value::True, Value::False
+[ ] Error: Appropriate Operator Errors
 
 If/Else
 -------
@@ -168,18 +161,18 @@ Structure
 
 Child Objects
 -------------
-- Object Operator "{", "}"
-- Parse Error: Unclosed Curly Brace
-- Parse Error: Unopened Curly Brace
+[ ] Object Operator "{", "}"
+[ ] Parse Error: Unclosed Curly Brace
+[ ] Parse Error: Unopened Curly Brace
 
-- Empty "{}" -> Nothing
+[ ] Empty "{}" -> Nothing
 
 Child Access
 ------------
-- Property Access (Dot) Operator
-- Parse Error: Identifier Required For Property Access
+[ ] Property Access (Dot) Operator
+[ ] Parse Error: Identifier Required For Property Access
 
-- Nested Block Declarations
+[ ] Nested Block Declarations
 
 Includes
 --------
@@ -188,104 +181,104 @@ Includes
 
 COMPARISON
 ----------
-- Equal/Not Equal Operators
+[ ] Equal/Not Equal Operators
 
-- Greater Than/Less Than/Greater Than Or Equal To/Less Than Or Equal To Operators
+[ ] Greater Than/Less Than/Greater Than Or Equal To/Less Than Or Equal To Operators
 
-- Comparison Operator ("<=>")
+[ ] Comparison Operator ("<=>")
 
 BOOLEAN
 -------
-- And/Or/Not Operators
+[ ] And/Or/Not Operators
 
 CONDITIONAL
 -----------
-- If: if X Y else Z
+[ ] If: if X Y else Z
 
-- Else: if X Y else Z
+[ ] Else: if X Y else Z
 
 
 CONTEXT
 -------
-- ::FileContext - file level input properties
+[ ] ::FileContext - file level input properties
 
 STRING
 ------
-- Raw String
-- Parse Error: Unclosed String
-- Parse Error: Invalid UTF-8 In String
+[ ] Raw String
+[ ] Parse Error: Unclosed String
+[ ] Parse Error: Invalid UTF-8 In String
 
-- Hex Byte
-- Parse Error: Invalid UTF-8 Across Escape Sequence And String (probably same error)
+[ ] Hex Byte
+[ ] Parse Error: Invalid UTF-8 Across Escape Sequence And String (probably same error)
 
-- Hex Byte Sequence
+[ ] Hex Byte Sequence
 
-- String Escapes
+[ ] String Escapes
 
 INTERPOLATED STRING
 -------------------
-- Interpolation
-- Unclosed Interpolation Error
+[ ] Interpolation
+[ ] Unclosed Interpolation Error
 
 UNICODE IDENTIFIERS
 -------------------
-- Unicode Identifiers (XID)
+[ ] Unicode Identifiers (XID)
 
-- Incomplete Grapheme Error
+[ ] Incomplete Grapheme Error
 
-- Denormalized Identifier Error
+[ ] Denormalized Identifier Error
 
 UNICODE STRING ESCAPES
 ----------------------
-- Unicode Escape Character
-- Unicode Escape Sequence
-- Unicode Character Name
+[ ] Unicode Escape Character
+[ ] Unicode Escape Sequence
+[ ] Unicode Character Name
 
 FUNCTION
 --------
-- Function Call Apply "Operator"
+[ ] Function Call Apply "Operator"
 
 FLOW
 ----
-- 
+[ ] 
 
 EXPLICIT FLOW
 -------------
-- Statement Sequence Extend "Operator"
+[ ] Statement Sequence Extend "Operator"
 
-- Curly Brace Operator
-- Better Unclosed Parenthesis Error
-- Better Unclosed Paren Error
+[ ] Curly Brace Operator
+[ ] Better Unclosed Parenthesis Error
+[ ] Better Unclosed Paren Error
 
 ARRAYS
 ------
-- Index Operator
-- 
+[ ] Index Operator
+[ ] 
 
 HASHES
 ------
-- Pair Operator
+[ ] Pair Operator
 
 HEX/OCT/BIN
 -----------
-- Hexadecimal Number
-- Octal Number
-- Binary Number
-- Parse Error: Number Starts With Zero
-- Parse Error: Hexadecimal With Uppercase X
-- Parse Error: Octal With Uppercase O
-- Parse Error: Binary With Uppercase B
+[ ] Hexadecimal Number
+[ ] Octal Number
+[ ] Binary Number
+[ ] Parse Error: Number Starts With Zero
+[ ] Parse Error: Hexadecimal With Uppercase X
+[ ] Parse Error: Octal With Uppercase O
+[ ] Parse Error: Binary With Uppercase B
 
 FLOAT
 -----
-- Decimal Point Operator
+[ ] Decimal Point Operator
 
-- Exponent Operator
-- Exponent Sign Operator
-- Missing Exponent Error
+[ ] Exponent Operator
+[ ] Exponent Sign Operator
+[ ] Missing Exponent Error
 
 IMAGINARY
 ---------
-- Imaginary Operator
-- Imaginary With Uppercase I Error
+[ ] Imaginary Operator
+[ ] Imaginary With Uppercase I Error
 

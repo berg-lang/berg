@@ -29,9 +29,8 @@ impl Source {
 
 #[derive(Debug)]
 pub struct SourceData<'c> {
-    pub source: Source,
-    pub char_data: Option<CharData>,
-    pub expressions: Option<Vec<SyntaxExpression>>,
+    source: Source,
+    parse_data: Option<(CharData, Vec<SyntaxExpression>)>,
     phantom: PhantomData<&'c Compiler<'c>>,
 }
 
@@ -39,9 +38,28 @@ impl<'c> SourceData<'c> {
     pub fn new(source: Source) -> Self {
         SourceData {
             source,
-            char_data: None,
-            expressions: None,
+            parse_data: None,
             phantom: PhantomData,
         }
+    }
+
+    pub fn source(&self) -> &Source { &self.source }
+    pub fn name(&self) -> &OsStr { self.source.name() }
+    pub fn parsed(&self) -> bool { self.parse_data.is_some() }
+    pub fn char_data(&self) -> &CharData {
+        match self.parse_data {
+            Some((ref char_data, _)) => char_data,
+            None => panic!("Parsing is not finished, cannot get char_data"),
+        }
+    }
+    pub fn expressions(&self) -> &[SyntaxExpression] {
+        match self.parse_data {
+            Some((_, ref expressions)) => expressions,
+            None => panic!("Parsing is not finished, cannot get expressions"),
+        }
+    }
+
+    pub(crate) fn parse_complete(&mut self, char_data: CharData, expressions: Vec<SyntaxExpression>) {
+        self.parse_data = Some((char_data, expressions))
     }
 }
