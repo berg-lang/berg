@@ -26,10 +26,10 @@ macro_rules! compiler_tests {
         ),+ ]);
     };
     (@rule $test:ident result nothing) => {
-        $test.assert_result(PlatonicValue::Nothing)
+        $test.assert_result(PlatonicValue::Nothing);
     };
-    (@rule $test:ident result $result:tt) => {
-        $test.assert_result($result)
+    (@rule $test:ident result $($result:tt)*) => {
+        $test.assert_result($($result)*);
     };
     (@at [$loc:tt (zero width)]) => { $loc..$loc };
     (@at [$start:tt-$end:tt]) => { $start..$end+1 };

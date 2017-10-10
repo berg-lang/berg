@@ -1,5 +1,5 @@
 #[macro_use]
-mod compiler_test;
+pub mod compiler_test;
 
 compiler_tests! {
     unsupported_characters: "`" => error(UnsupportedCharacters@0) result(nothing),
