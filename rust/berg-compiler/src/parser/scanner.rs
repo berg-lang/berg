@@ -15,12 +15,18 @@ pub struct Scanner<'s, 'c: 's> {
 }
 
 impl<'s, 'c: 's> Scanner<'s, 'c> {
-    pub fn new(compiler: &'s Compiler<'c>, source: SourceIndex, buffer: &'s [u8]) -> Self {
+    pub fn new(compiler: &'s Compiler<'c>, source: SourceIndex, mut buffer: &'s [u8]) -> Self {
+        if buffer.len() > (ByteIndex::max_value() as usize) {
+            compiler.report_source_only(SourceTooLarge, source);
+            buffer = &buffer[0..(ByteIndex::max_value() as usize)]
+        }
         Scanner { compiler, source, buffer, index: 0 }
-        // TODO add "SourceTooBig" error for > 4G
     }
     pub fn len(&self) -> ByteIndex {
         self.buffer.len() as ByteIndex
+    }
+    pub fn eof(&self) -> bool {
+        self.index >= self.len()
     }
 
     pub fn match_all(

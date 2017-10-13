@@ -87,13 +87,13 @@ impl<'c> SourceData<'c> {
     pub fn char_data(&self) -> &CharData {
         match self.parse_data {
             Some((ref char_data, _)) => char_data,
-            None => panic!("Parsing is not finished, cannot get char_data"),
+            None => unreachable!(),
         }
     }
     pub fn expressions(&self) -> &[SyntaxExpression] {
         match self.parse_data {
             Some((_, ref expressions)) => expressions,
-            None => panic!("Parsing is not finished, cannot get expressions"),
+            None => unreachable!(),
         }
     }
 

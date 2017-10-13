@@ -39,31 +39,41 @@ impl<'s, 'c: 's> Parser<'s, 'c> {
     }
 
     fn step(&mut self) -> bool {
-        if self.scanner.index >= self.scanner.len() {
+        if self.scanner.eof() {
             return false;
         }
         
         if self.scan_term() {
-            return true;
+            true
+        } else if self.report_unsupported_characters() {
+            true
+        } else {
+            self.report_invalid_utf8();
+            true
         }
-        
-        // Unsupported characters or invalid UTF-8 must be here.
+    }
+
+    fn report_unsupported_characters(&mut self) -> bool {
         let start = self.scanner.index;
         let mut string = String::new();
-        // If there are valid UTF-8 chars, they are just unsupported. Report 
-        if self.scanner.take_valid_char(&mut string) {
-            while !self.scan_term() && self.scanner.take_valid_char(&mut string) {}
-            self.scanner.compiler.report_at(UnsupportedCharacters, self.scanner.source, start, &string);
-        } else {
-            // Invalid UTF-8. Read invalid characters until you find something valid.
-            let mut bytes: Vec<u8> = vec![];
-            self.scanner.take_byte(&mut bytes);
-            while self.scanner.index < self.scanner.len() && !self.scanner.is_valid_char() {
-                self.scanner.take_byte(&mut bytes);
-            }
-            self.scanner.compiler.report_invalid_bytes(InvalidUtf8, self.scanner.source, start, &bytes);
+        if !self.scanner.take_valid_char(&mut string) {
+            return false;
         }
+
+        // If there are valid UTF-8 chars, they are just unsupported. Report 
+        while !self.scanner.eof() && !self.scan_term() && self.scanner.take_valid_char(&mut string) {}
+        self.scanner.compiler.report_at(UnsupportedCharacters, self.scanner.source, start, &string);
         true
+    }
+
+    fn report_invalid_utf8(&mut self) {
+        // Invalid UTF-8. Read invalid characters until you find something valid.
+        let start = self.scanner.index;
+        let mut bytes: Vec<u8> = vec![];
+        while !self.scanner.eof() && !self.scanner.is_valid_char() {
+            self.scanner.take_byte(&mut bytes);
+        }
+        self.scanner.compiler.report_invalid_bytes(InvalidUtf8, self.scanner.source, start, &bytes)
     }
 
     fn scan_term(&mut self) -> bool {

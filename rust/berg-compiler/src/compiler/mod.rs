@@ -131,7 +131,7 @@ impl<'c> Compiler<'c> {
         let index = {
             let mut sources = self.sources.write().unwrap();
             if sources.len() + 1 > (u32::MAX as usize) {
-                panic!("Too many source files opened! Max is {}", u32::MAX)
+                self.report_generic(TooManySources);
             }
             sources.push(SourceData::new(source));
             SourceIndex((sources.len() - 1) as u32)
@@ -201,6 +201,14 @@ impl<'c> Compiler<'c> {
 
     pub(crate) fn report_at(&self, error_type: CompileErrorType, source: SourceIndex, start: ByteIndex, string: &str) {
         self.report(error_type.at(source, start, string))
+    }
+
+    pub(crate) fn report_source_only(&self, error_type: CompileErrorType, source: SourceIndex) {
+        self.report(error_type.source_only(source))
+    }
+
+    pub(crate) fn report_generic(&self, error_type: CompileErrorType) {
+        self.report(error_type.generic())
     }
 
     pub(crate) fn report_invalid_bytes(&self, error_type: CompileErrorType, source: SourceIndex, start: ByteIndex, bytes: &[u8]) {

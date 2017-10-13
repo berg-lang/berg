@@ -87,9 +87,14 @@ impl CompileErrorMessage {
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum CompileErrorType {
+    // Parse errors
     SourceNotFound = 101,
-    InvalidUtf8 = 102,
-    UnsupportedCharacters = 103,
+    SourceTooLarge = 102,
+    TooManySources = 103,
+    InvalidUtf8 = 104,
+    UnsupportedCharacters = 105,
+
+    // Errors that are most likely transient
     IoOpenError = 9001,
     IoReadError = 9002,
     IoCurrentDirectoryError = 9003,
@@ -164,6 +169,22 @@ impl CompileErrorType {
             _ => unreachable!(),
         };
         let message = CompileErrorMessage::source_range(source, range, error_message);
+        CompileError::new(self, vec![message])
+    }
+    pub fn source_only(self, source: SourceIndex) -> CompileError {
+        let error_message = match self {
+            SourceTooLarge => format!("Source code too large: source files greater than 4GB are unsupported."),
+            _ => unreachable!(),
+        };
+        let message = CompileErrorMessage::source_only(source, error_message);
+        CompileError::new(self, vec![message])
+    }
+    pub fn generic(self) -> CompileError {
+        let error_message = match self {
+            TooManySources => format!("Too many source files opened! Max is {}.", u32::max_value()),
+            _ => unreachable!()
+        };
+        let message = CompileErrorMessage::generic(error_message);
         CompileError::new(self, vec![message])
     }
 }
