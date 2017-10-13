@@ -2,6 +2,9 @@ use public::*;
 use compiler::Compiler;
 
 use std::ffi::OsStr;
+use std::fs::File;
+use std::io;
+use std::io::Read;
 use std::marker::PhantomData;
 use std::path::PathBuf;
 
@@ -23,6 +26,41 @@ impl Source {
         match *self {
             Source::File { ref path, .. } => path.as_ref(),
             Source::Memory { ref name, .. } => name.as_ref(),
+        }
+    }
+
+    pub(crate) fn with_buffer<T, F: FnOnce(&[u8]) -> T>(
+        &self,
+        compiler: &Compiler,
+        source: SourceIndex,
+        f: F,
+    ) -> T {
+        match *self {
+            Source::File { ref path, .. } => Self::open_file(compiler, source, path, f),
+            Source::Memory { ref contents, .. } => f(contents)
+        }
+    }
+    fn open_file<T, F: FnOnce(&[u8]) -> T>(compiler: &Compiler, source: SourceIndex, path: &PathBuf, f: F) -> T {
+        if let Some(ref path) = compiler.absolute_path(path, source) {
+            match File::open(path) {
+                Ok(mut file) => {
+                    let mut buffer = Vec::new();
+                    if let Err(error) = file.read_to_end(&mut buffer) {
+                        compiler.report_io_read(IoReadError, source, buffer.len() as u32, &error);
+                    }
+                    f(&buffer)
+                }
+                Err(error) => {
+                    let error_type = match error.kind() {
+                        io::ErrorKind::NotFound => SourceNotFound,
+                        _ => IoOpenError,
+                    };
+                    compiler.report_io_open(error_type, source, &error, path.as_path());
+                    f(&[])
+                }
+            }
+        } else {
+            f(&[])
         }
     }
 }

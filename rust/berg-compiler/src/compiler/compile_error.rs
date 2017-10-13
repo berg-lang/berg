@@ -107,7 +107,7 @@ impl CompileErrorType {
         let message = CompileErrorMessage::source_only(source, error_message);
         CompileError::new(self, vec![message])
     }
-    pub fn io_read(self, source: SourceIndex, index: ByteIndex, error: io::Error) -> CompileError {
+    pub fn io_read(self, source: SourceIndex, index: ByteIndex, error: &io::Error) -> CompileError {
         let range = Range {
             start: index,
             end: index,
@@ -119,7 +119,7 @@ impl CompileErrorType {
         let message = CompileErrorMessage::source_range(source, range, error_message);
         CompileError::new(self, vec![message])
     }
-    pub fn io_open(self, source: SourceIndex, error: io::Error, path: &Path) -> CompileError {
+    pub fn io_open(self, source: SourceIndex, error: &io::Error, path: &Path) -> CompileError {
         let error_message = match self {
             SourceNotFound => format!("Not found: '{:?}' (error: '{}')", path, error),
             IoOpenError => format!("I/O error opening '{:?}': '{}'", path, error),
@@ -128,7 +128,7 @@ impl CompileErrorType {
         let message = CompileErrorMessage::source_only(source, error_message);
         CompileError::new(self, vec![message])
     }
-    pub fn invalid<T: AsRef<[u8]>>(
+    pub fn invalid_bytes<T: AsRef<[u8]>>(
         self,
         source: SourceIndex,
         start: ByteIndex,

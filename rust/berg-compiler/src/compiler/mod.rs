@@ -2,7 +2,7 @@ pub mod compile_error;
 pub mod source;
 
 use public::*;
-use parser::Parser;
+use parser;
 
 use std::env;
 use std::fmt::*;
@@ -10,6 +10,7 @@ use std::io;
 use std::io::Write;
 use std::ops::Index;
 use std::ops::IndexMut;
+use std::path::Path;
 use std::path::PathBuf;
 use std::sync::RwLock;
 use std::u32;
@@ -135,7 +136,7 @@ impl<'c> Compiler<'c> {
             sources.push(SourceData::new(source));
             SourceIndex((sources.len() - 1) as u32)
         };
-        Parser::parse(self, index);
+        parser::parse(self, index);
         self.with_source(index, |source| {
             println!("{}", source.name().to_string_lossy());
             println!("--------------------");
@@ -193,8 +194,24 @@ impl<'c> Compiler<'c> {
         }
     }
 
-    pub(crate) fn report(&self, error: CompileError) {
+    fn report(&self, error: CompileError) {
         let mut errors = self.errors.write().unwrap();
         errors.push(error)
+    }
+
+    pub(crate) fn report_at(&self, error_type: CompileErrorType, source: SourceIndex, start: ByteIndex, string: &str) {
+        self.report(error_type.at(source, start, string))
+    }
+
+    pub(crate) fn report_invalid_bytes(&self, error_type: CompileErrorType, source: SourceIndex, start: ByteIndex, bytes: &[u8]) {
+        self.report(error_type.invalid_bytes(source, start, bytes))
+    }
+
+    pub(crate) fn report_io_read(&self, error_type: CompileErrorType, source: SourceIndex, start: ByteIndex, error: &io::Error) {
+        self.report(error_type.io_read(source, start, error))
+    }
+
+    pub(crate) fn report_io_open(&self, error_type: CompileErrorType, source: SourceIndex, error: &io::Error, path: &Path) {
+        self.report(error_type.io_open(source, error, path))
     }
 }
