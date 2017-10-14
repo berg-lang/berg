@@ -17,6 +17,7 @@ pub struct CharData {
     // system retrieved on
     // Start indices of each line
     pub line_starts: Vec<ByteIndex>,
+    // Start indices of each token
     pub token_starts: Vec<ByteIndex>,
 }
 

@@ -18,7 +18,8 @@ pub struct Scanner<'s, 'c: 's> {
 
 impl<'s, 'c: 's> Scanner<'s, 'c> {
     pub fn new(compiler: &'s Compiler<'c>, source: SourceIndex, mut buffer: &'s [u8]) -> Self {
-        // TODO you can have a buffer 4G in size and *may* have more than 4G tokens if there are zero-width tokens
+        // NOTE you can have a buffer 4G in size and *may* have more than 4G tokens if there are zero-width tokens.
+        // We don't as of the time of this writing, but I have been considering it.
         if buffer.len() > (ByteIndex::max_value() as usize) {
             compiler.report_source_only(SourceTooLarge, source);
             buffer = &buffer[0..(ByteIndex::max_value() as usize)]
@@ -34,15 +35,21 @@ impl<'s, 'c: 's> Scanner<'s, 'c> {
         self.index >= self.len()
     }
 
-    pub fn match_all(
+    pub fn match_all<Matcher: Fn(u8)->bool>(
         &mut self,
-        range: &RangeInclusive<u8>,
-        mut index: ByteIndex,
-    ) -> ByteIndex {
-        while index < self.len() && range.contains(self[index]) {
-            index += 1;
+        matches: Matcher,
+        token_type: TokenType,
+    ) -> bool {
+        if matches(self[self.index]) {
+            let mut index = self.index+1;
+            while index < self.len() && matches(self[index]) {
+                index += 1;
+            }
+            self.token(token_type, index);
+            true
+        } else {
+            false
         }
-        index
     }
 
     pub fn is_valid_char(&self) -> bool {

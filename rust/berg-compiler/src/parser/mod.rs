@@ -73,14 +73,10 @@ impl<'s, 'c: 's> Parser<'s, 'c> {
     }
 
     fn scan_term(&mut self) -> bool {
-        let mut index = self.scanner.index;
-        match self.scanner[index] {
-            b'0'...b'9' => {
-                index = self.scanner.match_all(&(b'0'..=b'9'), index + 1);
-                self.scanner.token(IntegerLiteral, index);
-                true
-            },
-            _ => false,
-        }
+        self.scanner.match_all(digit, IntegerLiteral) ||
+        self.scanner.match_all(operator, IntegerLiteral)
     }
 }
+
+fn digit(byte: u8) -> bool { (b'0'..=b'9').contains(byte) }
+fn operator(byte: u8) -> bool { match byte { b'+'|b'-'|b'*'|b'/' => true, _ => false } }
