@@ -11,16 +11,21 @@ pub struct Scanner<'s, 'c: 's> {
     pub compiler: &'s Compiler<'c>,
     pub source: SourceIndex,
     pub index: ByteIndex,
+    pub char_data: CharData,
+    pub tokens: Vec<Token>,
     buffer: &'s [u8],
 }
 
 impl<'s, 'c: 's> Scanner<'s, 'c> {
     pub fn new(compiler: &'s Compiler<'c>, source: SourceIndex, mut buffer: &'s [u8]) -> Self {
+        // TODO you can have a buffer 4G in size and *may* have more than 4G tokens if there are zero-width tokens
         if buffer.len() > (ByteIndex::max_value() as usize) {
             compiler.report_source_only(SourceTooLarge, source);
             buffer = &buffer[0..(ByteIndex::max_value() as usize)]
         }
-        Scanner { compiler, source, buffer, index: 0 }
+        let char_data = CharData::new();
+        let tokens = vec![];
+        Scanner { compiler, source, buffer, char_data, tokens, index: 0 }
     }
     pub fn len(&self) -> ByteIndex {
         self.buffer.len() as ByteIndex
@@ -70,9 +75,10 @@ impl<'s, 'c: 's> Scanner<'s, 'c> {
         (start, string)
     }
 
-    pub fn take_token(&mut self, expression_type: SyntaxExpressionType, end: ByteIndex) -> SyntaxExpression {
+    pub fn token(&mut self, token_type: TokenType, end: ByteIndex) {
         let (start, string) = self.take_string(end);
-        SyntaxExpression::new(expression_type, start, string)
+        self.tokens.push(Token::new(token_type, string));
+        self.char_data.token_starts.push(start)
     }
 
     // If the next character is a UTF-8 codepoint, returns its length

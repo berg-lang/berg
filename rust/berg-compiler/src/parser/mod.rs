@@ -1,6 +1,6 @@
 pub mod char_data;
 pub mod scanner;
-pub mod syntax_expression;
+pub mod token;
 
 use public::*;
 use parser::scanner::Scanner;
@@ -8,13 +8,11 @@ use parser::scanner::Scanner;
 /// Shared parsing state
 #[derive(Debug)]
 struct Parser<'s, 'c: 's> {
-    pub scanner: Scanner<'s, 'c>,
-    pub char_data: CharData,
-    pub expressions: Vec<SyntaxExpression>,
+    pub scanner: Scanner<'s, 'c>
 }
 
 pub fn parse<'s>(compiler: &'s Compiler, source: SourceIndex) {
-    let (char_data, expressions) = compiler.with_source(source, |s| {
+    let (char_data, tokens) = compiler.with_source(source, |s| {
         s.source().with_buffer(compiler, source, |raw_buffer| {
             let scanner = Scanner::new(compiler, source, raw_buffer);
             let parser = Parser::new(scanner);
@@ -22,20 +20,18 @@ pub fn parse<'s>(compiler: &'s Compiler, source: SourceIndex) {
         })
     });
     compiler.with_source_mut(source, |s| {
-        s.parse_complete(char_data, expressions);
+        s.parse_complete(char_data, tokens);
     });
 }
 
 impl<'s, 'c: 's> Parser<'s, 'c> {
     pub fn new(scanner: Scanner<'s, 'c>) -> Self {
-        let char_data = CharData::new();
-        let expressions = vec![];
-        Parser { scanner, char_data, expressions }
+        Parser { scanner }
     }
 
-    pub fn parse(mut self) -> (CharData, Vec<SyntaxExpression>) {
+    pub fn parse(mut self) -> (CharData, Vec<Token>) {
         while self.step() {}
-        (self.char_data, self.expressions)
+        (self.scanner.char_data, self.scanner.tokens)
     }
 
     fn step(&mut self) -> bool {
@@ -81,15 +77,10 @@ impl<'s, 'c: 's> Parser<'s, 'c> {
         match self.scanner[index] {
             b'0'...b'9' => {
                 index = self.scanner.match_all(&(b'0'..=b'9'), index + 1);
-                self.token(IntegerLiteral, index)
+                self.scanner.token(IntegerLiteral, index);
+                true
             },
             _ => false,
         }
     }
-
-    fn token(&mut self, expression_type: SyntaxExpressionType, end: ByteIndex) -> bool {
-        let expression = self.scanner.take_token(expression_type, end);
-        self.expressions.push(expression);
-        true
-     }
 }

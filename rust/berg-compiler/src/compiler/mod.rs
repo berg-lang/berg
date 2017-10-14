@@ -1,5 +1,6 @@
 pub mod compile_error;
 pub mod source;
+pub mod source_data;
 
 use public::*;
 use parser;
@@ -24,9 +25,6 @@ pub struct Compiler<'c> {
     sources: RwLock<Vec<SourceData<'c>>>,
     errors: RwLock<Vec<CompileError>>,
 }
-
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub struct SourceIndex(pub u32);
 
 impl<'c> Debug for Compiler<'c> {
     fn fmt(&self, f: &mut Formatter) -> Result {
@@ -90,7 +88,7 @@ impl<'c> Compiler<'c> {
     }
 
     pub fn add_file_source<P: Into<PathBuf>>(&mut self, path: P) {
-        let source = Source::file(path.into());
+        let source = SourceSpec::file(path.into());
         self.add_source(source)
     }
 
@@ -99,7 +97,7 @@ impl<'c> Compiler<'c> {
         name: Str,
         contents: Buf,
     ) {
-        let source = Source::memory(name.into(), contents.into());
+        let source = SourceSpec::memory(name.into(), contents.into());
         self.add_source(source)
     }
 
@@ -127,13 +125,13 @@ impl<'c> Compiler<'c> {
         self.with_sources(|sources| f(&sources[index.0 as usize]))
     }
 
-    fn add_source(&self, source: Source) {
+    fn add_source(&self, source_spec: SourceSpec) {
         let index = {
             let mut sources = self.sources.write().unwrap();
             if sources.len() + 1 > (u32::MAX as usize) {
                 self.report_generic(TooManySources);
             }
-            sources.push(SourceData::new(source));
+            sources.push(SourceData::new(source_spec));
             SourceIndex((sources.len() - 1) as u32)
         };
         parser::parse(self, index);
@@ -141,12 +139,12 @@ impl<'c> Compiler<'c> {
             println!("{}", source.name().to_string_lossy());
             println!("--------------------");
             println!("Result:");
-            for expression in source.expressions() {
+            for token in 0..source.num_tokens() {
                 println!(
                     "- {}: {:?} \"{}\"",
-                    source.char_data().range(expression.range()),
-                    expression.expression_type,
-                    expression.string
+                    source.token_range(token),
+                    source.token(token).token_type,
+                    source.token(token).string
                 );
             }
         });

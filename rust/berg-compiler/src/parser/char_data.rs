@@ -10,13 +10,14 @@ pub struct CharData {
     // size in bytes
     // byte_size: usize,
     // Size in Unicode codepoints
-    char_size: ByteIndex,
+    pub byte_length: ByteIndex,
     // checksum
     // time retrieved
     // time modified
     // system retrieved on
     // Start indices of each line
-    line_starts: Vec<ByteIndex>,
+    pub line_starts: Vec<ByteIndex>,
+    pub token_starts: Vec<ByteIndex>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -33,10 +34,11 @@ pub struct LineColumnRange {
 }
 
 impl CharData {
-    pub fn new() -> CharData {
+    pub fn new() -> Self {
         CharData {
-            char_size: 0,
+            byte_length: 0,
             line_starts: vec![0],
+            token_starts: vec![],
         }
     }
     pub fn append_line(&mut self, line_start_index: ByteIndex) {
@@ -64,8 +66,8 @@ impl CharData {
         }
     }
 
-    pub fn char_size(&self) -> ByteIndex {
-        self.char_size
+    pub fn byte_length(&self) -> ByteIndex {
+        self.byte_length
     }
 }
 

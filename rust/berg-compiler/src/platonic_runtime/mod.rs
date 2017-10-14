@@ -15,15 +15,14 @@ impl PlatonicRuntime {
         compiler.with_source(main_source, |source| Self::run_source(source))
     }
     pub fn run_source<'c>(source: &SourceData<'c>) -> PlatonicValue {
-        let expressions = source.expressions();
-        match expressions.len() {
+        match source.num_tokens() {
             0 => PlatonicValue::Nothing,
-            1 => Self::run_expression(&expressions[0]),
+            1 => Self::run_expression(source.token(0)),
             _ => panic!("Too many expressions, I don't understand"),
         }
     }
-    pub fn run_expression(expression: &SyntaxExpression) -> PlatonicValue {
-        match expression.expression_type {
+    pub fn run_expression(expression: &Token) -> PlatonicValue {
+        match expression.token_type {
             IntegerLiteral => PlatonicValue::Integer(BigInt::from_str(&expression.string).unwrap()),
         }
     }

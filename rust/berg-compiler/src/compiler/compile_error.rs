@@ -173,7 +173,7 @@ impl CompileErrorType {
     }
     pub fn source_only(self, source: SourceIndex) -> CompileError {
         let error_message = match self {
-            SourceTooLarge => format!("Source code too large: source files greater than 4GB are unsupported."),
+            SourceTooLarge => format!("SourceSpec code too large: source files greater than 4GB are unsupported."),
             _ => unreachable!(),
         };
         let message = CompileErrorMessage::source_only(source, error_message);
