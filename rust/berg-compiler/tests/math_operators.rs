@@ -34,4 +34,10 @@ compiler_tests! {
     neg_1: "-1" => result(-1),
     pos_0: "+0" => result(0),
     pos_1: "+1" => result(1),
+
+    trailing_neg: "0-" => error(UnrecognizedOperator@1) result(error),
+    trailing_pos: "0+" => error(UnrecognizedOperator@1) result(error),
+    neg_only: "-" => error(MissingRightOperand@0) result(error),
+    pos_only: "+" => error(MissingRightOperand@0) result(error),
+    plus_minus: "1+-2" => error(UnrecognizedOperator@[1-2]) result(error),
 }

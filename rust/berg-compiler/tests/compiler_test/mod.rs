@@ -25,6 +25,9 @@ macro_rules! compiler_tests {
             ($error, compiler_tests!(@at $at))
         ),+ ]);
     };
+    (@rule $test:ident result error) => {
+        $test.assert_result(PlatonicValue::Error);
+    };
     (@rule $test:ident result nothing) => {
         $test.assert_result(PlatonicValue::Nothing);
     };
@@ -39,6 +42,7 @@ macro_rules! compiler_tests {
 pub struct CompilerTest<'t> {
 //    source: &'t [u8],
     compiler: Compiler<'t>,
+    result: PlatonicValue,
 }
 impl<'t> CompilerTest<'t> {
     pub fn new(source: &'t [u8]) -> CompilerTest<'t> {
@@ -46,13 +50,14 @@ impl<'t> CompilerTest<'t> {
         let err: Vec<u8> = vec![];
         let mut compiler = Compiler::new(None, None, Box::new(out), Box::new(err));
         compiler.add_memory_source("[test expr]", source);
-        CompilerTest { compiler }
+        compiler.with_sources(|sources| assert_eq!(sources.len(), 1));
+        let result = PlatonicRuntime::run(&compiler, SourceIndex(0));
+        CompilerTest { compiler, result }
     }
 
     pub fn assert_result<T: Into<PlatonicValue>>(&mut self, expected: T) {
         let expected = expected.into();
-        self.compiler.with_sources(|sources| assert_eq!(sources.len(), 1));
-        assert_eq!(expected, PlatonicRuntime::run(&self.compiler, SourceIndex(0)));
+        assert_eq!(expected, self.result);
     }
 
     pub fn assert_errors<Err: Into<ExpectedCompileError>>(&mut self, mut expected: Vec<Err>) {
@@ -71,8 +76,8 @@ impl<'t> CompilerTest<'t> {
                 });
                 !found
             });
-            assert!(expected.len() == 0, "Expected errors not produced!\n{:?}", expected);
-            assert!(actual.len() == 0, "Unexpected compiler errors!\n{:?}", actual)
+            assert!(actual.len() == 0, "Unexpected compiler errors!\nExpected: {:?}\nActual: {:?}", expected, actual);
+            assert!(expected.len() == 0, "Expected errors not produced!\nExpected: {:?}\nActual: {:?}", expected, actual);
         })
     }
 }
