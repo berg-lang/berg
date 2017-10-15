@@ -33,9 +33,13 @@ compiler_tests! {
     div0_0: "0/0" => error(DivideByZero@1) result(error),
     div1_0: "1/0" => error(DivideByZero@1) result(error),
 
-    addmul2_3_4: "2*3+4" => result(10),
-    addmul2_3_4_neg: "-2*3+4" => result(-2),
-    addmul2_3_4_pos: "+2*3+4" => result(10),
+    muladd2_3_4: "2*3+4" => result(10),
+    muladd2_3_4_neg: "-2*3+4" => result(-2),
+    muladd2_3_4_pos: "+2*3+4" => result(10),
+
+    divadd2_3_4: "30/2*3" => result(45),
+    divadd2_3_4_neg: "-30/2*3" => result(-45),
+    divadd2_3_4_pos: "+30/2*3" => result(45),
 
     addsub0_0_0: "0+0-0" => result(0),
     addsub0_0_0_neg: "-0+0-0" => result(0),
@@ -62,5 +66,7 @@ compiler_tests! {
     pos_only:      "+" => error(MissingRightOperand@0) result(error),
     plus_minus: "1+-2" => error(UnrecognizedOperator@[1-2]) result(error),
 
-    muladd2_3_4: "2+3*4" => error(OperatorsOutOfPrecedenceOrder@3) result(error),
+    addmul2_3_4: "2+3*4" => error(OperatorsOutOfPrecedenceOrder@3) result(error),
+
+    adddiv2_3_4: "2+3/4" => error(OperatorsOutOfPrecedenceOrder@3) result(error),
 }
