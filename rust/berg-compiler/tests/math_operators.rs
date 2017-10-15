@@ -29,6 +29,9 @@ compiler_tests! {
     div12_3: "12/3" => result(4),
     div11_11: "11/11" => result(1),
     div24_3_4: "24/3/4" => result(2),
+    div1_2: "1/2" => result(BigRational::new(1.into(), 2.into())),
+    div15_7: "15/7" => result(BigRational::new(15.into(), 7.into())),
+    div45_3_7: "45/3/7" => result(BigRational::new(15.into(), 7.into())),
 
     div0_0: "0/0" => error(DivideByZero@1) result(error),
     div1_0: "1/0" => error(DivideByZero@1) result(error),
