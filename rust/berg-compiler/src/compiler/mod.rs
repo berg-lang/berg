@@ -101,7 +101,7 @@ impl<'c> Compiler<'c> {
         self.add_source(source)
     }
 
-    pub fn with_sources<T, F: FnOnce(&[SourceData]) -> T>(
+    pub fn with_sources<T, F: FnOnce(&[SourceData<'c>]) -> T>(
         &self,
         f: F,
     ) -> T {
@@ -117,7 +117,7 @@ impl<'c> Compiler<'c> {
         f(errors.as_slice())
     }
 
-    pub fn with_source<T, F: FnOnce(&SourceData) -> T>(
+    pub fn with_source<T, F: FnOnce(&SourceData<'c>) -> T>(
         &self,
         index: SourceIndex,
         f: F,

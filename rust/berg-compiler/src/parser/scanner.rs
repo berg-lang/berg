@@ -12,7 +12,6 @@ pub struct Scanner<'s, 'c: 's> {
     pub source: SourceIndex,
     pub index: ByteIndex,
     pub char_data: CharData,
-    pub tokens: Vec<Token>,
     buffer: &'s [u8],
 }
 
@@ -25,8 +24,8 @@ impl<'s, 'c: 's> Scanner<'s, 'c> {
             buffer = &buffer[0..(ByteIndex::max_value() as usize)]
         }
         let char_data = CharData::new();
-        let tokens = vec![];
-        Scanner { compiler, source, buffer, char_data, tokens, index: 0 }
+        let index = 0;
+        Scanner { compiler, source, buffer, char_data, index }
     }
     pub fn len(&self) -> ByteIndex {
         self.buffer.len() as ByteIndex
@@ -38,17 +37,15 @@ impl<'s, 'c: 's> Scanner<'s, 'c> {
     pub fn match_all<Matcher: Fn(u8)->bool>(
         &mut self,
         matches: Matcher,
-        token_type: TokenType,
-    ) -> bool {
+    ) -> Option<ByteIndex> {
         if matches(self[self.index]) {
             let mut index = self.index+1;
             while index < self.len() && matches(self[index]) {
                 index += 1;
             }
-            self.token(token_type, index);
-            true
+            Some(index)
         } else {
-            false
+            None
         }
     }
 
@@ -80,12 +77,6 @@ impl<'s, 'c: 's> Scanner<'s, 'c> {
         let vec = self[start..self.index].to_vec();
         let string = unsafe { String::from_utf8_unchecked(vec) };
         (start, string)
-    }
-
-    pub fn token(&mut self, token_type: TokenType, end: ByteIndex) {
-        let (start, string) = self.take_string(end);
-        self.tokens.push(Token::new(token_type, string));
-        self.char_data.token_starts.push(start)
     }
 
     // If the next character is a UTF-8 codepoint, returns its length

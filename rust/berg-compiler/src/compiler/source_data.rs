@@ -5,8 +5,15 @@ use std::ffi::OsStr;
 #[derive(Debug)]
 pub struct SourceData<'c> {
     source_spec: SourceSpec,
-    parse_data: Option<(CharData, Vec<Token>)>,
+    parse_data: Option<ParseData>,
     phantom: PhantomData<&'c Compiler<'c>>,
+}
+
+#[derive(Debug)]
+struct ParseData {
+    char_data: CharData,
+    tokens: Vec<Token>,
+    token_starts: Vec<ByteIndex>,
 }
 
 impl<'c> SourceData<'c> {
@@ -18,29 +25,32 @@ impl<'c> SourceData<'c> {
         }
     }
 
-    pub fn source(&self) -> &SourceSpec { &self.source_spec }
+    pub fn source_spec(&self) -> &SourceSpec { &self.source_spec }
     pub fn name(&self) -> &OsStr { self.source_spec.name() }
     pub fn parsed(&self) -> bool { self.parse_data.is_some() }
     pub fn char_data(&self) -> &CharData {
         match self.parse_data {
-            Some((ref char_data, _)) => char_data,
+            Some(ref parse_data) => &parse_data.char_data,
             None => unreachable!(),
         }
     }
     pub fn num_tokens(&self) -> TokenIndex {
         match self.parse_data {
-            Some((_, ref tokens)) => tokens.len() as TokenIndex,
+            Some(ref parse_data) => parse_data.tokens.len() as TokenIndex,
             None => unreachable!(),
         }
     }
     pub fn token(&self, token: TokenIndex) -> &Token {
         match self.parse_data {
-            Some((_, ref tokens)) => &tokens[token as usize],
+            Some(ref parse_data) => &parse_data.tokens[token as usize],
             None => unreachable!(),
         }
     }
     pub fn token_start(&self, token: TokenIndex) -> ByteIndex {
-        self.char_data().token_starts[token as usize]
+        match self.parse_data {
+            Some(ref parse_data) => parse_data.token_starts[token as usize],
+            None => unreachable!()
+        }
     }
 
     pub fn token_range(&self, token: TokenIndex) -> LineColumnRange {
@@ -49,7 +59,8 @@ impl<'c> SourceData<'c> {
         self.char_data().range(start..end)
     }
 
-    pub(crate) fn parse_complete(&mut self, char_data: CharData, tokens: Vec<Token>) {
-        self.parse_data = Some((char_data, tokens))
+    pub(crate) fn parse_complete(&mut self, char_data: CharData, tokens: Vec<Token>, token_starts: Vec<ByteIndex>) {
+        let parse_data = ParseData { char_data, tokens, token_starts };
+        self.parse_data = Some(parse_data)
     }
 }
