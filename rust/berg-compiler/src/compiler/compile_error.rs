@@ -102,6 +102,7 @@ pub enum CompileErrorType {
     MissingLeftOperand = 202,
     MissingRightOperand = 203,
     UnrecognizedOperator = 204,
+    OperatorsOutOfPrecedenceOrder = 205,
 
     // Errors that are most likely transient
 }
@@ -176,6 +177,7 @@ impl CompileErrorType {
             MissingBothOperands => format!("Operator {:?} has no value on either side to operate on!", string),
             MissingLeftOperand => format!("Operator {:?} has no value on the left hand side to operate on!", string),
             MissingRightOperand => format!("Operator {:?} has no value on the right hand side to operate on!", string),
+            OperatorsOutOfPrecedenceOrder => format!("Operator {:?} has higher precedence than the previous operator! Automatic precedence resolution is not supported. Perhaps you should place this operator in parentheses?", string),
             _ => unreachable!(),
         };
         let message = CompileErrorMessage::source_range(source, range, error_message);
