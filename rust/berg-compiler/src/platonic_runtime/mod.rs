@@ -13,7 +13,7 @@ pub struct PlatonicEvaluator<'r, 'c: 'r> {
 
 #[derive(Debug,PartialEq,PartialOrd)]
 pub enum PlatonicValue {
-    Integer(BigInt),
+    Rational(BigRational),
     Error,
     Nothing,
 }
@@ -78,7 +78,7 @@ impl<'r, 'c: 'r> PlatonicEvaluator<'r, 'c> {
 
     fn evaluate_term(&self, term_type: &TermType, string: &str) -> PlatonicValue {
         match *term_type {
-            IntegerLiteral => PlatonicValue::Integer(BigInt::from_str(string).unwrap()),
+            IntegerLiteral => PlatonicValue::Rational(BigRational::from_str(string).unwrap()),
         }
     }
 
@@ -90,4 +90,7 @@ impl<'r, 'c: 'r> PlatonicEvaluator<'r, 'c> {
     }
 }
 
-impl<T: Into<BigInt>> From<T> for PlatonicValue { fn from(value: T) -> PlatonicValue { PlatonicValue::Integer(value.into()) } }
+use num::bigint::BigInt;
+impl From<i64> for PlatonicValue { fn from(value: i64) -> PlatonicValue { BigInt::from(value).into() } }
+impl From<BigInt> for PlatonicValue { fn from(value: BigInt) -> PlatonicValue { BigRational::from(value).into() } }
+impl From<BigRational> for PlatonicValue { fn from(value: BigRational) -> PlatonicValue { PlatonicValue::Rational(value) } }

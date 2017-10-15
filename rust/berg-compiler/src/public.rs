@@ -18,4 +18,4 @@ pub use parser::token::TermType;
 pub use parser::token::TermType::*;
 pub use platonic_runtime::PlatonicRuntime;
 pub use platonic_runtime::PlatonicValue;
-pub use num::BigInt;
+pub use num::BigRational;

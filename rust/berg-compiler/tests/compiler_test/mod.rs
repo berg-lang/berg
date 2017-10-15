@@ -115,6 +115,7 @@ impl ExpectedCompileError {
         self.messages.iter().all(|expected| actual.messages().iter().any(|actual| expected.matches(actual)))
     }
 }
+
 impl ExpectedCompileErrorMessage {
     fn matches(&self, actual: &CompileErrorMessage) -> bool {
         self.range == *actual.range()

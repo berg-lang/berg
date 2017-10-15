@@ -24,6 +24,15 @@ compiler_tests! {
     mul11_11: "11*11" => result(121),
     mul2_3_4: "2*3*4" => result(24),
 
+    div0_1: "0/1" => result(0),
+    div12_1: "12/1" => result(12),
+    div12_3: "12/3" => result(4),
+    div11_11: "11/11" => result(1),
+    div24_3_4: "24/3/4" => result(2),
+
+    div0_0: "0/0" => error(DivideByZero@1) result(error),
+    div1_0: "1/0" => error(DivideByZero@1) result(error),
+
     addmul2_3_4: "2*3+4" => result(10),
     addmul2_3_4_neg: "-2*3+4" => result(-2),
     addmul2_3_4_pos: "+2*3+4" => result(10),
