@@ -8,8 +8,8 @@ use std::mem;
 
 /// Shared parsing state
 #[derive(Debug)]
-struct Parser<'s, 'c: 's> {
-    pub scanner: Scanner<'s, 'c>,
+struct Parser<'p, 'c: 'p> {
+    pub scanner: Scanner<'p, 'c>,
     pub need_next: NeedNext,
     pub tokens: Vec<Token>,
     pub token_starts: Vec<ByteIndex>,
@@ -23,7 +23,7 @@ enum NeedNext {
     Either((ByteIndex, String)),
 }
 
-pub fn parse<'s>(compiler: &'s Compiler, source: SourceIndex) {
+pub fn parse<'p>(compiler: &'p Compiler, source: SourceIndex) {
     let (char_data, tokens, token_starts) = compiler.with_source(source, |s| {
         s.source_spec().with_buffer(compiler, source, |raw_buffer| {
             let scanner = Scanner::new(compiler, source, raw_buffer);
@@ -36,8 +36,8 @@ pub fn parse<'s>(compiler: &'s Compiler, source: SourceIndex) {
     });
 }
 
-impl<'s, 'c: 's> Parser<'s, 'c> {
-    pub fn new(scanner: Scanner<'s, 'c>, need_next: NeedNext) -> Self {
+impl<'p, 'c: 'p> Parser<'p, 'c> {
+    pub fn new(scanner: Scanner<'p, 'c>, need_next: NeedNext) -> Self {
         let tokens = vec![];
         let token_starts = vec![];
         Parser { scanner, need_next, tokens, token_starts }
