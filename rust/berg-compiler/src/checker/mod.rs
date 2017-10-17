@@ -18,9 +18,7 @@ pub fn check<'c>(compiler: &Compiler<'c>, source: SourceIndex) {
         let checker = Checker::new(compiler, source, source_data);
         checker.check()
     });
-    compiler.with_source_mut(source, |source_data| {
-        source_data.checked_type = Some(checked_type);
-    })
+    compiler.with_source_mut(source, |source_data| source_data.check_complete(checked_type))
 }
 
 impl<'ch, 'c: 'ch> Checker<'ch, 'c> {

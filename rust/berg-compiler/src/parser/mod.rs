@@ -31,9 +31,7 @@ pub fn parse<'p>(compiler: &'p Compiler, source: SourceIndex) {
             parser.parse()
         })
     });
-    compiler.with_source_mut(source, |s| {
-        s.parse_complete(char_data, tokens, token_starts);
-    });
+    compiler.with_source_mut(source, |s| s.parse_complete(char_data, tokens, token_starts));
 }
 
 impl<'p, 'c: 'p> Parser<'p, 'c> {

@@ -6,7 +6,7 @@ use std::ffi::OsStr;
 pub struct SourceData<'c> {
     source_spec: SourceSpec,
     parse_data: Option<ParseData>,
-    pub(crate) checked_type: Option<Type>,
+    checked_type: Option<Type>,
     phantom: PhantomData<&'c Compiler<'c>>,
 }
 
@@ -71,5 +71,8 @@ impl<'c> SourceData<'c> {
     pub(crate) fn parse_complete(&mut self, char_data: CharData, tokens: Vec<Token>, token_starts: Vec<ByteIndex>) {
         let parse_data = ParseData { char_data, tokens, token_starts };
         self.parse_data = Some(parse_data)
+    }
+    pub(crate) fn check_complete(&mut self, checked_type: Type) {
+        self.checked_type = Some(checked_type);
     }
 }
