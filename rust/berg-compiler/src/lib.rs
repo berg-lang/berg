@@ -6,9 +6,9 @@
 
 extern crate num;
 
+mod checker;
 mod compiler;
 mod parser;
-mod platonic_runtime;
 mod public;
 
 pub use public::*;

@@ -6,6 +6,7 @@ use std::ffi::OsStr;
 pub struct SourceData<'c> {
     source_spec: SourceSpec,
     parse_data: Option<ParseData>,
+    pub(crate) checked_type: Option<Type>,
     phantom: PhantomData<&'c Compiler<'c>>,
 }
 
@@ -21,6 +22,7 @@ impl<'c> SourceData<'c> {
         SourceData {
             source_spec,
             parse_data: None,
+            checked_type: None,
             phantom: PhantomData,
         }
     }
@@ -28,6 +30,13 @@ impl<'c> SourceData<'c> {
     pub fn source_spec(&self) -> &SourceSpec { &self.source_spec }
     pub fn name(&self) -> &OsStr { self.source_spec.name() }
     pub fn parsed(&self) -> bool { self.parse_data.is_some() }
+    pub fn checked(&self) -> bool { self.checked_type.is_some() }
+    pub fn checked_type(&self) -> &Type {
+        match self.checked_type {
+            Some(ref checked_type) => checked_type,
+            None => unreachable!(),
+        }
+    }
     pub fn char_data(&self) -> &CharData {
         match self.parse_data {
             Some(ref parse_data) => &parse_data.char_data,

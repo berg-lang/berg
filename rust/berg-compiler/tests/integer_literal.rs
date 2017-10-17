@@ -3,7 +3,7 @@ pub mod compiler_test;
 use std::str::FromStr;
 
 compiler_tests! {
-    zero: "0" => result(0),
-    one: "1" => result(1),
-    huge: "999999999999999999999999999999999999999999999" => result(BigRational::from_str("999999999999999999999999999999999999999999999").unwrap()),
+    zero: "0" => type(0),
+    one: "1" => type(1),
+    huge: "999999999999999999999999999999999999999999999" => type(BigRational::from_str("999999999999999999999999999999999999999999999").unwrap()),
 }

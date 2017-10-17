@@ -25,14 +25,14 @@ macro_rules! compiler_tests {
             ($error, compiler_tests!(@at $at))
         ),+ ]);
     };
-    (@rule $test:ident result error) => {
-        $test.assert_result(PlatonicValue::Error);
+    (@rule $test:ident type error) => {
+        $test.assert_type(Type::Error);
     };
-    (@rule $test:ident result nothing) => {
-        $test.assert_result(PlatonicValue::Nothing);
+    (@rule $test:ident type nothing) => {
+        $test.assert_type(Type::Nothing);
     };
-    (@rule $test:ident result $($result:tt)*) => {
-        $test.assert_result($($result)*);
+    (@rule $test:ident type $($type:tt)*) => {
+        $test.assert_type($($type)*);
     };
     (@at [$loc:tt (zero width)]) => { $loc..$loc };
     (@at [$start:tt-$end:tt]) => { $start..$end+1 };
@@ -42,7 +42,6 @@ macro_rules! compiler_tests {
 pub struct CompilerTest<'t> {
 //    source: &'t [u8],
     compiler: Compiler<'t>,
-    result: PlatonicValue,
 }
 impl<'t> CompilerTest<'t> {
     pub fn new(source: &'t [u8]) -> CompilerTest<'t> {
@@ -51,13 +50,12 @@ impl<'t> CompilerTest<'t> {
         let mut compiler = Compiler::new(None, None, Box::new(out), Box::new(err));
         compiler.add_memory_source("[test expr]", source);
         compiler.with_sources(|sources| assert_eq!(sources.len(), 1));
-        let result = PlatonicRuntime::run(&compiler, SourceIndex(0));
-        CompilerTest { compiler, result }
+        CompilerTest { compiler }
     }
 
-    pub fn assert_result<T: Into<PlatonicValue>>(&mut self, expected: T) {
+    pub fn assert_type<T: Into<Type>>(&mut self, expected: T) {
         let expected = expected.into();
-        assert_eq!(expected, self.result);
+        self.compiler.with_source(SourceIndex(0), |source| assert_eq!(expected, *source.checked_type()))
     }
 
     pub fn assert_errors<Err: Into<ExpectedCompileError>>(&mut self, mut expected: Vec<Err>) {

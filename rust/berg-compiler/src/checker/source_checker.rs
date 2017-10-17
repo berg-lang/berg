@@ -1,37 +1,29 @@
-mod operators;
-
 use public::*;
+use checker::Checker;
+use checker::checker_type::Type::*;
+use checker::operators;
+use checker::operators::*;
 use std::str::FromStr;
 
-pub struct PlatonicRuntime;
-
-pub struct PlatonicEvaluator<'r, 'c: 'r> {
-    compiler: &'r Compiler<'c>,
+pub struct SourceChecker<'sch, 'ch: 'sch, 'c: 'ch> {
+    checker: &'sch Checker<'ch, 'c>,
     source: SourceIndex,
-    source_data: &'r SourceData<'c>,
+    source_data: &'sch SourceData<'c>,
 }
 
-#[derive(Debug,PartialEq,PartialOrd)]
-pub enum PlatonicValue {
-    Rational(BigRational),
-    Error,
-    Nothing,
+pub fn check(checker: &Checker, source: SourceIndex) -> Type {
+    checker.compiler.with_source(source, |source_data| {
+        let checker = SourceChecker::new(checker, source, source_data);
+        checker.check()
+    })
 }
 
-use platonic_runtime::PlatonicValue::*;
-use platonic_runtime::operators::Precedence;
-
-impl PlatonicRuntime {
-    pub fn run(compiler: &Compiler, source: SourceIndex) -> PlatonicValue {
-        compiler.with_source(source, |source_data| {
-            let evaluator = PlatonicEvaluator { compiler, source, source_data };
-            evaluator.evaluate()
-        })
+impl<'sch, 'ch: 'sch, 'c: 'ch> SourceChecker<'sch, 'ch, 'c> {
+    fn new(checker: &'sch Checker<'ch, 'c>, source: SourceIndex, source_data: &'sch SourceData<'c>) -> Self {
+        SourceChecker { checker, source, source_data }
     }
-}
 
-impl<'r, 'c: 'r> PlatonicEvaluator<'r, 'c> {
-    pub fn evaluate(&self) -> PlatonicValue {
+    fn check(&self) -> Type {
         let (mut index, mut value, mut last_precedence) = self.evaluate_one(0, Precedence::Other);
         while index < self.source_data.num_tokens() {
             let token = self.source_data.token(index);
@@ -55,9 +47,9 @@ impl<'r, 'c: 'r> PlatonicEvaluator<'r, 'c> {
         value
     }
 
-    fn evaluate_one(&self, index: TokenIndex, last_precedence: Precedence) -> (TokenIndex, PlatonicValue, Precedence) {
+    fn evaluate_one(&self, index: TokenIndex, last_precedence: Precedence) -> (TokenIndex, Type, Precedence) {
         if index >= self.source_data.num_tokens() {
-            return (index, PlatonicValue::Nothing, last_precedence);
+            return (index, Type::Nothing, last_precedence);
         }
 
         let token = self.source_data.token(index);
@@ -76,21 +68,17 @@ impl<'r, 'c: 'r> PlatonicEvaluator<'r, 'c> {
         }
     }
 
-    fn evaluate_term(&self, term_type: &TermType, string: &str) -> PlatonicValue {
+    fn evaluate_term(&self, term_type: &TermType, string: &str) -> Type {
         match *term_type {
-            IntegerLiteral => PlatonicValue::Rational(BigRational::from_str(string).unwrap()),
+            IntegerLiteral => Type::Rational(BigRational::from_str(string).unwrap()),
         }
     }
 
-    fn report_at_token(&self, error_type: CompileErrorType, token: TokenIndex) -> PlatonicValue {
+    pub fn report_at_token(&self, error_type: CompileErrorType, token: TokenIndex) -> Type {
         let start = self.source_data.token_start(token);
         let string = &self.source_data.token(token).string;
-        self.compiler.report_at(error_type, self.source, start, string);
+        self.checker.compiler.report_at(error_type, self.source, start, string);
         Error
     }
 }
 
-use num::bigint::BigInt;
-impl From<i64> for PlatonicValue { fn from(value: i64) -> PlatonicValue { BigInt::from(value).into() } }
-impl From<BigInt> for PlatonicValue { fn from(value: BigInt) -> PlatonicValue { BigRational::from(value).into() } }
-impl From<BigRational> for PlatonicValue { fn from(value: BigRational) -> PlatonicValue { PlatonicValue::Rational(value) } }

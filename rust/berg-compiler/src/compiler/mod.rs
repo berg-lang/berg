@@ -4,6 +4,7 @@ pub mod source_data;
 
 use public::*;
 use parser;
+use checker;
 
 use std::env;
 use std::fmt::*;
@@ -135,6 +136,7 @@ impl<'c> Compiler<'c> {
             SourceIndex((sources.len() - 1) as u32)
         };
         parser::parse(self, index);
+        checker::check(self, index);
         self.with_source(index, |source| {
             println!("{}", source.name().to_string_lossy());
             println!("--------------------");
@@ -158,7 +160,7 @@ impl<'c> Compiler<'c> {
         }
     }
 
-    pub(crate) fn with_source_mut<T, F: FnOnce(&mut SourceData) -> T>(
+    pub(crate) fn with_source_mut<T, F: FnOnce(&mut SourceData<'c>) -> T>(
         &self,
         index: SourceIndex,
         f: F,

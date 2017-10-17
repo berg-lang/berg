@@ -1,3 +1,9 @@
+use public::*;
+use checker::Checker;
+use checker::operators::Precedence::*;
+use checker::checker_type::Type::*;
+use num::traits::*;
+
 #[derive(Debug,PartialEq)]
 pub enum Infix {
     Add,
@@ -25,13 +31,8 @@ pub enum Precedence {
     MathAddSubtract,
 }
 
-use platonic_runtime::*;
-use platonic_runtime::PlatonicValue::*;
-use platonic_runtime::operators::Precedence::*;
-use num::traits::*;
-
 pub fn infix(string: &str) -> Infix {
-    use platonic_runtime::operators::Infix::*;
+    use checker::operators::Infix::*;
     match string {
         "+" => Add,
         "-" => Subtract,
@@ -42,7 +43,7 @@ pub fn infix(string: &str) -> Infix {
 }
 
 pub fn prefix(string: &str) -> Prefix {
-    use platonic_runtime::operators::Prefix::*;
+    use checker::operators::Prefix::*;
     match string {
         "+" => Positive,
         "-" => Negative,
@@ -51,7 +52,7 @@ pub fn prefix(string: &str) -> Prefix {
 }
 
 pub fn postfix(string: &str) -> Postfix {
-    use platonic_runtime::operators::Postfix::*;
+    use checker::operators::Postfix::*;
     match string {
         _   => Unrecognized,
     }
@@ -59,7 +60,7 @@ pub fn postfix(string: &str) -> Postfix {
 
 impl Infix {
     pub fn precedence(&self) -> Precedence {
-        use platonic_runtime::operators::Infix::*;
+        use checker::operators::Infix::*;
         match *self {
             Add|Subtract => MathAddSubtract,
             Multiply|Divide => MathMultiplyDivide,
@@ -67,34 +68,34 @@ impl Infix {
         }
     }
 
-    pub fn evaluate(&self, evaluator: &PlatonicEvaluator, index: TokenIndex, last_precedence: Precedence, left: PlatonicValue, right: PlatonicValue) -> PlatonicValue {
-        use platonic_runtime::operators::Infix::*;
+    pub fn evaluate(&self, checker: &Checker, index: TokenIndex, last_precedence: Precedence, left: Type, right: Type) -> Type {
+        use checker::operators::Infix::*;
         if *self == Unrecognized {
             println!("Unrecognized!!!");
-            evaluator.report_at_token(UnrecognizedOperator, index)
+            checker.report_at_token(UnrecognizedOperator, index)
         } else if self.precedence() < last_precedence && left != Error && right != Error {
             println!("Precedence error: ${:?}.precedence({:?}) > {:?}", self, self.precedence(), last_precedence);
-            evaluator.report_at_token(OperatorsOutOfPrecedenceOrder, index)
+            checker.report_at_token(OperatorsOutOfPrecedenceOrder, index)
         } else {
             match *self {
-                Add      => self.evaluate_numeric(evaluator, index, left, right, |left,right| left+right),
-                Subtract => self.evaluate_numeric(evaluator, index, left, right, |left,right| left-right),
-                Multiply => self.evaluate_numeric(evaluator, index, left, right, |left,right| left*right),
+                Add      => self.evaluate_numeric(checker, index, left, right, |left,right| left+right),
+                Subtract => self.evaluate_numeric(checker, index, left, right, |left,right| left-right),
+                Multiply => self.evaluate_numeric(checker, index, left, right, |left,right| left*right),
                 Divide   => {
                     if let Rational(ref denom) = right {
                         if denom.is_zero() {
-                            evaluator.report_at_token(DivideByZero, index);
+                            checker.report_at_token(DivideByZero, index);
                             return Error;
                         }
                     }
-                    self.evaluate_numeric(evaluator, index, left, right, |left,right| left/right)
+                    self.evaluate_numeric(checker, index, left, right, |left,right| left/right)
                 }
                 Unrecognized => unreachable!(),
             }
         }
     }
 
-    fn evaluate_numeric<F: FnOnce(BigRational,BigRational)->BigRational>(&self, evaluator: &PlatonicEvaluator, index: TokenIndex, left: PlatonicValue, right: PlatonicValue, f: F) -> PlatonicValue {
+    fn evaluate_numeric<F: FnOnce(BigRational,BigRational)->BigRational>(&self, evaluator: &Checker, index: TokenIndex, left: Type, right: Type, f: F) -> Type {
         match (left, right) {
             (Nothing, Nothing) => evaluator.report_at_token(MissingBothOperands, index),
             (_, Nothing) => evaluator.report_at_token(MissingLeftOperand, index),
@@ -108,15 +109,15 @@ impl Infix {
 impl Prefix {
 
     pub fn precedence(&self) -> Precedence {
-        use platonic_runtime::operators::Prefix::*;
+        use checker::operators::Prefix::*;
         match *self {
             Negative|Positive => MathNegativePositive,
             Unrecognized => Other,
         }
     }
 
-    pub fn evaluate(&self, evaluator: &PlatonicEvaluator, index: TokenIndex, right: PlatonicValue) -> PlatonicValue {
-        use platonic_runtime::operators::Prefix::*;
+    pub fn evaluate(&self, evaluator: &Checker, index: TokenIndex, right: Type) -> Type {
+        use checker::operators::Prefix::*;
         if *self == Unrecognized {
             println!("Unrecognized!!!");
             evaluator.report_at_token(UnrecognizedOperator, index)
@@ -132,7 +133,7 @@ impl Prefix {
         }
     }
 
-    fn evaluate_numeric<F: FnOnce(BigRational)->BigRational>(&self, evaluator: &PlatonicEvaluator, index: TokenIndex, right: PlatonicValue, f: F) -> PlatonicValue {
+    fn evaluate_numeric<F: FnOnce(BigRational)->BigRational>(&self, evaluator: &Checker, index: TokenIndex, right: Type, f: F) -> Type {
         match right {
             Nothing => evaluator.report_at_token(MissingRightOperand, index),
             Error => Error,
@@ -143,14 +144,14 @@ impl Prefix {
 
 impl Postfix {
     pub fn precedence(&self) -> Precedence {
-        use platonic_runtime::operators::Postfix::*;
+        use checker::operators::Postfix::*;
         match *self {
             Unrecognized => Other,
         }
     }
 
-    pub fn evaluate(&self, evaluator: &PlatonicEvaluator, index: TokenIndex, last_precedence: Precedence, left: PlatonicValue) -> PlatonicValue {
-        use platonic_runtime::operators::Postfix::*;
+    pub fn evaluate(&self, evaluator: &Checker, index: TokenIndex, last_precedence: Precedence, left: Type) -> Type {
+        use checker::operators::Postfix::*;
         if *self == Unrecognized {
             evaluator.report_at_token(UnrecognizedOperator, index)
         } else if self.precedence() < last_precedence && left != Error {

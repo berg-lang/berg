@@ -22,7 +22,6 @@ impl Token {
 #[derive(Debug)]
 pub enum TokenType {
     Term(TermType),
-    ApplyTerm(TermType),
     Prefix,
     Postfix,
     Infix,
