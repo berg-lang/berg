@@ -135,8 +135,11 @@ impl<'c> Compiler<'c> {
             sources.push(SourceData::new(source_spec));
             SourceIndex((sources.len() - 1) as u32)
         };
-        parser::parse(self, index);
-        checker::check(self, index);
+        self.with_source_mut(index, |source| {
+            source.parse_data = Some(parser::parse(self, index, source.source_spec()));
+            source.checked_type = Some(checker::check(self, index, source));
+        });
+
         self.with_source(index, |source| {
             println!("{}", source.name().to_string_lossy());
             println!("--------------------");

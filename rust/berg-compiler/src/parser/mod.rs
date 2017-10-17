@@ -6,6 +6,21 @@ use public::*;
 use parser::scanner::Scanner;
 use std::mem;
 
+pub fn parse<'p>(compiler: &Compiler, source: SourceIndex, source_spec: &'p SourceSpec) -> ParseData {
+    source_spec.with_buffer(compiler, source, |raw_buffer| {
+        let scanner = Scanner::new(compiler, source, raw_buffer);
+        let parser = Parser::new(scanner, NeedNext::InitialTerm);
+        parser.parse()
+    })
+}
+
+#[derive(Debug)]
+pub struct ParseData {
+    pub char_data: CharData,
+    pub tokens: Vec<Token>,
+    pub token_starts: Vec<ByteIndex>,
+}
+
 /// Shared parsing state
 #[derive(Debug)]
 struct Parser<'p, 'c: 'p> {
@@ -23,17 +38,6 @@ enum NeedNext {
     Either((ByteIndex, String)),
 }
 
-pub fn parse<'p>(compiler: &'p Compiler, source: SourceIndex) {
-    let (char_data, tokens, token_starts) = compiler.with_source(source, |s| {
-        s.source_spec().with_buffer(compiler, source, |raw_buffer| {
-            let scanner = Scanner::new(compiler, source, raw_buffer);
-            let parser = Parser::new(scanner, NeedNext::InitialTerm);
-            parser.parse()
-        })
-    });
-    compiler.with_source_mut(source, |s| s.parse_complete(char_data, tokens, token_starts));
-}
-
 impl<'p, 'c: 'p> Parser<'p, 'c> {
     pub fn new(scanner: Scanner<'p, 'c>, need_next: NeedNext) -> Self {
         let tokens = vec![];
@@ -41,10 +45,10 @@ impl<'p, 'c: 'p> Parser<'p, 'c> {
         Parser { scanner, need_next, tokens, token_starts }
     }
 
-    pub fn parse(mut self) -> (CharData, Vec<Token>, Vec<ByteIndex>) {
+    pub fn parse(mut self) -> ParseData {
         while self.step() {}
         self.close();
-        (self.scanner.char_data, self.tokens, self.token_starts)
+        ParseData { char_data: self.scanner.char_data, tokens: self.tokens, token_starts: self.token_starts }
     }
 
     fn step(&mut self) -> bool {

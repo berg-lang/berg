@@ -13,12 +13,9 @@ pub struct Checker<'ch, 'c: 'ch> {
     source_data: &'ch SourceData<'c>,
 }
 
-pub fn check<'c>(compiler: &Compiler<'c>, source: SourceIndex) {
-    let checked_type = compiler.with_source(source, |source_data| {
-        let checker = Checker::new(compiler, source, source_data);
-        checker.check()
-    });
-    compiler.with_source_mut(source, |source_data| source_data.check_complete(checked_type))
+pub fn check<'c>(compiler: &Compiler<'c>, source: SourceIndex, source_data: &SourceData<'c>) -> Type {
+    let checker = Checker::new(compiler, source, source_data);
+    checker.check()
 }
 
 impl<'ch, 'c: 'ch> Checker<'ch, 'c> {

@@ -1,20 +1,14 @@
 use public::*;
+use parser::ParseData;
 use std::marker::PhantomData;
 use std::ffi::OsStr;
 
 #[derive(Debug)]
 pub struct SourceData<'c> {
     source_spec: SourceSpec,
-    parse_data: Option<ParseData>,
-    checked_type: Option<Type>,
+    pub(crate) parse_data: Option<ParseData>,
+    pub(crate) checked_type: Option<Type>,
     phantom: PhantomData<&'c Compiler<'c>>,
-}
-
-#[derive(Debug)]
-struct ParseData {
-    char_data: CharData,
-    tokens: Vec<Token>,
-    token_starts: Vec<ByteIndex>,
 }
 
 impl<'c> SourceData<'c> {
@@ -66,13 +60,5 @@ impl<'c> SourceData<'c> {
         let start = self.token_start(token);
         let end = start + self.token(token).string.len() as ByteIndex;
         self.char_data().range(start..end)
-    }
-
-    pub(crate) fn parse_complete(&mut self, char_data: CharData, tokens: Vec<Token>, token_starts: Vec<ByteIndex>) {
-        let parse_data = ParseData { char_data, tokens, token_starts };
-        self.parse_data = Some(parse_data)
-    }
-    pub(crate) fn check_complete(&mut self, checked_type: Type) {
-        self.checked_type = Some(checked_type);
     }
 }
