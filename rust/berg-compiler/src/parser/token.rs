@@ -21,5 +21,20 @@ impl Token {
 
 #[derive(Debug)]
 pub enum TokenType {
+    Term(TermType),
+    ApplyTerm(TermType),
+    Prefix,
+    Postfix,
+    Infix,
+}
+
+impl From<TermType> for TokenType {
+    fn from(term_type: TermType) -> TokenType {
+        TokenType::Term(term_type)
+    }
+}
+
+#[derive(Debug)]
+pub enum TermType {
     IntegerLiteral,
 }

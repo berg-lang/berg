@@ -17,7 +17,6 @@ pub struct CharData {
     // system retrieved on
     // Start indices of each line
     pub line_starts: Vec<ByteIndex>,
-    pub token_starts: Vec<ByteIndex>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -38,7 +37,6 @@ impl CharData {
         CharData {
             byte_length: 0,
             line_starts: vec![0],
-            token_starts: vec![],
         }
     }
     pub fn append_line(&mut self, line_start_index: ByteIndex) {

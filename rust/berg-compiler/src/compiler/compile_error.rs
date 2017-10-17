@@ -87,17 +87,27 @@ impl CompileErrorMessage {
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum CompileErrorType {
-    // Parse errors
+    // Compile errors related to I/O and format
     SourceNotFound = 101,
-    SourceTooLarge = 102,
-    TooManySources = 103,
-    InvalidUtf8 = 104,
-    UnsupportedCharacters = 105,
+    IoOpenError = 102,
+    IoReadError = 103,
+    IoCurrentDirectoryError = 104,
+    SourceTooLarge = 105,
+    TooManySources = 106,
+    InvalidUtf8 = 107,
+    UnsupportedCharacters = 108,
+
+    // Compile errors related to structure
+    MissingBothOperands = 201,
+    MissingLeftOperand = 202,
+    MissingRightOperand = 203,
+    UnrecognizedOperator = 204,
+    OperatorsOutOfPrecedenceOrder = 205,
+
+    // Compile errors related to type
+    DivideByZero = 1001
 
     // Errors that are most likely transient
-    IoOpenError = 9001,
-    IoReadError = 9002,
-    IoCurrentDirectoryError = 9003,
 }
 
 impl CompileErrorType {
@@ -166,6 +176,12 @@ impl CompileErrorType {
         };
         let error_message = match self {
             UnsupportedCharacters => format!("Unsupported characters {:?}", string),
+            UnrecognizedOperator => format!("Unrecognized operator {:?}", string),
+            MissingBothOperands => format!("Operator {:?} has no value on either side to operate on!", string),
+            MissingLeftOperand => format!("Operator {:?} has no value on the left hand side to operate on!", string),
+            MissingRightOperand => format!("Operator {:?} has no value on the right hand side to operate on!", string),
+            OperatorsOutOfPrecedenceOrder => format!("Operator {:?} has higher precedence than the previous operator! Automatic precedence resolution is not supported. Perhaps you should place this operator in parentheses?", string),
+            DivideByZero => format!("Division by zero is illegal. Perhaps you meant a different number on the right hand side of the '{:?}'?", string),
             _ => unreachable!(),
         };
         let message = CompileErrorMessage::source_range(source, range, error_message);

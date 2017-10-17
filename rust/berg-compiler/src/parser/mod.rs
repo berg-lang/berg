@@ -4,34 +4,49 @@ pub mod token;
 
 use public::*;
 use parser::scanner::Scanner;
+use std::mem;
 
 /// Shared parsing state
 #[derive(Debug)]
-struct Parser<'s, 'c: 's> {
-    pub scanner: Scanner<'s, 'c>
+struct Parser<'p, 'c: 'p> {
+    pub scanner: Scanner<'p, 'c>,
+    pub need_next: NeedNext,
+    pub tokens: Vec<Token>,
+    pub token_starts: Vec<ByteIndex>,
 }
 
-pub fn parse<'s>(compiler: &'s Compiler, source: SourceIndex) {
-    let (char_data, tokens) = compiler.with_source(source, |s| {
-        s.source().with_buffer(compiler, source, |raw_buffer| {
+#[derive(Debug, PartialEq)]
+enum NeedNext {
+    InitialTerm,
+    Operator,
+    Operand,
+    Either((ByteIndex, String)),
+}
+
+pub fn parse<'p>(compiler: &'p Compiler, source: SourceIndex) {
+    let (char_data, tokens, token_starts) = compiler.with_source(source, |s| {
+        s.source_spec().with_buffer(compiler, source, |raw_buffer| {
             let scanner = Scanner::new(compiler, source, raw_buffer);
-            let parser = Parser::new(scanner);
+            let parser = Parser::new(scanner, NeedNext::InitialTerm);
             parser.parse()
         })
     });
     compiler.with_source_mut(source, |s| {
-        s.parse_complete(char_data, tokens);
+        s.parse_complete(char_data, tokens, token_starts);
     });
 }
 
-impl<'s, 'c: 's> Parser<'s, 'c> {
-    pub fn new(scanner: Scanner<'s, 'c>) -> Self {
-        Parser { scanner }
+impl<'p, 'c: 'p> Parser<'p, 'c> {
+    pub fn new(scanner: Scanner<'p, 'c>, need_next: NeedNext) -> Self {
+        let tokens = vec![];
+        let token_starts = vec![];
+        Parser { scanner, need_next, tokens, token_starts }
     }
 
-    pub fn parse(mut self) -> (CharData, Vec<Token>) {
+    pub fn parse(mut self) -> (CharData, Vec<Token>, Vec<ByteIndex>) {
         while self.step() {}
-        (self.scanner.char_data, self.scanner.tokens)
+        self.close();
+        (self.scanner.char_data, self.tokens, self.token_starts)
     }
 
     fn step(&mut self) -> bool {
@@ -39,7 +54,7 @@ impl<'s, 'c: 's> Parser<'s, 'c> {
             return false;
         }
         
-        if self.scan_term() {
+        if self.scan_token() {
             true
         } else if self.report_unsupported_characters() {
             true
@@ -47,6 +62,63 @@ impl<'s, 'c: 's> Parser<'s, 'c> {
             self.report_invalid_utf8();
             true
         }
+    }
+
+    fn scan_token(&mut self) -> bool {
+        if let Some(end) = self.scanner.match_all(digit) { self.term(IntegerLiteral, end) }
+        else if let Some(end) = self.scanner.match_all(operator) { self.operator(end) }
+        else { return false }
+        true
+    }
+
+    fn term(&mut self, term_type: TermType, end: ByteIndex) {
+        let string = self.scanner.take_string(end);
+        self.transition(|p, need_next| {
+            match need_next {
+                NeedNext::InitialTerm|NeedNext::Operand => p.push_token(term_type, string),
+                NeedNext::Operator => unreachable!(),
+                NeedNext::Either(prev_operator) => {
+                    p.push_token(Infix, prev_operator);
+                    p.push_token(term_type, string);
+                }
+            }
+            NeedNext::Operator
+        })
+    }
+
+    fn operator(&mut self, end: ByteIndex) {
+        let string = self.scanner.take_string(end);
+        self.transition(|p, need_next| {
+            match need_next {
+                NeedNext::InitialTerm|NeedNext::Operand => {
+                    p.push_token(Prefix, string);
+                    NeedNext::Operand
+                },
+                NeedNext::Operator => NeedNext::Either(string),
+                NeedNext::Either(_) => unreachable!(),
+            }
+        })
+    }
+
+    fn close(&mut self) {
+        self.transition(|p, need_next| {
+            match need_next {
+                // NOTE: we do not report MissingRightOperand here because it will be reported by the typechecker.
+                NeedNext::InitialTerm|NeedNext::Operator|NeedNext::Operand => {},
+                NeedNext::Either(prev_string) => p.push_token(Postfix, prev_string),
+            }
+            NeedNext::Operator
+        })
+    }
+
+    fn transition<F: FnOnce(&mut Self, NeedNext) -> NeedNext>(&mut self, transition: F) {
+        let need_next = mem::replace(&mut self.need_next, NeedNext::InitialTerm);
+        self.need_next = transition(self, need_next);
+    }
+
+    fn push_token<T: Into<TokenType>>(&mut self, token_type: T, (start, string): (ByteIndex, String)) {
+        self.tokens.push(Token::new(token_type.into(), string));
+        self.token_starts.push(start);
     }
 
     fn report_unsupported_characters(&mut self) -> bool {
@@ -57,7 +129,7 @@ impl<'s, 'c: 's> Parser<'s, 'c> {
         }
 
         // If there are valid UTF-8 chars, they are just unsupported. Report 
-        while !self.scanner.eof() && !self.scan_term() && self.scanner.take_valid_char(&mut string) {}
+        while !self.scanner.eof() && !self.scan_token() && self.scanner.take_valid_char(&mut string) {}
         self.scanner.compiler.report_at(UnsupportedCharacters, self.scanner.source, start, &string);
         true
     }
@@ -71,16 +143,7 @@ impl<'s, 'c: 's> Parser<'s, 'c> {
         }
         self.scanner.compiler.report_invalid_bytes(InvalidUtf8, self.scanner.source, start, &bytes)
     }
-
-    fn scan_term(&mut self) -> bool {
-        let mut index = self.scanner.index;
-        match self.scanner[index] {
-            b'0'...b'9' => {
-                index = self.scanner.match_all(&(b'0'..=b'9'), index + 1);
-                self.scanner.token(IntegerLiteral, index);
-                true
-            },
-            _ => false,
-        }
-    }
 }
+
+fn digit(byte: u8) -> bool { (b'0'..=b'9').contains(byte) }
+fn operator(byte: u8) -> bool { match byte { b'+'|b'-'|b'*'|b'/' => true, _ => false } }
