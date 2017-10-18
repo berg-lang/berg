@@ -45,8 +45,8 @@ enum NeedNext {
 
 impl<'p, 'c: 'p> Parser<'p, 'c> {
     pub fn new(scanner: Scanner<'p, 'c>, need_next: NeedNext) -> Self {
-        let tokens = Tokens::new();
-        let token_starts = TokenStarts::new();
+        let tokens = Default::default();
+        let token_starts = Default::default();
         Parser { scanner, need_next, tokens, token_starts }
     }
 
@@ -61,9 +61,8 @@ impl<'p, 'c: 'p> Parser<'p, 'c> {
             return false;
         }
         
-        if self.scan_token() {
-            true
-        } else if self.report_unsupported_characters() {
+        if    self.scan_token()
+           || self.report_unsupported_characters() {
             true
         } else {
             self.report_invalid_utf8();

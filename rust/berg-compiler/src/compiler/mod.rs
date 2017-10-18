@@ -6,6 +6,8 @@ use public::*;
 use parser;
 use checker;
 use compiler::source_data::Sources;
+use compiler::source_data::*;
+use std::default::Default;
 
 use std::env;
 use std::fmt::*;
@@ -62,7 +64,7 @@ impl<'c> Compiler<'c> {
         let root_error = RwLock::new(root_error);
         let out = out.into();
         let err = err.into();
-        let sources = RwLock::new(Sources::new());
+        let sources = RwLock::new(Default::default());
         let errors = RwLock::new(vec![]);
         Compiler {
             root,

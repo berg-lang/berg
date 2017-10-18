@@ -44,7 +44,7 @@ impl<'c> SourceData<'c> {
     }
     pub fn num_tokens(&self) -> TokenIndex {
         match self.parse_data {
-            Some(ref parse_data) => { let x = parse_data.tokens.len(); x },
+            Some(ref parse_data) => parse_data.tokens.len(),
             None => unreachable!(),
         }
     }

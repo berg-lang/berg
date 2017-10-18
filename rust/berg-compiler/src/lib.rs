@@ -4,6 +4,9 @@
 #![feature(range_contains)]
 #![feature(collections_range)]
 #![feature(step_trait)]
+#![feature(plugin)]
+#![plugin(clippy)]
+
 extern crate num;
 
 #[macro_use]

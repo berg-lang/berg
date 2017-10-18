@@ -117,7 +117,7 @@ impl<'s, 'c: 's> Scanner<'s, 'c> {
                 }
             },
             _ => {
-                return 0;
+                0
             }
         }
     }

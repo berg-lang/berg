@@ -30,7 +30,6 @@ macro_rules! index_type {
         pub struct $name(pub $($type)*);
         impl PartialEq<usize> for $name {
             fn eq(&self, other: &usize) -> bool { (self.0 as usize).eq(other) }
-            fn ne(&self, other: &usize) -> bool { (self.0 as usize).ne(other) }
         }
         impl PartialOrd<usize> for $name {
             fn partial_cmp(&self, other: &usize) -> Option<Ordering> {
@@ -87,9 +86,14 @@ pub trait IndexType: Into<usize>+From<usize> {
 #[derive(Debug,Clone)]
 pub struct IndexedVec<Elem,Ind: IndexType>(Vec<Elem>, PhantomData<Ind>);
 impl<Elem,Ind: IndexType> IndexedVec<Elem,Ind> {
-    pub fn new() -> Self { IndexedVec(vec![], PhantomData) }
     pub fn len(&self) -> Ind { Ind::from(self.0.len()) }
     pub fn push(&mut self, elem: Elem) { self.0.push(elem) }
+}
+
+impl<Elem,Ind: IndexType> Default for IndexedVec<Elem,Ind> {
+    fn default() -> Self {
+        IndexedVec(vec![],PhantomData)
+    }
 }
 
 impl<Elem,Ind: IndexType> Index<Ind> for IndexedVec<Elem,Ind> {
