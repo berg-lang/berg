@@ -10,25 +10,25 @@ Tests
 
 Runtime
 -------
-[ ] TypeChecker: Type, Number, IntegerLiteral.Value() -> Number
-[ ] TypeRuntime { Run(Type) -> Print Result }
-[ ] Integer tests
+[X] TypeChecker: Type, Number, IntegerLiteral.Value() -> Number
+[X] TypeRuntime { Run(Type) -> Print Result }
+[X] Integer tests
 
 Math
 ----
-[ ] Add/Subtract Operators
+[X] Add/Subtract Operators
 
-[ ] Multiply/Divide Operators
+[X] Multiply/Divide Operators
 [ ] Precedence
 
 [ ] ProducesBecause { Values(): ValueSet, BecauseAll(): Iterator<(Expression, ValueSet)> }
 [ ] Expression { Produces() -> Iterator<ProducesBecause> }
 [ ] Type.Contains(value)
-[ ] Type::Single(Value)
+[X] Type::Single(Value)
 [ ] Expression as Producer
-[ ] Type Error: Divide By Zero
+[X] Type Error: Divide By Zero
 
-[ ] Negative/Positive Operators
+[X] Negative/Positive Operators
 
 Parens
 ------
@@ -62,9 +62,9 @@ Objects
 Nothing
 -------
 [ ] "nothing"
-[ ] Type::Nothing
+[X] Type::Nothing
 
-[ ] Empty source file -> nothing
+[X] Empty source file -> nothing
 
 [ ] Empty parentheses -> nothing
 
