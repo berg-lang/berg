@@ -5,17 +5,15 @@ pub mod source_data;
 use public::*;
 use parser;
 use checker;
+use compiler::source_data::Sources;
 
 use std::env;
 use std::fmt::*;
 use std::io;
 use std::io::Write;
-use std::ops::Index;
-use std::ops::IndexMut;
 use std::path::Path;
 use std::path::PathBuf;
 use std::sync::RwLock;
-use std::u32;
 
 pub struct Compiler<'c> {
     root: Option<PathBuf>,
@@ -23,7 +21,7 @@ pub struct Compiler<'c> {
     out: Box<Write>,
     err: Box<Write>,
 
-    sources: RwLock<Vec<SourceData<'c>>>,
+    sources: RwLock<Sources<'c>>,
     errors: RwLock<Vec<CompileError>>,
 }
 
@@ -35,18 +33,6 @@ impl<'c> Debug for Compiler<'c> {
             .field("sources", &self.sources)
             .field("errors", &self.errors)
             .finish()
-    }
-}
-
-impl<'c> Index<SourceIndex> for Vec<SourceData<'c>> {
-    type Output = SourceData<'c>;
-    fn index(&self, index: SourceIndex) -> &SourceData<'c> {
-        &self[index.0 as usize]
-    }
-}
-impl<'c> IndexMut<SourceIndex> for Vec<SourceData<'c>> {
-    fn index_mut(&mut self, index: SourceIndex) -> &mut SourceData<'c> {
-        &mut self[index.0 as usize]
     }
 }
 
@@ -76,7 +62,7 @@ impl<'c> Compiler<'c> {
         let root_error = RwLock::new(root_error);
         let out = out.into();
         let err = err.into();
-        let sources = RwLock::new(vec![]);
+        let sources = RwLock::new(Sources::new());
         let errors = RwLock::new(vec![]);
         Compiler {
             root,
@@ -102,12 +88,12 @@ impl<'c> Compiler<'c> {
         self.add_source(source)
     }
 
-    pub fn with_sources<T, F: FnOnce(&[SourceData<'c>]) -> T>(
+    pub fn with_sources<T, F: FnOnce(&Sources<'c>) -> T>(
         &self,
         f: F,
     ) -> T {
         let sources = self.sources.read().unwrap();
-        f(sources.as_slice())
+        f(&sources)
     }
 
     pub fn with_errors<T, F: FnOnce(&[CompileError]) -> T>(
@@ -123,17 +109,17 @@ impl<'c> Compiler<'c> {
         index: SourceIndex,
         f: F,
     ) -> T {
-        self.with_sources(|sources| f(&sources[index.0 as usize]))
+        self.with_sources(|sources| f(&sources[index]))
     }
 
     fn add_source(&self, source_spec: SourceSpec) {
         let index = {
             let mut sources = self.sources.write().unwrap();
-            if sources.len() + 1 > (u32::MAX as usize) {
+            if sources.len() + 1 > SourceIndex::MAX {
                 self.report_generic(TooManySources);
             }
             sources.push(SourceData::new(source_spec));
-            SourceIndex((sources.len() - 1) as u32)
+            SourceIndex::from(sources.len() - 1)
         };
         self.with_source_mut(index, |source| {
             source.parse_data = Some(parser::parse(self, index, source.source_spec()));
@@ -144,7 +130,7 @@ impl<'c> Compiler<'c> {
             println!("{}", source.name().to_string_lossy());
             println!("--------------------");
             println!("Result:");
-            for token in 0..source.num_tokens() {
+            for token in TokenIndex(0)..source.num_tokens() {
                 println!(
                     "- {}: {:?} \"{}\"",
                     source.token_range(token),
@@ -169,7 +155,7 @@ impl<'c> Compiler<'c> {
         f: F,
     ) -> T {
         let mut sources = self.sources.write().unwrap();
-        let source_data = &mut sources[index.0 as usize];
+        let source_data = &mut sources[index];
         f(source_data)
     }
 

@@ -24,7 +24,7 @@ impl<'ch, 'c: 'ch> Checker<'ch, 'c> {
     }
 
     fn check(&self) -> Type {
-        let (mut index, mut value, mut last_precedence) = self.evaluate_one(0, Precedence::Other);
+        let (mut index, mut value, mut last_precedence) = self.evaluate_one(0.into(), Precedence::Other);
         while index < self.source_data.num_tokens() {
             let token = self.source_data.token(index);
             match token.token_type {

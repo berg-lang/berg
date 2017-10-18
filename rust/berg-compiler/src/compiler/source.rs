@@ -7,9 +7,6 @@ use std::io;
 use std::io::Read;
 use std::path::PathBuf;
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub struct SourceIndex(pub u32);
-
 #[derive(Debug)]
 pub enum SourceSpec {
     File { path: PathBuf },

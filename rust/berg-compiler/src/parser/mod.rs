@@ -3,8 +3,10 @@ pub mod scanner;
 pub mod token;
 
 use public::*;
+use indexed_vec::IndexedVec;
 use parser::scanner::Scanner;
 use std::mem;
+use std::u32;
 
 pub fn parse<'p>(compiler: &Compiler, source: SourceIndex, source_spec: &'p SourceSpec) -> ParseData {
     source_spec.with_buffer(compiler, source, |raw_buffer| {
@@ -14,11 +16,14 @@ pub fn parse<'p>(compiler: &Compiler, source: SourceIndex, source_spec: &'p Sour
     })
 }
 
+index_type!(pub struct TokenIndex(u32));
+pub type Tokens = IndexedVec<Token, TokenIndex>;
+pub type TokenStarts = IndexedVec<ByteIndex, TokenIndex>;
 #[derive(Debug)]
 pub struct ParseData {
     pub char_data: CharData,
-    pub tokens: Vec<Token>,
-    pub token_starts: Vec<ByteIndex>,
+    pub tokens: Tokens,
+    pub token_starts: TokenStarts,
 }
 
 /// Shared parsing state
@@ -26,8 +31,8 @@ pub struct ParseData {
 struct Parser<'p, 'c: 'p> {
     pub scanner: Scanner<'p, 'c>,
     pub need_next: NeedNext,
-    pub tokens: Vec<Token>,
-    pub token_starts: Vec<ByteIndex>,
+    pub tokens: Tokens,
+    pub token_starts: TokenStarts,
 }
 
 #[derive(Debug, PartialEq)]
@@ -40,8 +45,8 @@ enum NeedNext {
 
 impl<'p, 'c: 'p> Parser<'p, 'c> {
     pub fn new(scanner: Scanner<'p, 'c>, need_next: NeedNext) -> Self {
-        let tokens = vec![];
-        let token_starts = vec![];
+        let tokens = Tokens::new();
+        let token_starts = TokenStarts::new();
         Parser { scanner, need_next, tokens, token_starts }
     }
 

@@ -1,5 +1,3 @@
-pub type TokenIndex = u32;
-
 // ExpressionType, String, LeftChild, RightChild
 #[derive(Debug)]
 pub struct Token {
