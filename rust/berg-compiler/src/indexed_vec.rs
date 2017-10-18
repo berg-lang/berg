@@ -18,7 +18,7 @@ use std::marker::PhantomData;
 
 #[macro_export]
 macro_rules! index_type {
-    (pub struct $name:ident($($type:tt)*)) => {
+    (pub struct $name:ident(pub $($type:tt)*)) => {
         use indexed_vec::IndexType;
         use std::ops::Add;
         use std::ops::AddAssign;

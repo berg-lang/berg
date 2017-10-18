@@ -1,5 +1,6 @@
 use public::*;
 use parser::ParseData;
+use parser::char_data::CharData;
 use std::marker::PhantomData;
 use std::ffi::OsStr;
 use indexed_vec::IndexedVec;
@@ -14,11 +15,11 @@ pub struct SourceData<'c> {
 }
 
 // SourceDatas is a Vec<SourceData>, indexable by indexes of type `SourceIndex`.
-index_type!(pub struct SourceIndex(u32));
-pub type Sources<'c> = IndexedVec<SourceData<'c>, SourceIndex>;
+index_type!(pub struct SourceIndex(pub u32));
+pub(crate) type Sources<'c> = IndexedVec<SourceData<'c>, SourceIndex>;
 
 impl<'c> SourceData<'c> {
-    pub fn new(source_spec: SourceSpec) -> Self {
+    pub(crate) fn new(source_spec: SourceSpec) -> Self {
         SourceData {
             source_spec,
             parse_data: None,

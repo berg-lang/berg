@@ -7,7 +7,6 @@ pub use compiler::source_data::SourceIndex;
 pub use compiler::source::SourceSpec;
 pub use compiler::source_data::SourceData;
 pub use parser::char_data::ByteIndex;
-pub use parser::char_data::CharData;
 pub use parser::char_data::LineColumn;
 pub use parser::char_data::LineColumnRange;
 pub use parser::token::Token;

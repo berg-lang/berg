@@ -1,5 +1,6 @@
 use public::*;
 
+use parser::char_data::CharData;
 use std::ops::Index;
 use std::ops::Range;
 use std::ops::RangeInclusive;

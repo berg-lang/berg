@@ -11,9 +11,9 @@ pub struct Token {
 
 // Tokens is a list of tokens, indexable by indexes of type `TokenIndex`.
 // TokenStarts is a list of indexes tokens start at.
-index_type!(pub struct TokenIndex(u32));
-pub type Tokens = IndexedVec<Token, TokenIndex>;
-pub type TokenStarts = IndexedVec<ByteIndex, TokenIndex>;
+index_type!(pub struct TokenIndex(pub u32));
+pub(crate) type Tokens = IndexedVec<Token, TokenIndex>;
+pub(crate) type TokenStarts = IndexedVec<ByteIndex, TokenIndex>;
 
 impl Token {
     pub fn new(token_type: TokenType, string: String) -> Token {

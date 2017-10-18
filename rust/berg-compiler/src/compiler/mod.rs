@@ -1,6 +1,6 @@
-pub mod compile_error;
-pub mod source;
-pub mod source_data;
+pub(crate) mod compile_error;
+pub(crate) mod source;
+pub(crate) mod source_data;
 
 use public::*;
 use parser;
@@ -104,43 +104,6 @@ impl<'c> Compiler<'c> {
         self.with_sources(|sources| f(&sources[index]))
     }
 
-    fn add_source(&self, source_spec: SourceSpec) {
-        let index = {
-            let mut sources = self.sources.write().unwrap();
-            if sources.len() + 1 > SourceIndex::MAX {
-                self.report_generic(TooManySources);
-            }
-            sources.push(SourceData::new(source_spec));
-            SourceIndex::from(sources.len() - 1)
-        };
-        self.with_source_mut(index, |source| {
-            source.parse_data = Some(parser::parse(self, index, source.source_spec()));
-            source.checked_type = Some(checker::check(self, index, source));
-        });
-
-        self.with_source(index, |source| {
-            println!("{}", source.name().to_string_lossy());
-            println!("--------------------");
-            println!("Result:");
-            for token in TokenIndex(0)..source.num_tokens() {
-                println!(
-                    "- {}: {:?} \"{}\"",
-                    source.token_range(token),
-                    source.token(token).token_type,
-                    source.token(token).string
-                );
-            }
-        });
-        let errors = self.errors.read().unwrap();
-        if errors.len() > 0 {
-            println!("");
-            println!("ERRORS:");
-            for error in errors.iter() {
-                println!("- {:?}", error);
-            }
-        }
-    }
-
     pub(crate) fn with_source_mut<T, F: FnOnce(&mut SourceData<'c>) -> T>(
         &self,
         index: SourceIndex,
@@ -149,35 +112,6 @@ impl<'c> Compiler<'c> {
         let mut sources = self.sources.write().unwrap();
         let source_data = &mut sources[index];
         f(source_data)
-    }
-
-    fn maybe_report_path_error(&self, source: SourceIndex) {
-        // Only report the "bad root directory" error once.
-        let mut root_error = self.root_error.write().unwrap();
-        if let Some(ref error) = *root_error {
-            self.report(IoCurrentDirectoryError.io_generic(source, error));
-        } else {
-            return;
-        }
-        *root_error = None;
-    }
-
-    pub(crate) fn absolute_path(&self, path: &PathBuf, source: SourceIndex) -> Option<PathBuf> {
-        if path.is_relative() {
-            if let Some(ref root) = self.root {
-                Some(root.join(path))
-            } else {
-                self.maybe_report_path_error(source);
-                None
-            }
-        } else {
-            None
-        }
-    }
-
-    fn report(&self, error: CompileError) {
-        let mut errors = self.errors.write().unwrap();
-        errors.push(error)
     }
 
     pub(crate) fn report_at(
@@ -226,5 +160,71 @@ impl<'c> Compiler<'c> {
         path: &Path,
     ) {
         self.report(error_type.io_open(source, error, path))
+    }
+
+    fn add_source(&self, source_spec: SourceSpec) {
+        let index = {
+            let mut sources = self.sources.write().unwrap();
+            if sources.len() + 1 > SourceIndex::MAX {
+                self.report_generic(TooManySources);
+            }
+            sources.push(SourceData::new(source_spec));
+            SourceIndex::from(sources.len() - 1)
+        };
+        self.with_source_mut(index, |source| {
+            source.parse_data = Some(parser::parse(self, index, source.source_spec()));
+            source.checked_type = Some(checker::check(self, index, source));
+        });
+
+        self.with_source(index, |source| {
+            println!("{}", source.name().to_string_lossy());
+            println!("--------------------");
+            println!("Result:");
+            for token in TokenIndex(0)..source.num_tokens() {
+                println!(
+                    "- {}: {:?} \"{}\"",
+                    source.token_range(token),
+                    source.token(token).token_type,
+                    source.token(token).string
+                );
+            }
+        });
+        let errors = self.errors.read().unwrap();
+        if errors.len() > 0 {
+            println!("");
+            println!("ERRORS:");
+            for error in errors.iter() {
+                println!("- {:?}", error);
+            }
+        }
+    }
+
+    fn maybe_report_path_error(&self, source: SourceIndex) {
+        // Only report the "bad root directory" error once.
+        let mut root_error = self.root_error.write().unwrap();
+        if let Some(ref error) = *root_error {
+            self.report(IoCurrentDirectoryError.io_generic(source, error));
+        } else {
+            return;
+        }
+        *root_error = None;
+    }
+
+    pub(crate) fn absolute_path(&self, path: &PathBuf, source: SourceIndex) -> Option<PathBuf> {
+        if path.is_relative() {
+            if let Some(ref root) = self.root {
+                Some(root.join(path))
+            } else {
+                self.maybe_report_path_error(source);
+                None
+            }
+        } else {
+            None
+        }
+    }
+
+    fn report(&self, error: CompileError) {
+        let mut errors = self.errors.write().unwrap();
+        errors.push(error)
     }
 }

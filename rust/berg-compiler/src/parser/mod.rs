@@ -1,14 +1,15 @@
-pub mod char_data;
-pub mod scanner;
-pub mod token;
+pub(crate) mod char_data;
+           mod scanner;
+pub(crate) mod token;
 
 use public::*;
+use parser::char_data::CharData;
 use parser::scanner::Scanner;
 use parser::token::Tokens;
 use parser::token::TokenStarts;
 use std::mem;
 
-pub fn parse<'p>(
+pub(crate) fn parse<'p>(
     compiler: &Compiler,
     source: SourceIndex,
     source_spec: &'p SourceSpec,
@@ -23,17 +24,17 @@ pub fn parse<'p>(
 /// Shared parsing state
 #[derive(Debug)]
 struct Parser<'p, 'c: 'p> {
-    pub scanner: Scanner<'p, 'c>,
-    pub need_next: NeedNext,
-    pub tokens: Tokens,
-    pub token_starts: TokenStarts,
+    scanner: Scanner<'p, 'c>,
+    need_next: NeedNext,
+    tokens: Tokens,
+    token_starts: TokenStarts,
 }
 
 #[derive(Debug)]
-pub struct ParseData {
-    pub char_data: CharData,
-    pub tokens: Tokens,
-    pub token_starts: TokenStarts,
+pub(crate) struct ParseData {
+    pub(crate) char_data: CharData,
+    pub(crate) tokens: Tokens,
+    pub(crate) token_starts: TokenStarts,
 }
 
 #[derive(Debug, PartialEq)]
@@ -45,7 +46,7 @@ enum NeedNext {
 }
 
 impl<'p, 'c: 'p> Parser<'p, 'c> {
-    pub fn new(scanner: Scanner<'p, 'c>, need_next: NeedNext) -> Self {
+    fn new(scanner: Scanner<'p, 'c>, need_next: NeedNext) -> Self {
         let tokens = Default::default();
         let token_starts = Default::default();
         Parser {
@@ -56,7 +57,7 @@ impl<'p, 'c: 'p> Parser<'p, 'c> {
         }
     }
 
-    pub fn parse(mut self) -> ParseData {
+    fn parse(mut self) -> ParseData {
         while self.step() {}
         self.close();
         ParseData {
