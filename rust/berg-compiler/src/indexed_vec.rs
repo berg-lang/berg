@@ -6,6 +6,10 @@ use std::ops::RangeTo;
 use std::ops::RangeToInclusive;
 use std::ops::RangeFrom;
 use std::ops::RangeFull;
+use std::ops::Add;
+use std::ops::AddAssign;
+use std::ops::Sub;
+use std::ops::SubAssign;
 use std::marker::PhantomData;
 
 // index_type and indexed_vec work together to let you use a custom type
@@ -25,7 +29,6 @@ macro_rules! index_type {
         use std::ops::Sub;
         use std::ops::SubAssign;
         use std::cmp::Ordering;
-        use std::iter::Step;
         #[derive(Debug, Copy, Clone, PartialEq, Eq, Ord, PartialOrd)]
         pub struct $name(pub $($type)*);
         impl PartialEq<usize> for $name {
@@ -44,40 +47,26 @@ macro_rules! index_type {
         impl $name { pub const MAX: $name = $name($($type)*::MAX); }
         impl From<usize> for $name { fn from(size: usize) -> Self { $name(size as $($type)*) } }
         impl From<$name> for usize { fn from(size: $name) -> Self { size.0 as usize } }
-        impl Add<$($type)*> for $name { type Output = $name; fn add(self, value: $($type)*) -> $name { $name(self.0 + value) } }
-        impl AddAssign<$($type)*> for $name { fn add_assign(&mut self, value: $($type)*) { self.0 += value } }
-        impl Sub<$($type)*> for $name { type Output = $name; fn sub(self, value: $($type)*) -> $name { $name(self.0 - value) } }
-        impl SubAssign<$($type)*> for $name { fn sub_assign(&mut self, value: $($type)*) { self.0 -= value } }
-        impl Step for $name {
-            fn steps_between(start: &Self, end: &Self) -> Option<usize> {
-                Some((end.0 - start.0) as usize)
-            }
-            fn replace_one(&mut self) -> Self {
-                self.0 = 1;
-                *self
-            }
-            fn replace_zero(&mut self) -> Self {
-                self.0 = 0;
-                *self
-            }
-            fn add_one(&self) -> Self {
-                *self + 1
-            }
-            fn sub_one(&self) -> Self {
-                *self - 1
-            }
-            fn add_usize(&self, n: usize) -> Option<Self> {
-                let result = self.0 as usize + n;
-                if result <= (Self::MAX.0 as usize) {
-                    Some(result.into())
-                } else {
-                    None
-                }
-            }
+        impl Add<usize> for $name { type Output = Self; fn add(mut self, value: usize) -> Self { self += value; self } }
+        impl AddAssign<usize> for $name { fn add_assign(&mut self, value: usize) { self.0 += value as $($type)*; } }
+        impl Sub<usize> for $name { type Output = Self; fn sub(mut self, value: usize) -> Self { self -= value; self } }
+        impl SubAssign<usize> for $name { fn sub_assign(&mut self, value: usize) { self.0 -= value as $($type)*; } }
+    }
+}
+pub trait IndexType: Into<usize>+From<usize>+PartialOrd+PartialEq+Copy+AddAssign<usize>+SubAssign<usize>+Add<usize,Output=Self>+Sub<usize,Output=Self> {}
+pub struct IndexIterator<Ind: IndexType>(pub Range<Ind>);
+impl<Ind: IndexType> Iterator for IndexIterator<Ind> {
+    type Item = Ind;
+    fn next(&mut self) -> Option<Ind> {
+        if self.0.start < self.0.end {
+            let result = self.0.start;
+            self.0.start += 1;
+            Some(result)
+        } else {
+            None
         }
     }
 }
-pub trait IndexType: Into<usize> + From<usize> {}
 
 ///
 /// A Vec with a specific index type (so you don't accidentally use one Vec's index on another Vec).

@@ -1,8 +1,8 @@
 use public::*;
 use parser::ParseData;
 use parser::char_data::CharData;
-use std::marker::PhantomData;
 use std::ffi::OsStr;
+use std::marker::PhantomData;
 use indexed_vec::IndexedVec;
 use std::u32;
 

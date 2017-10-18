@@ -2,8 +2,7 @@
 #![feature(inclusive_range_syntax)]
 #![feature(inclusive_range)]
 #![feature(range_contains)]
-#![feature(collections_range)]
-#![feature(step_trait)]
+
 #![feature(plugin)]
 #![plugin(clippy)]
 

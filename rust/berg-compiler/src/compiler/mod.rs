@@ -7,8 +7,9 @@ use parser;
 use checker;
 use compiler::source_data::Sources;
 use compiler::source_data::*;
-use std::default::Default;
+use indexed_vec::IndexIterator;
 
+use std::default::Default;
 use std::env;
 use std::fmt::*;
 use std::io;
@@ -180,7 +181,7 @@ impl<'c> Compiler<'c> {
             println!("{}", source.name().to_string_lossy());
             println!("--------------------");
             println!("Result:");
-            for token in TokenIndex(0)..source.num_tokens() {
+            for token in IndexIterator(TokenIndex(0)..source.num_tokens()) {
                 println!(
                     "- {}: {:?} \"{}\"",
                     source.token_range(token),
