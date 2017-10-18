@@ -77,7 +77,10 @@ impl LineColumn {
 
 impl LineColumnRange {
     pub fn new(start: LineColumn, end: LineColumn) -> LineColumnRange {
-        LineColumnRange { start, end: Some(end) }
+        LineColumnRange {
+            start,
+            end: Some(end),
+        }
     }
     pub fn zero_width(start: LineColumn) -> LineColumnRange {
         LineColumnRange { start, end: None }

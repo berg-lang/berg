@@ -12,7 +12,7 @@ use std::marker::PhantomData;
 // (like TokenIndex) to index the vector, and disallow any other type (like usize
 // or SourceIndex) from accessing it, so that you can be sure you are accessing
 // the thing you think you are!
-// 
+//
 // Think of index_type (TokenIndex/SourceIndex/ByteIndex) as your number and
 // the IndexedVec as Vec<Token>/Vec<Source>, and you will be good.
 
@@ -77,33 +77,36 @@ macro_rules! index_type {
         }
     }
 }
-pub trait IndexType: Into<usize>+From<usize> {
-}
+pub trait IndexType: Into<usize> + From<usize> {}
 
 ///
 /// A Vec with a specific index type (so you don't accidentally use one Vec's index on another Vec).
 ///
-#[derive(Debug,Clone)]
-pub struct IndexedVec<Elem,Ind: IndexType>(Vec<Elem>, PhantomData<Ind>);
-impl<Elem,Ind: IndexType> IndexedVec<Elem,Ind> {
-    pub fn len(&self) -> Ind { Ind::from(self.0.len()) }
-    pub fn push(&mut self, elem: Elem) { self.0.push(elem) }
-}
-
-impl<Elem,Ind: IndexType> Default for IndexedVec<Elem,Ind> {
-    fn default() -> Self {
-        IndexedVec(vec![],PhantomData)
+#[derive(Debug, Clone)]
+pub struct IndexedVec<Elem, Ind: IndexType>(Vec<Elem>, PhantomData<Ind>);
+impl<Elem, Ind: IndexType> IndexedVec<Elem, Ind> {
+    pub fn len(&self) -> Ind {
+        Ind::from(self.0.len())
+    }
+    pub fn push(&mut self, elem: Elem) {
+        self.0.push(elem)
     }
 }
 
-impl<Elem,Ind: IndexType> Index<Ind> for IndexedVec<Elem,Ind> {
+impl<Elem, Ind: IndexType> Default for IndexedVec<Elem, Ind> {
+    fn default() -> Self {
+        IndexedVec(vec![], PhantomData)
+    }
+}
+
+impl<Elem, Ind: IndexType> Index<Ind> for IndexedVec<Elem, Ind> {
     type Output = Elem;
     fn index(&self, index: Ind) -> &Elem {
         let index: usize = index.into();
         &self.0[index]
     }
 }
-impl<Elem,Ind: IndexType> Index<Range<Ind>> for IndexedVec<Elem,Ind> {
+impl<Elem, Ind: IndexType> Index<Range<Ind>> for IndexedVec<Elem, Ind> {
     type Output = [Elem];
     fn index(&self, range: Range<Ind>) -> &[Elem] {
         let start: usize = range.start.into();
@@ -111,7 +114,7 @@ impl<Elem,Ind: IndexType> Index<Range<Ind>> for IndexedVec<Elem,Ind> {
         &self.0[Range { start, end }]
     }
 }
-impl<Elem,Ind: IndexType> Index<RangeInclusive<Ind>> for IndexedVec<Elem,Ind> {
+impl<Elem, Ind: IndexType> Index<RangeInclusive<Ind>> for IndexedVec<Elem, Ind> {
     type Output = [Elem];
     fn index(&self, range: RangeInclusive<Ind>) -> &[Elem] {
         let start: usize = range.start.into();
@@ -119,38 +122,37 @@ impl<Elem,Ind: IndexType> Index<RangeInclusive<Ind>> for IndexedVec<Elem,Ind> {
         &self.0[RangeInclusive { start, end }]
     }
 }
-impl<Elem,Ind: IndexType> Index<RangeTo<Ind>> for IndexedVec<Elem,Ind> {
+impl<Elem, Ind: IndexType> Index<RangeTo<Ind>> for IndexedVec<Elem, Ind> {
     type Output = [Elem];
     fn index(&self, range: RangeTo<Ind>) -> &[Elem] {
         let end: usize = range.end.into();
         &self.0[RangeTo { end }]
     }
 }
-impl<Elem,Ind: IndexType> Index<RangeToInclusive<Ind>> for IndexedVec<Elem,Ind> {
+impl<Elem, Ind: IndexType> Index<RangeToInclusive<Ind>> for IndexedVec<Elem, Ind> {
     type Output = [Elem];
     fn index(&self, range: RangeToInclusive<Ind>) -> &[Elem] {
         let end: usize = range.end.into();
         &self.0[RangeToInclusive { end }]
     }
 }
-impl<Elem,Ind: IndexType> Index<RangeFrom<Ind>> for IndexedVec<Elem,Ind> {
+impl<Elem, Ind: IndexType> Index<RangeFrom<Ind>> for IndexedVec<Elem, Ind> {
     type Output = [Elem];
     fn index(&self, range: RangeFrom<Ind>) -> &[Elem] {
         let start: usize = range.start.into();
         &self.0[RangeFrom { start }]
     }
 }
-impl<Elem,Ind: IndexType> Index<RangeFull> for IndexedVec<Elem,Ind> {
+impl<Elem, Ind: IndexType> Index<RangeFull> for IndexedVec<Elem, Ind> {
     type Output = [Elem];
     fn index(&self, range: RangeFull) -> &[Elem] {
         &self.0[range]
     }
 }
 
-impl<Elem,Ind: IndexType> IndexMut<Ind> for IndexedVec<Elem,Ind> {
+impl<Elem, Ind: IndexType> IndexMut<Ind> for IndexedVec<Elem, Ind> {
     fn index_mut(&mut self, index: Ind) -> &mut Elem {
         let index: usize = index.into();
         &mut self.0[index]
     }
 }
-

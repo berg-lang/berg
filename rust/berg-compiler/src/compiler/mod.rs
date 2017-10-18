@@ -90,27 +90,17 @@ impl<'c> Compiler<'c> {
         self.add_source(source)
     }
 
-    pub fn with_sources<T, F: FnOnce(&Sources<'c>) -> T>(
-        &self,
-        f: F,
-    ) -> T {
+    pub fn with_sources<T, F: FnOnce(&Sources<'c>) -> T>(&self, f: F) -> T {
         let sources = self.sources.read().unwrap();
         f(&sources)
     }
 
-    pub fn with_errors<T, F: FnOnce(&[CompileError]) -> T>(
-        &self,
-        f: F,
-    ) -> T {
+    pub fn with_errors<T, F: FnOnce(&[CompileError]) -> T>(&self, f: F) -> T {
         let errors = self.errors.read().unwrap();
         f(errors.as_slice())
     }
 
-    pub fn with_source<T, F: FnOnce(&SourceData<'c>) -> T>(
-        &self,
-        index: SourceIndex,
-        f: F,
-    ) -> T {
+    pub fn with_source<T, F: FnOnce(&SourceData<'c>) -> T>(&self, index: SourceIndex, f: F) -> T {
         self.with_sources(|sources| f(&sources[index]))
     }
 
@@ -190,7 +180,13 @@ impl<'c> Compiler<'c> {
         errors.push(error)
     }
 
-    pub(crate) fn report_at(&self, error_type: CompileErrorType, source: SourceIndex, start: ByteIndex, string: &str) {
+    pub(crate) fn report_at(
+        &self,
+        error_type: CompileErrorType,
+        source: SourceIndex,
+        start: ByteIndex,
+        string: &str,
+    ) {
         self.report(error_type.at(source, start, string))
     }
 
@@ -202,15 +198,33 @@ impl<'c> Compiler<'c> {
         self.report(error_type.generic())
     }
 
-    pub(crate) fn report_invalid_bytes(&self, error_type: CompileErrorType, source: SourceIndex, start: ByteIndex, bytes: &[u8]) {
+    pub(crate) fn report_invalid_bytes(
+        &self,
+        error_type: CompileErrorType,
+        source: SourceIndex,
+        start: ByteIndex,
+        bytes: &[u8],
+    ) {
         self.report(error_type.invalid_bytes(source, start, bytes))
     }
 
-    pub(crate) fn report_io_read(&self, error_type: CompileErrorType, source: SourceIndex, start: ByteIndex, error: &io::Error) {
+    pub(crate) fn report_io_read(
+        &self,
+        error_type: CompileErrorType,
+        source: SourceIndex,
+        start: ByteIndex,
+        error: &io::Error,
+    ) {
         self.report(error_type.io_read(source, start, error))
     }
 
-    pub(crate) fn report_io_open(&self, error_type: CompileErrorType, source: SourceIndex, error: &io::Error, path: &Path) {
+    pub(crate) fn report_io_open(
+        &self,
+        error_type: CompileErrorType,
+        source: SourceIndex,
+        error: &io::Error,
+        path: &Path,
+    ) {
         self.report(error_type.io_open(source, error, path))
     }
 }

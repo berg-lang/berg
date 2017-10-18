@@ -39,7 +39,12 @@ impl SourceSpec {
             SourceSpec::Memory { ref contents, .. } => f(contents),
         }
     }
-    fn open_file<T, F: FnOnce(&[u8]) -> T>(compiler: &Compiler, source: SourceIndex, path: &PathBuf, f: F) -> T {
+    fn open_file<T, F: FnOnce(&[u8]) -> T>(
+        compiler: &Compiler,
+        source: SourceIndex,
+        path: &PathBuf,
+        f: F,
+    ) -> T {
         if let Some(ref path) = compiler.absolute_path(path, source) {
             match File::open(path) {
                 Ok(mut file) => {
@@ -63,4 +68,3 @@ impl SourceSpec {
         }
     }
 }
-

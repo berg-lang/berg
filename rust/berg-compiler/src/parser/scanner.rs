@@ -25,7 +25,13 @@ impl<'s, 'c: 's> Scanner<'s, 'c> {
         }
         let char_data = CharData::new();
         let index = 0;
-        Scanner { compiler, source, buffer, char_data, index }
+        Scanner {
+            compiler,
+            source,
+            buffer,
+            char_data,
+            index,
+        }
     }
     pub fn len(&self) -> ByteIndex {
         self.buffer.len() as ByteIndex
@@ -34,12 +40,9 @@ impl<'s, 'c: 's> Scanner<'s, 'c> {
         self.index >= self.len()
     }
 
-    pub fn match_all<Matcher: Fn(u8)->bool>(
-        &mut self,
-        matches: Matcher,
-    ) -> Option<ByteIndex> {
+    pub fn match_all<Matcher: Fn(u8) -> bool>(&mut self, matches: Matcher) -> Option<ByteIndex> {
         if matches(self[self.index]) {
-            let mut index = self.index+1;
+            let mut index = self.index + 1;
             while index < self.len() && matches(self[index]) {
                 index += 1;
             }
@@ -83,42 +86,32 @@ impl<'s, 'c: 's> Scanner<'s, 'c> {
     fn valid_utf8_char_length(&self) -> ByteIndex {
         let index = self.index;
         match self[self.index] {
-            0x00..UTF8_CONT_START => {
-                1
-            },
+            0x00..UTF8_CONT_START => 1,
             UTF8_2_START..UTF8_3_START => {
-                if self.len() > index + 1
-                    && UTF8_CONT.contains(self[index + 1])
-                {
+                if self.len() > index + 1 && UTF8_CONT.contains(self[index + 1]) {
                     2
                 } else {
                     0
                 }
-            },
-            UTF8_3_START..UTF8_4_START => {
-                if self.len() > index + 2
-                    && UTF8_CONT.contains(self[index + 1])
-                    && UTF8_CONT.contains(self[index + 2])
-                {
-                    3
-                } else {
-                    0
-                }
-            },
-            UTF8_4_START..UTF8_INVALID_START => {
-                if self.len() > index + 3
-                    && UTF8_CONT.contains(self[index + 1])
-                    && UTF8_CONT.contains(self[index + 2])
-                    && UTF8_CONT.contains(self[index + 3])
-                {
-                    4
-                } else {
-                    0
-                }
-            },
-            _ => {
-                0
             }
+            UTF8_3_START..UTF8_4_START => if self.len() > index + 2
+                && UTF8_CONT.contains(self[index + 1])
+                && UTF8_CONT.contains(self[index + 2])
+            {
+                3
+            } else {
+                0
+            },
+            UTF8_4_START..UTF8_INVALID_START => if self.len() > index + 3
+                && UTF8_CONT.contains(self[index + 1])
+                && UTF8_CONT.contains(self[index + 2])
+                && UTF8_CONT.contains(self[index + 3])
+            {
+                4
+            } else {
+                0
+            },
+            _ => 0,
         }
     }
 }
@@ -134,12 +127,7 @@ const UTF8_4_START: u8 = 0b1111_0000;
 // Invalid UTF-8 bytes from here to 256. Can never occur.
 const UTF8_INVALID_START: u8 = 0b1111_1000;
 
-// const ASCII: Range<u8> = 0x00..UTF8_CONT_START;
 const UTF8_CONT: Range<u8> = UTF8_CONT_START..UTF8_2_START;
-// const UTF8_2: Range<u8> = UTF8_2_START..UTF8_3_START;
-// const UTF8_3: Range<u8> = UTF8_3_START..UTF8_4_START;
-// const UTF8_4: Range<u8> = UTF8_4_START..UTF8_INVALID_START;
-// const UTF8_INVALID: Range<u8> = UTF8_4_START..0xFF;
 
 impl<'s, 'c: 's> Index<ByteIndex> for Scanner<'s, 'c> {
     type Output = u8;
@@ -167,4 +155,3 @@ impl<'s, 'c: 's> Index<RangeInclusive<ByteIndex>> for Scanner<'s, 'c> {
         &self.buffer[range]
     }
 }
-

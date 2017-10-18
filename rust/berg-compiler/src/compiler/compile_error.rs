@@ -105,9 +105,7 @@ pub enum CompileErrorType {
     OperatorsOutOfPrecedenceOrder = 205,
 
     // Compile errors related to type
-    DivideByZero = 1001
-
-    // Errors that are most likely transient
+    DivideByZero = 1001, // Errors that are most likely transient
 }
 
 impl CompileErrorType {
@@ -177,11 +175,26 @@ impl CompileErrorType {
         let error_message = match self {
             UnsupportedCharacters => format!("Unsupported characters {:?}", string),
             UnrecognizedOperator => format!("Unrecognized operator {:?}", string),
-            MissingBothOperands => format!("Operator {:?} has no value on either side to operate on!", string),
-            MissingLeftOperand => format!("Operator {:?} has no value on the left hand side to operate on!", string),
-            MissingRightOperand => format!("Operator {:?} has no value on the right hand side to operate on!", string),
-            OperatorsOutOfPrecedenceOrder => format!("Operator {:?} has higher precedence than the previous operator! Automatic precedence resolution is not supported. Perhaps you should place this operator in parentheses?", string),
-            DivideByZero => format!("Division by zero is illegal. Perhaps you meant a different number on the right hand side of the '{:?}'?", string),
+            MissingBothOperands => format!(
+                "Operator {:?} has no value on either side to operate on!",
+                string
+            ),
+            MissingLeftOperand => format!(
+                "Operator {:?} has no value on the left hand side to operate on!",
+                string
+            ),
+            MissingRightOperand => format!(
+                "Operator {:?} has no value on the right hand side to operate on!",
+                string
+            ),
+            OperatorsOutOfPrecedenceOrder => format!(
+                "Operator {:?} has higher precedence than the previous operator! Automatic precedence resolution is not supported. Perhaps you should place this operator in parentheses?",
+                string
+            ),
+            DivideByZero => format!(
+                "Division by zero is illegal. Perhaps you meant a different number on the right hand side of the '{:?}'?",
+                string
+            ),
             _ => unreachable!(),
         };
         let message = CompileErrorMessage::source_range(source, range, error_message);
@@ -189,7 +202,10 @@ impl CompileErrorType {
     }
     pub fn source_only(self, source: SourceIndex) -> CompileError {
         let error_message = match self {
-            SourceTooLarge => "SourceSpec code too large: source files greater than 4GB are unsupported.".to_string(),
+            SourceTooLarge => {
+                "SourceSpec code too large: source files greater than 4GB are unsupported."
+                    .to_string()
+            }
             _ => unreachable!(),
         };
         let message = CompileErrorMessage::source_only(source, error_message);
@@ -198,7 +214,7 @@ impl CompileErrorType {
     pub fn generic(self) -> CompileError {
         let error_message = match self {
             TooManySources => format!("Too many source files opened! Max is {}.", u32::max_value()),
-            _ => unreachable!()
+            _ => unreachable!(),
         };
         let message = CompileErrorMessage::generic(error_message);
         CompileError::new(self, vec![message])

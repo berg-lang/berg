@@ -5,9 +5,6 @@ use std::ffi::OsStr;
 use indexed_vec::IndexedVec;
 use std::u32;
 
-index_type!(pub struct SourceIndex(u32));
-pub type Sources<'c> = IndexedVec<SourceData<'c>, SourceIndex>;
-
 #[derive(Debug)]
 pub struct SourceData<'c> {
     source_spec: SourceSpec,
@@ -15,6 +12,10 @@ pub struct SourceData<'c> {
     pub(crate) checked_type: Option<Type>,
     phantom: PhantomData<&'c Compiler<'c>>,
 }
+
+// SourceDatas is a Vec<SourceData>, indexable by indexes of type `SourceIndex`.
+index_type!(pub struct SourceIndex(u32));
+pub type Sources<'c> = IndexedVec<SourceData<'c>, SourceIndex>;
 
 impl<'c> SourceData<'c> {
     pub fn new(source_spec: SourceSpec) -> Self {
@@ -26,10 +27,18 @@ impl<'c> SourceData<'c> {
         }
     }
 
-    pub fn source_spec(&self) -> &SourceSpec { &self.source_spec }
-    pub fn name(&self) -> &OsStr { self.source_spec.name() }
-    pub fn parsed(&self) -> bool { self.parse_data.is_some() }
-    pub fn checked(&self) -> bool { self.checked_type.is_some() }
+    pub fn source_spec(&self) -> &SourceSpec {
+        &self.source_spec
+    }
+    pub fn name(&self) -> &OsStr {
+        self.source_spec.name()
+    }
+    pub fn parsed(&self) -> bool {
+        self.parse_data.is_some()
+    }
+    pub fn checked(&self) -> bool {
+        self.checked_type.is_some()
+    }
     pub fn checked_type(&self) -> &Type {
         match self.checked_type {
             Some(ref checked_type) => checked_type,
@@ -57,7 +66,7 @@ impl<'c> SourceData<'c> {
     pub fn token_start(&self, token: TokenIndex) -> ByteIndex {
         match self.parse_data {
             Some(ref parse_data) => parse_data.token_starts[token],
-            None => unreachable!()
+            None => unreachable!(),
         }
     }
 
