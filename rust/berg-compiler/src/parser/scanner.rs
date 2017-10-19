@@ -89,24 +89,26 @@ impl<'s, 'c: 's> Scanner<'s, 'c> {
     // If the next character is a UTF-8 codepoint, returns its length
     fn valid_utf8_char_length(&self) -> ByteIndex {
         let index = self.index;
-        match self[self.index] {
-            0x00..UTF8_CONT_START => 1,
-            UTF8_2_START..UTF8_3_START => {
-                if self.len() > index + 1 && Self::is_utf8_cont(self[index + 1]) {
-                    2
-                } else {
-                    0
-                }
+        let ch = self[index];
+        if ch < UTF8_CONT_START {
+            1
+        } else if ch >= UTF8_2_START && ch < UTF8_3_START {
+            if self.len() > index + 1 && Self::is_utf8_cont(self[index + 1]) {
+                2
+            } else {
+                0
             }
-            UTF8_3_START..UTF8_4_START => if self.len() > index + 2
+        } else if ch >= UTF8_3_START && ch < UTF8_4_START {
+            if self.len() > index + 2
                 && Self::is_utf8_cont(self[index + 1])
                 && Self::is_utf8_cont(self[index + 2])
             {
                 3
             } else {
                 0
-            },
-            UTF8_4_START..UTF8_INVALID_START => if self.len() > index + 3
+            }
+        } else if ch >= UTF8_4_START && ch < UTF8_INVALID_START {
+            if self.len() > index + 3
                 && Self::is_utf8_cont(self[index + 1])
                 && Self::is_utf8_cont(self[index + 2])
                 && Self::is_utf8_cont(self[index + 3])
@@ -114,8 +116,9 @@ impl<'s, 'c: 's> Scanner<'s, 'c> {
                 4
             } else {
                 0
-            },
-            _ => 0,
+            }
+        } else {
+            0            
         }
     }
 }
