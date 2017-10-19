@@ -3,7 +3,6 @@ use public::*;
 use parser::char_data::CharData;
 use std::ops::Index;
 use std::ops::Range;
-use std::ops::RangeInclusive;
 use std::str;
 
 // Wrapper so that it will have ByteIndex sized indexes
@@ -141,16 +140,6 @@ impl<'s, 'c: 's> Index<ByteIndex> for Scanner<'s, 'c> {
 impl<'s, 'c: 's> Index<Range<ByteIndex>> for Scanner<'s, 'c> {
     type Output = [u8];
     fn index(&self, range: Range<ByteIndex>) -> &[u8] {
-        let range = Range {
-            start: range.start as usize,
-            end: range.end as usize,
-        };
-        &self.buffer[range]
-    }
-}
-impl<'s, 'c: 's> Index<RangeInclusive<ByteIndex>> for Scanner<'s, 'c> {
-    type Output = [u8];
-    fn index(&self, range: RangeInclusive<ByteIndex>) -> &[u8] {
         let range = Range {
             start: range.start as usize,
             end: range.end as usize,

@@ -1,6 +1,5 @@
 #![feature(exclusive_range_pattern)]
 #![feature(inclusive_range_syntax)]
-#![feature(inclusive_range)]
 
 #![feature(plugin)]
 #![plugin(clippy)]

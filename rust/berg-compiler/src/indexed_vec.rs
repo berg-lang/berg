@@ -1,9 +1,7 @@
 use std::ops::Index;
 use std::ops::IndexMut;
 use std::ops::Range;
-use std::ops::RangeInclusive;
 use std::ops::RangeTo;
-use std::ops::RangeToInclusive;
 use std::ops::RangeFrom;
 use std::ops::RangeFull;
 use std::ops::Add;
@@ -103,26 +101,11 @@ impl<Elem, Ind: IndexType> Index<Range<Ind>> for IndexedVec<Elem, Ind> {
         &self.0[Range { start, end }]
     }
 }
-impl<Elem, Ind: IndexType> Index<RangeInclusive<Ind>> for IndexedVec<Elem, Ind> {
-    type Output = [Elem];
-    fn index(&self, range: RangeInclusive<Ind>) -> &[Elem] {
-        let start: usize = range.start.into();
-        let end: usize = range.end.into();
-        &self.0[RangeInclusive { start, end }]
-    }
-}
 impl<Elem, Ind: IndexType> Index<RangeTo<Ind>> for IndexedVec<Elem, Ind> {
     type Output = [Elem];
     fn index(&self, range: RangeTo<Ind>) -> &[Elem] {
         let end: usize = range.end.into();
         &self.0[RangeTo { end }]
-    }
-}
-impl<Elem, Ind: IndexType> Index<RangeToInclusive<Ind>> for IndexedVec<Elem, Ind> {
-    type Output = [Elem];
-    fn index(&self, range: RangeToInclusive<Ind>) -> &[Elem] {
-        let end: usize = range.end.into();
-        &self.0[RangeToInclusive { end }]
     }
 }
 impl<Elem, Ind: IndexType> Index<RangeFrom<Ind>> for IndexedVec<Elem, Ind> {
