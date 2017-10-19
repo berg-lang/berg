@@ -6,4 +6,7 @@ authors = ["John Keiser <john@johnkeiser.com>"]
 [dependencies]
 num = "0.1"
 derive_more = "0.6.0"
-clippy = "*"
+clippy = {version = "*", optional = true}
+
+[features]
+default = [ "clippy" ]
