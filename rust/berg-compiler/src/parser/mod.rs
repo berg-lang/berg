@@ -174,7 +174,7 @@ impl<'p, 'c: 'p> Parser<'p, 'c> {
 }
 
 fn digit(byte: u8) -> bool {
-    (b'0'..=b'9').contains(byte)
+    byte >= b'0' && byte <= b'9'
 }
 fn operator(byte: u8) -> bool {
     match byte {
