@@ -38,18 +38,20 @@ impl<'ch, 'c: 'ch> Checker<'ch, 'c> {
 
     fn check(&self) -> Type {
         let (mut index, mut value, mut last_precedence) =
-            self.evaluate_one(0.into(), Precedence::Other);
+            self.evaluate_one(0, Precedence::Other);
         while index < self.source_data.num_tokens() {
             let token = self.source_data.token(index);
-            match token.token_type {
-                Postfix => {
-                    let operator = operators::postfix(&token.string);
+            match *token {
+                Token::Postfix(token_index) => {
+                    let string = self.source_data.token_string(token_index);
+                    let operator = operators::postfix(string);
                     value = operator.evaluate(self, index, last_precedence, value);
                     last_precedence = operator.precedence();
                     index += 1;
                 }
-                Infix => {
-                    let operator = operators::infix(&token.string);
+                Token::Infix(token_index) => {
+                    let string = self.source_data.token_string(token_index);
+                    let operator = operators::infix(string);
                     let (next_index, right_operand, next_precedence) =
                         self.evaluate_one(index + 1, operator.precedence());
                     value = operator.evaluate(self, index, last_precedence, value, right_operand);
@@ -64,21 +66,22 @@ impl<'ch, 'c: 'ch> Checker<'ch, 'c> {
 
     fn evaluate_one(
         &self,
-        index: TokenIndex,
+        index: usize,
         last_precedence: Precedence,
-    ) -> (TokenIndex, Type, Precedence) {
+    ) -> (usize, Type, Precedence) {
         if index >= self.source_data.num_tokens() {
             return (index, Type::Nothing, last_precedence);
         }
 
         let token = self.source_data.token(index);
-        match token.token_type {
-            Term(ref term_type) => {
-                let value = self.evaluate_term(term_type, &token.string);
+        match *token {
+            Token::Term(ref term_type) => {
+                let value = self.evaluate_term(term_type);
                 (index + 1, value, last_precedence)
             }
-            Prefix => {
-                let operator = operators::prefix(&token.string);
+            Token::Prefix(token_index) => {
+                let string = self.source_data.token_string(token_index);
+                let operator = operators::prefix(string);
                 let (next_index, right_operand, last_precedence) =
                     self.evaluate_one(index + 1, operator.precedence());
                 let value = operator.evaluate(self, index, right_operand);
@@ -88,17 +91,17 @@ impl<'ch, 'c: 'ch> Checker<'ch, 'c> {
         }
     }
 
-    fn evaluate_term(&self, term_type: &TermType, string: &str) -> Type {
+    fn evaluate_term(&self, term_type: &TermType) -> Type {
         match *term_type {
-            IntegerLiteral => Type::Rational(BigRational::from_str(string).unwrap()),
+            TermType::IntegerLiteral(ref string) => Type::Rational(BigRational::from_str(string).unwrap()),
         }
     }
 
-    pub fn report_at_token(&self, error_type: CompileErrorType, token: TokenIndex) -> Type {
-        let start = self.source_data.token_start(token);
-        let string = &self.source_data.token(token).string;
+    pub fn report_at_token(&self, error_type: CompileErrorType, index: usize) -> Type {
+        let token = self.source_data.token(index);
+        let range = self.source_data.token_range(index);
         self.compiler
-            .report_at(error_type, self.source, start, string);
+            .report_at(error_type, self.source, range, token.string(self.source_data));
         Error
     }
 }

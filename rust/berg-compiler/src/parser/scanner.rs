@@ -1,17 +1,19 @@
 use public::*;
 
 use parser::char_data::CharData;
+use parser::token_pool::*;
 use std::ops::Index;
 use std::ops::Range;
 use std::str;
 
 // Wrapper so that it will have ByteIndex sized indexes
 #[derive(Debug)]
-pub struct Scanner<'s, 'c: 's> {
+pub(crate) struct Scanner<'s, 'c: 's> {
     pub compiler: &'s Compiler<'c>,
     pub source: SourceIndex,
     pub index: ByteIndex,
     pub char_data: CharData,
+    pub token_pool: TokenPool,
     buffer: &'s [u8],
 }
 
@@ -19,22 +21,24 @@ impl<'s, 'c: 's> Scanner<'s, 'c> {
     pub fn new(compiler: &'s Compiler<'c>, source: SourceIndex, mut buffer: &'s [u8]) -> Self {
         // NOTE you can have a buffer 4G in size and *may* have more than 4G tokens if there are zero-width tokens.
         // We don't as of the time of this writing, but I have been considering it.
-        if buffer.len() > (ByteIndex::max_value() as usize) {
+        if buffer.len() > ByteIndex::MAX.into() {
             compiler.report_source_only(SourceTooLarge, source);
-            buffer = &buffer[0..(ByteIndex::max_value() as usize)]
+            buffer = &buffer[0..ByteIndex::MAX.into()]
         }
-        let char_data = CharData::new();
-        let index = 0;
+        let char_data = Default::default();
+        let token_pool = Default::default();
+        let index = Default::default();
         Scanner {
             compiler,
             source,
             buffer,
             char_data,
+            token_pool,
             index,
         }
     }
     pub fn len(&self) -> ByteIndex {
-        self.buffer.len() as ByteIndex
+        self.buffer.len().into()
     }
     pub fn eof(&self) -> bool {
         self.index >= self.len()
@@ -74,12 +78,20 @@ impl<'s, 'c: 's> Scanner<'s, 'c> {
         self.index += 1
     }
 
-    pub fn take_string(&mut self, end: ByteIndex) -> (ByteIndex, String) {
+    pub fn take_token(&mut self, end: ByteIndex) -> (Range<ByteIndex>, TokenIndex) {
         let start = self.index;
         self.index = end;
-        let vec = self[start..self.index].to_vec();
+        let string = unsafe { str::from_utf8_unchecked(&self.buffer[start.into()..end.into()]) };
+        let token = self.token_pool.intern(string);
+        (start..end, token)
+    }
+
+    pub fn take_string(&mut self, end: ByteIndex) -> (Range<ByteIndex>, String) {
+        let start = self.index;
+        let vec = self[start..end].to_vec();
         let string = unsafe { String::from_utf8_unchecked(vec) };
-        (start, string)
+        self.index = end;
+        (start..end, string)
     }
 
     fn is_utf8_cont(byte: u8) -> bool {
@@ -87,7 +99,7 @@ impl<'s, 'c: 's> Scanner<'s, 'c> {
     }
 
     // If the next character is a UTF-8 codepoint, returns its length
-    fn valid_utf8_char_length(&self) -> ByteIndex {
+    fn valid_utf8_char_length(&self) -> usize {
         let index = self.index;
         let ch = self[index];
         if ch < UTF8_CONT_START {
@@ -137,16 +149,15 @@ const UTF8_INVALID_START: u8 = 0b1111_1000;
 impl<'s, 'c: 's> Index<ByteIndex> for Scanner<'s, 'c> {
     type Output = u8;
     fn index(&self, index: ByteIndex) -> &u8 {
-        &self.buffer[index as usize]
+        &self.buffer[usize::from(index)]
     }
 }
 impl<'s, 'c: 's> Index<Range<ByteIndex>> for Scanner<'s, 'c> {
     type Output = [u8];
     fn index(&self, range: Range<ByteIndex>) -> &[u8] {
-        let range = Range {
-            start: range.start as usize,
-            end: range.end as usize,
-        };
+        let start = range.start.into();
+        let end = range.end.into();
+        let range = Range { start, end };
         &self.buffer[range]
     }
 }

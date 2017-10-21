@@ -72,7 +72,7 @@ impl Infix {
     pub fn evaluate(
         &self,
         checker: &Checker,
-        index: TokenIndex,
+        index: usize,
         last_precedence: Precedence,
         left: Type,
         right: Type,
@@ -117,7 +117,7 @@ impl Infix {
     fn evaluate_numeric<F: FnOnce(BigRational, BigRational) -> BigRational>(
         &self,
         evaluator: &Checker,
-        index: TokenIndex,
+        index: usize,
         left: Type,
         right: Type,
         f: F,
@@ -141,7 +141,7 @@ impl Prefix {
         }
     }
 
-    pub fn evaluate(&self, evaluator: &Checker, index: TokenIndex, right: Type) -> Type {
+    pub fn evaluate(&self, evaluator: &Checker, index: usize, right: Type) -> Type {
         use checker::operators::Prefix::*;
         if *self == Unrecognized {
             println!("Unrecognized!!!");
@@ -161,7 +161,7 @@ impl Prefix {
     fn evaluate_numeric<F: FnOnce(BigRational) -> BigRational>(
         &self,
         evaluator: &Checker,
-        index: TokenIndex,
+        index: usize,
         right: Type,
         f: F,
     ) -> Type {
@@ -184,7 +184,7 @@ impl Postfix {
     pub fn evaluate(
         &self,
         evaluator: &Checker,
-        index: TokenIndex,
+        index: usize,
         last_precedence: Precedence,
         left: Type,
     ) -> Type {

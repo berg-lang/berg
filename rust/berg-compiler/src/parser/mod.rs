@@ -1,13 +1,14 @@
 pub(crate) mod char_data;
            mod scanner;
+           mod token_pool;
 pub(crate) mod token;
 
 use public::*;
 use parser::char_data::CharData;
 use parser::scanner::Scanner;
-use parser::token::Tokens;
-use parser::token::TokenStarts;
+use parser::token_pool::*;
 use std::mem;
+use std::ops::Range;
 
 pub(crate) fn parse<'p>(
     compiler: &Compiler,
@@ -26,15 +27,16 @@ pub(crate) fn parse<'p>(
 struct Parser<'p, 'c: 'p> {
     scanner: Scanner<'p, 'c>,
     need_next: NeedNext,
-    tokens: Tokens,
-    token_starts: TokenStarts,
+    tokens: Vec<Token>,
+    token_ranges: Vec<Range<ByteIndex>>,
 }
 
 #[derive(Debug)]
 pub(crate) struct ParseData {
     pub(crate) char_data: CharData,
-    pub(crate) tokens: Tokens,
-    pub(crate) token_starts: TokenStarts,
+    pub(crate) token_pool: TokenPool,
+    pub(crate) tokens: Vec<Token>,
+    pub(crate) token_ranges: Vec<Range<ByteIndex>>,
 }
 
 #[derive(Debug, PartialEq)]
@@ -42,18 +44,18 @@ enum NeedNext {
     InitialTerm,
     Operator,
     Operand,
-    Either((ByteIndex, String)),
+    Either(Range<ByteIndex>, TokenIndex),
 }
 
 impl<'p, 'c: 'p> Parser<'p, 'c> {
     fn new(scanner: Scanner<'p, 'c>, need_next: NeedNext) -> Self {
         let tokens = Default::default();
-        let token_starts = Default::default();
+        let token_ranges = Default::default();
         Parser {
             scanner,
             need_next,
             tokens,
-            token_starts,
+            token_ranges,
         }
     }
 
@@ -63,7 +65,8 @@ impl<'p, 'c: 'p> Parser<'p, 'c> {
         ParseData {
             char_data: self.scanner.char_data,
             tokens: self.tokens,
-            token_starts: self.token_starts,
+            token_pool: self.scanner.token_pool,
+            token_ranges: self.token_ranges,
         }
     }
 
@@ -82,7 +85,8 @@ impl<'p, 'c: 'p> Parser<'p, 'c> {
 
     fn scan_token(&mut self) -> bool {
         if let Some(end) = self.scanner.match_all(digit) {
-            self.term(IntegerLiteral, end)
+            let (range, string) = self.scanner.take_string(end);
+            self.term(range, TermType::IntegerLiteral(string))
         } else if let Some(end) = self.scanner.match_all(operator) {
             self.operator(end)
         } else {
@@ -91,15 +95,14 @@ impl<'p, 'c: 'p> Parser<'p, 'c> {
         true
     }
 
-    fn term(&mut self, term_type: TermType, end: ByteIndex) {
-        let string = self.scanner.take_string(end);
+    fn term(&mut self, range: Range<ByteIndex>, term_type: TermType) {
         self.transition(|p, need_next| {
             match need_next {
-                NeedNext::InitialTerm | NeedNext::Operand => p.push_token(term_type, string),
+                NeedNext::InitialTerm | NeedNext::Operand => p.push_token(range, Token::Term(term_type)),
                 NeedNext::Operator => unreachable!(),
-                NeedNext::Either(prev_operator) => {
-                    p.push_token(Infix, prev_operator);
-                    p.push_token(term_type, string);
+                NeedNext::Either(prev_range, prev_token) => {
+                    p.push_token(prev_range, Token::Infix(prev_token));
+                    p.push_token(range, Token::Term(term_type));
                 }
             }
             NeedNext::Operator
@@ -107,14 +110,14 @@ impl<'p, 'c: 'p> Parser<'p, 'c> {
     }
 
     fn operator(&mut self, end: ByteIndex) {
-        let string = self.scanner.take_string(end);
+        let (range, token) = self.scanner.take_token(end);
         self.transition(|p, need_next| match need_next {
             NeedNext::InitialTerm | NeedNext::Operand => {
-                p.push_token(Prefix, string);
+                p.push_token(range, Token::Prefix(token));
                 NeedNext::Operand
             }
-            NeedNext::Operator => NeedNext::Either(string),
-            NeedNext::Either(_) => unreachable!(),
+            NeedNext::Operator => NeedNext::Either(range, token),
+            NeedNext::Either(..) => unreachable!(),
         })
     }
 
@@ -123,7 +126,7 @@ impl<'p, 'c: 'p> Parser<'p, 'c> {
             match need_next {
                 // NOTE: we do not report MissingRightOperand here because it will be reported by the typechecker.
                 NeedNext::InitialTerm | NeedNext::Operator | NeedNext::Operand => {}
-                NeedNext::Either(prev_string) => p.push_token(Postfix, prev_string),
+                NeedNext::Either(prev_range, prev_token) => p.push_token(prev_range, Token::Postfix(prev_token)),
             }
             NeedNext::Operator
         })
@@ -134,13 +137,13 @@ impl<'p, 'c: 'p> Parser<'p, 'c> {
         self.need_next = transition(self, need_next);
     }
 
-    fn push_token<T: Into<TokenType>>(
+    fn push_token(
         &mut self,
-        token_type: T,
-        (start, string): (ByteIndex, String),
+        range: Range<ByteIndex>,
+        token: Token,
     ) {
-        self.tokens.push(Token::new(token_type.into(), string));
-        self.token_starts.push(start);
+        self.tokens.push(token);
+        self.token_ranges.push(range);
     }
 
     fn report_unsupported_characters(&mut self) -> bool {
@@ -154,9 +157,10 @@ impl<'p, 'c: 'p> Parser<'p, 'c> {
         while !self.scanner.eof() && !self.scan_token() && self.scanner.take_valid_char(&mut string)
         {
         }
+        let end = start + string.len();
         self.scanner
             .compiler
-            .report_at(UnsupportedCharacters, self.scanner.source, start, &string);
+            .report_at(UnsupportedCharacters, self.scanner.source, start..end, &string);
         true
     }
 

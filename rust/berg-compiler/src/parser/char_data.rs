@@ -1,11 +1,10 @@
-use std::cmp::Ordering;
 use std::ops::Range;
 use std::fmt::*;
+use std::u32;
 
-// TODO make this struct X(usize) to make accidental cross-casting impossible
-pub type ByteIndex = u32;
+index_type! { pub struct ByteIndex(pub u32) }
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct CharData {
     // size in bytes
     // byte_size: usize,
@@ -19,10 +18,14 @@ pub struct CharData {
     pub line_starts: Vec<ByteIndex>,
 }
 
+impl Default for CharData {
+    fn default() -> Self { CharData { byte_length: ByteIndex::from(0), line_starts: vec![ByteIndex::from(0)] } }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct LineColumn {
     pub line: u32,
-    pub column: u32,
+    pub column: ByteIndex,
 }
 
 // Inclusive line/column range
@@ -33,12 +36,6 @@ pub struct LineColumnRange {
 }
 
 impl CharData {
-    pub fn new() -> Self {
-        CharData {
-            byte_length: 0,
-            line_starts: vec![0],
-        }
-    }
     pub fn append_line(&mut self, line_start_index: ByteIndex) {
         self.line_starts.push(line_start_index);
     }
@@ -70,7 +67,7 @@ impl CharData {
 }
 
 impl LineColumn {
-    pub fn new(line: ByteIndex, column: ByteIndex) -> LineColumn {
+    pub fn new(line: u32, column: ByteIndex) -> LineColumn {
         LineColumn { line, column }
     }
 }
@@ -89,7 +86,7 @@ impl LineColumnRange {
 
 impl PartialOrd for LineColumn {
     fn partial_cmp(&self, other: &LineColumn) -> Option<Ordering> {
-        let result = self.line.partial_cmp(&other.column);
+        let result = self.line.partial_cmp(&other.line);
         match result {
             Some(Ordering::Equal) => self.column.partial_cmp(&other.column),
             _ => result,

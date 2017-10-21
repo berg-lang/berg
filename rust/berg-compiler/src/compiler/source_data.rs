@@ -3,6 +3,7 @@ use parser::ParseData;
 use parser::char_data::CharData;
 use std::ffi::OsStr;
 use std::marker::PhantomData;
+use std::ops::Range;
 use indexed_vec::IndexedVec;
 use std::u32;
 
@@ -52,28 +53,31 @@ impl<'c> SourceData<'c> {
             None => unreachable!(),
         }
     }
-    pub fn num_tokens(&self) -> TokenIndex {
+    pub fn num_tokens(&self) -> usize {
         match self.parse_data {
             Some(ref parse_data) => parse_data.tokens.len(),
             None => unreachable!(),
         }
     }
-    pub fn token(&self, token: TokenIndex) -> &Token {
+    pub fn token(&self, token: usize) -> &Token {
         match self.parse_data {
             Some(ref parse_data) => &parse_data.tokens[token],
             None => unreachable!(),
         }
     }
-    pub fn token_start(&self, token: TokenIndex) -> ByteIndex {
+    pub fn token_range(&self, token: usize) -> Range<ByteIndex> {
         match self.parse_data {
-            Some(ref parse_data) => parse_data.token_starts[token],
+            Some(ref parse_data) => {
+                let range = &parse_data.token_ranges[token];
+                Range { start: range.start, end: range.end }
+            }
             None => unreachable!(),
         }
     }
-
-    pub fn token_range(&self, token: TokenIndex) -> LineColumnRange {
-        let start = self.token_start(token);
-        let end = start + self.token(token).string.len() as ByteIndex;
-        self.char_data().range(start..end)
+    pub fn token_string(&self, token: TokenIndex) -> &str {
+        match self.parse_data {
+            Some(ref parse_data) => parse_data.token_pool.string(token),
+            None => unreachable!(),
+        }       
     }
 }

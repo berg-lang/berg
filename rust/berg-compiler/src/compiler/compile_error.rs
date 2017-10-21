@@ -148,11 +148,8 @@ impl CompileErrorType {
         string: T,
     ) -> CompileError {
         let string = string.as_ref();
-        let len = string.len() as ByteIndex;
-        let range = Range {
-            start: start,
-            end: start + len,
-        };
+        let end = start + string.len();
+        let range = Range { start, end };
         let error_message = match self {
             InvalidUtf8 => format!(
                 "Invalid UTF-8 bytes: '{}'",
@@ -167,11 +164,7 @@ impl CompileErrorType {
         let message = CompileErrorMessage::source_range(source, range, error_message);
         CompileError::new(self, vec![message])
     }
-    pub fn at(self, source: SourceIndex, start: ByteIndex, string: &str) -> CompileError {
-        let range = Range {
-            start: start,
-            end: start + (string.len() as u32),
-        };
+    pub fn at(self, source: SourceIndex, range: Range<ByteIndex>, string: &str) -> CompileError {
         let error_message = match self {
             UnsupportedCharacters => format!("Unsupported characters {:?}", string),
             UnrecognizedOperator => format!("Unrecognized operator {:?}", string),

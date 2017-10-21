@@ -5,7 +5,7 @@ authors = ["John Keiser <john@johnkeiser.com>"]
 
 [dependencies]
 num = "0.1"
-derive_more = "0.6.0"
+fnv = "1"
 clippy = {version = "*", optional = true}
 
 [features]

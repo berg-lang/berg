@@ -7,13 +7,13 @@ use parser;
 use checker;
 use compiler::source_data::Sources;
 use compiler::source_data::*;
-use indexed_vec::IndexIterator;
 
 use std::default::Default;
 use std::env;
 use std::fmt::*;
 use std::io;
 use std::io::Write;
+use std::ops::Range;
 use std::path::Path;
 use std::path::PathBuf;
 use std::sync::RwLock;
@@ -119,10 +119,10 @@ impl<'c> Compiler<'c> {
         &self,
         error_type: CompileErrorType,
         source: SourceIndex,
-        start: ByteIndex,
+        range: Range<ByteIndex>,
         string: &str,
     ) {
-        self.report(error_type.at(source, start, string))
+        self.report(error_type.at(source, range, string))
     }
 
     pub(crate) fn report_source_only(&self, error_type: CompileErrorType, source: SourceIndex) {
@@ -181,12 +181,11 @@ impl<'c> Compiler<'c> {
             println!("{}", source.name().to_string_lossy());
             println!("--------------------");
             println!("Result:");
-            for token in IndexIterator(TokenIndex(0)..source.num_tokens()) {
+            for token in 0..source.num_tokens() {
                 println!(
-                    "- {}: {:?} \"{}\"",
-                    source.token_range(token),
-                    source.token(token).token_type,
-                    source.token(token).string
+                    "- {}: {:?}",
+                    source.char_data().range(source.token_range(token)),
+                    source.token(token),
                 );
             }
         });

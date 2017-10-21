@@ -1,41 +1,29 @@
-use indexed_vec::IndexedVec;
-use std::u32;
 use public::*;
+use std::u32;
 
-// ExpressionType, String, LeftChild, RightChild
+use Token::*;
+use TermType::*;
+
+index_type! { pub struct TokenIndex(pub u32) }
+
 #[derive(Debug)]
-pub struct Token {
-    pub token_type: TokenType,
-    pub string: String,
+pub enum Token {
+    Term(TermType),
+    Prefix(TokenIndex),
+    Postfix(TokenIndex),
+    Infix(TokenIndex),
 }
-
-// Tokens is a list of tokens, indexable by indexes of type `TokenIndex`.
-// TokenStarts is a list of indexes tokens start at.
-index_type!(pub struct TokenIndex(pub u32));
-pub(crate) type Tokens = IndexedVec<Token, TokenIndex>;
-pub(crate) type TokenStarts = IndexedVec<ByteIndex, TokenIndex>;
 
 impl Token {
-    pub fn new(token_type: TokenType, string: String) -> Token {
-        Token { token_type, string }
-    }
-}
-
-#[derive(Debug)]
-pub enum TokenType {
-    Term(TermType),
-    Prefix,
-    Postfix,
-    Infix,
-}
-
-impl From<TermType> for TokenType {
-    fn from(term_type: TermType) -> TokenType {
-        TokenType::Term(term_type)
+    pub fn string<'s>(&'s self, source_data: &'s SourceData) -> &'s str {
+        match *self {
+            Term(IntegerLiteral(ref string)) => string,
+            Prefix(index)|Postfix(index)|Infix(index) => source_data.token_string(index),
+        }
     }
 }
 
 #[derive(Debug)]
 pub enum TermType {
-    IntegerLiteral,
+    IntegerLiteral(String),
 }

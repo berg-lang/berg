@@ -22,15 +22,21 @@ use std::marker::PhantomData;
 macro_rules! index_type {
     (pub struct $name:ident(pub $($type:tt)*)) => {
         use indexed_vec::IndexType;
+        use std::fmt;
         use std::ops::Add;
         use std::ops::AddAssign;
         use std::ops::Sub;
         use std::ops::SubAssign;
         use std::cmp::Ordering;
-        #[derive(Debug, Copy, Clone, PartialEq, Eq, Ord, PartialOrd)]
+        #[derive(Debug, Copy, Clone, Default, PartialEq, Eq, Ord, PartialOrd)]
         pub struct $name(pub $($type)*);
         impl PartialEq<usize> for $name {
             fn eq(&self, other: &usize) -> bool { (self.0 as usize).eq(other) }
+        }
+        impl fmt::Display for $name {
+            fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+                write!(f, "{}", self.0)
+            }
         }
         impl PartialOrd<usize> for $name {
             fn partial_cmp(&self, other: &usize) -> Option<Ordering> {
@@ -45,26 +51,27 @@ macro_rules! index_type {
         impl $name { pub const MAX: $name = $name($($type)*::MAX); }
         impl From<usize> for $name { fn from(size: usize) -> Self { $name(size as $($type)*) } }
         impl From<$name> for usize { fn from(size: $name) -> Self { size.0 as usize } }
-        impl Add<usize> for $name { type Output = Self; fn add(mut self, value: usize) -> Self { self += value; self } }
+        impl Add<usize> for $name { type Output = Self; fn add(self, value: usize) -> Self { $name(self.0 + value as $($type)*) } }
         impl AddAssign<usize> for $name { fn add_assign(&mut self, value: usize) { self.0 += value as $($type)*; } }
-        impl Sub<usize> for $name { type Output = Self; fn sub(mut self, value: usize) -> Self { self -= value; self } }
+        impl Sub<usize> for $name { type Output = Self; fn sub(self, value: usize) -> Self { $name(self.0 - value as $($type)*) } }
         impl SubAssign<usize> for $name { fn sub_assign(&mut self, value: usize) { self.0 -= value as $($type)*; } }
+        impl Sub<$name> for $name { type Output = Self; fn sub(self, value: $name) -> Self { $name(self.0 - value.0) } }
     }
 }
 pub trait IndexType: Into<usize>+From<usize>+PartialOrd+PartialEq+Copy+AddAssign<usize>+SubAssign<usize>+Add<usize,Output=Self>+Sub<usize,Output=Self> {}
-pub struct IndexIterator<Ind: IndexType>(pub Range<Ind>);
-impl<Ind: IndexType> Iterator for IndexIterator<Ind> {
-    type Item = Ind;
-    fn next(&mut self) -> Option<Ind> {
-        if self.0.start < self.0.end {
-            let result = self.0.start;
-            self.0.start += 1;
-            Some(result)
-        } else {
-            None
-        }
-    }
-}
+//pub struct IndexIterator<Ind: IndexType>(pub Range<Ind>);
+// impl<Ind: IndexType> Iterator for IndexIterator<Ind> {
+//     type Item = Ind;
+//     fn next(&mut self) -> Option<Ind> {
+//         if self.0.start < self.0.end {
+//             let result = self.0.start;
+//             self.0.start += 1;
+//             Some(result)
+//         } else {
+//             None
+//         }
+//     }
+// }
 
 ///
 /// A Vec with a specific index type (so you don't accidentally use one Vec's index on another Vec).
@@ -72,6 +79,9 @@ impl<Ind: IndexType> Iterator for IndexIterator<Ind> {
 #[derive(Debug, Clone)]
 pub struct IndexedVec<Elem, Ind: IndexType>(Vec<Elem>, PhantomData<Ind>);
 impl<Elem, Ind: IndexType> IndexedVec<Elem, Ind> {
+    pub fn with_capacity(size: usize) -> Self {
+        IndexedVec(Vec::with_capacity(size), PhantomData)
+    }
     pub fn len(&self) -> Ind {
         Ind::from(self.0.len())
     }

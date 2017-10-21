@@ -99,8 +99,9 @@ pub struct ExpectedCompileErrorMessage {
     range: Option<Range<ByteIndex>>,
 }
 
-impl From<(CompileErrorType, Range<ByteIndex>)> for ExpectedCompileError {
-    fn from((error_type, range): (CompileErrorType, Range<ByteIndex>)) -> ExpectedCompileError {
+impl From<(CompileErrorType, Range<usize>)> for ExpectedCompileError {
+    fn from((error_type, range): (CompileErrorType, Range<usize>)) -> ExpectedCompileError {
+        let range = Range { start: ByteIndex::from(range.start), end: ByteIndex::from(range.end) };
         ExpectedCompileError { error_type, messages: vec![ExpectedCompileErrorMessage { range: Some(range) }]}
     }
 }

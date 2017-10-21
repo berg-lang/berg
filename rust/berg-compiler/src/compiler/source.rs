@@ -50,7 +50,7 @@ impl SourceSpec {
                 Ok(mut file) => {
                     let mut buffer = Vec::new();
                     if let Err(error) = file.read_to_end(&mut buffer) {
-                        compiler.report_io_read(IoReadError, source, buffer.len() as u32, &error);
+                        compiler.report_io_read(IoReadError, source, ByteIndex::from(buffer.len()), &error);
                     }
                     f(&buffer)
                 }

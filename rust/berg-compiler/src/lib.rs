@@ -2,6 +2,7 @@
 #![cfg_attr(feature="clippy", plugin(clippy))]
 
 extern crate num;
+extern crate fnv;
 
 #[macro_use]
 mod indexed_vec;
