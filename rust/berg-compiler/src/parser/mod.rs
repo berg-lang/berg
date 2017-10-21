@@ -6,7 +6,7 @@ pub(crate) mod token;
 use public::*;
 use parser::char_data::CharData;
 use parser::scanner::Scanner;
-use parser::token_pool::*;
+use indexed_vec::IndexedVec;
 use std::mem;
 use std::ops::Range;
 
@@ -31,11 +31,18 @@ struct Parser<'p, 'c: 'p> {
     token_ranges: Vec<Range<ByteIndex>>,
 }
 
+use std::u32;
+index_type! {
+    pub struct IdentifierTokenIndex(pub u32) <= u32::MAX;
+    pub struct LiteralTokenIndex(pub u32) <= u32::MAX;
+}
+
 #[derive(Debug)]
 pub(crate) struct ParseData {
     pub(crate) char_data: CharData,
-    pub(crate) token_pool: TokenPool,
     pub(crate) tokens: Vec<Token>,
+    pub(crate) identifier_strings: IndexedVec<String,IdentifierTokenIndex>,
+    pub(crate) literal_strings: IndexedVec<String,LiteralTokenIndex>,
     pub(crate) token_ranges: Vec<Range<ByteIndex>>,
 }
 
@@ -44,7 +51,7 @@ enum NeedNext {
     InitialTerm,
     Operator,
     Operand,
-    Either(Range<ByteIndex>, TokenIndex),
+    Either(Range<ByteIndex>, IdentifierTokenIndex),
 }
 
 impl<'p, 'c: 'p> Parser<'p, 'c> {
@@ -65,7 +72,8 @@ impl<'p, 'c: 'p> Parser<'p, 'c> {
         ParseData {
             char_data: self.scanner.char_data,
             tokens: self.tokens,
-            token_pool: self.scanner.token_pool,
+            identifier_strings: self.scanner.identifier_pool.strings,
+            literal_strings: self.scanner.literal_strings,
             token_ranges: self.token_ranges,
         }
     }
@@ -85,8 +93,8 @@ impl<'p, 'c: 'p> Parser<'p, 'c> {
 
     fn scan_token(&mut self) -> bool {
         if let Some(end) = self.scanner.match_all(digit) {
-            let (range, string) = self.scanner.take_string(end);
-            self.term(range, TermType::IntegerLiteral(string))
+            let (range, literal) = self.scanner.take_literal(end);
+            self.term(range, Token::IntegerLiteral(literal))
         } else if let Some(end) = self.scanner.match_all(operator) {
             self.operator(end)
         } else {
@@ -95,14 +103,14 @@ impl<'p, 'c: 'p> Parser<'p, 'c> {
         true
     }
 
-    fn term(&mut self, range: Range<ByteIndex>, term_type: TermType) {
+    fn term(&mut self, range: Range<ByteIndex>, token: Token) {
         self.transition(|p, need_next| {
             match need_next {
-                NeedNext::InitialTerm | NeedNext::Operand => p.push_token(range, Token::Term(term_type)),
+                NeedNext::InitialTerm | NeedNext::Operand => p.push_token(range, token),
                 NeedNext::Operator => unreachable!(),
-                NeedNext::Either(prev_range, prev_token) => {
-                    p.push_token(prev_range, Token::Infix(prev_token));
-                    p.push_token(range, Token::Term(term_type));
+                NeedNext::Either(prev_range, prev_identifier) => {
+                    p.push_token(prev_range, Token::Infix(prev_identifier));
+                    p.push_token(range, token);
                 }
             }
             NeedNext::Operator
@@ -110,13 +118,13 @@ impl<'p, 'c: 'p> Parser<'p, 'c> {
     }
 
     fn operator(&mut self, end: ByteIndex) {
-        let (range, token) = self.scanner.take_token(end);
+        let (range, identifier) = self.scanner.take_identifier(end);
         self.transition(|p, need_next| match need_next {
             NeedNext::InitialTerm | NeedNext::Operand => {
-                p.push_token(range, Token::Prefix(token));
+                p.push_token(range, Token::Prefix(identifier));
                 NeedNext::Operand
             }
-            NeedNext::Operator => NeedNext::Either(range, token),
+            NeedNext::Operator => NeedNext::Either(range, identifier),
             NeedNext::Either(..) => unreachable!(),
         })
     }
@@ -126,7 +134,7 @@ impl<'p, 'c: 'p> Parser<'p, 'c> {
             match need_next {
                 // NOTE: we do not report MissingRightOperand here because it will be reported by the typechecker.
                 NeedNext::InitialTerm | NeedNext::Operator | NeedNext::Operand => {}
-                NeedNext::Either(prev_range, prev_token) => p.push_token(prev_range, Token::Postfix(prev_token)),
+                NeedNext::Either(prev_range, prev_identifier) => p.push_token(prev_range, Token::Postfix(prev_identifier)),
             }
             NeedNext::Operator
         })

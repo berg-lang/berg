@@ -1,5 +1,8 @@
 use public::*;
 
+use indexed_vec::IndexedVec;
+use parser::IdentifierTokenIndex;
+use parser::LiteralTokenIndex;
 use parser::char_data::CharData;
 use parser::token_pool::*;
 use std::ops::Index;
@@ -13,7 +16,8 @@ pub(crate) struct Scanner<'s, 'c: 's> {
     pub source: SourceIndex,
     pub index: ByteIndex,
     pub char_data: CharData,
-    pub token_pool: TokenPool,
+    pub identifier_pool: TokenPool<IdentifierTokenIndex>,
+    pub literal_strings: IndexedVec<String,LiteralTokenIndex>,
     buffer: &'s [u8],
 }
 
@@ -26,14 +30,16 @@ impl<'s, 'c: 's> Scanner<'s, 'c> {
             buffer = &buffer[0..ByteIndex::MAX.into()]
         }
         let char_data = Default::default();
-        let token_pool = Default::default();
+        let identifier_pool = Default::default();
+        let literal_strings = Default::default();
         let index = Default::default();
         Scanner {
             compiler,
             source,
             buffer,
             char_data,
-            token_pool,
+            identifier_pool,
+            literal_strings,
             index,
         }
     }
@@ -78,20 +84,21 @@ impl<'s, 'c: 's> Scanner<'s, 'c> {
         self.index += 1
     }
 
-    pub fn take_token(&mut self, end: ByteIndex) -> (Range<ByteIndex>, TokenIndex) {
+    pub fn take_identifier(&mut self, end: ByteIndex) -> (Range<ByteIndex>, IdentifierTokenIndex) {
         let start = self.index;
         self.index = end;
         let string = unsafe { str::from_utf8_unchecked(&self.buffer[start.into()..end.into()]) };
-        let token = self.token_pool.intern(string);
-        (start..end, token)
+        let identifier = self.identifier_pool.intern(string);
+        (start..end, identifier)
     }
 
-    pub fn take_string(&mut self, end: ByteIndex) -> (Range<ByteIndex>, String) {
+    pub fn take_literal(&mut self, end: ByteIndex) -> (Range<ByteIndex>, LiteralTokenIndex) {
         let start = self.index;
-        let vec = self[start..end].to_vec();
-        let string = unsafe { String::from_utf8_unchecked(vec) };
         self.index = end;
-        (start..end, string)
+        let string = unsafe { String::from_utf8_unchecked(self.buffer[start.into()..end.into()].to_vec()) };
+        let literal = self.literal_strings.len();
+        self.literal_strings.push(string);
+        (start..end, literal)
     }
 
     fn is_utf8_cont(byte: u8) -> bool {

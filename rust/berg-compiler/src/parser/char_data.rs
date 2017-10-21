@@ -2,7 +2,9 @@ use std::ops::Range;
 use std::fmt::*;
 use std::u32;
 
-index_type! { pub struct ByteIndex(pub u32) }
+index_type! {
+    pub struct ByteIndex(pub u32) <= u32::MAX;
+}
 
 #[derive(Debug)]
 pub struct CharData {

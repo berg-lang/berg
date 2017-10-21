@@ -10,7 +10,5 @@ pub use parser::char_data::ByteIndex;
 pub use parser::char_data::LineColumn;
 pub use parser::char_data::LineColumnRange;
 pub use parser::token::Token;
-pub use parser::token::TokenIndex;
-pub use parser::token::TermType;
 pub use checker::checker_type::Type;
 pub use num::BigRational;

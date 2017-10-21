@@ -1,37 +1,34 @@
 use fnv::FnvHashMap;
 use indexed_vec::IndexedVec;
-use parser::token::TokenIndex;
+use indexed_vec::IndexType;
 
 const DEFAULT_CAPACITY: usize = 1024;
 
 #[derive(Debug)]
-pub(crate) struct TokenPool {
-    tokens: IndexedVec<String,TokenIndex>,
+pub(crate) struct TokenPool<Ind: IndexType> {
+    pub strings: IndexedVec<String,Ind>,
     // We use FnvHashMap because the hashing function is faster than the default
-    indices: FnvHashMap<String,TokenIndex>,
+    pub indices: FnvHashMap<String,Ind>,
 }
 
-impl Default for TokenPool {
+impl<Ind: IndexType> Default for TokenPool<Ind> {
     fn default() -> Self { TokenPool::with_capacity(DEFAULT_CAPACITY) }
 }
 
-impl TokenPool {
+impl<Ind: IndexType> TokenPool<Ind> {
     pub fn with_capacity(initial_capacity: usize) -> Self {
-        let tokens = IndexedVec::with_capacity(initial_capacity);
+        let strings = IndexedVec::with_capacity(initial_capacity);
         let indices = FnvHashMap::with_capacity_and_hasher(initial_capacity, Default::default());
-        TokenPool { tokens, indices }
+        TokenPool { strings, indices }
     }
-    pub fn intern(&mut self, string: &str) -> TokenIndex {
+    pub fn intern(&mut self, string: &str) -> Ind {
         if let Some(index) = self.indices.get(string) {
             return *index;
         }
 
-        let index = self.tokens.len();
-        self.tokens.push(string.to_string());
+        let index = self.strings.len();
+        self.strings.push(string.to_string());
         self.indices.insert(string.to_string(), index);
         index
-    }
-    pub fn string(&self, index: TokenIndex) -> &str {
-        &self.tokens[index]
     }
 }

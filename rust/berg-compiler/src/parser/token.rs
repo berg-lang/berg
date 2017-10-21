@@ -1,29 +1,22 @@
 use public::*;
-use std::u32;
 
+use parser::IdentifierTokenIndex;
+use parser::LiteralTokenIndex;
 use Token::*;
-use TermType::*;
-
-index_type! { pub struct TokenIndex(pub u32) }
 
 #[derive(Debug)]
 pub enum Token {
-    Term(TermType),
-    Prefix(TokenIndex),
-    Postfix(TokenIndex),
-    Infix(TokenIndex),
+    IntegerLiteral(LiteralTokenIndex),
+    Prefix(IdentifierTokenIndex),
+    Postfix(IdentifierTokenIndex),
+    Infix(IdentifierTokenIndex),
 }
 
 impl Token {
     pub fn string<'s>(&'s self, source_data: &'s SourceData) -> &'s str {
         match *self {
-            Term(IntegerLiteral(ref string)) => string,
-            Prefix(index)|Postfix(index)|Infix(index) => source_data.token_string(index),
+            IntegerLiteral(index) => source_data.literal_token_string(index),
+            Prefix(index)|Postfix(index)|Infix(index) => source_data.identifier_token_string(index),
         }
     }
-}
-
-#[derive(Debug)]
-pub enum TermType {
-    IntegerLiteral(String),
 }

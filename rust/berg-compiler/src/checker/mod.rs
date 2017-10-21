@@ -43,14 +43,14 @@ impl<'ch, 'c: 'ch> Checker<'ch, 'c> {
             let token = self.source_data.token(index);
             match *token {
                 Token::Postfix(token_index) => {
-                    let string = self.source_data.token_string(token_index);
+                    let string = self.source_data.identifier_token_string(token_index);
                     let operator = operators::postfix(string);
                     value = operator.evaluate(self, index, last_precedence, value);
                     last_precedence = operator.precedence();
                     index += 1;
                 }
                 Token::Infix(token_index) => {
-                    let string = self.source_data.token_string(token_index);
+                    let string = self.source_data.identifier_token_string(token_index);
                     let operator = operators::infix(string);
                     let (next_index, right_operand, next_precedence) =
                         self.evaluate_one(index + 1, operator.precedence());
@@ -75,12 +75,13 @@ impl<'ch, 'c: 'ch> Checker<'ch, 'c> {
 
         let token = self.source_data.token(index);
         match *token {
-            Token::Term(ref term_type) => {
-                let value = self.evaluate_term(term_type);
+            Token::IntegerLiteral(token_index) => {
+                let string = self.source_data.literal_token_string(token_index);
+                let value = Type::Rational(BigRational::from_str(string).unwrap());
                 (index + 1, value, last_precedence)
             }
             Token::Prefix(token_index) => {
-                let string = self.source_data.token_string(token_index);
+                let string = self.source_data.identifier_token_string(token_index);
                 let operator = operators::prefix(string);
                 let (next_index, right_operand, last_precedence) =
                     self.evaluate_one(index + 1, operator.precedence());
@@ -88,12 +89,6 @@ impl<'ch, 'c: 'ch> Checker<'ch, 'c> {
                 (next_index, value, last_precedence)
             }
             _ => unreachable!(),
-        }
-    }
-
-    fn evaluate_term(&self, term_type: &TermType) -> Type {
-        match *term_type {
-            TermType::IntegerLiteral(ref string) => Type::Rational(BigRational::from_str(string).unwrap()),
         }
     }
 

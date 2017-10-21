@@ -1,5 +1,7 @@
 use public::*;
+use parser::IdentifierTokenIndex;
 use parser::ParseData;
+use parser::LiteralTokenIndex;
 use parser::char_data::CharData;
 use std::ffi::OsStr;
 use std::marker::PhantomData;
@@ -16,7 +18,10 @@ pub struct SourceData<'c> {
 }
 
 // SourceDatas is a Vec<SourceData>, indexable by indexes of type `SourceIndex`.
-index_type!(pub struct SourceIndex(pub u32));
+index_type! {
+    pub struct SourceIndex(pub u32) <= u32::MAX;
+}
+
 pub(crate) type Sources<'c> = IndexedVec<SourceData<'c>, SourceIndex>;
 
 impl<'c> SourceData<'c> {
@@ -74,9 +79,15 @@ impl<'c> SourceData<'c> {
             None => unreachable!(),
         }
     }
-    pub fn token_string(&self, token: TokenIndex) -> &str {
+    pub fn identifier_token_string(&self, index: IdentifierTokenIndex) -> &str {
         match self.parse_data {
-            Some(ref parse_data) => parse_data.token_pool.string(token),
+            Some(ref parse_data) => &parse_data.identifier_strings[index],
+            None => unreachable!(),
+        }       
+    }
+    pub fn literal_token_string(&self, index: LiteralTokenIndex) -> &str {
+        match self.parse_data {
+            Some(ref parse_data) => &parse_data.literal_strings[index],
             None => unreachable!(),
         }       
     }

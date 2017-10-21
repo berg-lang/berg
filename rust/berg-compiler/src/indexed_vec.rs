@@ -20,7 +20,7 @@ use std::marker::PhantomData;
 
 #[macro_export]
 macro_rules! index_type {
-    (pub struct $name:ident(pub $($type:tt)*)) => {
+    ($(pub struct $name:ident(pub $($type:tt)*) <= $max:expr;)*) => {
         use indexed_vec::IndexType;
         use std::fmt;
         use std::ops::Add;
@@ -28,50 +28,39 @@ macro_rules! index_type {
         use std::ops::Sub;
         use std::ops::SubAssign;
         use std::cmp::Ordering;
-        #[derive(Debug, Copy, Clone, Default, PartialEq, Eq, Ord, PartialOrd)]
-        pub struct $name(pub $($type)*);
-        impl PartialEq<usize> for $name {
-            fn eq(&self, other: &usize) -> bool { (self.0 as usize).eq(other) }
-        }
-        impl fmt::Display for $name {
-            fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-                write!(f, "{}", self.0)
+        $(
+            #[derive(Debug, Copy, Clone, Default, PartialEq, Eq, Ord, PartialOrd)]
+            pub struct $name(pub $($type)*);
+            impl PartialEq<usize> for $name {
+                fn eq(&self, other: &usize) -> bool { (self.0 as usize).eq(other) }
             }
-        }
-        impl PartialOrd<usize> for $name {
-            fn partial_cmp(&self, other: &usize) -> Option<Ordering> {
-                (self.0 as usize).partial_cmp(other)
+            impl fmt::Display for $name {
+                fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+                    write!(f, "{}", self.0)
+                }
             }
-            fn lt(&self, other: &usize) -> bool { (self.0 as usize).lt(other) }
-            fn le(&self, other: &usize) -> bool { (self.0 as usize).le(other) }
-            fn gt(&self, other: &usize) -> bool { (self.0 as usize).gt(other) }
-            fn ge(&self, other: &usize) -> bool { (self.0 as usize).ge(other) }
-        }
-        impl IndexType for $name {}
-        impl $name { pub const MAX: $name = $name($($type)*::MAX); }
-        impl From<usize> for $name { fn from(size: usize) -> Self { $name(size as $($type)*) } }
-        impl From<$name> for usize { fn from(size: $name) -> Self { size.0 as usize } }
-        impl Add<usize> for $name { type Output = Self; fn add(self, value: usize) -> Self { $name(self.0 + value as $($type)*) } }
-        impl AddAssign<usize> for $name { fn add_assign(&mut self, value: usize) { self.0 += value as $($type)*; } }
-        impl Sub<usize> for $name { type Output = Self; fn sub(self, value: usize) -> Self { $name(self.0 - value as $($type)*) } }
-        impl SubAssign<usize> for $name { fn sub_assign(&mut self, value: usize) { self.0 -= value as $($type)*; } }
-        impl Sub<$name> for $name { type Output = Self; fn sub(self, value: $name) -> Self { $name(self.0 - value.0) } }
+            impl PartialOrd<usize> for $name {
+                fn partial_cmp(&self, other: &usize) -> Option<Ordering> {
+                    (self.0 as usize).partial_cmp(other)
+                }
+                fn lt(&self, other: &usize) -> bool { (self.0 as usize).lt(other) }
+                fn le(&self, other: &usize) -> bool { (self.0 as usize).le(other) }
+                fn gt(&self, other: &usize) -> bool { (self.0 as usize).gt(other) }
+                fn ge(&self, other: &usize) -> bool { (self.0 as usize).ge(other) }
+            }
+            impl IndexType for $name {}
+            impl $name { pub const MAX: $name = $name($max); }
+            impl From<usize> for $name { fn from(size: usize) -> Self { $name(size as $($type)*) } }
+            impl From<$name> for usize { fn from(size: $name) -> Self { size.0 as usize } }
+            impl Add<usize> for $name { type Output = Self; fn add(self, value: usize) -> Self { $name(self.0 + Self::from(value).0) } }
+            impl Sub<usize> for $name { type Output = Self; fn sub(self, value: usize) -> Self { $name(self.0 - Self::from(value).0) } }
+            impl Sub<$name> for $name { type Output = Self; fn sub(self, value: $name) -> Self { $name(self.0 - value.0) } }
+            impl AddAssign<usize> for $name { fn add_assign(&mut self, value: usize) { *self = *self + value } }
+            impl SubAssign<usize> for $name { fn sub_assign(&mut self, value: usize) { *self = *self - value } }
+        )*
     }
 }
 pub trait IndexType: Into<usize>+From<usize>+PartialOrd+PartialEq+Copy+AddAssign<usize>+SubAssign<usize>+Add<usize,Output=Self>+Sub<usize,Output=Self> {}
-//pub struct IndexIterator<Ind: IndexType>(pub Range<Ind>);
-// impl<Ind: IndexType> Iterator for IndexIterator<Ind> {
-//     type Item = Ind;
-//     fn next(&mut self) -> Option<Ind> {
-//         if self.0.start < self.0.end {
-//             let result = self.0.start;
-//             self.0.start += 1;
-//             Some(result)
-//         } else {
-//             None
-//         }
-//     }
-// }
 
 ///
 /// A Vec with a specific index type (so you don't accidentally use one Vec's index on another Vec).
