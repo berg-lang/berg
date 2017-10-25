@@ -1,6 +1,7 @@
 use fnv::FnvHashMap;
 use indexed_vec::IndexedVec;
 use indexed_vec::IndexType;
+use std::str;
 
 const DEFAULT_CAPACITY: usize = 1024;
 
@@ -20,6 +21,9 @@ impl<Ind: IndexType> TokenPool<Ind> {
         let strings = IndexedVec::with_capacity(initial_capacity);
         let indices = FnvHashMap::with_capacity_and_hasher(initial_capacity, Default::default());
         TokenPool { strings, indices }
+    }
+    pub unsafe fn intern_unchecked(&mut self, bytes: &[u8]) -> Ind {
+        self.intern(str::from_utf8_unchecked(bytes))
     }
     pub fn intern(&mut self, string: &str) -> Ind {
         if let Some(index) = self.indices.get(string) {

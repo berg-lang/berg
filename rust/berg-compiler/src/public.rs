@@ -1,10 +1,10 @@
 pub use compiler::Compiler;
+pub use compiler::compile_errors::CompileErrors;
 pub use compiler::compile_error::CompileError;
 pub use compiler::compile_error::CompileErrorMessage;
 pub use compiler::compile_error::CompileErrorType;
-pub use compiler::compile_error::CompileErrorType::*;
 pub use compiler::source_data::SourceIndex;
-pub use compiler::source::SourceSpec;
+pub use compiler::source_spec::SourceSpec;
 pub use compiler::source_data::SourceData;
 pub use parser::char_data::ByteIndex;
 pub use parser::char_data::LineColumn;

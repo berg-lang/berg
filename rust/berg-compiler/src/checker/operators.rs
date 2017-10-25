@@ -1,3 +1,4 @@
+use parser::IdentifierIndex;
 use public::*;
 use checker::Checker;
 use checker::operators::Precedence::*;
@@ -6,7 +7,7 @@ use num::BigRational;
 use num::traits::*;
 
 #[derive(Debug, PartialEq)]
-pub enum Infix {
+pub(super) enum Infix {
     Add,
     Subtract,
     Multiply,
@@ -14,13 +15,13 @@ pub enum Infix {
     Unrecognized,
 }
 #[derive(Debug, PartialEq)]
-pub enum Prefix {
+pub(super) enum Prefix {
     Negative,
     Positive,
     Unrecognized,
 }
 #[derive(Debug, PartialEq)]
-pub enum Postfix {
+pub(super) enum Postfix {
     Unrecognized,
 }
 
@@ -32,9 +33,9 @@ pub enum Precedence {
     MathAddSubtract,
 }
 
-pub fn infix(string: &str) -> Infix {
+pub(super) fn infix(source_data: &SourceData, identifier: IdentifierIndex) -> Infix {
     use checker::operators::Infix::*;
-    match string {
+    match source_data.identifier_string(identifier) {
         "+" => Add,
         "-" => Subtract,
         "*" => Multiply,
@@ -43,24 +44,24 @@ pub fn infix(string: &str) -> Infix {
     }
 }
 
-pub fn prefix(string: &str) -> Prefix {
+pub(super) fn prefix(source_data: &SourceData, identifier: IdentifierIndex) -> Prefix {
     use checker::operators::Prefix::*;
-    match string {
+    match source_data.identifier_string(identifier) {
         "+" => Positive,
         "-" => Negative,
         _ => Unrecognized,
     }
 }
 
-pub fn postfix(string: &str) -> Postfix {
+pub(super) fn postfix(source_data: &SourceData, identifier: IdentifierIndex) -> Postfix {
     use checker::operators::Postfix::*;
-    match string {
+    match source_data.identifier_string(identifier) {
         _ => Unrecognized,
     }
 }
 
 impl Infix {
-    pub fn precedence(&self) -> Precedence {
+    pub(super) fn precedence(&self) -> Precedence {
         use checker::operators::Infix::*;
         match *self {
             Add | Subtract => MathAddSubtract,
@@ -69,14 +70,15 @@ impl Infix {
         }
     }
 
-    pub fn evaluate(
+    pub(super) fn check(
         &self,
-        checker: &Checker,
+        checker: &mut Checker,
         index: usize,
         last_precedence: Precedence,
         left: Type,
         right: Type,
     ) -> Type {
+        use CompileErrorType::*;
         use checker::operators::Infix::*;
         if *self == Unrecognized {
             println!("Unrecognized!!!");
@@ -92,13 +94,13 @@ impl Infix {
         } else {
             match *self {
                 Add => {
-                    self.evaluate_numeric(checker, index, left, right, |left, right| left + right)
+                    self.check_numeric(left, right, |left, right| left + right)
                 }
                 Subtract => {
-                    self.evaluate_numeric(checker, index, left, right, |left, right| left - right)
+                    self.check_numeric(left, right, |left, right| left - right)
                 }
                 Multiply => {
-                    self.evaluate_numeric(checker, index, left, right, |left, right| left * right)
+                    self.check_numeric(left, right, |left, right| left * right)
                 }
                 Divide => {
                     if let Rational(ref denom) = right {
@@ -107,25 +109,22 @@ impl Infix {
                             return Error;
                         }
                     }
-                    self.evaluate_numeric(checker, index, left, right, |left, right| left / right)
+                    self.check_numeric(left, right, |left, right| left / right)
                 }
                 Unrecognized => unreachable!(),
             }
         }
     }
 
-    fn evaluate_numeric<F: FnOnce(BigRational, BigRational) -> BigRational>(
+    fn check_numeric<F: FnOnce(BigRational, BigRational) -> BigRational>(
         &self,
-        evaluator: &Checker,
-        index: usize,
         left: Type,
         right: Type,
         f: F,
     ) -> Type {
         match (left, right) {
-            (Nothing, Nothing) => evaluator.report_at_token(MissingBothOperands, index),
-            (_, Nothing) => evaluator.report_at_token(MissingLeftOperand, index),
-            (Nothing, _) => evaluator.report_at_token(MissingRightOperand, index),
+            (Nothing, _) => unreachable!(), //checker.report_at_token(BadType, index),
+            (_, Nothing) => unreachable!(), //checker.report_at_token(BadType, index),
             (Error, _) | (_, Error) => Error,
             (Rational(left), Rational(right)) => Rational(f(left, right)),
         }
@@ -141,32 +140,29 @@ impl Prefix {
         }
     }
 
-    pub fn evaluate(&self, evaluator: &Checker, index: usize, right: Type) -> Type {
+    pub fn check(&self, checker: &mut Checker, index: usize, right: Type) -> Type {
         use checker::operators::Prefix::*;
+        use CompileErrorType::*;
         if *self == Unrecognized {
-            println!("Unrecognized!!!");
-            evaluator.report_at_token(UnrecognizedOperator, index)
+            checker.report_at_token(UnrecognizedOperator, index)
         } else {
-            println!("Recognized! {:?}({:?}", self, right);
-            let result = match *self {
-                Positive => self.evaluate_numeric(evaluator, index, right, |right| right),
-                Negative => self.evaluate_numeric(evaluator, index, right, |right| -right),
+            match *self {
+                Positive => self.check_numeric(checker, index, right, |right| right),
+                Negative => self.check_numeric(checker, index, right, |right| -right),
                 Unrecognized => unreachable!(),
-            };
-            println!("----> Result: {:?}", result);
-            result
+            }
         }
     }
 
-    fn evaluate_numeric<F: FnOnce(BigRational) -> BigRational>(
+    fn check_numeric<F: FnOnce(BigRational) -> BigRational>(
         &self,
-        evaluator: &Checker,
+        checker: &mut Checker,
         index: usize,
         right: Type,
         f: F,
     ) -> Type {
         match right {
-            Nothing => evaluator.report_at_token(MissingRightOperand, index),
+            Nothing => checker.report_at_token(CompileErrorType::MissingRightOperand, index),
             Error => Error,
             Rational(right) => Rational(f(right)),
         }
@@ -181,18 +177,19 @@ impl Postfix {
         }
     }
 
-    pub fn evaluate(
+    pub fn check(
         &self,
-        evaluator: &Checker,
+        checker: &mut Checker,
         index: usize,
         last_precedence: Precedence,
         left: Type,
     ) -> Type {
         use checker::operators::Postfix::*;
+        use CompileErrorType::*;
         if *self == Unrecognized {
-            evaluator.report_at_token(UnrecognizedOperator, index)
+            checker.report_at_token(UnrecognizedOperator, index)
         } else if self.precedence() < last_precedence && left != Error {
-            evaluator.report_at_token(OperatorsOutOfPrecedenceOrder, index)
+            checker.report_at_token(OperatorsOutOfPrecedenceOrder, index)
         } else {
             match *self {
                 Unrecognized => unreachable!(),

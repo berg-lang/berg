@@ -1,71 +1,74 @@
-pub(crate) mod checker_type;
-pub(crate) mod operators;
+pub mod checker_type;
+mod operators;
 
 use public::*;
 
 use checker::checker_type::Type::*;
 use checker::operators::*;
 use num::BigRational;
+use compiler::compile_errors::*;
 use std::str::FromStr;
 
-pub struct Checker<'ch, 'c: 'ch> {
-    compiler: &'ch Compiler<'c>,
-    source: SourceIndex,
-    source_data: &'ch SourceData<'c>,
+pub(super) fn check<'c>(
+    errors: &mut SourceCompileErrors,
+    source_data: &SourceData<'c>
+) -> Type {
+    let mut checker = Checker::new(errors, source_data);
+    checker.check()
 }
 
-pub fn check<'c>(
-    compiler: &Compiler<'c>,
-    source: SourceIndex,
-    source_data: &SourceData<'c>,
-) -> Type {
-    let checker = Checker::new(compiler, source, source_data);
-    checker.check()
+struct Checker<'ch, 'c: 'ch> {
+    errors: &'ch mut SourceCompileErrors,
+    source_data: &'ch SourceData<'c>,
 }
 
 impl<'ch, 'c: 'ch> Checker<'ch, 'c> {
     fn new(
-        compiler: &'ch Compiler<'c>,
-        source: SourceIndex,
+        errors: &'ch mut SourceCompileErrors,
         source_data: &'ch SourceData<'c>,
     ) -> Self {
         Checker {
-            compiler,
-            source,
+            errors,
             source_data,
         }
     }
 
-    fn check(&self) -> Type {
+    fn check(&mut self) -> Type {
+        use Token::*;
         let (mut index, mut value, mut last_precedence) =
-            self.evaluate_one(0, Precedence::Other);
+            self.check_one(0, Precedence::Other);
         while index < self.source_data.num_tokens() {
             let token = self.source_data.token(index);
             match *token {
-                Token::Postfix(token_index) => {
-                    let string = self.source_data.identifier_token_string(token_index);
-                    let operator = operators::postfix(string);
-                    value = operator.evaluate(self, index, last_precedence, value);
+                Postfix(operator) => {
+                    let operator = operators::postfix(self.source_data, operator);
+                    value = operator.check(self, index, last_precedence, value);
                     last_precedence = operator.precedence();
                     index += 1;
-                }
-                Token::Infix(token_index) => {
-                    let string = self.source_data.identifier_token_string(token_index);
-                    let operator = operators::infix(string);
+                },
+                Infix(operator) => {
+                    let operator = operators::infix(self.source_data, operator);
                     let (next_index, right_operand, next_precedence) =
-                        self.evaluate_one(index + 1, operator.precedence());
-                    value = operator.evaluate(self, index, last_precedence, value, right_operand);
+                        self.check_one(index + 1, operator.precedence());
+                    value = operator.check(self, index, last_precedence, value, right_operand);
                     last_precedence = next_precedence;
                     index = next_index;
-                }
-                _ => unreachable!(),
+                },
+                MissingInfix => {
+                    let (next_index, _, next_precedence) =
+                        self.check_one(index + 1, Precedence::Other);
+                    value = self.report_at_token(CompileErrorType::UnrecognizedOperator, index);
+                    last_precedence = next_precedence;
+                    index = next_index;
+                },
+                IntegerLiteral(_)|Prefix(_)|Nothing|MissingTerm => unreachable!(),
             }
         }
         value
     }
 
-    fn evaluate_one(
-        &self,
+    fn check_one(
+        &mut self,
         index: usize,
         last_precedence: Precedence,
     ) -> (usize, Type, Precedence) {
@@ -73,30 +76,54 @@ impl<'ch, 'c: 'ch> Checker<'ch, 'c> {
             return (index, Type::Nothing, last_precedence);
         }
 
+        use Token::*;
+
         let token = self.source_data.token(index);
         match *token {
-            Token::IntegerLiteral(token_index) => {
-                let string = self.source_data.literal_token_string(token_index);
+            IntegerLiteral(literal) => {
+                let string = self.source_data.literal_string(literal);
                 let value = Type::Rational(BigRational::from_str(string).unwrap());
                 (index + 1, value, last_precedence)
-            }
-            Token::Prefix(token_index) => {
-                let string = self.source_data.identifier_token_string(token_index);
-                let operator = operators::prefix(string);
+            },
+            Prefix(operator) => {
+                let operator = operators::prefix(self.source_data, operator);
                 let (next_index, right_operand, last_precedence) =
-                    self.evaluate_one(index + 1, operator.precedence());
-                let value = operator.evaluate(self, index, right_operand);
+                    self.check_one(index + 1, operator.precedence());
+                let value = operator.check(self, index, right_operand);
                 (next_index, value, last_precedence)
-            }
-            _ => unreachable!(),
+            },
+            MissingTerm => {
+                // TODO these are wrong, MissingBothOperands applies to the operator, not the missing spot.
+                // Attach the error to whichever operand we think is most likely, instead.
+                let left = index > 0 && self.source_data.token(index-1).has_right_operand();
+                let right = index+1 < self.source_data.num_tokens() && self.source_data.token(index+1).has_left_operand();
+                let value = match (left, right) {
+                    (true, true) => {
+                        let start = self.source_data.token_range(index-1).start;
+                        let end = self.source_data.token_range(index+1).end;
+                        let string = format!("{} {}",
+                            self.source_data.token_string(index-1),
+                            self.source_data.token_string(index+1)
+                        );
+                        self.errors.report_at(CompileErrorType::MissingOperandsBetween, start..end, &string);
+                        Error
+                    },
+                    (true, false) => self.report_at_token(CompileErrorType::MissingLeftOperand, index-1),
+                    (false, true) => self.report_at_token(CompileErrorType::MissingRightOperand, index-2),
+                    (false, false) => Type::Nothing,
+                };
+                (index + 1, value, last_precedence)
+            },
+            Nothing => (index + 1, Type::Nothing, Precedence::Other),
+            Postfix(_)|Infix(_)|MissingInfix => unreachable!(),
         }
     }
 
-    pub fn report_at_token(&self, error_type: CompileErrorType, index: usize) -> Type {
-        let token = self.source_data.token(index);
-        let range = self.source_data.token_range(index);
-        self.compiler
-            .report_at(error_type, self.source, range, token.string(self.source_data));
+    pub fn report_at_token(&mut self, error_type: CompileErrorType, token: usize) -> Type {
+        let range = self.source_data.token_range(token);
+        let string = self.source_data.token_string(token);
+        self.errors
+            .report_at(error_type, range, string);
         Error
     }
 }

@@ -1,5 +1,6 @@
 extern crate berg_compiler;
 pub use compiler_test::berg_compiler::*;
+pub use compiler_test::berg_compiler::CompileErrorType::*;
 
 use std::ops::Range;
 

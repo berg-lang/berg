@@ -1,10 +1,12 @@
 pub(crate) mod compile_error;
-pub(crate) mod source;
+pub(crate) mod compile_errors;
+pub(crate) mod source_spec;
 pub(crate) mod source_data;
 
 use public::*;
 use parser;
 use checker;
+use compiler::compile_errors::SourceCompileErrors;
 use compiler::source_data::Sources;
 use compiler::source_data::*;
 
@@ -13,8 +15,6 @@ use std::env;
 use std::fmt::*;
 use std::io;
 use std::io::Write;
-use std::ops::Range;
-use std::path::Path;
 use std::path::PathBuf;
 use std::sync::RwLock;
 
@@ -23,9 +23,8 @@ pub struct Compiler<'c> {
     root_error: RwLock<Option<io::Error>>,
     out: Box<Write>,
     err: Box<Write>,
-
     sources: RwLock<Sources<'c>>,
-    errors: RwLock<Vec<CompileError>>,
+    errors: RwLock<CompileErrors>,
 }
 
 impl<'c> Debug for Compiler<'c> {
@@ -63,10 +62,8 @@ impl<'c> Compiler<'c> {
         err: Box<Write>,
     ) -> Self {
         let root_error = RwLock::new(root_error);
-        let out = out.into();
-        let err = err.into();
         let sources = RwLock::new(Default::default());
-        let errors = RwLock::new(vec![]);
+        let errors = Default::default();
         Compiler {
             root,
             root_error,
@@ -101,6 +98,17 @@ impl<'c> Compiler<'c> {
         f(errors.as_slice())
     }
 
+    pub(crate) fn with_error_reporter<T, F: FnOnce(&mut SourceCompileErrors)->T>(
+        &self,
+        source: SourceIndex,
+        f: F
+    ) -> T {
+        let mut source_errors = SourceCompileErrors::new(source);
+        let result = f(&mut source_errors);
+        self.with_errors_mut(|errors| errors.extend(source_errors.close()));
+        result
+    }
+
     pub fn with_source<T, F: FnOnce(&SourceData<'c>) -> T>(&self, index: SourceIndex, f: F) -> T {
         self.with_sources(|sources| f(&sources[index]))
     }
@@ -115,116 +123,80 @@ impl<'c> Compiler<'c> {
         f(source_data)
     }
 
-    pub(crate) fn report_at(
+    pub(crate) fn with_errors_mut<T, F: FnOnce(&mut CompileErrors) -> T>(
         &self,
-        error_type: CompileErrorType,
-        source: SourceIndex,
-        range: Range<ByteIndex>,
-        string: &str,
-    ) {
-        self.report(error_type.at(source, range, string))
-    }
-
-    pub(crate) fn report_source_only(&self, error_type: CompileErrorType, source: SourceIndex) {
-        self.report(error_type.source_only(source))
-    }
-
-    pub(crate) fn report_generic(&self, error_type: CompileErrorType) {
-        self.report(error_type.generic())
-    }
-
-    pub(crate) fn report_invalid_bytes(
-        &self,
-        error_type: CompileErrorType,
-        source: SourceIndex,
-        start: ByteIndex,
-        bytes: &[u8],
-    ) {
-        self.report(error_type.invalid_bytes(source, start, bytes))
-    }
-
-    pub(crate) fn report_io_read(
-        &self,
-        error_type: CompileErrorType,
-        source: SourceIndex,
-        start: ByteIndex,
-        error: &io::Error,
-    ) {
-        self.report(error_type.io_read(source, start, error))
-    }
-
-    pub(crate) fn report_io_open(
-        &self,
-        error_type: CompileErrorType,
-        source: SourceIndex,
-        error: &io::Error,
-        path: &Path,
-    ) {
-        self.report(error_type.io_open(source, error, path))
+        f: F,
+    ) -> T {
+        let mut errors = self.errors.write().unwrap();
+        f(&mut errors)
     }
 
     fn add_source(&self, source_spec: SourceSpec) {
         let index = {
             let mut sources = self.sources.write().unwrap();
             if sources.len() + 1 > SourceIndex::MAX {
-                self.report_generic(TooManySources);
+                self.with_errors_mut(|errors| errors.report_generic(CompileErrorType::TooManySources));
             }
             sources.push(SourceData::new(source_spec));
-            SourceIndex::from(sources.len() - 1)
+            sources.len() - 1
         };
         self.with_source_mut(index, |source| {
-            source.parse_data = Some(parser::parse(self, index, source.source_spec()));
-            source.checked_type = Some(checker::check(self, index, source));
-        });
+            self.with_error_reporter(index, |errors| {
+                source.parse_data = Some(parser::parse(self, errors, source.source_spec()));
 
-        self.with_source(index, |source| {
-            println!("{}", source.name().to_string_lossy());
-            println!("--------------------");
-            println!("Result:");
-            for token in 0..source.num_tokens() {
-                println!(
-                    "- {}: {:?}",
-                    source.char_data().range(source.token_range(token)),
-                    source.token(token),
-                );
-            }
+                println!("{}", source.name().to_string_lossy());
+                println!("--------------------");
+                println!("PARSE RESULT:");
+                for token in 0..source.num_tokens() {
+                    println!(
+                        "- {}: {:?}",
+                        source.char_data().range(source.token_range(token)),
+                        source.token(token),
+                    );
+                }
+
+                if !errors.is_empty() {
+                    println!("");
+                    println!("CHECK ERRORS:");
+                    for error in errors.iter() {
+                        println!("- {:?}", error);
+                    }
+                }
+
+                source.checked_type = Some(checker::check(errors, source));
+
+                if !errors.is_empty() {
+                    println!("");
+                    println!("CHECK ERRORS:");
+                    for error in errors.iter() {
+                        println!("- {:?}", error);
+                    }
+                }
+            })
         });
-        let errors = self.errors.read().unwrap();
-        if errors.len() > 0 {
-            println!("");
-            println!("ERRORS:");
-            for error in errors.iter() {
-                println!("- {:?}", error);
-            }
-        }
     }
 
-    fn maybe_report_path_error(&self, source: SourceIndex) {
+    fn maybe_report_path_error(&self, errors: &mut SourceCompileErrors) {
         // Only report the "bad root directory" error once.
         let mut root_error = self.root_error.write().unwrap();
         if let Some(ref error) = *root_error {
-            self.report(IoCurrentDirectoryError.io_generic(source, error));
+            errors.report_io_source(CompileErrorType::IoCurrentDirectoryError, error);
         } else {
             return;
         }
         *root_error = None;
     }
 
-    pub(crate) fn absolute_path(&self, path: &PathBuf, source: SourceIndex) -> Option<PathBuf> {
+    pub(crate) fn absolute_path(&self, path: &PathBuf, errors: &mut SourceCompileErrors) -> Option<PathBuf> {
         if path.is_relative() {
             if let Some(ref root) = self.root {
                 Some(root.join(path))
             } else {
-                self.maybe_report_path_error(source);
+                self.maybe_report_path_error(errors);
                 None
             }
         } else {
             None
         }
-    }
-
-    fn report(&self, error: CompileError) {
-        let mut errors = self.errors.write().unwrap();
-        errors.push(error)
     }
 }

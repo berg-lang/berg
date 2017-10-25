@@ -98,9 +98,9 @@ pub enum CompileErrorType {
     UnsupportedCharacters = 108,
 
     // Compile errors related to structure
-    MissingBothOperands = 201,
-    MissingLeftOperand = 202,
-    MissingRightOperand = 203,
+    MissingOperandsBetween = 201,
+    MissingRightOperand = 202,
+    MissingLeftOperand = 203,
     UnrecognizedOperator = 204,
     OperatorsOutOfPrecedenceOrder = 205,
 
@@ -112,7 +112,8 @@ impl CompileErrorType {
     pub fn code(self) -> u32 {
         self as u32
     }
-    pub fn io_generic(self, source: SourceIndex, error: &io::Error) -> CompileError {
+    pub fn io_source(self, source: SourceIndex, error: &io::Error) -> CompileError {
+        use compiler::compile_error::CompileErrorType::*;
         let error_message = match self {
             IoCurrentDirectoryError => format!("I/O error getting current directory: {}", error),
             _ => unreachable!(),
@@ -121,6 +122,7 @@ impl CompileErrorType {
         CompileError::new(self, vec![message])
     }
     pub fn io_read(self, source: SourceIndex, index: ByteIndex, error: &io::Error) -> CompileError {
+        use compiler::compile_error::CompileErrorType::*;
         let range = Range {
             start: index,
             end: index,
@@ -133,6 +135,7 @@ impl CompileErrorType {
         CompileError::new(self, vec![message])
     }
     pub fn io_open(self, source: SourceIndex, error: &io::Error, path: &Path) -> CompileError {
+        use compiler::compile_error::CompileErrorType::*;
         let error_message = match self {
             SourceNotFound => format!("Not found: '{:?}' (error: '{}')", path, error),
             IoOpenError => format!("I/O error opening '{:?}': '{}'", path, error),
@@ -144,12 +147,11 @@ impl CompileErrorType {
     pub fn invalid_bytes<T: AsRef<[u8]>>(
         self,
         source: SourceIndex,
-        start: ByteIndex,
+        range: Range<ByteIndex>,
         string: T,
     ) -> CompileError {
+        use compiler::compile_error::CompileErrorType::*;
         let string = string.as_ref();
-        let end = start + string.len();
-        let range = Range { start, end };
         let error_message = match self {
             InvalidUtf8 => format!(
                 "Invalid UTF-8 bytes: '{}'",
@@ -165,10 +167,11 @@ impl CompileErrorType {
         CompileError::new(self, vec![message])
     }
     pub fn at(self, source: SourceIndex, range: Range<ByteIndex>, string: &str) -> CompileError {
+        use compiler::compile_error::CompileErrorType::*;
         let error_message = match self {
             UnsupportedCharacters => format!("Unsupported characters {:?}", string),
             UnrecognizedOperator => format!("Unrecognized operator {:?}", string),
-            MissingBothOperands => format!(
+            MissingOperandsBetween => format!(
                 "Operator {:?} has no value on either side to operate on!",
                 string
             ),
@@ -194,6 +197,7 @@ impl CompileErrorType {
         CompileError::new(self, vec![message])
     }
     pub fn source_only(self, source: SourceIndex) -> CompileError {
+        use compiler::compile_error::CompileErrorType::*;
         let error_message = match self {
             SourceTooLarge => {
                 "SourceSpec code too large: source files greater than 4GB are unsupported."
@@ -205,6 +209,7 @@ impl CompileErrorType {
         CompileError::new(self, vec![message])
     }
     pub fn generic(self) -> CompileError {
+        use compiler::compile_error::CompileErrorType::*;
         let error_message = match self {
             TooManySources => format!("Too many source files opened! Max is {}.", u32::max_value()),
             _ => unreachable!(),

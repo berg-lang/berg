@@ -1,3 +1,4 @@
+use compiler::compile_errors::SourceCompileErrors;
 use public::*;
 use compiler::Compiler;
 
@@ -11,6 +12,20 @@ use std::path::PathBuf;
 pub enum SourceSpec {
     File { path: PathBuf },
     Memory { name: String, contents: Vec<u8> },
+}
+
+pub(crate) enum SourceSpecBuffer<'b> {
+    Owned(Vec<u8>),
+    Ref(&'b [u8]),
+}
+
+impl<'b> SourceSpecBuffer<'b> {
+    pub(crate) fn buffer(&self) -> &[u8] {
+        match *self {
+            SourceSpecBuffer::Owned(ref vec) => vec.as_slice(),
+            SourceSpecBuffer::Ref(vec) => vec,
+        }
+    }
 }
 
 impl SourceSpec {
@@ -28,43 +43,43 @@ impl SourceSpec {
         }
     }
 
-    pub(crate) fn with_buffer<T, F: FnOnce(&[u8]) -> T>(
+    pub(crate) fn open(
         &self,
         compiler: &Compiler,
-        source: SourceIndex,
-        f: F,
-    ) -> T {
+        errors: &mut SourceCompileErrors,
+    ) -> SourceSpecBuffer {
         match *self {
-            SourceSpec::File { ref path, .. } => Self::open_file(compiler, source, path, f),
-            SourceSpec::Memory { ref contents, .. } => f(contents),
+            SourceSpec::File { ref path, .. } => Self::open_file(compiler, errors, path),
+            SourceSpec::Memory { ref contents, .. } => SourceSpecBuffer::Ref(contents),
         }
     }
-    fn open_file<T, F: FnOnce(&[u8]) -> T>(
+
+    fn open_file<'b>(
         compiler: &Compiler,
-        source: SourceIndex,
+        errors: &mut SourceCompileErrors,
         path: &PathBuf,
-        f: F,
-    ) -> T {
-        if let Some(ref path) = compiler.absolute_path(path, source) {
+    ) -> SourceSpecBuffer<'b> {
+        use CompileErrorType::*;
+        if let Some(ref path) = compiler.absolute_path(path, errors) {
             match File::open(path) {
                 Ok(mut file) => {
                     let mut buffer = Vec::new();
                     if let Err(error) = file.read_to_end(&mut buffer) {
-                        compiler.report_io_read(IoReadError, source, ByteIndex::from(buffer.len()), &error);
+                        errors.report_io_read(ByteIndex::from(buffer.len()), &error);
                     }
-                    f(&buffer)
+                    SourceSpecBuffer::Owned(buffer)
                 }
                 Err(error) => {
                     let error_type = match error.kind() {
                         io::ErrorKind::NotFound => SourceNotFound,
                         _ => IoOpenError,
                     };
-                    compiler.report_io_open(error_type, source, &error, path.as_path());
-                    f(&[])
+                    errors.report_io_open(error_type, &error, path.as_path());
+                    SourceSpecBuffer::Ref(&[])
                 }
             }
         } else {
-            f(&[])
+            SourceSpecBuffer::Ref(&[])
         }
     }
 }

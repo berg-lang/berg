@@ -1,7 +1,7 @@
 use public::*;
-use parser::IdentifierTokenIndex;
+use parser::IdentifierIndex;
 use parser::ParseData;
-use parser::LiteralTokenIndex;
+use parser::LiteralIndex;
 use parser::char_data::CharData;
 use std::ffi::OsStr;
 use std::marker::PhantomData;
@@ -70,6 +70,17 @@ impl<'c> SourceData<'c> {
             None => unreachable!(),
         }
     }
+    pub fn token_string(&self, token: usize) -> &str {
+        use Token::*;
+        match self.parse_data {
+            Some(ref parse_data) => match parse_data.tokens[token] {
+                IntegerLiteral(literal) => self.literal_string(literal),
+                Infix(operator)|Postfix(operator)|Prefix(operator) => self.identifier_string(operator),
+                MissingInfix|MissingTerm|Nothing => ""
+            },
+            None => unreachable!(),
+        }
+    }
     pub fn token_range(&self, token: usize) -> Range<ByteIndex> {
         match self.parse_data {
             Some(ref parse_data) => {
@@ -79,13 +90,13 @@ impl<'c> SourceData<'c> {
             None => unreachable!(),
         }
     }
-    pub fn identifier_token_string(&self, index: IdentifierTokenIndex) -> &str {
+    pub fn identifier_string(&self, index: IdentifierIndex) -> &str {
         match self.parse_data {
             Some(ref parse_data) => &parse_data.identifier_strings[index],
             None => unreachable!(),
         }       
     }
-    pub fn literal_token_string(&self, index: LiteralTokenIndex) -> &str {
+    pub fn literal_string(&self, index: LiteralIndex) -> &str {
         match self.parse_data {
             Some(ref parse_data) => &parse_data.literal_strings[index],
             None => unreachable!(),
