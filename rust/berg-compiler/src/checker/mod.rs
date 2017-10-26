@@ -108,8 +108,8 @@ impl<'ch, 'c: 'ch> Checker<'ch, 'c> {
                         self.errors.report_at(CompileErrorType::MissingOperandsBetween, start..end, &string);
                         Error
                     },
-                    (true, false) => self.report_at_token(CompileErrorType::MissingLeftOperand, index-1),
-                    (false, true) => self.report_at_token(CompileErrorType::MissingRightOperand, index-2),
+                    (true, false) => self.report_at_token(CompileErrorType::MissingRightOperand, index-1),
+                    (false, true) => self.report_at_token(CompileErrorType::MissingLeftOperand, index+1),
                     (false, false) => Type::Nothing,
                 };
                 (index + 1, value, last_precedence)

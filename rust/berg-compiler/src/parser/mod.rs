@@ -1,6 +1,4 @@
 pub(crate) mod char_data;
-           mod byte_type;
-           mod char_type;
            mod token_pool;
 pub(crate) mod token;
            mod tokenizer;
@@ -45,10 +43,10 @@ pub(crate) fn parse(
     let mut token_ranges = Vec::<Range<ByteIndex>>::default();
 
     // Algorithm
-    while let Some((token, range, next)) = tokenizer.next(buffer.buffer(), errors, &mut identifier_pool, &mut literal_strings) {
-        tokenizer = next;
+    let mut index = ByteIndex(0);
+    while let Some((start, token)) = tokenizer.next(buffer.buffer(), &mut index, errors, &mut identifier_pool, &mut literal_strings) {
         tokens.push(token);
-        token_ranges.push(range);
+        token_ranges.push(start..index);
     }
 
     // Result
