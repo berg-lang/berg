@@ -1,6 +1,7 @@
 pub mod checker_type;
 mod operators;
 
+use parser::AstIndex;
 use public::*;
 
 use checker::checker_type::Type::*;
@@ -36,7 +37,7 @@ impl<'ch, 'c: 'ch> Checker<'ch, 'c> {
     fn check(&mut self) -> Type {
         use Token::*;
         let (mut index, mut value, mut last_precedence) =
-            self.check_one(0, Precedence::Other);
+            self.check_one(AstIndex(0), Precedence::Other);
         while index < self.source_data.num_tokens() {
             let token = self.source_data.token(index);
             match *token {
@@ -69,9 +70,9 @@ impl<'ch, 'c: 'ch> Checker<'ch, 'c> {
 
     fn check_one(
         &mut self,
-        index: usize,
+        index: AstIndex,
         last_precedence: Precedence,
-    ) -> (usize, Type, Precedence) {
+    ) -> (AstIndex, Type, Precedence) {
         if index >= self.source_data.num_tokens() {
             return (index, Type::Nothing, last_precedence);
         }
@@ -119,7 +120,7 @@ impl<'ch, 'c: 'ch> Checker<'ch, 'c> {
         }
     }
 
-    pub fn report_at_token(&mut self, error_type: CompileErrorType, token: usize) -> Type {
+    pub fn report_at_token(&mut self, error_type: CompileErrorType, token: AstIndex) -> Type {
         let range = self.source_data.token_range(token);
         let string = self.source_data.token_string(token);
         self.errors

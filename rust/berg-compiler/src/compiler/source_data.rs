@@ -1,3 +1,4 @@
+use parser::AstIndex;
 use public::*;
 use parser::IdentifierIndex;
 use parser::ParseData;
@@ -58,19 +59,19 @@ impl<'c> SourceData<'c> {
             None => unreachable!(),
         }
     }
-    pub fn num_tokens(&self) -> usize {
+    pub fn num_tokens(&self) -> AstIndex {
         match self.parse_data {
             Some(ref parse_data) => parse_data.tokens.len(),
             None => unreachable!(),
         }
     }
-    pub fn token(&self, token: usize) -> &Token {
+    pub fn token(&self, token: AstIndex) -> &Token {
         match self.parse_data {
             Some(ref parse_data) => &parse_data.tokens[token],
             None => unreachable!(),
         }
     }
-    pub fn token_string(&self, token: usize) -> &str {
+    pub fn token_string(&self, token: AstIndex) -> &str {
         use Token::*;
         match self.parse_data {
             Some(ref parse_data) => match parse_data.tokens[token] {
@@ -81,7 +82,7 @@ impl<'c> SourceData<'c> {
             None => unreachable!(),
         }
     }
-    pub fn token_range(&self, token: usize) -> Range<ByteIndex> {
+    pub fn token_range(&self, token: AstIndex) -> Range<ByteIndex> {
         match self.parse_data {
             Some(ref parse_data) => {
                 let range = &parse_data.token_ranges[token];

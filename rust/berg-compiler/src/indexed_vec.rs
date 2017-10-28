@@ -77,6 +77,9 @@ impl<Elem, Ind: IndexType> IndexedVec<Elem, Ind> {
     pub fn push(&mut self, elem: Elem) {
         self.0.push(elem)
     }
+    pub fn insert(&mut self, index: Ind, elem: Elem) {
+        self.0.insert(index.into(), elem)
+    }
 }
 
 impl<Elem, Ind: IndexType> Default for IndexedVec<Elem, Ind> {

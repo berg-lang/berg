@@ -3,6 +3,7 @@ pub(crate) mod compile_errors;
 pub(crate) mod source_spec;
 pub(crate) mod source_data;
 
+use parser::AstIndex;
 use public::*;
 use parser;
 use checker;
@@ -147,7 +148,8 @@ impl<'c> Compiler<'c> {
                 println!("{}", source.name().to_string_lossy());
                 println!("--------------------");
                 println!("PARSE RESULT:");
-                for token in 0..source.num_tokens() {
+                for i in 0..source.num_tokens().into() {
+                    let token = AstIndex(i as u32);
                     println!(
                         "- {}: {:?}",
                         source.char_data().range(source.token_range(token)),

@@ -1,3 +1,4 @@
+use parser::AstIndex;
 use parser::IdentifierIndex;
 use public::*;
 use checker::Checker;
@@ -73,7 +74,7 @@ impl Infix {
     pub(super) fn check(
         &self,
         checker: &mut Checker,
-        index: usize,
+        index: AstIndex,
         last_precedence: Precedence,
         left: Type,
         right: Type,
@@ -140,7 +141,7 @@ impl Prefix {
         }
     }
 
-    pub fn check(&self, checker: &mut Checker, index: usize, right: Type) -> Type {
+    pub fn check(&self, checker: &mut Checker, index: AstIndex, right: Type) -> Type {
         use checker::operators::Prefix::*;
         use CompileErrorType::*;
         if *self == Unrecognized {
@@ -157,7 +158,7 @@ impl Prefix {
     fn check_numeric<F: FnOnce(BigRational) -> BigRational>(
         &self,
         checker: &mut Checker,
-        index: usize,
+        index: AstIndex,
         right: Type,
         f: F,
     ) -> Type {
@@ -180,7 +181,7 @@ impl Postfix {
     pub fn check(
         &self,
         checker: &mut Checker,
-        index: usize,
+        index: AstIndex,
         last_precedence: Precedence,
         left: Type,
     ) -> Type {
