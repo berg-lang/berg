@@ -103,7 +103,7 @@ fn report_missing_operands(
     errors: &mut SourceCompileErrors
 ) -> Option<Token> {
     use parser::tokenizer::Need::*;
-    let result = match (after_prev, Need::before(token, start, end)) {
+    match (after_prev, Need::before(token, start, end)) {
         (Operator,Term)|(Operator,Operand(_))|(Term,Operator)|(Operand(_),Operator) => None,
         (Operator,Operator) => Some(MissingInfix),
         (Term,Term) => Some(NoExpression),
@@ -119,9 +119,7 @@ fn report_missing_operands(
             report_valid_utf8(errors, CompileErrorType::MissingOperandsBetween, first.start..second.end, buffer);
             Some(MissingOperand)
         },
-    };
-    println!("Thus we return {:?}", result);
-    result
+    }
 }
 
 fn report_valid_utf8(errors: &mut SourceCompileErrors, error_type: CompileErrorType, range: Range<ByteIndex>, buffer: &[u8]) {

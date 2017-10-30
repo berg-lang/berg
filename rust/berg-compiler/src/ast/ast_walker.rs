@@ -79,6 +79,7 @@ impl AstWalkerMut {
             }
 
             // Apply the operator now that we've grabbed anything we needed from the right!
+            println!("Visit infix {:?} {:?}, {:?}", infix.operator(), left, right);
             left = visitor.visit_infix(infix, left, right, infix_index, source_data);
         }
         left
@@ -101,16 +102,19 @@ impl AstWalkerMut {
         }
 
         // Handle the term
-        let (term_token, mut term_index) = self.advance(source_data);
+        let (term_token, term_index) = self.advance(source_data);
         let term = term_token.to_term().unwrap();
+        println!("Visit term {:?}", term_index);
         let mut value = visitor.visit_term(term, term_index, source_data);
 
         // Handle prefixes (in reverse order)
-        while term_index > first_prefix {
-            term_index -= 1;
-            let prefix_token = (*source_data.token(term_index)).to_prefix().unwrap();
+        let mut prefix_index = term_index;
+        while prefix_index > first_prefix {
+            prefix_index -= 1;
+            let prefix_token = (*source_data.token(prefix_index)).to_prefix().unwrap();
             match prefix_token {
                 PrefixToken::PrefixOperator(prefix) => {
+                    println!("Visit prefix {:?} {:?}", Operators::from(prefix), value);
                     value = visitor.visit_prefix(prefix, value, term_index, source_data);
                 },
                 // Handle parentheses
@@ -130,10 +134,11 @@ impl AstWalkerMut {
         self.walk_postfixes(visitor, value, source_data)
     }
 
-    fn walk_postfixes<T, V: AstVisitorMut<T>>(&mut self, visitor: &mut V, mut value: T, source_data: &SourceData) -> T {
+    fn walk_postfixes<T: Debug, V: AstVisitorMut<T>>(&mut self, visitor: &mut V, mut value: T, source_data: &SourceData) -> T {
         while let NextToken(postfix, postfix_index) = self.advance_if(source_data,
             |token| match token { PostfixOperator(postfix) => Some(postfix), _ => None })
         {
+            println!("Visit postfix {:?} {:?}", Operators::from(postfix), value);
             value = visitor.visit_postfix(postfix, value, postfix_index, source_data)
         }
         value

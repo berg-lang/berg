@@ -40,9 +40,17 @@ compiler_tests! {
     muladd2_3_4_neg: "-2*3+4" => type(-2),
     muladd2_3_4_pos: "+2*3+4" => type(10),
 
+    addmul2_3_4: "2+3*4" => type(14),
+    addmul2_3_4_neg: "-2+3*4" => type(10),
+    addmul2_3_4_pos: "+2+3*4" => type(14),
+
     divadd2_3_4: "30/2*3" => type(45),
     divadd2_3_4_neg: "-30/2*3" => type(-45),
     divadd2_3_4_pos: "+30/2*3" => type(45),
+
+    adddiv3_8_2: "3+8/2" => type(7),
+    adddiv3_8_2_neg: "-3+8/2" => type(1),
+    adddiv3_8_2_pos: "+3+8/2" => type(7),
 
     addsub0_0_0: "0+0-0" => type(0),
     addsub0_0_0_neg: "-0+0-0" => type(0),
@@ -68,8 +76,4 @@ compiler_tests! {
     neg_only:      "-" => error(MissingRightOperand@0) type(error),
     pos_only:      "+" => error(MissingRightOperand@0) type(error),
     plus_minus: "1+-2" => error(UnrecognizedOperator@[1-2]) type(error),
-
-    addmul2_3_4: "2+3*4" => type(14),
-
-    adddiv2_3_4: "2+8/2" => type(6),
 }
