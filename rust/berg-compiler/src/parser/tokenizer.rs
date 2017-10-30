@@ -50,7 +50,6 @@ pub(crate) fn tokenize<F: FnMut(Token,Range<ByteIndex>)->()>(
     let mut start = ByteIndex(0);
     let mut need = Need::Term;
     while let Some((symbol, index)) = scanner::next(buffer, start) {
-        println!("{:?}-{:?}: {:?}", start, index, symbol);
         let token = match symbol {
             Symbol::Integer => Some(IntegerLiteral(unsafe { literals.add_utf8_unchecked(buffer, start, index) })),
             Symbol::Open => Some(Open(unsafe { identifiers.add_utf8_unchecked(buffer, start, index) })),
@@ -103,7 +102,8 @@ fn report_missing_operands(
     errors: &mut SourceCompileErrors
 ) -> Option<Token> {
     use parser::tokenizer::Need::*;
-    match (after_prev, Need::before(token, start, end)) {
+    let before_next = Need::before(token, start, end);
+    match (after_prev, before_next) {
         (Operator,Term)|(Operator,Operand(_))|(Term,Operator)|(Operand(_),Operator) => None,
         (Operator,Operator) => Some(MissingInfix),
         (Term,Term) => Some(NoExpression),

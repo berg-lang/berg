@@ -71,10 +71,6 @@ compiler_tests! {
     pos_0: "+0" => type(0),
     pos_1: "+1" => type(1),
 
-    parens: "(1+2*3)*3" => type(21),
-    parens_neg: "-(1+2*3)*3" => type(-21),
-    parens_neg_neg: "-(-1+2*3)*3" => type(-15),
-
     trailing_neg: "0-" => error(UnrecognizedOperator@1) type(error),
     trailing_pos: "0+" => error(UnrecognizedOperator@1) type(error),
     neg_only:      "-" => error(MissingRightOperand@0) type(error),

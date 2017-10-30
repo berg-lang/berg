@@ -35,7 +35,7 @@ pub fn next_has_left_operand(
 ) -> bool {
     if index < buffer.len() {
         match peek_char(buffer, index) {
-            Some((CharType::Digit, _)) => false,
+            Some((Digit, _))|Some((Open, _)) => false,
             _ => true,
         }
     } else {

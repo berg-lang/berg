@@ -1,3 +1,4 @@
+use std::fmt::*;
 use ast::intern_pool::StringPool;
 use ast::{AstIndex,IdentifierIndex,LiteralIndex};
 use indexed_vec::IndexedVec;
@@ -34,6 +35,15 @@ pub struct CharData {
     pub line_starts: Vec<ByteIndex>,
 }
 
+#[derive(Debug)]
+pub struct ParseData {
+    pub char_data: CharData,
+    pub identifiers: StringPool<IdentifierIndex>,
+    pub literals: StringPool<LiteralIndex>,
+    pub tokens: IndexedVec<Token,AstIndex>,
+    pub token_ranges: IndexedVec<Range<ByteIndex>,AstIndex>,
+}
+
 impl<'c> SourceData<'c> {
     pub(crate) fn new(source_spec: SourceSpec) -> Self {
         SourceData {
@@ -62,27 +72,24 @@ impl<'c> SourceData<'c> {
             None => unreachable!(),
         }
     }
-    pub fn char_data(&self) -> &CharData {
-        match self.parse_data {
-            Some(ref parse_data) => &parse_data.char_data,
-            None => unreachable!(),
-        }
+    pub fn parse_data(&self) -> Option<&ParseData> {
+        self.parse_data.as_ref()
     }
+}
+
+impl ParseData {
     pub fn num_tokens(&self) -> AstIndex {
-        match self.parse_data {
-            Some(ref parse_data) => parse_data.tokens.len(),
-            None => unreachable!(),
-        }
+        self.tokens.len()
+    }
+    pub fn char_data(&self) -> &CharData {
+        &self.char_data
     }
     pub fn token(&self, token: AstIndex) -> &Token {
-        match self.parse_data {
-            Some(ref parse_data) => &parse_data.tokens[token],
-            None => unreachable!(),
-        }
+        &self.tokens[token]
     }
     pub fn token_string(&self, token: AstIndex) -> &str {
         use Token::*;
-        match self.parse_data().tokens[token] {
+        match self.tokens[token] {
             IntegerLiteral(literal) => self.literal_string(literal),
 
             InfixOperator(operator)|
@@ -96,27 +103,28 @@ impl<'c> SourceData<'c> {
         }
     }
     pub fn token_range(&self, token: AstIndex) -> Range<ByteIndex> {
-        let range = &self.parse_data().token_ranges[token];
+        let range = &self.token_ranges[token];
         Range { start: range.start, end: range.end }
     }
     pub fn identifier_string(&self, index: IdentifierIndex) -> &str {
-        &self.parse_data().identifiers[index]
+        &self.identifiers[index]
     }
     pub fn literal_string(&self, index: LiteralIndex) -> &str {
-        &self.parse_data().literals[index]
-    }
-    fn parse_data(&self) -> &ParseData {
-        self.parse_data.as_ref().unwrap()
+        &self.literals[index]
     }
 }
 
-#[derive(Debug)]
-pub(crate) struct ParseData {
-    pub char_data: CharData,
-    pub identifiers: StringPool<IdentifierIndex>,
-    pub literals: StringPool<LiteralIndex>,
-    pub tokens: IndexedVec<Token,AstIndex>,
-    pub token_ranges: IndexedVec<Range<ByteIndex>,AstIndex>,
+impl Display for ParseData {
+    fn fmt(&self, f: &mut Formatter) -> Result {
+        writeln!(f, "Tokens:")?;
+        let mut index = AstIndex(0);
+        while index < self.tokens.len() {
+            let range = self.char_data().range(self.token_range(index));
+            writeln!(f, "[{}] {} {:?}", range, self.token_string(index), self.token(index))?;
+            index += 1;
+        }
+        Ok(())
+    }
 }
 
 impl Default for CharData {

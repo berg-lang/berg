@@ -13,12 +13,12 @@ use num::BigRational;
 use num::Zero;
 use std::str::FromStr;
 
-pub(super) fn check<'c>(
-    source_data: &SourceData<'c>,
+pub(super) fn check(
+    parse_data: &ParseData,
     errors: &mut SourceCompileErrors
 ) -> Type {
     let mut checker = Checker { errors };
-    AstWalkerMut::walk(&mut checker, source_data)
+    AstWalkerMut::walk(&mut checker, parse_data)
 }
 
 struct Checker<'a> {
@@ -28,30 +28,30 @@ struct Checker<'a> {
 use Type::*;
 
 impl<'a> Checker<'a> {
-    fn check_numeric_binary_arguments(&mut self, left: Type, right: Type, index: AstIndex, source_data: &SourceData) -> Option<(BigRational, BigRational)> {
+    fn check_numeric_binary_arguments(&mut self, left: Type, right: Type, index: AstIndex, parse_data: &ParseData) -> Option<(BigRational, BigRational)> {
         match (left, right) {
             (Rational(left), Rational(right)) => Some((left, right)),
             (Error, _)|(_, Error) => None,
-            (Rational(_), _) => { self.report(CompileErrorType::BadTypeRightOperand, index, source_data); None },
-            (_, Rational(_)) => { self.report(CompileErrorType::BadTypeLeftOperand, index, source_data); None },
-            (_, _) => { self.report(CompileErrorType::BadTypeBothOperands, index, source_data); None },
+            (Rational(_), _) => { self.report(CompileErrorType::BadTypeRightOperand, index, parse_data); None },
+            (_, Rational(_)) => { self.report(CompileErrorType::BadTypeLeftOperand, index, parse_data); None },
+            (_, _) => { self.report(CompileErrorType::BadTypeBothOperands, index, parse_data); None },
         }
     }
-    fn check_numeric_binary<F: Fn(BigRational,BigRational)->BigRational>(&mut self, left: Type, right: Type, index: AstIndex, source_data: &SourceData, f: F) -> Type {
-        match self.check_numeric_binary_arguments(left, right, index, source_data) {
+    fn check_numeric_binary<F: Fn(BigRational,BigRational)->BigRational>(&mut self, left: Type, right: Type, index: AstIndex, parse_data: &ParseData, f: F) -> Type {
+        match self.check_numeric_binary_arguments(left, right, index, parse_data) {
             Some((left, right)) => Rational(f(left, right)),
             None => Error,
         }
     }
-    fn check_numeric_prefix_argument(&mut self, operand: Type, index: AstIndex, source_data: &SourceData) -> Option<BigRational> {
+    fn check_numeric_prefix_argument(&mut self, operand: Type, index: AstIndex, parse_data: &ParseData) -> Option<BigRational> {
         match operand {
             Rational(operand) => Some(operand),
             Error => None,
-            _ => { self.report(CompileErrorType::BadTypeRightOperand, index, source_data); None }
+            _ => { self.report(CompileErrorType::BadTypeRightOperand, index, parse_data); None }
         }
     }
-    fn check_numeric_prefix<F: Fn(BigRational)->BigRational>(&mut self, operand: Type, index: AstIndex, source_data: &SourceData, f: F) -> Type {
-        match self.check_numeric_prefix_argument(operand, index, source_data) {
+    fn check_numeric_prefix<F: Fn(BigRational)->BigRational>(&mut self, operand: Type, index: AstIndex, parse_data: &ParseData, f: F) -> Type {
+        match self.check_numeric_prefix_argument(operand, index, parse_data) {
             Some(operand) => Rational(f(operand)),
             None => Error,
         }
@@ -63,19 +63,19 @@ impl<'a> Checker<'a> {
     //         _ => self.report(index, CompileErrorType::BadTypeLeftOperand),
     //     }
     // }
-    fn report(&mut self, error_type: CompileErrorType, index: AstIndex, source_data: &SourceData) -> Type {
-        let range = source_data.token_range(index);
-        let string = source_data.token_string(index);
+    fn report(&mut self, error_type: CompileErrorType, index: AstIndex, parse_data: &ParseData) -> Type {
+        let range = parse_data.token_range(index);
+        let string = parse_data.token_string(index);
         self.errors.report_at(error_type, range, string);
         Error
     }
 }
 
 impl<'a> AstVisitorMut<Type> for Checker<'a> {
-    fn visit_term(&mut self, token: TermToken, _: AstIndex, source_data: &SourceData) -> Type {
+    fn visit_term(&mut self, token: TermToken, _: AstIndex, parse_data: &ParseData) -> Type {
         match token {
             IntegerLiteral(literal) => {
-                let string = source_data.literal_string(literal);
+                let string = parse_data.literal_string(literal);
                 let value = BigRational::from_str(string).unwrap();
                 Rational(value)
             },
@@ -84,46 +84,46 @@ impl<'a> AstVisitorMut<Type> for Checker<'a> {
         }
     }
 
-    fn visit_infix(&mut self, token: InfixToken, left: Type, right: Type, index: AstIndex, source_data: &SourceData) -> Type {
+    fn visit_infix(&mut self, token: InfixToken, left: Type, right: Type, index: AstIndex, parse_data: &ParseData) -> Type {
         match token {
             InfixOperator(identifier) => match Operators::from(identifier) {
-                Plus  => self.check_numeric_binary(left, right, index, source_data, |left, right| left + right),
-                Dash  => self.check_numeric_binary(left, right, index, source_data, |left, right| left - right),
-                Star  => self.check_numeric_binary(left, right, index, source_data, |left, right| left * right),
-                Slash => match self.check_numeric_binary_arguments(left, right, index, source_data) {
+                Plus  => self.check_numeric_binary(left, right, index, parse_data, |left, right| left + right),
+                Dash  => self.check_numeric_binary(left, right, index, parse_data, |left, right| left - right),
+                Star  => self.check_numeric_binary(left, right, index, parse_data, |left, right| left * right),
+                Slash => match self.check_numeric_binary_arguments(left, right, index, parse_data) {
                     Some((_, ref right)) if right.is_zero() => {
-                        self.report(CompileErrorType::DivideByZero, index, source_data);
+                        self.report(CompileErrorType::DivideByZero, index, parse_data);
                         Error
                     },
                     Some((ref left, ref right)) => Rational(left / right),
                     None => Error,
                 }
-                _ => self.report(CompileErrorType::UnrecognizedOperator, index, source_data),
+                _ => self.report(CompileErrorType::UnrecognizedOperator, index, parse_data),
             },
             MissingInfix => Error,
         }
     }
 
-    fn visit_prefix(&mut self, prefix: IdentifierIndex, operand: Type, index: AstIndex, source_data: &SourceData) -> Type {
+    fn visit_prefix(&mut self, prefix: IdentifierIndex, operand: Type, index: AstIndex, parse_data: &ParseData) -> Type {
         match Operators::from(prefix) {
-            Plus => self.check_numeric_prefix(operand, index, source_data, |operand| operand),
-            Dash => self.check_numeric_prefix(operand, index, source_data, |operand| -operand),
-            _ => self.report(CompileErrorType::UnrecognizedOperator, index, source_data),
+            Plus => self.check_numeric_prefix(operand, index, parse_data, |operand| operand),
+            Dash => self.check_numeric_prefix(operand, index, parse_data, |operand| -operand),
+            _ => self.report(CompileErrorType::UnrecognizedOperator, index, parse_data),
         }
     }
 
-    fn visit_postfix(&mut self, postfix: IdentifierIndex, _: Type, index: AstIndex, source_data: &SourceData) -> Type {
+    fn visit_postfix(&mut self, postfix: IdentifierIndex, _: Type, index: AstIndex, parse_data: &ParseData) -> Type {
         match Operators::from(postfix) {
-            _ => self.report(CompileErrorType::UnrecognizedOperator, index, source_data),
+            _ => self.report(CompileErrorType::UnrecognizedOperator, index, parse_data),
         }
     }
 
-    fn open_without_close(&mut self, _: Operators, open_index: AstIndex, _missing_close_index: AstIndex, source_data: &SourceData) {
-        self.report(CompileErrorType::OpenWithoutClose, open_index, source_data);
+    fn open_without_close(&mut self, _: Operators, open_index: AstIndex, _missing_close_index: AstIndex, parse_data: &ParseData) {
+        self.report(CompileErrorType::OpenWithoutClose, open_index, parse_data);
     }
 
-    fn close_without_open(&mut self, _: Operators, close_index: AstIndex, _missing_open_index: AstIndex, source_data: &SourceData) {
-        self.report(CompileErrorType::CloseWithoutOpen, close_index, source_data);
+    fn close_without_open(&mut self, _: Operators, close_index: AstIndex, _missing_open_index: AstIndex, parse_data: &ParseData) {
+        self.report(CompileErrorType::CloseWithoutOpen, close_index, parse_data);
     }
 }
 

@@ -3,7 +3,6 @@ pub(crate) mod line_column;
 pub(crate) mod source_spec;
 pub(crate) mod source_data;
 
-use ast::AstIndex;
 use checker;
 use compiler::compile_errors::SourceCompileErrors;
 use indexed_vec::IndexedVec;
@@ -139,40 +138,38 @@ impl<'c> Compiler<'c> {
             sources.push(SourceData::new(source_spec));
             sources.len() - 1
         };
-        self.with_source_mut(index, |source| {
-            self.with_error_reporter(index, |errors| {
-                source.parse_data = Some(parser::parse(self, errors, source.source_spec()));
-
+        self.with_error_reporter(index, |errors| {
+            let parse_data = self.with_source(index, |source| {
                 println!("{}", source.name().to_string_lossy());
-                println!("--------------------");
-                println!("PARSE RESULT:");
-                for i in 0..source.num_tokens().into() {
-                    let token = AstIndex(i as u32);
-                    println!(
-                        "- {}: {:?}",
-                        source.char_data().range(source.token_range(token)),
-                        source.token(token),
-                    );
-                }
+                parser::parse(self, errors, source.source_spec())
+            });
 
-                if !errors.is_empty() {
-                    println!("");
-                    println!("CHECK ERRORS:");
-                    for error in errors.iter() {
-                        println!("- {:?}", error);
-                    }
-                }
+            println!("--------------------");
+            println!("PARSE RESULT:");
+            print!("{}", parse_data);
 
-                source.checked_type = Some(checker::check(source, errors));
-
-                if !errors.is_empty() {
-                    println!("");
-                    println!("CHECK ERRORS:");
-                    for error in errors.iter() {
-                        println!("- {:?}", error);
-                    }
+            if !errors.is_empty() {
+                println!("");
+                println!("CHECK ERRORS:");
+                for error in errors.iter() {
+                    println!("- {:?}", error);
                 }
-            })
+            }
+
+            let checked_type = checker::check(&parse_data, errors);
+
+            if !errors.is_empty() {
+                println!("");
+                println!("CHECK ERRORS:");
+                for error in errors.iter() {
+                    println!("- {:?}", error);
+                }
+            }
+
+            self.with_source_mut(index, |source| {
+                source.parse_data = Some(parse_data);
+                source.checked_type = Some(checked_type);
+            });
         });
     }
 

@@ -8,16 +8,16 @@ use std::str;
 const DEFAULT_CAPACITY: usize = 1024;
 
 #[derive(Debug)]
-pub(crate) struct InternPool<Ind: IndexType> {
+pub struct InternPool<Ind: IndexType> {
     pub strings: StringPool<Ind>,
     // We use FnvHashMap because the hashing function is faster than the default
     pub indices: FnvHashMap<String,Ind>,
 }
 
 #[derive(Debug)]
-pub(crate) struct StringPool<Ind: IndexType>(IndexedVec<String,Ind>);
+pub struct StringPool<Ind: IndexType>(IndexedVec<String,Ind>);
 
-pub(crate) trait Pool<Ind: IndexType> {
+pub trait Pool<Ind: IndexType> {
     fn add(&mut self, string: &str) -> Ind;
     unsafe fn add_utf8_unchecked(&mut self, buffer: &[u8], start: ByteIndex, end: ByteIndex) -> Ind {
         let string = str::from_utf8_unchecked(&buffer[usize::from(start)..usize::from(end)]);
