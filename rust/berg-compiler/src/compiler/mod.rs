@@ -1,16 +1,14 @@
-pub(crate) mod compile_error;
 pub(crate) mod compile_errors;
+pub(crate) mod line_column;
 pub(crate) mod source_spec;
 pub(crate) mod source_data;
 
-use parser::AstIndex;
-use public::*;
-use parser;
+use ast::AstIndex;
 use checker;
 use compiler::compile_errors::SourceCompileErrors;
-use compiler::source_data::Sources;
-use compiler::source_data::*;
-
+use indexed_vec::IndexedVec;
+use parser;
+use public::*;
 use std::default::Default;
 use std::env;
 use std::fmt::*;
@@ -24,7 +22,7 @@ pub struct Compiler<'c> {
     root_error: RwLock<Option<io::Error>>,
     out: Box<Write>,
     err: Box<Write>,
-    sources: RwLock<Sources<'c>>,
+    sources: RwLock<IndexedVec<SourceData<'c>, SourceIndex>>,
     errors: RwLock<CompileErrors>,
 }
 
@@ -89,7 +87,7 @@ impl<'c> Compiler<'c> {
         self.add_source(source)
     }
 
-    pub fn with_sources<T, F: FnOnce(&Sources<'c>) -> T>(&self, f: F) -> T {
+    pub fn with_sources<T, F: FnOnce(&IndexedVec<SourceData<'c>, SourceIndex>) -> T>(&self, f: F) -> T {
         let sources = self.sources.read().unwrap();
         f(&sources)
     }
@@ -165,7 +163,7 @@ impl<'c> Compiler<'c> {
                     }
                 }
 
-                source.checked_type = Some(checker::check(errors, source));
+                source.checked_type = Some(checker::check(source, errors));
 
                 if !errors.is_empty() {
                     println!("");

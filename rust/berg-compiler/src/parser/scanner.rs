@@ -1,206 +1,128 @@
-use public::*;
-
-use compiler::compile_errors::SourceCompileErrors;
-use parser::char_data::ByteIndex;
-use std::str;
+use compiler::source_data::ByteIndex;
 use parser::scanner::ByteType::*;
 use parser::scanner::CharType::*;
 
-/// Parses a source file (bytes) into tokens (integers, operators, etc.).
 #[derive(Debug,Copy,Clone)]
-pub(crate) struct Scanner { index: ByteIndex }
-
-#[derive(Debug,Copy,Clone)]
-pub enum TermResult {
-    IntegerLiteral(ByteIndex),
-    Prefix(ByteIndex),
-    MissingTerm,
+pub enum Symbol {
+    Integer,
+    Operator,
+    Open,
+    Close,
+    UnsupportedCharacters,
+    InvalidUtf8Bytes,
 }
 
-#[derive(Debug,Copy,Clone)]
-pub enum OperatorResult {
-    Infix(ByteIndex),
-    Postfix(ByteIndex),
-    MissingInfix,
-    Eof,
+pub fn next(buffer: &[u8], mut index: ByteIndex) -> Option<(Symbol, ByteIndex)> {
+    if usize::from(index) >= buffer.len() {
+        return None;
+    }
+
+    let byte_type = ByteType::from(buffer[usize::from(index)]);
+    index += 1;
+    let symbol = match byte_type {
+        Char(Digit) => { read_bytes_while(buffer, &mut index, byte_type); Symbol::Integer },
+        Char(Operator) => { read_bytes_while(buffer, &mut index, byte_type); Symbol::Operator },
+        Char(Open) => Symbol::Open,
+        Char(Close) => Symbol::Close,
+        InvalidUtf8|Char(Unsupported)|Utf8LeadingByte(_) => { unsupported_or_invalid_utf8(buffer, &mut index, byte_type) },
+    };
+    Some((symbol, index))
 }
 
-impl Default for Scanner {
-    fn default() -> Self { Scanner { index: ByteIndex(0) } }
+pub fn next_has_left_operand(
+    buffer: &[u8],
+    index: ByteIndex
+) -> bool {
+    if index < buffer.len() {
+        match peek_char(buffer, index) {
+            Some((CharType::Digit, _)) => false,
+            _ => true,
+        }
+    } else {
+        true
+    }
 }
 
-impl Scanner {
-    pub fn index(&self) -> ByteIndex { self.index }
-
-    pub fn next_term(
-        &mut self,
-        buffer: &[u8],
-        errors: &mut SourceCompileErrors,
-    ) -> TermResult {
-        while self.index < buffer.len() {
-            let byte_type = ByteType::from(buffer[usize::from(self.index)]);
-            match byte_type {
-                Char(Digit) => return TermResult::IntegerLiteral(self.read_many(buffer, 1, Digit)),
-                Char(Operator) => return TermResult::Prefix(self.read_many(buffer, 1, Operator)),
-                InvalidUtf8|Char(Unsupported)|Utf8LeadingByte(_) => self.report_unsupported_or_invalid_utf8(buffer, byte_type, errors),
+fn unsupported_or_invalid_utf8(
+    buffer: &[u8],
+    index: &mut ByteIndex,
+    byte_type: ByteType,
+) -> Symbol {
+    match byte_type {
+        Char(Unsupported) => { read_many_unsupported(buffer, index); Symbol::UnsupportedCharacters },
+        InvalidUtf8 => { read_many_invalid_utf8(buffer, index); Symbol::InvalidUtf8Bytes },
+        Utf8LeadingByte(char_length) => {
+            if is_valid_utf8_char(buffer, *index, char_length) {
+                *index += usize::from(char_length-1);
+                read_many_unsupported(buffer, index);
+                Symbol::UnsupportedCharacters
+            } else {
+                read_many_invalid_utf8(buffer, index);
+                Symbol::InvalidUtf8Bytes
             }
-        }
-
-        // Handle EOF
-        TermResult::MissingTerm
+        },
+        Char(_) => unreachable!(),
     }
+}
 
-    pub fn next_operator(
-        &mut self,
-        buffer: &[u8],
-        errors: &mut SourceCompileErrors,
-    ) -> OperatorResult {
-        while self.index < buffer.len() {
-            let byte_type = ByteType::from(buffer[usize::from(self.index)]);
-            match byte_type {
-                Char(Digit) => return OperatorResult::MissingInfix,
-                Char(Operator) => {
-                    let start = self.read_many(buffer, 1, Operator);
-                    if self.next_char_has_left_operand(buffer) {
-                        return OperatorResult::Postfix(start);
-                    } else {
-                        return OperatorResult::Infix(start);
-                    }
-                },
-                InvalidUtf8|Char(Unsupported)|Utf8LeadingByte(_) => self.report_unsupported_or_invalid_utf8(buffer, byte_type, errors),
-            }
-        }
-
-        OperatorResult::Eof
+fn read_bytes_while(buffer: &[u8], index: &mut ByteIndex, byte_type: ByteType) {
+    while usize::from(*index) < buffer.len() && ByteType::from(buffer[usize::from(*index)]) == byte_type {
+        *index += 1;
     }
+}
 
-    fn report_unsupported_or_invalid_utf8(
-        &mut self,
-        buffer: &[u8],
-        byte_type: ByteType,
-        errors: &mut SourceCompileErrors
-    ) {
-        match byte_type {
-            Char(Unsupported) => self.report_unsupported(buffer, 1, errors),
-            InvalidUtf8 => self.report_invalid_utf8(buffer, errors),
-            Utf8LeadingByte(char_length) => {
-                if self.is_valid_utf8_char(buffer, char_length) {
-                    self.report_unsupported(buffer, char_length, errors)
-                } else {
-                    self.report_invalid_utf8(buffer, errors)
-                }
-            },
-            Char(_) => unreachable!(),
-        }
-    }
-
-    fn report_unsupported(
-        &mut self,
-        buffer: &[u8],
-        char_length: u8,
-        errors: &mut SourceCompileErrors
-    ) {
-        let start = self.read_many(buffer, char_length, CharType::Unsupported);
-        let range = start..self.index;
-        let bytes = &buffer[usize::from(start)..usize::from(self.index)];
-        let string = unsafe { str::from_utf8_unchecked(bytes) };
-        errors.report_at(CompileErrorType::UnsupportedCharacters, range, string);
-    }
-
-    fn report_invalid_utf8(
-        &mut self,
-        buffer: &[u8],
-        errors: &mut SourceCompileErrors
-    ) {
-        let start = self.index;
-        self.index += 1;
-        while self.index < buffer.len() && ByteType::from(buffer[usize::from(self.index)]) == ByteType::InvalidUtf8 {
-            self.index += 1;
-        }
-        let range = start..self.index;
-        let bytes = &buffer[usize::from(start)..usize::from(self.index)];
-        errors.report_invalid_utf8(range, bytes);
-    }
-
-    // #[inline(always)]
-    fn read_many(
-        &mut self,
-        buffer: &[u8],
-        char_length: u8,
-        if_char_type: CharType
-    ) -> ByteIndex {
-        let start = self.index;
-        self.index += usize::from(char_length);
-        while self.index < buffer.len() {
-            match self.peek_char(buffer) {
-                Some((char_type, char_length)) if char_type == if_char_type => self.index += usize::from(char_length),
-                _ => break,
-            }
-        }
-        start
-    }
-
-    fn next_char_has_left_operand(
-        &mut self,
-        buffer: &[u8],
-    ) -> bool {
-        if self.index < buffer.len() {
-            match self.peek_char(buffer) {
-                Some((CharType::Digit, _)) => false,
-                _ => true,
-            }
+fn read_many_unsupported(buffer: &[u8], index: &mut ByteIndex) {
+    while usize::from(*index) < buffer.len() {
+        if let Some((Unsupported, char_length)) = peek_char(buffer, *index) {
+            *index += usize::from(char_length);
         } else {
-            true
-        }
-    }
-
-    // #[inline(always)]
-    fn peek_char(
-        &mut self,
-        buffer: &[u8]
-    ) -> Option<(CharType, u8)> {
-        match ByteType::from(buffer[usize::from(self.index)]) {
-            ByteType::Char(char_type) => Some((char_type, 1)),
-            ByteType::InvalidUtf8 => None,
-            ByteType::Utf8LeadingByte(n) => self.peek_char_utf8_leading(buffer, n),
-        }
-    }
-
-    fn peek_char_utf8_leading(
-        &mut self,
-        buffer: &[u8],
-        char_length: u8
-    ) -> Option<(CharType, u8)> {
-        if self.is_valid_utf8_char(buffer, char_length) {
-            Some((CharType::Unsupported, char_length))
-        } else {
-            None
-        }
-    }
-
-    fn is_valid_utf8_char(
-        &self,
-        buffer: &[u8],
-        char_length: u8
-    ) -> bool {
-        let index = usize::from(self.index);
-        if index + usize::from(char_length) > buffer.len() {
-            return false;
-        }
-        match char_length {
-            2 => ByteType::is_utf8_cont(buffer[index+1]),
-            3 => ByteType::is_utf8_cont(buffer[index+1]) && ByteType::is_utf8_cont(buffer[index+2]),
-            4 => ByteType::is_utf8_cont(buffer[index+1]) && ByteType::is_utf8_cont(buffer[index+2]) && ByteType::is_utf8_cont(buffer[index+3]),
-            _ => unreachable!()
+            break;
         }
     }
 }
 
+fn read_many_invalid_utf8(buffer: &[u8], index: &mut ByteIndex) {
+    while usize::from(*index) < buffer.len() && peek_char(buffer, *index).is_none() {
+        *index += 1;
+    }
+}
+
+// #[inline(always)]
+fn peek_char(buffer: &[u8], index: ByteIndex) -> Option<(CharType, u8)> {
+    match ByteType::from(buffer[usize::from(index)]) {
+        ByteType::Char(char_type) => Some((char_type, 1)),
+        ByteType::InvalidUtf8 => None,
+        ByteType::Utf8LeadingByte(n) => peek_char_utf8_leading(buffer, index, n),
+    }
+}
+
+fn peek_char_utf8_leading(buffer: &[u8], index: ByteIndex, char_length: u8) -> Option<(CharType, u8)> {
+    if is_valid_utf8_char(buffer, index, char_length) {
+        Some((CharType::Unsupported, char_length))
+    } else {
+        None
+    }
+}
+
+fn is_valid_utf8_char(buffer: &[u8], index: ByteIndex, char_length: u8) -> bool {
+    let index = usize::from(index);
+    if index + usize::from(char_length) > buffer.len() {
+        return false;
+    }
+    match char_length {
+        2 => ByteType::is_utf8_cont(buffer[index+1]),
+        3 => ByteType::is_utf8_cont(buffer[index+1]) && ByteType::is_utf8_cont(buffer[index+2]),
+        4 => ByteType::is_utf8_cont(buffer[index+1]) && ByteType::is_utf8_cont(buffer[index+2]) && ByteType::is_utf8_cont(buffer[index+3]),
+        _ => unreachable!()
+    }
+}
 
 #[derive(Debug,Copy,Clone,PartialEq)]
 enum CharType {
     Digit,
     Operator,
+    Open,
+    Close,
     Unsupported,
 }
 
@@ -213,10 +135,11 @@ enum ByteType {
 
 impl From<u8> for ByteType {
     fn from(byte: u8) -> Self {
-        use parser::scanner::ByteType::*;
         match byte {
-            b'+'|b'-'|b'*'|b'/' => Char(CharType::Operator),
-            b'0'...b'9' => Char(CharType::Digit),
+            b'+'|b'-'|b'*'|b'/' => Char(Operator),
+            b'0'...b'9' => Char(Digit),
+            b'(' => Char(Open),
+            b')' => Char(Close),
             _ => ByteType::from_generic(byte)
         }
     }

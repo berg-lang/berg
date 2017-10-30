@@ -1,14 +1,18 @@
-use parser::AstIndex;
+use ast::intern_pool::StringPool;
+use ast::{AstIndex,IdentifierIndex,LiteralIndex};
+use ast::token::PrefixToken::*;
+use ast::token::PostfixToken::*;
+use indexed_vec::IndexedVec;
 use public::*;
-use parser::IdentifierIndex;
-use parser::ParseData;
-use parser::LiteralIndex;
-use parser::char_data::CharData;
 use std::ffi::OsStr;
 use std::marker::PhantomData;
 use std::ops::Range;
-use indexed_vec::IndexedVec;
 use std::u32;
+
+index_type! {
+    pub struct SourceIndex(pub u32) <= u32::MAX;
+    pub struct ByteIndex(pub u32) <= u32::MAX;
+}
 
 #[derive(Debug)]
 pub struct SourceData<'c> {
@@ -18,12 +22,19 @@ pub struct SourceData<'c> {
     phantom: PhantomData<&'c Compiler<'c>>,
 }
 
-// SourceDatas is a Vec<SourceData>, indexable by indexes of type `SourceIndex`.
-index_type! {
-    pub struct SourceIndex(pub u32) <= u32::MAX;
+#[derive(Debug)]
+pub struct CharData {
+    // size in bytes
+    // byte_size: usize,
+    // Size in Unicode codepoints
+    pub byte_length: ByteIndex,
+    // checksum
+    // time retrieved
+    // time modified
+    // system retrieved on
+    // Start indices of each line
+    pub line_starts: Vec<ByteIndex>,
 }
-
-pub(crate) type Sources<'c> = IndexedVec<SourceData<'c>, SourceIndex>;
 
 impl<'c> SourceData<'c> {
     pub(crate) fn new(source_spec: SourceSpec) -> Self {
@@ -73,34 +84,76 @@ impl<'c> SourceData<'c> {
     }
     pub fn token_string(&self, token: AstIndex) -> &str {
         use Token::*;
-        match self.parse_data {
-            Some(ref parse_data) => match parse_data.tokens[token] {
-                IntegerLiteral(literal) => self.literal_string(literal),
-                Infix(operator)|Postfix(operator)|Prefix(operator) => self.identifier_string(operator),
-                MissingInfix|MissingTerm|Nothing => ""
-            },
-            None => unreachable!(),
+        use TermToken::*;
+        use InfixToken::*;
+        match self.parse_data().tokens[token] {
+            Term(IntegerLiteral(literal)) => self.literal_string(literal),
+
+            Infix(InfixOperator(operator))|
+            Postfix(PostfixOperator(operator))|
+            Postfix(PostfixToken::Close(operator))|
+            Prefix(PrefixOperator(operator))|
+            Prefix(PrefixToken::Open(operator)) =>
+                self.identifier_string(operator),
+
+            Term(MissingOperand)|Term(NoExpression)|Infix(MissingInfix) => "",
         }
     }
     pub fn token_range(&self, token: AstIndex) -> Range<ByteIndex> {
-        match self.parse_data {
-            Some(ref parse_data) => {
-                let range = &parse_data.token_ranges[token];
-                Range { start: range.start, end: range.end }
-            }
-            None => unreachable!(),
-        }
+        let range = &self.parse_data().token_ranges[token];
+        Range { start: range.start, end: range.end }
     }
     pub fn identifier_string(&self, index: IdentifierIndex) -> &str {
-        match self.parse_data {
-            Some(ref parse_data) => &parse_data.identifier_strings[index],
-            None => unreachable!(),
-        }       
+        &self.parse_data().identifiers[index]
     }
     pub fn literal_string(&self, index: LiteralIndex) -> &str {
-        match self.parse_data {
-            Some(ref parse_data) => &parse_data.literal_strings[index],
-            None => unreachable!(),
-        }       
+        &self.parse_data().literals[index]
+    }
+    fn parse_data(&self) -> &ParseData {
+        self.parse_data.as_ref().unwrap()
+    }
+}
+
+#[derive(Debug)]
+pub(crate) struct ParseData {
+    pub char_data: CharData,
+    pub identifiers: StringPool<IdentifierIndex>,
+    pub literals: StringPool<LiteralIndex>,
+    pub tokens: IndexedVec<Token,AstIndex>,
+    pub token_ranges: IndexedVec<Range<ByteIndex>,AstIndex>,
+}
+
+impl Default for CharData {
+    fn default() -> Self { CharData { byte_length: ByteIndex::from(0), line_starts: vec![ByteIndex::from(0)] } }
+}
+
+impl CharData {
+    pub fn append_line(&mut self, line_start_index: ByteIndex) {
+        self.line_starts.push(line_start_index);
+    }
+    pub fn location(&self, index: ByteIndex) -> LineColumn {
+        // TODO binary search to make it faster. But, meh.
+        let mut line = self.line_starts.len();
+        while self.line_starts[line - 1] > index {
+            line -= 1
+        }
+
+        let column = index - self.line_starts[line - 1] + 1;
+        let line = line as u32;
+        LineColumn { line, column }
+    }
+
+    pub fn range(&self, range: Range<ByteIndex>) -> LineColumnRange {
+        let start = self.location(range.start);
+        if range.start == range.end {
+            LineColumnRange { start, end: None }
+        } else {
+            let end = Some(self.location(range.end - 1));
+            LineColumnRange { start, end }
+        }
+    }
+
+    pub fn byte_length(&self) -> ByteIndex {
+        self.byte_length
     }
 }

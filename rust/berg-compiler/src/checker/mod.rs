@@ -1,130 +1,109 @@
 pub mod checker_type;
-mod operators;
 
-use parser::AstIndex;
 use public::*;
 
-use checker::checker_type::Type::*;
-use checker::operators::*;
+use ast::{AstIndex,IdentifierIndex};
+use ast::ast_walker::{AstWalkerMut,AstVisitorMut};
+use ast::token::TermToken::*;
+use ast::token::InfixToken::*;
+use ast::operators::Operators;
+use ast::operators::Operators::*;
+use compiler::compile_errors::SourceCompileErrors;
 use num::BigRational;
-use compiler::compile_errors::*;
 use std::str::FromStr;
 
 pub(super) fn check<'c>(
-    errors: &mut SourceCompileErrors,
-    source_data: &SourceData<'c>
+    source_data: &SourceData<'c>,
+    errors: &mut SourceCompileErrors
 ) -> Type {
-    let mut checker = Checker::new(errors, source_data);
-    checker.check()
+    let mut checker = Checker { errors };
+    AstWalkerMut::walk(&mut checker, source_data)
 }
 
-struct Checker<'ch, 'c: 'ch> {
-    errors: &'ch mut SourceCompileErrors,
-    source_data: &'ch SourceData<'c>,
+struct Checker<'a> {
+    errors: &'a mut SourceCompileErrors,
 }
 
-impl<'ch, 'c: 'ch> Checker<'ch, 'c> {
-    fn new(
-        errors: &'ch mut SourceCompileErrors,
-        source_data: &'ch SourceData<'c>,
-    ) -> Self {
-        Checker {
-            errors,
-            source_data,
+use Type::*;
+
+impl<'a> Checker<'a> {
+    fn check_numeric_binary<F: Fn(BigRational,BigRational)->BigRational>(&mut self, left: Type, right: Type, index: AstIndex, source_data: &SourceData, f: F) -> Type {
+        match (left, right) {
+            (Rational(left), Rational(right)) => Rational(f(left, right)),
+            (Error, _)|(_, Error) => Error,
+            (Rational(_), _) => self.report(CompileErrorType::BadTypeRightOperand, index, source_data),
+            (_, Rational(_)) => self.report(CompileErrorType::BadTypeLeftOperand, index, source_data),
+            (_, _) => self.report(CompileErrorType::BadTypeBothOperands, index, source_data)
         }
     }
-
-    fn check(&mut self) -> Type {
-        use Token::*;
-        let (mut index, mut value, mut last_precedence) =
-            self.check_one(AstIndex(0), Precedence::Other);
-        while index < self.source_data.num_tokens() {
-            let token = self.source_data.token(index);
-            match *token {
-                Postfix(operator) => {
-                    let operator = operators::postfix(self.source_data, operator);
-                    value = operator.check(self, index, last_precedence, value);
-                    last_precedence = operator.precedence();
-                    index += 1;
-                },
-                Infix(operator) => {
-                    let operator = operators::infix(self.source_data, operator);
-                    let (next_index, right_operand, next_precedence) =
-                        self.check_one(index + 1, operator.precedence());
-                    value = operator.check(self, index, last_precedence, value, right_operand);
-                    last_precedence = next_precedence;
-                    index = next_index;
-                },
-                MissingInfix => {
-                    let (next_index, _, next_precedence) =
-                        self.check_one(index + 1, Precedence::Other);
-                    value = self.report_at_token(CompileErrorType::UnrecognizedOperator, index);
-                    last_precedence = next_precedence;
-                    index = next_index;
-                },
-                IntegerLiteral(_)|Prefix(_)|Nothing|MissingTerm => unreachable!(),
-            }
-        }
-        value
-    }
-
-    fn check_one(
-        &mut self,
-        index: AstIndex,
-        last_precedence: Precedence,
-    ) -> (AstIndex, Type, Precedence) {
-        if index >= self.source_data.num_tokens() {
-            return (index, Type::Nothing, last_precedence);
-        }
-
-        use Token::*;
-
-        let token = self.source_data.token(index);
-        match *token {
-            IntegerLiteral(literal) => {
-                let string = self.source_data.literal_string(literal);
-                let value = Type::Rational(BigRational::from_str(string).unwrap());
-                (index + 1, value, last_precedence)
-            },
-            Prefix(operator) => {
-                let operator = operators::prefix(self.source_data, operator);
-                let (next_index, right_operand, last_precedence) =
-                    self.check_one(index + 1, operator.precedence());
-                let value = operator.check(self, index, right_operand);
-                (next_index, value, last_precedence)
-            },
-            MissingTerm => {
-                // TODO these are wrong, MissingBothOperands applies to the operator, not the missing spot.
-                // Attach the error to whichever operand we think is most likely, instead.
-                let left = index > 0 && self.source_data.token(index-1).has_right_operand();
-                let right = index+1 < self.source_data.num_tokens() && self.source_data.token(index+1).has_left_operand();
-                let value = match (left, right) {
-                    (true, true) => {
-                        let start = self.source_data.token_range(index-1).start;
-                        let end = self.source_data.token_range(index+1).end;
-                        let string = format!("{} {}",
-                            self.source_data.token_string(index-1),
-                            self.source_data.token_string(index+1)
-                        );
-                        self.errors.report_at(CompileErrorType::MissingOperandsBetween, start..end, &string);
-                        Error
-                    },
-                    (true, false) => self.report_at_token(CompileErrorType::MissingRightOperand, index-1),
-                    (false, true) => self.report_at_token(CompileErrorType::MissingLeftOperand, index+1),
-                    (false, false) => Type::Nothing,
-                };
-                (index + 1, value, last_precedence)
-            },
-            Nothing => (index + 1, Type::Nothing, Precedence::Other),
-            Postfix(_)|Infix(_)|MissingInfix => unreachable!(),
+    fn check_numeric_prefix<F: Fn(BigRational)->BigRational>(&mut self, operand: Type, index: AstIndex, source_data: &SourceData, f: F) -> Type {
+        match operand {
+            Rational(operand) => Rational(f(operand)),
+            Error => Error,
+            _ => self.report(CompileErrorType::BadTypeRightOperand, index, source_data),
         }
     }
-
-    pub fn report_at_token(&mut self, error_type: CompileErrorType, token: AstIndex) -> Type {
-        let range = self.source_data.token_range(token);
-        let string = self.source_data.token_string(token);
-        self.errors
-            .report_at(error_type, range, string);
+    // fn check_numeric_postfix<F: Fn(BigRational)->BigRational>(operand: Type, index: AstIndex, f: F) -> Type {
+    //     match operand {
+    //         Rational(operand) => Rational(f(operand)),
+    //         Error => Error,
+    //         _ => self.report(index, CompileErrorType::BadTypeLeftOperand),
+    //     }
+    // }
+    fn report(&mut self, error_type: CompileErrorType, index: AstIndex, source_data: &SourceData) -> Type {
+        let range = source_data.token_range(index);
+        let string = source_data.token_string(index);
+        self.errors.report_at(error_type, range, string);
         Error
     }
 }
+
+impl<'a> AstVisitorMut<Type> for Checker<'a> {
+    fn visit_term(&mut self, token: TermToken, _: AstIndex, source_data: &SourceData) -> Type {
+        match token {
+            IntegerLiteral(literal) => {
+                let string = source_data.literal_string(literal);
+                let value = BigRational::from_str(string).unwrap();
+                Rational(value)
+            },
+            MissingOperand => Error,
+            NoExpression => Nothing,
+        }
+    }
+
+    fn visit_infix(&mut self, token: InfixToken, left: Type, right: Type, index: AstIndex, source_data: &SourceData) -> Type {
+        match token {
+            InfixOperator(identifier) => match Operators::from(identifier) {
+                Plus  => self.check_numeric_binary(left, right, index, source_data, |left, right| left + right),
+                Dash  => self.check_numeric_binary(left, right, index, source_data, |left, right| left - right),
+                Slash => self.check_numeric_binary(left, right, index, source_data, |left, right| left / right),
+                Star  => self.check_numeric_binary(left, right, index, source_data, |left, right| left * right),
+                _ => self.report(CompileErrorType::UnrecognizedOperator, index, source_data),
+            },
+            MissingInfix => Error,
+        }
+    }
+
+    fn visit_prefix(&mut self, prefix: IdentifierIndex, operand: Type, index: AstIndex, source_data: &SourceData) -> Type {
+        match Operators::from(prefix) {
+            Plus => self.check_numeric_prefix(operand, index, source_data, |operand| operand),
+            Dash => self.check_numeric_prefix(operand, index, source_data, |operand| -operand),
+            _ => self.report(CompileErrorType::UnrecognizedOperator, index, source_data),
+        }
+    }
+
+    fn visit_postfix(&mut self, postfix: IdentifierIndex, _: Type, index: AstIndex, source_data: &SourceData) -> Type {
+        match Operators::from(postfix) {
+            _ => self.report(CompileErrorType::UnrecognizedOperator, index, source_data),
+        }
+    }
+
+    fn open_without_close(&mut self, _: Operators, open_index: AstIndex, _missing_close_index: AstIndex, source_data: &SourceData) {
+        self.report(CompileErrorType::OpenWithoutClose, open_index, source_data);
+    }
+
+    fn close_without_open(&mut self, _: Operators, close_index: AstIndex, _missing_open_index: AstIndex, source_data: &SourceData) {
+        self.report(CompileErrorType::CloseWithoutOpen, close_index, source_data);
+    }
+}
+

@@ -6,6 +6,7 @@ extern crate fnv;
 
 #[macro_use]
 mod indexed_vec;
+mod ast;
 mod checker;
 mod compiler;
 mod parser;

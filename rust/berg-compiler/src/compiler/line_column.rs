@@ -1,28 +1,6 @@
-use std::ops::Range;
-use std::fmt::*;
-use std::u32;
-
-index_type! {
-    pub struct ByteIndex(pub u32) <= u32::MAX;
-}
-
-#[derive(Debug)]
-pub struct CharData {
-    // size in bytes
-    // byte_size: usize,
-    // Size in Unicode codepoints
-    pub byte_length: ByteIndex,
-    // checksum
-    // time retrieved
-    // time modified
-    // system retrieved on
-    // Start indices of each line
-    pub line_starts: Vec<ByteIndex>,
-}
-
-impl Default for CharData {
-    fn default() -> Self { CharData { byte_length: ByteIndex::from(0), line_starts: vec![ByteIndex::from(0)] } }
-}
+use compiler::source_data::ByteIndex;
+use std::cmp::Ordering;
+use std::fmt::{Display,Formatter,Result};
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct LineColumn {
@@ -35,37 +13,6 @@ pub struct LineColumn {
 pub struct LineColumnRange {
     pub start: LineColumn,
     pub end: Option<LineColumn>,
-}
-
-impl CharData {
-    pub fn append_line(&mut self, line_start_index: ByteIndex) {
-        self.line_starts.push(line_start_index);
-    }
-    pub fn location(&self, index: ByteIndex) -> LineColumn {
-        // TODO binary search to make it faster. But, meh.
-        let mut line = self.line_starts.len();
-        while self.line_starts[line - 1] > index {
-            line -= 1
-        }
-
-        let column = index - self.line_starts[line - 1] + 1;
-        let line = line as u32;
-        LineColumn { line, column }
-    }
-
-    pub fn range(&self, range: Range<ByteIndex>) -> LineColumnRange {
-        let start = self.location(range.start);
-        if range.start == range.end {
-            LineColumnRange { start, end: None }
-        } else {
-            let end = Some(self.location(range.end - 1));
-            LineColumnRange { start, end }
-        }
-    }
-
-    pub fn byte_length(&self) -> ByteIndex {
-        self.byte_length
-    }
 }
 
 impl LineColumn {
