@@ -1,7 +1,5 @@
 use ast::intern_pool::StringPool;
 use ast::{AstIndex,IdentifierIndex,LiteralIndex};
-use ast::token::PrefixToken::*;
-use ast::token::PostfixToken::*;
 use indexed_vec::IndexedVec;
 use public::*;
 use std::ffi::OsStr;
@@ -84,19 +82,17 @@ impl<'c> SourceData<'c> {
     }
     pub fn token_string(&self, token: AstIndex) -> &str {
         use Token::*;
-        use TermToken::*;
-        use InfixToken::*;
         match self.parse_data().tokens[token] {
-            Term(IntegerLiteral(literal)) => self.literal_string(literal),
+            IntegerLiteral(literal) => self.literal_string(literal),
 
-            Infix(InfixOperator(operator))|
-            Postfix(PostfixOperator(operator))|
-            Postfix(PostfixToken::Close(operator))|
-            Prefix(PrefixOperator(operator))|
-            Prefix(PrefixToken::Open(operator)) =>
+            InfixOperator(operator)|
+            PostfixOperator(operator)|
+            Close(operator)|
+            PrefixOperator(operator)|
+            Open(operator) =>
                 self.identifier_string(operator),
 
-            Term(MissingOperand)|Term(NoExpression)|Infix(MissingInfix) => "",
+            MissingOperand|NoExpression|MissingInfix => "",
         }
     }
     pub fn token_range(&self, token: AstIndex) -> Range<ByteIndex> {

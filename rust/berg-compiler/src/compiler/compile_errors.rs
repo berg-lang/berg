@@ -36,9 +36,8 @@ pub enum CompileErrorType {
     MissingRightOperand = 202,
     MissingLeftOperand = 203,    
     UnrecognizedOperator = 204,
-    OperatorsOutOfPrecedenceOrder = 205,
-    OpenWithoutClose = 206,
-    CloseWithoutOpen = 207,
+    OpenWithoutClose = 205,
+    CloseWithoutOpen = 206,
 
     // Compile errors related to type
     DivideByZero = 1001,
@@ -260,10 +259,6 @@ impl CompileErrorType {
             ),
             BadTypeBothOperands => format!(
                 "The values on either side of the operator {:?} are not numbers!",
-                string
-            ),
-            OperatorsOutOfPrecedenceOrder => format!(
-                "Operator {:?} has higher precedence than the previous operator! Automatic precedence resolution is not supported. Perhaps you should place this operator in parentheses?",
                 string
             ),
             DivideByZero => format!(

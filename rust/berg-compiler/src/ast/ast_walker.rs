@@ -1,9 +1,10 @@
+use std::fmt::Debug;
 use ast::{AstIndex,IdentifierIndex};
+use ast::ast_walker::Advance::*;
 use ast::operators::Operators;
 use ast::operators::Operators::*;
 use ast::token::Token::*;
-use ast::token::PrefixToken::*;
-use ast::token::PostfixToken::*;
+use ast::token::Fixity::*;
 use public::*;
 
 pub trait AstVisitorMut<T> {
@@ -15,52 +16,66 @@ pub trait AstVisitorMut<T> {
     fn close_without_open(&mut self, _close: Operators, _close_index: AstIndex, _missing_open_index: AstIndex, _source_data: &SourceData) {}
 }
 
-#[derive(Copy,Clone,Default)]
+#[derive(Debug)]
+enum Advance<T> {
+    NextToken(T, AstIndex),
+    NoMatch,
+    Eof,
+}
+
+#[derive(Debug,Copy,Clone,Default)]
 pub struct AstWalkerMut {
     index: AstIndex
 }
 
 impl AstWalkerMut {
-    pub fn walk<T, V: AstVisitorMut<T>>(visitor: &mut V, source_data: &SourceData) -> T {
+    pub fn walk<T: Debug, V: AstVisitorMut<T>>(visitor: &mut V, source_data: &SourceData) -> T {
         let mut walker = AstWalkerMut { index: AstIndex(0) };
         let mut value = walker.walk_expression(visitor, source_data);
-        while let Some(Postfix(Close(close))) = walker.token(source_data) {
-            visitor.close_without_open(Operators::from(close), walker.index, AstIndex(0), source_data);
-            walker.index += 1;
+
+        // If there are extra close operators, report them.
+        while let NextToken(close, close_index) = walker.advance_if(source_data,
+            |token| match token { Close(close) => Some(close), _ => None }) {
+            let close = Operators::from(close);
+            visitor.close_without_open(close, close_index, AstIndex(0), source_data);
+            // Walk any remaining postfixes.
             value = walker.walk_postfixes(visitor, value, source_data);
+            // Read any remaining infixes as well.
             value = walker.walk_infix_while(visitor, value, source_data, |_| true)
         }
-        assert!(walker.token(source_data).is_none());
+        assert!(walker.is_at_eof(source_data));
         value
     }
 
-    fn walk_expression<T, V: AstVisitorMut<T>>(&mut self, visitor: &mut V, source_data: &SourceData) -> T {
+    fn walk_expression<T: Debug, V: AstVisitorMut<T>>(&mut self, visitor: &mut V, source_data: &SourceData) -> T {
         let left = self.walk_infix_operand(visitor, source_data);
+        self.walk_infix(visitor, left, source_data)
+    }
+
+    fn walk_infix<T: Debug, V: AstVisitorMut<T>>(&mut self, visitor: &mut V, left: T, source_data: &SourceData) -> T {
         self.walk_infix_while(visitor, left, source_data, |_| true)
     }
 
-    fn walk_infix_while<T, V: AstVisitorMut<T>, F: Fn(InfixToken)->bool>(
+    fn walk_infix_while<T: Debug, V: AstVisitorMut<T>, F: Fn(InfixToken)->bool>(
         &mut self,
         visitor: &mut V,
         mut left: T,
         source_data: &SourceData,
         walk_if: F
     ) -> T {
-        while let Some(Infix(infix)) = self.token(source_data) {
-            if !walk_if(infix) {
-                break;
-            }
-            let infix_index = self.index;
-            self.index += 1;
-
+        while let NextToken(infix, infix_index) = self.advance_if(source_data,
+            |token| match InfixToken::try_from(token) { Some(infix) if walk_if(infix) => Some(infix), _ => None })
+        {
             // Get the right operand.
             let mut right = self.walk_infix_operand(visitor, source_data);
 
             // Handle precedence: if we see + or -, grab all the * and / first.
             match infix.operator() {
-                Operators::Plus|Operators::Dash =>
-                    right = self.walk_infix_while(visitor, right, source_data, Self::multiply_or_divide),
-                _ => {}
+                Operators::Plus|Operators::Dash => {
+                    right = self.walk_infix_while(visitor, right, source_data, Self::multiply_or_divide);
+                },
+                _ => {
+}
             }
 
             // Apply the operator now that we've grabbed anything we needed from the right!
@@ -76,67 +91,83 @@ impl AstWalkerMut {
         }
     }
 
-    fn walk_infix_operand<T, V: AstVisitorMut<T>>(&mut self, visitor: &mut V, source_data: &SourceData) -> T {
+    fn walk_infix_operand<T: Debug, V: AstVisitorMut<T>>(&mut self, visitor: &mut V, source_data: &SourceData) -> T {
         // Skip any prefixes (we'll apply them after we calculate the term)
-        let start = self.index;
-        while let Some(Prefix(prefix)) = self.token(source_data) {
-            if prefix.operator() == OpenParen {
-                break;
-            }
+        let first_prefix = self.index;
+        while let NextToken(..) = self.advance_if(source_data, |token|
+            match token.fixity() { Prefix => Some(()), _ => None }
+        ) {
+            // Do-nothing loop, we're just skipping them to be dealt with later
         }
 
         // Handle the term
-        let mut term_index = self.index;
-        let token = self.token(source_data);
-        self.index += 1;
-        let mut value = match token {
-            // Handle terms (i.e. literals and properties)
-            Some(Term(term)) => visitor.visit_term(term, term_index, source_data),
+        let (term_token, mut term_index) = self.advance(source_data);
+        let term = term_token.to_term().unwrap();
+        let mut value = visitor.visit_term(term, term_index, source_data);
 
-            // Handle parentheses
-            Some(Prefix(Open(prefix))) => {
-                // Walk the expression inside
-                let value = self.walk_expression(visitor, source_data);
+        // Handle prefixes (in reverse order)
+        while term_index > first_prefix {
+            term_index -= 1;
+            let prefix_token = (*source_data.token(term_index)).to_prefix().unwrap();
+            match prefix_token {
+                PrefixToken::PrefixOperator(prefix) => {
+                    value = visitor.visit_prefix(prefix, value, term_index, source_data);
+                },
+                // Handle parentheses
+                PrefixToken::Open(prefix) => {
+                    // Walk the remainder of the expression in the parens (we already got the term)
+                    value = self.walk_infix(visitor, value, source_data);
 
-                // Check for close parentheses
-                match self.token(source_data) {
-                    Some(Postfix(Close(postfix))) if Operators::from(postfix) == CloseParen => self.index += 1,
-                    _ => visitor.open_without_close(Operators::from(prefix), term_index, self.index, source_data),
-                }
-
-                value
-            },
-
-            _ => { println!("Huh {:?} at {:?}", token, self.index-1); unreachable!() },
+                    // Check for close and skip if it's the right one
+                    let close = Operators::from(prefix).corresponding_close().identifier();
+                    self.advance_if(source_data,
+                        |token| match token { Close(postfix) if postfix == close => Some(()), _ => None });
+                },
+            };
         };
 
-        // Go backwards applying all the prefixes
-        while term_index > start {
-            term_index -= 1;
-            value = match self.token(source_data) {
-                Some(Prefix(PrefixOperator(prefix))) => visitor.visit_prefix(prefix, value, term_index, source_data),
-                _ => unreachable!(),
-            };
-        }
-
-        // Now a apply any postfixes
+        // Now a apply any postfixes. Stop when we see a close operator.
         self.walk_postfixes(visitor, value, source_data)
     }
 
     fn walk_postfixes<T, V: AstVisitorMut<T>>(&mut self, visitor: &mut V, mut value: T, source_data: &SourceData) -> T {
-        while let Some(Postfix(PostfixOperator(postfix))) = self.token(source_data) {
-            value = visitor.visit_postfix(postfix, value, self.index, source_data);
-            self.index += 1;
+        while let NextToken(postfix, postfix_index) = self.advance_if(source_data,
+            |token| match token { PostfixOperator(postfix) => Some(postfix), _ => None })
+        {
+            value = visitor.visit_postfix(postfix, value, postfix_index, source_data)
         }
-
         value
     }
 
-    fn token(&self, source_data: &SourceData) -> Option<Token> {
-        if self.index < source_data.num_tokens() {
-            Some(*source_data.token(self.index))
+    fn advance(&mut self, source_data: &SourceData) -> (Token, AstIndex) {
+        let advanced = self.advance_if(source_data, Some);
+        if let NextToken(result, index) = advanced {
+            (result, index)
         } else {
-            None
+            panic!("Internal Compiler Error: Walker algorithm is wrong or parser built a bad tree. Advanced: {:?}. Walker: {:?}. SourceData: {:?}", advanced, self, source_data);
         }
+    }
+
+    fn advance_if<T, F: Fn(Token)->Option<T>>(
+        &mut self,
+        source_data: &SourceData,
+        match_token: F
+    ) -> Advance<T> {
+        if self.is_at_eof(source_data) {
+            return Eof;
+        }
+
+        let token = *source_data.token(self.index);
+        if let Some(result) = match_token(token) {
+            let index = self.index;
+            self.index += 1;
+            NextToken(result, index)
+        } else {
+            NoMatch
+        }
+    }
+
+    fn is_at_eof(&self, source_data: &SourceData) -> bool {
+        self.index >= source_data.num_tokens()
     }
 }

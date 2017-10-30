@@ -38,6 +38,18 @@ impl Operators {
         assert_eq!(identifiers.len(), Operators::Unrecognized.identifier());
         identifiers
     }
+    pub(crate) fn corresponding_close(self) -> Operators {
+        match self {
+            OpenParen => CloseParen,
+            _ => Unrecognized,
+        }
+    }
+    // pub(crate) fn corresponding_open(self) -> Operators {
+    //     match self {
+    //         CloseParen => OpenParen,
+    //         _ => Unrecognized,
+    //     }
+    // }
 }
 
 impl From<IdentifierIndex> for Operators {

@@ -2,11 +2,8 @@ use ast::intern_pool::Pool;
 use ast::{IdentifierIndex,LiteralIndex};
 use std::ops::Range;
 use compiler::compile_errors::SourceCompileErrors;
+use ast::token::Fixity;
 use ast::token::Token::*;
-use ast::token::PrefixToken::*;
-use ast::token::PostfixToken::*;
-use ast::token::InfixToken::*;
-use ast::token::TermToken::*;
 use parser::scanner;
 use parser::scanner::Symbol;
 use public::*;
@@ -21,16 +18,20 @@ enum Need {
 impl Need {
     fn after(token: Token, start: ByteIndex, end: ByteIndex) -> Need {
         match token {
-            Infix(_)|Prefix(PrefixOperator(_)) => Need::Operand(start..end),
-            Prefix(Open(_)) => Need::Term,
-            Postfix(_)|Term(_) => Need::Operator,
+            Open(_) => Need::Term,
+            _ => match token.fixity() {
+                Fixity::Infix|Fixity::Prefix => Need::Operand(start..end),
+                Fixity::Term|Fixity::Postfix => Need::Operator
+            }
         }
     }
     fn before(token: Token, start: ByteIndex, end: ByteIndex) -> Need {
         match token {
-            Infix(_)|Postfix(PostfixOperator(_)) => Need::Operand(start..end),
-            Postfix(Close(_)) => Need::Term,
-            Term(_)|Prefix(_) => Need::Operator,
+            Close(_) => Need::Term,
+            _ => match token.fixity() {
+                Fixity::Infix|Fixity::Postfix => Need::Operand(start..end),
+                Fixity::Term|Fixity::Prefix => Need::Operator
+            }
         }
     }
 }
@@ -51,16 +52,16 @@ pub(crate) fn tokenize<F: FnMut(Token,Range<ByteIndex>)->()>(
     while let Some((symbol, index)) = scanner::next(buffer, start) {
         println!("{:?}-{:?}: {:?}", start, index, symbol);
         let token = match symbol {
-            Symbol::Integer => Some(Term(IntegerLiteral(unsafe { literals.add_utf8_unchecked(buffer, start, index) }))),
-            Symbol::Open => Some(Prefix(Open(unsafe { identifiers.add_utf8_unchecked(buffer, start, index) }))),
-            Symbol::Close => Some(Postfix(Close(unsafe { identifiers.add_utf8_unchecked(buffer, start, index) }))),
+            Symbol::Integer => Some(IntegerLiteral(unsafe { literals.add_utf8_unchecked(buffer, start, index) })),
+            Symbol::Open => Some(Open(unsafe { identifiers.add_utf8_unchecked(buffer, start, index) })),
+            Symbol::Close => Some(Close(unsafe { identifiers.add_utf8_unchecked(buffer, start, index) })),
             Symbol::Operator => match need {
-                Need::Term|Need::Operand(_) => Some(Prefix(PrefixOperator(unsafe { identifiers.add_utf8_unchecked(buffer, start, index) }))),
+                Need::Term|Need::Operand(_) => Some(PrefixOperator(unsafe { identifiers.add_utf8_unchecked(buffer, start, index) })),
                 Need::Operator => {
                     if scanner::next_has_left_operand(buffer, index) {
-                        Some(Postfix(PostfixOperator(unsafe { identifiers.add_utf8_unchecked(buffer, start, index) })))
+                        Some(PostfixOperator(unsafe { identifiers.add_utf8_unchecked(buffer, start, index) }))
                     } else {
-                        Some(Infix(InfixOperator(unsafe { identifiers.add_utf8_unchecked(buffer, start, index) })))
+                        Some(InfixOperator(unsafe { identifiers.add_utf8_unchecked(buffer, start, index) }))
                     }
                 },
             },
@@ -84,10 +85,10 @@ pub(crate) fn tokenize<F: FnMut(Token,Range<ByteIndex>)->()>(
         start = index
     }
     match need {
-        Need::Term => on_token(Term(NoExpression), start..start),
+        Need::Term => on_token(NoExpression, start..start),
         Need::Operand(range) => {
             report_valid_utf8(errors, CompileErrorType::MissingRightOperand, range, buffer);
-            on_token(Term(MissingOperand), start..start);
+            on_token(MissingOperand, start..start);
         },
         Need::Operator => {}
     }
@@ -104,19 +105,19 @@ fn report_missing_operands(
     use parser::tokenizer::Need::*;
     let result = match (after_prev, Need::before(token, start, end)) {
         (Operator,Term)|(Operator,Operand(_))|(Term,Operator)|(Operand(_),Operator) => None,
-        (Operator,Operator) => Some(Infix(MissingInfix)),
-        (Term,Term) => Some(Token::Term(NoExpression)),
+        (Operator,Operator) => Some(MissingInfix),
+        (Term,Term) => Some(NoExpression),
         (Term,Operand(second)) => {
             report_valid_utf8(errors, CompileErrorType::MissingLeftOperand, second, buffer);
-            Some(Token::Term(MissingOperand))
+            Some(MissingOperand)
         },
         (Operand(first),Term) => {
             report_valid_utf8(errors, CompileErrorType::MissingRightOperand, first, buffer);
-            Some(Token::Term(MissingOperand))
+            Some(MissingOperand)
         },
         (Operand(first),Operand(second)) => {
             report_valid_utf8(errors, CompileErrorType::MissingOperandsBetween, first.start..second.end, buffer);
-            Some(Token::Term(MissingOperand))
+            Some(MissingOperand)
         },
     };
     println!("Thus we return {:?}", result);
