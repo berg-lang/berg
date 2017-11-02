@@ -1,3 +1,4 @@
+use compiler::source_data::ByteSlice;
 use std::ops::Deref;
 use public::*;
 use std::io;
@@ -94,14 +95,13 @@ impl SourceCompileErrors {
         let error = error_type.at(self.source, range, string);
         self.report(error)
     }
-    pub(crate) unsafe fn report_at_utf8_unchecked(&mut self, error_type: CompileErrorType, range: Range<ByteIndex>, buffer: &[u8]) {
-        let bytes = &buffer[usize::from(range.start)..usize::from(range.end)];
+    pub(crate) unsafe fn report_at_utf8_unchecked(&mut self, error_type: CompileErrorType, range: Range<ByteIndex>, buffer: &ByteSlice) {
+        let bytes = &buffer[range.start..range.end];
         let string = str::from_utf8_unchecked(bytes);
         self.report_at(error_type, range, string)
     }
-    pub(crate) fn report_invalid_utf8(&mut self, range: Range<ByteIndex>, buffer: &[u8]) {
-        let bytes = &buffer[usize::from(range.start)..usize::from(range.end)];
-        let error = CompileErrorType::InvalidUtf8.invalid_bytes(self.source, range, bytes);
+    pub(crate) fn report_invalid_utf8(&mut self, range: Range<ByteIndex>, buffer: &ByteSlice) {
+        let error = CompileErrorType::InvalidUtf8.invalid_bytes(self.source, range, buffer);
         self.report(error)
     }
     pub(crate) fn report_io_read(&mut self, index: ByteIndex, error: &io::Error) {
@@ -210,18 +210,18 @@ impl CompileErrorType {
         let message = CompileErrorMessage::source_only(source, error_message);
         CompileError::new(self, vec![message])
     }
-    pub fn invalid_bytes<T: AsRef<[u8]>>(
+    pub fn invalid_bytes(
         self,
         source: SourceIndex,
         range: Range<ByteIndex>,
-        string: T,
+        buffer: &ByteSlice,
     ) -> CompileError {
         use compiler::compile_errors::CompileErrorType::*;
-        let string = string.as_ref();
+        let bytes = &buffer[range.start..range.end];
         let error_message = match self {
             InvalidUtf8 => format!(
                 "Invalid UTF-8 bytes: '{}'",
-                string
+                bytes
                     .iter()
                     .map(|b| format!("{:02X}", b))
                     .collect::<Vec<String>>()

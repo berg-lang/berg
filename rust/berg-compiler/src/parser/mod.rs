@@ -22,7 +22,7 @@ pub(crate) fn parse(
     let mut token_ranges = IndexedVec::default();
 
     // Loop through tokens, inserting term, then operator, then term, then operator ...
-    tokenizer::tokenize(buffer.buffer(), errors, &mut identifiers, &mut literals, |token, range| {
+    tokenizer::tokenize(&buffer, errors, &mut identifiers, &mut literals, |token, range| {
         tokens.push(token);
         token_ranges.push(range);
     });

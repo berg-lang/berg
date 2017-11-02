@@ -1,3 +1,6 @@
+use compiler::source_data::ByteSlice;
+use std::borrow::Cow;
+use indexed_vec::IndexedVec;
 use compiler::compile_errors::SourceCompileErrors;
 use public::*;
 use compiler::Compiler;
@@ -12,20 +15,6 @@ use std::path::PathBuf;
 pub enum SourceSpec {
     File { path: PathBuf },
     Memory { name: String, contents: Vec<u8> },
-}
-
-pub(crate) enum SourceSpecBuffer<'b> {
-    Owned(Vec<u8>),
-    Ref(&'b [u8]),
-}
-
-impl<'b> SourceSpecBuffer<'b> {
-    pub(crate) fn buffer(&self) -> &[u8] {
-        match *self {
-            SourceSpecBuffer::Owned(ref vec) => vec.as_slice(),
-            SourceSpecBuffer::Ref(vec) => vec,
-        }
-    }
 }
 
 impl SourceSpec {
@@ -43,14 +32,14 @@ impl SourceSpec {
         }
     }
 
-    pub(crate) fn open(
-        &self,
+    pub(crate) fn open<'b>(
+        &'b self,
         compiler: &Compiler,
         errors: &mut SourceCompileErrors,
-    ) -> SourceSpecBuffer {
+    ) -> Cow<'b, ByteSlice> {
         match *self {
             SourceSpec::File { ref path, .. } => Self::open_file(compiler, errors, path),
-            SourceSpec::Memory { ref contents, .. } => SourceSpecBuffer::Ref(contents),
+            SourceSpec::Memory { ref contents, .. } => Cow::Borrowed(ByteSlice::from_slice(contents)),
         }
     }
 
@@ -58,7 +47,7 @@ impl SourceSpec {
         compiler: &Compiler,
         errors: &mut SourceCompileErrors,
         path: &PathBuf,
-    ) -> SourceSpecBuffer<'b> {
+    ) -> Cow<'b, ByteSlice> {
         use CompileErrorType::*;
         if let Some(ref path) = compiler.absolute_path(path, errors) {
             match File::open(path) {
@@ -67,7 +56,7 @@ impl SourceSpec {
                     if let Err(error) = file.read_to_end(&mut buffer) {
                         errors.report_io_read(ByteIndex::from(buffer.len()), &error);
                     }
-                    SourceSpecBuffer::Owned(buffer)
+                    Cow::Owned(IndexedVec::from(buffer))
                 }
                 Err(error) => {
                     let error_type = match error.kind() {
@@ -75,11 +64,11 @@ impl SourceSpec {
                         _ => IoOpenError,
                     };
                     errors.report_io_open(error_type, &error, path.as_path());
-                    SourceSpecBuffer::Ref(&[])
+                    Cow::Borrowed(ByteSlice::from_slice(&[]))
                 }
             }
         } else {
-            SourceSpecBuffer::Ref(&[])
+            Cow::Borrowed(ByteSlice::from_slice(&[]))
         }
     }
 }

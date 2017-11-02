@@ -1,3 +1,4 @@
+use compiler::source_data::ByteSlice;
 use ast::intern_pool::Pool;
 use ast::{IdentifierIndex,LiteralIndex};
 use std::ops::Range;
@@ -41,7 +42,7 @@ impl Need {
 /// token.
 /// 
 pub(crate) fn tokenize<F: FnMut(Token,Range<ByteIndex>)->()>(
-    buffer: &[u8],
+    buffer: &ByteSlice,
     errors: &mut SourceCompileErrors,
     identifiers: &mut Pool<IdentifierIndex>,
     literals: &mut Pool<LiteralIndex>,
@@ -95,7 +96,7 @@ pub(crate) fn tokenize<F: FnMut(Token,Range<ByteIndex>)->()>(
 
 fn report_missing_operands(
     after_prev: Need,
-    buffer: &[u8],
+    buffer: &ByteSlice,
     token: Token,
     start: ByteIndex,
     end: ByteIndex,
@@ -122,6 +123,6 @@ fn report_missing_operands(
     }
 }
 
-fn report_valid_utf8(errors: &mut SourceCompileErrors, error_type: CompileErrorType, range: Range<ByteIndex>, buffer: &[u8]) {
+fn report_valid_utf8(errors: &mut SourceCompileErrors, error_type: CompileErrorType, range: Range<ByteIndex>, buffer: &ByteSlice) {
     unsafe { errors.report_at_utf8_unchecked(error_type, range, buffer) }
 }

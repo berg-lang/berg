@@ -60,7 +60,7 @@ impl<'c> Compiler<'c> {
         err: Box<Write>,
     ) -> Self {
         let root_error = RwLock::new(root_error);
-        let sources = RwLock::new(Default::default());
+        let sources = RwLock::new(Vec::default().into());
         let errors = Default::default();
         Compiler {
             root,
@@ -117,8 +117,7 @@ impl<'c> Compiler<'c> {
         f: F,
     ) -> T {
         let mut sources = self.sources.write().unwrap();
-        let source_data = &mut sources[index];
-        f(source_data)
+        f(&mut sources[index])
     }
 
     pub(crate) fn with_errors_mut<T, F: FnOnce(&mut CompileErrors) -> T>(
@@ -149,7 +148,7 @@ impl<'c> Compiler<'c> {
             print!("{}", parse_data);
 
             if !errors.is_empty() {
-                println!("");
+                println!();
                 println!("CHECK ERRORS:");
                 for error in errors.iter() {
                     println!("- {:?}", error);
@@ -159,7 +158,7 @@ impl<'c> Compiler<'c> {
             let checked_type = checker::check(&parse_data, errors);
 
             if !errors.is_empty() {
-                println!("");
+                println!();
                 println!("CHECK ERRORS:");
                 for error in errors.iter() {
                     println!("- {:?}", error);

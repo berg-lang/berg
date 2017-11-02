@@ -1,14 +1,16 @@
-use std::ops::Index;
-use std::ops::IndexMut;
 use std::ops::Range;
-use std::ops::RangeTo;
-use std::ops::RangeFrom;
-use std::ops::RangeFull;
+use std::borrow::BorrowMut;
+use std::borrow::Borrow;
+use std::ops::DerefMut;
+use std::marker::PhantomData;
+use std::mem;
 use std::ops::Add;
 use std::ops::AddAssign;
+use std::ops::Deref;
+use std::ops::Index;
+use std::ops::IndexMut;
 use std::ops::Sub;
 use std::ops::SubAssign;
-use std::marker::PhantomData;
 
 // index_type and indexed_vec work together to let you use a custom type
 // (like TokenIndex) to index the vector, and disallow any other type (like usize
@@ -48,7 +50,7 @@ macro_rules! index_type {
                 fn gt(&self, other: &usize) -> bool { (self.0 as usize).gt(other) }
                 fn ge(&self, other: &usize) -> bool { (self.0 as usize).ge(other) }
             }
-            impl IndexType for $name {}
+            impl IndexType for $name { }
             impl $name { pub const MAX: $name = $name($max); }
             impl From<usize> for $name { fn from(size: usize) -> Self { $name(size as $($type)*) } }
             impl From<$name> for usize { fn from(size: $name) -> Self { size.0 as usize } }
@@ -60,73 +62,77 @@ macro_rules! index_type {
         )*
     }
 }
-pub trait IndexType: Into<usize>+From<usize>+PartialOrd+PartialEq+Copy+AddAssign<usize>+SubAssign<usize>+Add<usize,Output=Self>+Sub<usize,Output=Self> {}
+
+pub trait IndexType: Copy+Clone+
+    Into<usize>+From<usize>+
+    PartialOrd+PartialEq+
+    AddAssign<usize>+SubAssign<usize>+Add<usize,Output=Self>+Sub<usize,Output=Self>
+{
+}
+
+///
+/// A Slice with a specific index type (so you don't accidentally use one slice's index on another Vec
+/// and can use non-usized indexes).
+///
+pub struct IndexedSlice<Elem, Index: IndexType> {
+    marker: PhantomData<Index>,
+    slice: [Elem],
+}
+impl<Elem, Index: IndexType> IndexedSlice<Elem, Index> {
+    pub fn len(&self) -> Index { self.slice.len().into() }
+    pub fn from_slice(slice: &[Elem]) -> &Self { unsafe { mem::transmute(slice) } }
+    pub fn from_mut_slice(slice: &mut [Elem]) -> &mut Self { unsafe { mem::transmute(slice) } }
+}
+
+impl<Elem, I: IndexType> Index<I> for IndexedSlice<Elem,I> {
+    type Output = Elem;
+    fn index(&self, index: I) -> &Elem {
+        &self.slice[index.into()]
+    }
+}
+impl<Elem, I: IndexType> IndexMut<I> for IndexedSlice<Elem,I> {
+    fn index_mut(&mut self, index: I) -> &mut Elem {
+        &mut self.slice[index.into()]
+    }
+}
+impl<Elem, I: IndexType> Index<Range<I>> for IndexedSlice<Elem,I> {
+    type Output = [Elem];
+    fn index(&self, range: Range<I>) -> &[Elem] {
+        &self.slice[range.start.into()..range.end.into()]
+    }
+}
+impl<Elem: Clone, I: IndexType> ToOwned for IndexedSlice<Elem,I> {
+    type Owned = IndexedVec<Elem,I>;
+    fn to_owned(&self) -> Self::Owned { (&self.slice).to_vec().into() }
+}
 
 ///
 /// A Vec with a specific index type (so you don't accidentally use one Vec's index on another Vec).
 ///
 #[derive(Debug, Clone)]
-pub struct IndexedVec<Elem, Ind: IndexType>(Vec<Elem>, PhantomData<Ind>);
-impl<Elem, Ind: IndexType> IndexedVec<Elem, Ind> {
-    pub fn with_capacity(size: usize) -> Self {
-        IndexedVec(Vec::with_capacity(size), PhantomData)
-    }
-    pub fn len(&self) -> Ind {
-        Ind::from(self.0.len())
-    }
-    pub fn push(&mut self, elem: Elem) {
-        self.0.push(elem)
-    }
-    pub fn insert(&mut self, index: Ind, elem: Elem) {
-        self.0.insert(index.into(), elem)
-    }
+pub struct IndexedVec<Elem, I: IndexType> {
+    inner: Vec<Elem>,
+    marker: PhantomData<I>,
 }
-
-impl<Elem, Ind: IndexType> Default for IndexedVec<Elem, Ind> {
-    fn default() -> Self {
-        IndexedVec(vec![], PhantomData)
-    }
+impl<Elem, I: IndexType> IndexedVec<Elem,I> {
+    pub fn push(&mut self, value: Elem) -> I { self.inner.push(value); self.len()-1 }
 }
-
-impl<Elem, Ind: IndexType> Index<Ind> for IndexedVec<Elem, Ind> {
-    type Output = Elem;
-    fn index(&self, index: Ind) -> &Elem {
-        let index: usize = index.into();
-        &self.0[index]
-    }
+impl<Elem, I: IndexType> Default for IndexedVec<Elem,I> {
+    fn default() -> Self { Vec::default().into() }
 }
-impl<Elem, Ind: IndexType> Index<Range<Ind>> for IndexedVec<Elem, Ind> {
-    type Output = [Elem];
-    fn index(&self, range: Range<Ind>) -> &[Elem] {
-        let start: usize = range.start.into();
-        let end: usize = range.end.into();
-        &self.0[Range { start, end }]
-    }
+impl<Elem, I: IndexType> Borrow<IndexedSlice<Elem,I>> for IndexedVec<Elem,I> {
+    fn borrow(&self) -> &IndexedSlice<Elem,I> { self }
 }
-impl<Elem, Ind: IndexType> Index<RangeTo<Ind>> for IndexedVec<Elem, Ind> {
-    type Output = [Elem];
-    fn index(&self, range: RangeTo<Ind>) -> &[Elem] {
-        let end: usize = range.end.into();
-        &self.0[RangeTo { end }]
-    }
+impl<Elem, I: IndexType> BorrowMut<IndexedSlice<Elem,I>> for IndexedVec<Elem,I> {
+    fn borrow_mut(&mut self) -> &mut IndexedSlice<Elem,I> { self }
 }
-impl<Elem, Ind: IndexType> Index<RangeFrom<Ind>> for IndexedVec<Elem, Ind> {
-    type Output = [Elem];
-    fn index(&self, range: RangeFrom<Ind>) -> &[Elem] {
-        let start: usize = range.start.into();
-        &self.0[RangeFrom { start }]
-    }
+impl<Elem, I: IndexType> Deref for IndexedVec<Elem,I> {
+    type Target = IndexedSlice<Elem, I>;
+    fn deref(&self) -> &Self::Target { IndexedSlice::from_slice(self.inner.as_slice()) }
 }
-impl<Elem, Ind: IndexType> Index<RangeFull> for IndexedVec<Elem, Ind> {
-    type Output = [Elem];
-    fn index(&self, range: RangeFull) -> &[Elem] {
-        &self.0[range]
-    }
+impl<Elem, I: IndexType> DerefMut for IndexedVec<Elem,I> {
+    fn deref_mut(&mut self) -> &mut IndexedSlice<Elem, I> { IndexedSlice::from_mut_slice(self.inner.as_mut_slice()) }
 }
-
-impl<Elem, Ind: IndexType> IndexMut<Ind> for IndexedVec<Elem, Ind> {
-    fn index_mut(&mut self, index: Ind) -> &mut Elem {
-        let index: usize = index.into();
-        &mut self.0[index]
-    }
+impl<Elem, I: IndexType> From<Vec<Elem>> for IndexedVec<Elem,I> {
+    fn from(vec: Vec<Elem>) -> Self { IndexedVec { inner: vec, marker: PhantomData } }
 }

@@ -1,3 +1,4 @@
+use indexed_vec::IndexedSlice;
 use std::fmt::*;
 use ast::intern_pool::StringPool;
 use ast::{AstIndex,IdentifierIndex,LiteralIndex};
@@ -12,6 +13,8 @@ index_type! {
     pub struct SourceIndex(pub u32) <= u32::MAX;
     pub struct ByteIndex(pub u32) <= u32::MAX;
 }
+
+pub type ByteSlice = IndexedSlice<u8,ByteIndex>;
 
 #[derive(Debug)]
 pub struct SourceData<'c> {

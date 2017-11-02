@@ -1,3 +1,4 @@
+use compiler::source_data::ByteSlice;
 use compiler::source_data::ByteIndex;
 use std::ops::Index;
 use fnv::FnvHashMap;
@@ -19,8 +20,8 @@ pub struct StringPool<Ind: IndexType>(IndexedVec<String,Ind>);
 
 pub trait Pool<Ind: IndexType> {
     fn add(&mut self, string: &str) -> Ind;
-    unsafe fn add_utf8_unchecked(&mut self, buffer: &[u8], start: ByteIndex, end: ByteIndex) -> Ind {
-        let string = str::from_utf8_unchecked(&buffer[usize::from(start)..usize::from(end)]);
+    unsafe fn add_utf8_unchecked(&mut self, buffer: &ByteSlice, start: ByteIndex, end: ByteIndex) -> Ind {
+        let string = str::from_utf8_unchecked(&buffer[start..end]);
         self.add(string)
     }
 }
@@ -51,7 +52,7 @@ impl<Ind: IndexType> Index<Ind> for InternPool<Ind> {
 
 impl<Ind: IndexType> StringPool<Ind> {
     pub fn len(&self) -> Ind { self.0.len() }
-    pub fn with_capacity(initial_capacity: usize) -> Self { StringPool(IndexedVec::with_capacity(initial_capacity)) }
+    pub fn with_capacity(initial_capacity: usize) -> Self { StringPool(Vec::with_capacity(initial_capacity).into()) }
 }
 
 impl<Ind: IndexType> Index<Ind> for StringPool<Ind> {

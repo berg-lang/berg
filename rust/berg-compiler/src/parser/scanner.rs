@@ -1,3 +1,4 @@
+use compiler::source_data::ByteSlice;
 use compiler::source_data::ByteIndex;
 use parser::scanner::ByteType::*;
 use parser::scanner::CharType::*;
@@ -12,12 +13,12 @@ pub enum Symbol {
     InvalidUtf8Bytes,
 }
 
-pub fn next(buffer: &[u8], mut index: ByteIndex) -> Option<(Symbol, ByteIndex)> {
-    if usize::from(index) >= buffer.len() {
+pub fn next(buffer: &ByteSlice, mut index: ByteIndex) -> Option<(Symbol, ByteIndex)> {
+    if index >= buffer.len() {
         return None;
     }
 
-    let byte_type = ByteType::from(buffer[usize::from(index)]);
+    let byte_type = ByteType::from(buffer[index]);
     index += 1;
     let symbol = match byte_type {
         Char(Digit) => { read_bytes_while(buffer, &mut index, byte_type); Symbol::Integer },
@@ -30,7 +31,7 @@ pub fn next(buffer: &[u8], mut index: ByteIndex) -> Option<(Symbol, ByteIndex)> 
 }
 
 pub fn next_has_left_operand(
-    buffer: &[u8],
+    buffer: &ByteSlice,
     index: ByteIndex
 ) -> bool {
     if index < buffer.len() {
@@ -44,7 +45,7 @@ pub fn next_has_left_operand(
 }
 
 fn unsupported_or_invalid_utf8(
-    buffer: &[u8],
+    buffer: &ByteSlice,
     index: &mut ByteIndex,
     byte_type: ByteType,
 ) -> Symbol {
@@ -65,14 +66,14 @@ fn unsupported_or_invalid_utf8(
     }
 }
 
-fn read_bytes_while(buffer: &[u8], index: &mut ByteIndex, byte_type: ByteType) {
-    while usize::from(*index) < buffer.len() && ByteType::from(buffer[usize::from(*index)]) == byte_type {
+fn read_bytes_while(buffer: &ByteSlice, index: &mut ByteIndex, byte_type: ByteType) {
+    while *index < buffer.len() && ByteType::from(buffer[*index]) == byte_type {
         *index += 1;
     }
 }
 
-fn read_many_unsupported(buffer: &[u8], index: &mut ByteIndex) {
-    while usize::from(*index) < buffer.len() {
+fn read_many_unsupported(buffer: &ByteSlice, index: &mut ByteIndex) {
+    while *index < buffer.len() {
         if let Some((Unsupported, char_length)) = peek_char(buffer, *index) {
             *index += usize::from(char_length);
         } else {
@@ -81,22 +82,22 @@ fn read_many_unsupported(buffer: &[u8], index: &mut ByteIndex) {
     }
 }
 
-fn read_many_invalid_utf8(buffer: &[u8], index: &mut ByteIndex) {
-    while usize::from(*index) < buffer.len() && peek_char(buffer, *index).is_none() {
+fn read_many_invalid_utf8(buffer: &ByteSlice, index: &mut ByteIndex) {
+    while *index < buffer.len() && peek_char(buffer, *index).is_none() {
         *index += 1;
     }
 }
 
 // #[inline(always)]
-fn peek_char(buffer: &[u8], index: ByteIndex) -> Option<(CharType, u8)> {
-    match ByteType::from(buffer[usize::from(index)]) {
+fn peek_char(buffer: &ByteSlice, index: ByteIndex) -> Option<(CharType, u8)> {
+    match ByteType::from(buffer[index]) {
         ByteType::Char(char_type) => Some((char_type, 1)),
         ByteType::InvalidUtf8 => None,
         ByteType::Utf8LeadingByte(n) => peek_char_utf8_leading(buffer, index, n),
     }
 }
 
-fn peek_char_utf8_leading(buffer: &[u8], index: ByteIndex, char_length: u8) -> Option<(CharType, u8)> {
+fn peek_char_utf8_leading(buffer: &ByteSlice, index: ByteIndex, char_length: u8) -> Option<(CharType, u8)> {
     if is_valid_utf8_char(buffer, index, char_length) {
         Some((CharType::Unsupported, char_length))
     } else {
@@ -104,9 +105,8 @@ fn peek_char_utf8_leading(buffer: &[u8], index: ByteIndex, char_length: u8) -> O
     }
 }
 
-fn is_valid_utf8_char(buffer: &[u8], index: ByteIndex, char_length: u8) -> bool {
-    let index = usize::from(index);
-    if index + usize::from(char_length) > buffer.len() {
+fn is_valid_utf8_char(buffer: &ByteSlice, index: ByteIndex, char_length: u8) -> bool {
+    if index + char_length.into() > buffer.len() {
         return false;
     }
     match char_length {
