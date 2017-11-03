@@ -97,7 +97,7 @@ pub struct ExpectedCompileError {
 }
 #[derive(Debug)]
 pub struct ExpectedCompileErrorMessage {
-    range: Option<Range<ByteIndex>>,
+    range: Option<ByteRange>,
 }
 
 impl From<(CompileErrorType, Range<usize>)> for ExpectedCompileError {

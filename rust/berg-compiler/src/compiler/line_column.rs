@@ -1,3 +1,4 @@
+use indexed_vec::Delta;
 use compiler::source_data::ByteIndex;
 use std::cmp::Ordering;
 use std::fmt::{Display,Formatter,Result};
@@ -5,7 +6,7 @@ use std::fmt::{Display,Formatter,Result};
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct LineColumn {
     pub line: u32,
-    pub column: ByteIndex,
+    pub column: Delta<ByteIndex>,
 }
 
 // Inclusive line/column range
@@ -16,7 +17,7 @@ pub struct LineColumnRange {
 }
 
 impl LineColumn {
-    pub fn new(line: u32, column: ByteIndex) -> LineColumn {
+    pub fn new(line: u32, column: Delta<ByteIndex>) -> LineColumn {
         LineColumn { line, column }
     }
 }

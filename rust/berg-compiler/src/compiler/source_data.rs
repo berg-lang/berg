@@ -1,3 +1,4 @@
+use ast::operators::*;
 use indexed_vec::IndexedSlice;
 use std::fmt::*;
 use ast::intern_pool::StringPool;
@@ -15,6 +16,7 @@ index_type! {
 }
 
 pub type ByteSlice = IndexedSlice<u8,ByteIndex>;
+pub type ByteRange = Range<ByteIndex>;
 
 #[derive(Debug)]
 pub struct SourceData<'c> {
@@ -22,6 +24,15 @@ pub struct SourceData<'c> {
     pub(crate) parse_data: Option<ParseData>,
     pub(crate) checked_type: Option<Type>,
     phantom: PhantomData<&'c Compiler<'c>>,
+}
+
+#[derive(Debug)]
+pub struct ParseData {
+    pub char_data: CharData,
+    pub identifiers: StringPool<IdentifierIndex>,
+    pub literals: StringPool<LiteralIndex>,
+    pub tokens: IndexedVec<Token,AstIndex>,
+    pub token_ranges: IndexedVec<ByteRange,AstIndex>,
 }
 
 #[derive(Debug)]
@@ -36,15 +47,6 @@ pub struct CharData {
     // system retrieved on
     // Start indices of each line
     pub line_starts: Vec<ByteIndex>,
-}
-
-#[derive(Debug)]
-pub struct ParseData {
-    pub char_data: CharData,
-    pub identifiers: StringPool<IdentifierIndex>,
-    pub literals: StringPool<LiteralIndex>,
-    pub tokens: IndexedVec<Token,AstIndex>,
-    pub token_ranges: IndexedVec<Range<ByteIndex>,AstIndex>,
 }
 
 impl<'c> SourceData<'c> {
@@ -97,15 +99,16 @@ impl ParseData {
 
             InfixOperator(operator)|
             PostfixOperator(operator)|
-            Close(operator)|
-            PrefixOperator(operator)|
-            Open(operator) =>
+            PrefixOperator(operator) =>
                 self.identifier_string(operator),
 
-            MissingOperand|NoExpression|MissingInfix => "",
+            CloseParen(_) => self.identifier_string(CLOSE_PAREN),
+            OpenParen(_) => self.identifier_string(OPEN_PAREN),
+
+            OpenPrecedence(_)|ClosePrecedence(_)|MissingOperand|NoExpression|MissingInfix => "",
         }
     }
-    pub fn token_range(&self, token: AstIndex) -> Range<ByteIndex> {
+    pub fn token_range(&self, token: AstIndex) -> ByteRange {
         let range = &self.token_ranges[token];
         Range { start: range.start, end: range.end }
     }
@@ -145,12 +148,12 @@ impl CharData {
             line -= 1
         }
 
-        let column = index - self.line_starts[line - 1] + 1;
+        let column = index + 1 - self.line_starts[line - 1];
         let line = line as u32;
         LineColumn { line, column }
     }
 
-    pub fn range(&self, range: Range<ByteIndex>) -> LineColumnRange {
+    pub fn range(&self, range: ByteRange) -> LineColumnRange {
         let start = self.location(range.start);
         if range.start == range.end {
             LineColumnRange { start, end: None }

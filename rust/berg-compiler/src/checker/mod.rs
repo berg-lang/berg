@@ -6,8 +6,6 @@ use ast::{AstIndex,IdentifierIndex};
 use ast::ast_walker::{AstWalkerMut,AstVisitorMut};
 use ast::token::TermToken::*;
 use ast::token::InfixToken::*;
-use ast::operators::Operators;
-use ast::operators::Operators::*;
 use compiler::compile_errors::SourceCompileErrors;
 use num::BigRational;
 use num::Zero;
@@ -85,12 +83,13 @@ impl<'a> AstVisitorMut<Type> for Checker<'a> {
     }
 
     fn visit_infix(&mut self, token: InfixToken, left: Type, right: Type, index: AstIndex, parse_data: &ParseData) -> Type {
+        use ast::operators::*;
         match token {
-            InfixOperator(identifier) => match Operators::from(identifier) {
-                Plus  => self.check_numeric_binary(left, right, index, parse_data, |left, right| left + right),
-                Dash  => self.check_numeric_binary(left, right, index, parse_data, |left, right| left - right),
-                Star  => self.check_numeric_binary(left, right, index, parse_data, |left, right| left * right),
-                Slash => match self.check_numeric_binary_arguments(left, right, index, parse_data) {
+            InfixOperator(identifier) => match identifier {
+                PLUS  => self.check_numeric_binary(left, right, index, parse_data, |left, right| left + right),
+                DASH  => self.check_numeric_binary(left, right, index, parse_data, |left, right| left - right),
+                STAR  => self.check_numeric_binary(left, right, index, parse_data, |left, right| left * right),
+                SLASH => match self.check_numeric_binary_arguments(left, right, index, parse_data) {
                     Some((_, ref right)) if right.is_zero() => {
                         self.report(CompileErrorType::DivideByZero, index, parse_data);
                         Error
@@ -105,25 +104,18 @@ impl<'a> AstVisitorMut<Type> for Checker<'a> {
     }
 
     fn visit_prefix(&mut self, prefix: IdentifierIndex, operand: Type, index: AstIndex, parse_data: &ParseData) -> Type {
-        match Operators::from(prefix) {
-            Plus => self.check_numeric_prefix(operand, index, parse_data, |operand| operand),
-            Dash => self.check_numeric_prefix(operand, index, parse_data, |operand| -operand),
+        use ast::operators::*;
+        match prefix {
+            PLUS => self.check_numeric_prefix(operand, index, parse_data, |operand| operand),
+            DASH => self.check_numeric_prefix(operand, index, parse_data, |operand| -operand),
             _ => self.report(CompileErrorType::UnrecognizedOperator, index, parse_data),
         }
     }
 
     fn visit_postfix(&mut self, postfix: IdentifierIndex, _: Type, index: AstIndex, parse_data: &ParseData) -> Type {
-        match Operators::from(postfix) {
+        match postfix {
             _ => self.report(CompileErrorType::UnrecognizedOperator, index, parse_data),
         }
-    }
-
-    fn open_without_close(&mut self, _: Operators, open_index: AstIndex, _missing_close_index: AstIndex, parse_data: &ParseData) {
-        self.report(CompileErrorType::OpenWithoutClose, open_index, parse_data);
-    }
-
-    fn close_without_open(&mut self, _: Operators, close_index: AstIndex, _missing_open_index: AstIndex, parse_data: &ParseData) {
-        self.report(CompileErrorType::CloseWithoutOpen, close_index, parse_data);
     }
 }
 

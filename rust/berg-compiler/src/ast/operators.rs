@@ -1,67 +1,23 @@
 use ast::IdentifierIndex;
 use ast::intern_pool::*;
-use ast::operators::Operators::*;
 
-#[derive(Debug,Copy,Clone,PartialEq)]
-pub enum Operators {
-    Star = 0,
-    Slash = 1,
-    Plus = 2,
-    Dash = 3,
-    OpenParen = 4,
-    CloseParen = 5,
-    Unrecognized = 6,
-}
+const ALL_OPERATORS: [(IdentifierIndex,&str);6] = [
+    (STAR,"*"),(SLASH,"/"),(PLUS,"+"),(DASH,"-"),(OPEN_PAREN,"("),(CLOSE_PAREN,")")
+];
+pub const STAR: IdentifierIndex = IdentifierIndex(0);
+pub const SLASH: IdentifierIndex = IdentifierIndex(1);
+pub const PLUS: IdentifierIndex = IdentifierIndex(2);
+pub const DASH: IdentifierIndex = IdentifierIndex(3);
+pub const OPEN_PAREN: IdentifierIndex = IdentifierIndex(4);
+pub const CLOSE_PAREN: IdentifierIndex = IdentifierIndex(5);
 
-impl Operators {
-    pub fn identifier(&self) -> IdentifierIndex {
-        IdentifierIndex(*self as u32)
+pub(crate) fn intern_all() -> InternPool<IdentifierIndex> {
+    let mut identifiers = InternPool::default();
+    for operator in &ALL_OPERATORS {
+        let (operator,string) = *operator;
+        let actual_identifier = identifiers.add(string);
+        assert_eq!(actual_identifier, operator);
     }
-    pub fn string(&self) -> &str {
-        match *self {
-            Star => "*",
-            Slash => "/",
-            Plus => "+",
-            Dash => "-",
-            OpenParen => "(",
-            CloseParen => ")",
-            Unrecognized => unreachable!(),
-        }
-    }
-    pub(crate) fn intern_all() -> InternPool<IdentifierIndex> {
-        let mut identifiers = InternPool::default();
-        for i in 0..(Operators::Unrecognized as u32) {
-            let operator = Operators::from(IdentifierIndex(i));
-            let actual_identifier = identifiers.add(operator.string());
-            assert_eq!(actual_identifier, operator.identifier())
-        }
-        assert_eq!(identifiers.len(), Operators::Unrecognized.identifier());
-        identifiers
-    }
-    pub(crate) fn corresponding_close(self) -> Operators {
-        match self {
-            OpenParen => CloseParen,
-            _ => Unrecognized,
-        }
-    }
-    // pub(crate) fn corresponding_open(self) -> Operators {
-    //     match self {
-    //         CloseParen => OpenParen,
-    //         _ => Unrecognized,
-    //     }
-    // }
-}
-
-impl From<IdentifierIndex> for Operators {
-    fn from(index: IdentifierIndex) -> Self {
-        match usize::from(index) as u32 {
-            0 => Star,
-            1 => Slash,
-            2 => Plus,
-            3 => Dash,
-            4 => OpenParen,
-            5 => CloseParen,
-            _ => Unrecognized,
-        }
-    }
+    assert_eq!(identifiers.len(), ALL_OPERATORS.len());
+    identifiers
 }

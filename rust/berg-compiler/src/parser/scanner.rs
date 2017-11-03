@@ -1,5 +1,5 @@
-use compiler::source_data::ByteSlice;
-use compiler::source_data::ByteIndex;
+use indexed_vec::Delta;
+use compiler::source_data::{ByteSlice,ByteIndex};
 use parser::scanner::ByteType::*;
 use parser::scanner::CharType::*;
 
@@ -54,7 +54,8 @@ fn unsupported_or_invalid_utf8(
         InvalidUtf8 => { read_many_invalid_utf8(buffer, index); Symbol::InvalidUtf8Bytes },
         Utf8LeadingByte(char_length) => {
             if is_valid_utf8_char(buffer, *index, char_length) {
-                *index += usize::from(char_length-1);
+                *index += char_length;
+                *index -= 1;
                 read_many_unsupported(buffer, index);
                 Symbol::UnsupportedCharacters
             } else {
@@ -75,7 +76,7 @@ fn read_bytes_while(buffer: &ByteSlice, index: &mut ByteIndex, byte_type: ByteTy
 fn read_many_unsupported(buffer: &ByteSlice, index: &mut ByteIndex) {
     while *index < buffer.len() {
         if let Some((Unsupported, char_length)) = peek_char(buffer, *index) {
-            *index += usize::from(char_length);
+            *index += char_length;
         } else {
             break;
         }
@@ -89,15 +90,15 @@ fn read_many_invalid_utf8(buffer: &ByteSlice, index: &mut ByteIndex) {
 }
 
 // #[inline(always)]
-fn peek_char(buffer: &ByteSlice, index: ByteIndex) -> Option<(CharType, u8)> {
+fn peek_char(buffer: &ByteSlice, index: ByteIndex) -> Option<(CharType, Delta<ByteIndex>)> {
     match ByteType::from(buffer[index]) {
-        ByteType::Char(char_type) => Some((char_type, 1)),
+        ByteType::Char(char_type) => Some((char_type, Delta(ByteIndex(1)))),
         ByteType::InvalidUtf8 => None,
         ByteType::Utf8LeadingByte(n) => peek_char_utf8_leading(buffer, index, n),
     }
 }
 
-fn peek_char_utf8_leading(buffer: &ByteSlice, index: ByteIndex, char_length: u8) -> Option<(CharType, u8)> {
+fn peek_char_utf8_leading(buffer: &ByteSlice, index: ByteIndex, char_length: Delta<ByteIndex>) -> Option<(CharType, Delta<ByteIndex>)> {
     if is_valid_utf8_char(buffer, index, char_length) {
         Some((CharType::Unsupported, char_length))
     } else {
@@ -105,14 +106,14 @@ fn peek_char_utf8_leading(buffer: &ByteSlice, index: ByteIndex, char_length: u8)
     }
 }
 
-fn is_valid_utf8_char(buffer: &ByteSlice, index: ByteIndex, char_length: u8) -> bool {
-    if index + char_length.into() > buffer.len() {
+fn is_valid_utf8_char(buffer: &ByteSlice, index: ByteIndex, char_length: Delta<ByteIndex>) -> bool {
+    if index + char_length > buffer.len() {
         return false;
     }
     match char_length {
-        2 => ByteType::is_utf8_cont(buffer[index+1]),
-        3 => ByteType::is_utf8_cont(buffer[index+1]) && ByteType::is_utf8_cont(buffer[index+2]),
-        4 => ByteType::is_utf8_cont(buffer[index+1]) && ByteType::is_utf8_cont(buffer[index+2]) && ByteType::is_utf8_cont(buffer[index+3]),
+        Delta(ByteIndex(2)) => ByteType::is_utf8_cont(buffer[index+1]),
+        Delta(ByteIndex(3)) => ByteType::is_utf8_cont(buffer[index+1]) && ByteType::is_utf8_cont(buffer[index+2]),
+        Delta(ByteIndex(4)) => ByteType::is_utf8_cont(buffer[index+1]) && ByteType::is_utf8_cont(buffer[index+2]) && ByteType::is_utf8_cont(buffer[index+3]),
         _ => unreachable!()
     }
 }
@@ -130,7 +131,7 @@ enum CharType {
 enum ByteType {
     Char(CharType),
     InvalidUtf8,
-    Utf8LeadingByte(u8),
+    Utf8LeadingByte(Delta<ByteIndex>),
 }
 
 impl From<u8> for ByteType {
@@ -150,9 +151,9 @@ impl ByteType {
         use parser::scanner::ByteType::*;
         match byte {
             0b0000_0000...0b0111_1111 => Char(CharType::Unsupported),
-            0b1100_0000...0b1101_1111 => Utf8LeadingByte(2),
-            0b1110_0000...0b1110_1111 => Utf8LeadingByte(3),
-            0b1111_0000...0b1111_0111 => Utf8LeadingByte(4),
+            0b1100_0000...0b1101_1111 => Utf8LeadingByte(Delta(ByteIndex(2))),
+            0b1110_0000...0b1110_1111 => Utf8LeadingByte(Delta(ByteIndex(3))),
+            0b1111_0000...0b1111_0111 => Utf8LeadingByte(Delta(ByteIndex(4))),
             _ => InvalidUtf8,
         }
     }

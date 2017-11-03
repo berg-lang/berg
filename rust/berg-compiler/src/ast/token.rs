@@ -1,8 +1,4 @@
-use ast::{IdentifierIndex,LiteralIndex};
-use ast::operators::Operators;
-use ast::token::InfixToken::*;
-use ast::token::PrefixToken::*;
-use ast::token::PostfixToken::*;
+use ast::{AstDelta,IdentifierIndex,LiteralIndex};
 
 // ExpressionType, String, LeftChild, RightChild
 #[derive(Debug,Copy,Clone,PartialEq)]
@@ -15,10 +11,12 @@ pub enum Token {
     MissingInfix,
 
     PrefixOperator(IdentifierIndex),
-    Open(IdentifierIndex),
+    OpenParen(AstDelta),
+    OpenPrecedence(AstDelta),
 
     PostfixOperator(IdentifierIndex),
-    Close(IdentifierIndex),
+    CloseParen(AstDelta),
+    ClosePrecedence(AstDelta),
 }
 
 #[derive(Debug,Copy,Clone,PartialEq)]
@@ -37,13 +35,15 @@ pub enum InfixToken {
 #[derive(Debug,Copy,Clone,PartialEq)]
 pub enum PrefixToken {
     PrefixOperator(IdentifierIndex),
-    Open(IdentifierIndex),
+    OpenParen(AstDelta),
+    OpenPrecedence(AstDelta)
 }
 
 #[derive(Debug,Copy,Clone,PartialEq)]
 pub enum PostfixToken {
     PostfixOperator(IdentifierIndex),
-    Close(IdentifierIndex),
+    CloseParen(AstDelta),
+    ClosePrecedence(AstDelta),
 }
 
 #[derive(Debug,Copy,Clone,PartialEq)]
@@ -60,8 +60,8 @@ impl Token {
         match *self {
             IntegerLiteral(_)|MissingOperand|NoExpression => Fixity::Term,
             InfixOperator(_)|MissingInfix => Fixity::Infix,
-            PrefixOperator(_)|Open(_) => Fixity::Prefix,
-            PostfixOperator(_)|Close(_) => Fixity::Postfix,
+            PrefixOperator(_)|OpenParen(_)|OpenPrecedence(_) => Fixity::Prefix,
+            PostfixOperator(_)|CloseParen(_)|ClosePrecedence(_) => Fixity::Postfix,
         }
     }
     pub fn to_term(self) -> Option<TermToken> { TermToken::try_from(self) }
@@ -110,13 +110,6 @@ impl TermToken {
 }
 
 impl InfixToken {
-    pub fn operator(self) -> Operators {
-        match self {
-            InfixOperator(identifier) => Operators::from(identifier),
-            MissingInfix => Operators::Unrecognized,
-        }
-    }
-
     pub fn try_from(token: Token) -> Option<Self> {
         match token {
             Token::InfixOperator(identifier) => Some(InfixToken::InfixOperator(identifier)),
@@ -127,31 +120,22 @@ impl InfixToken {
 }
 
 impl PostfixToken {
-    pub fn operator(self) -> Operators {
-        match self {
-            PostfixOperator(identifier)|Close(identifier) => Operators::from(identifier),
-        }
-    }
-
     pub fn try_from(token: Token) -> Option<Self> {
         match token {
             Token::PostfixOperator(identifier) => Some(PostfixToken::PostfixOperator(identifier)),
-            Token::Close(identifier) => Some(PostfixToken::Close(identifier)),
+            Token::CloseParen(delta) => Some(PostfixToken::CloseParen(delta)),
+            Token::ClosePrecedence(delta) => Some(PostfixToken::ClosePrecedence(delta)),
             _ => { assert_ne!(token.fixity(), Fixity::Postfix); None }
         }
     }
 }
 
 impl PrefixToken {
-    pub fn operator(self) -> Operators {
-        match self {
-            PrefixOperator(identifier)|Open(identifier) => Operators::from(identifier)
-        }
-    }
     pub fn try_from(token: Token) -> Option<Self> {
         match token {
             Token::PrefixOperator(identifier) => Some(PrefixToken::PrefixOperator(identifier)),
-            Token::Open(identifier) => Some(PrefixToken::Open(identifier)),
+            Token::OpenParen(delta) => Some(PrefixToken::OpenParen(delta)),
+            Token::OpenPrecedence(delta) => Some(PrefixToken::OpenPrecedence(delta)),
             _ => { assert_ne!(token.fixity(), Fixity::Prefix); None }
         }
     }

@@ -1,10 +1,10 @@
-use compiler::source_data::ByteSlice;
-use ast::intern_pool::Pool;
-use ast::{IdentifierIndex,LiteralIndex};
-use std::ops::Range;
-use compiler::compile_errors::SourceCompileErrors;
+use ast::{AstDelta,IdentifierIndex,LiteralIndex};
+use ast::intern_pool::{StringPool,Pool};
+use ast::operators;
 use ast::token::Fixity;
 use ast::token::Token::*;
+use compiler::compile_errors::SourceCompileErrors;
+use compiler::source_data::{ByteRange,ByteSlice};
 use parser::scanner;
 use parser::scanner::Symbol;
 use public::*;
@@ -12,14 +12,15 @@ use public::*;
 #[derive(Debug)]
 enum Need {
     Term,
-    Operand(Range<ByteIndex>),
+    Operand(ByteRange),
     Operator,
 }
 
 impl Need {
     fn after(token: Token, start: ByteIndex, end: ByteIndex) -> Need {
         match token {
-            Open(_) => Need::Term,
+            OpenParen(_) => Need::Term,
+            OpenPrecedence(_) => unreachable!(),
             _ => match token.fixity() {
                 Fixity::Infix|Fixity::Prefix => Need::Operand(start..end),
                 Fixity::Term|Fixity::Postfix => Need::Operator
@@ -28,7 +29,8 @@ impl Need {
     }
     fn before(token: Token, start: ByteIndex, end: ByteIndex) -> Need {
         match token {
-            Close(_) => Need::Term,
+            CloseParen(_) => Need::Term,
+            ClosePrecedence(_) => unreachable!(),
             _ => match token.fixity() {
                 Fixity::Infix|Fixity::Postfix => Need::Operand(start..end),
                 Fixity::Term|Fixity::Prefix => Need::Operator
@@ -41,20 +43,20 @@ impl Need {
 /// Breaks a file into a series of Tokens, calling the given function for each
 /// token.
 /// 
-pub(crate) fn tokenize<F: FnMut(Token,Range<ByteIndex>)->()>(
+pub(crate) fn tokenize<F: FnMut(Token,ByteRange,&mut SourceCompileErrors)->()>(
     buffer: &ByteSlice,
     errors: &mut SourceCompileErrors,
-    identifiers: &mut Pool<IdentifierIndex>,
-    literals: &mut Pool<LiteralIndex>,
     mut on_token: F
-) {
+) -> (StringPool<IdentifierIndex>, StringPool<LiteralIndex>) {
+    let mut identifiers = operators::intern_all();
+    let mut literals: StringPool<LiteralIndex> = Default::default();
     let mut start = ByteIndex(0);
     let mut need = Need::Term;
     while let Some((symbol, index)) = scanner::next(buffer, start) {
         let token = match symbol {
             Symbol::Integer => Some(IntegerLiteral(unsafe { literals.add_utf8_unchecked(buffer, start, index) })),
-            Symbol::Open => Some(Open(unsafe { identifiers.add_utf8_unchecked(buffer, start, index) })),
-            Symbol::Close => Some(Close(unsafe { identifiers.add_utf8_unchecked(buffer, start, index) })),
+            Symbol::Open => Some(OpenParen(AstDelta::default())),
+            Symbol::Close => Some(CloseParen(AstDelta::default())),
             Symbol::Operator => match need {
                 Need::Term|Need::Operand(_) => Some(PrefixOperator(unsafe { identifiers.add_utf8_unchecked(buffer, start, index) })),
                 Need::Operator => {
@@ -76,22 +78,24 @@ pub(crate) fn tokenize<F: FnMut(Token,Range<ByteIndex>)->()>(
         if let Some(token) = token {
             let missing_token = report_missing_operands(need, buffer, token, start, index, errors);
             if let Some(missing_token) = missing_token {
-                on_token(missing_token, start..start);
+                on_token(missing_token, start..start, errors);
             }
-            on_token(token, start..index);
+            on_token(token, start..index, errors);
             need = Need::after(token, start, index);
         }
 
         start = index
     }
     match need {
-        Need::Term => on_token(NoExpression, start..start),
+        Need::Term => on_token(NoExpression, start..start, errors),
         Need::Operand(range) => {
             report_valid_utf8(errors, CompileErrorType::MissingRightOperand, range, buffer);
-            on_token(MissingOperand, start..start);
+            on_token(MissingOperand, start..start, errors);
         },
         Need::Operator => {}
     }
+
+    (identifiers.strings, literals)
 }
 
 fn report_missing_operands(
@@ -123,6 +127,6 @@ fn report_missing_operands(
     }
 }
 
-fn report_valid_utf8(errors: &mut SourceCompileErrors, error_type: CompileErrorType, range: Range<ByteIndex>, buffer: &ByteSlice) {
+fn report_valid_utf8(errors: &mut SourceCompileErrors, error_type: CompileErrorType, range: ByteRange, buffer: &ByteSlice) {
     unsafe { errors.report_at_utf8_unchecked(error_type, range, buffer) }
 }

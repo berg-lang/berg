@@ -1,16 +1,8 @@
-use std::ops::Range;
-use std::borrow::BorrowMut;
-use std::borrow::Borrow;
-use std::ops::DerefMut;
+use std::borrow::{Borrow,BorrowMut};
+use std::fmt;
+use std::ops::{Add,AddAssign,Deref,DerefMut,Index,IndexMut,Range,Sub,SubAssign};
 use std::marker::PhantomData;
 use std::mem;
-use std::ops::Add;
-use std::ops::AddAssign;
-use std::ops::Deref;
-use std::ops::Index;
-use std::ops::IndexMut;
-use std::ops::Sub;
-use std::ops::SubAssign;
 
 // index_type and indexed_vec work together to let you use a custom type
 // (like TokenIndex) to index the vector, and disallow any other type (like usize
@@ -23,12 +15,9 @@ use std::ops::SubAssign;
 #[macro_export]
 macro_rules! index_type {
     ($(pub struct $name:ident(pub $($type:tt)*) <= $max:expr;)*) => {
-        use indexed_vec::IndexType;
+        use indexed_vec::{Delta,IndexType};
         use std::fmt;
-        use std::ops::Add;
-        use std::ops::AddAssign;
-        use std::ops::Sub;
-        use std::ops::SubAssign;
+        use std::ops::{Add,AddAssign,Sub,SubAssign};
         use std::cmp::Ordering;
         $(
             #[derive(Debug, Copy, Clone, Default, PartialEq, Eq, Ord, PartialOrd)]
@@ -55,15 +44,27 @@ macro_rules! index_type {
             impl From<usize> for $name { fn from(size: usize) -> Self { $name(size as $($type)*) } }
             impl From<$name> for usize { fn from(size: $name) -> Self { size.0 as usize } }
             impl Add<usize> for $name { type Output = Self; fn add(self, value: usize) -> Self { $name(self.0 + Self::from(value).0) } }
+            impl Add<Delta<Self>> for $name { type Output = Self; fn add(self, value: Delta<Self>) -> Self { $name(self.0 + (value.0).0) } }
             impl Sub<usize> for $name { type Output = Self; fn sub(self, value: usize) -> Self { $name(self.0 - Self::from(value).0) } }
-            impl Sub<$name> for $name { type Output = Self; fn sub(self, value: $name) -> Self { $name(self.0 - value.0) } }
+            impl Sub<Delta<Self>> for $name { type Output = Self; fn sub(self, value: Delta<Self>) -> Self { $name(self.0 - (value.0).0) } }
+            impl Sub<Self> for $name { type Output = Delta<Self>; fn sub(self, value: Self) -> Delta<Self> { Delta(self - (value.0 as usize)) } }
             impl AddAssign<usize> for $name { fn add_assign(&mut self, value: usize) { *self = *self + value } }
+            impl AddAssign<Delta<Self>> for $name { fn add_assign(&mut self, value: Delta<Self>) { *self = *self + value } }
             impl SubAssign<usize> for $name { fn sub_assign(&mut self, value: usize) { *self = *self - value } }
+            impl SubAssign<Delta<Self>> for $name { fn sub_assign(&mut self, value: Delta<Self>) { *self = *self - value } }
         )*
     }
 }
 
-pub trait IndexType: Copy+Clone+
+#[derive(Debug,Copy,Clone,Default,PartialEq,PartialOrd)]
+pub struct Delta<IndexType>(pub IndexType);
+impl<T: IndexType> fmt::Display for Delta<T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+pub trait IndexType: Copy+Clone+fmt::Display+
     Into<usize>+From<usize>+
     PartialOrd+PartialEq+
     AddAssign<usize>+SubAssign<usize>+Add<usize,Output=Self>+Sub<usize,Output=Self>
@@ -101,6 +102,12 @@ impl<Elem, I: IndexType> Index<Range<I>> for IndexedSlice<Elem,I> {
         &self.slice[range.start.into()..range.end.into()]
     }
 }
+impl<'a, Elem, I: IndexType> Index<&'a Range<I>> for IndexedSlice<Elem,I> {
+    type Output = [Elem];
+    fn index<'s>(&'s self, range: &'a Range<I>) -> &'s [Elem] {
+        &self.slice[range.start.into()..range.end.into()]
+    }
+}
 impl<Elem: Clone, I: IndexType> ToOwned for IndexedSlice<Elem,I> {
     type Owned = IndexedVec<Elem,I>;
     fn to_owned(&self) -> Self::Owned { (&self.slice).to_vec().into() }
@@ -116,6 +123,7 @@ pub struct IndexedVec<Elem, I: IndexType> {
 }
 impl<Elem, I: IndexType> IndexedVec<Elem,I> {
     pub fn push(&mut self, value: Elem) -> I { self.inner.push(value); self.len()-1 }
+    pub fn insert(&mut self, index: I, value: Elem) { self.inner.insert(index.into(), value) }
 }
 impl<Elem, I: IndexType> Default for IndexedVec<Elem,I> {
     fn default() -> Self { Vec::default().into() }

@@ -1,4 +1,4 @@
-use compiler::source_data::ByteSlice;
+use compiler::source_data::{ByteRange,ByteSlice};
 use std::ops::Deref;
 use public::*;
 use std::io;
@@ -15,7 +15,7 @@ pub struct CompileError {
 #[derive(Clone, Debug)]
 pub struct CompileErrorMessage {
     pub source: Option<SourceIndex>,
-    pub range: Option<Range<ByteIndex>>,
+    pub range: Option<ByteRange>,
     pub replacement: Option<String>,
     pub message: String,
 }
@@ -91,16 +91,16 @@ impl SourceCompileErrors {
     pub(crate) fn report(&mut self, error: CompileError) {
         self.errors.report(error)
     }
-    pub(crate) fn report_at(&mut self, error_type: CompileErrorType, range: Range<ByteIndex>, string: &str) {
+    pub(crate) fn report_at(&mut self, error_type: CompileErrorType, range: ByteRange, string: &str) {
         let error = error_type.at(self.source, range, string);
         self.report(error)
     }
-    pub(crate) unsafe fn report_at_utf8_unchecked(&mut self, error_type: CompileErrorType, range: Range<ByteIndex>, buffer: &ByteSlice) {
+    pub(crate) unsafe fn report_at_utf8_unchecked(&mut self, error_type: CompileErrorType, range: ByteRange, buffer: &ByteSlice) {
         let bytes = &buffer[range.start..range.end];
         let string = str::from_utf8_unchecked(bytes);
         self.report_at(error_type, range, string)
     }
-    pub(crate) fn report_invalid_utf8(&mut self, range: Range<ByteIndex>, buffer: &ByteSlice) {
+    pub(crate) fn report_invalid_utf8(&mut self, range: ByteRange, buffer: &ByteSlice) {
         let error = CompileErrorType::InvalidUtf8.invalid_bytes(self.source, range, buffer);
         self.report(error)
     }
@@ -124,7 +124,7 @@ impl SourceCompileErrors {
 impl CompileErrorMessage {
     pub fn new_replacement(
         source: SourceIndex,
-        range: Range<ByteIndex>,
+        range: ByteRange,
         replacement: String,
         message: String,
     ) -> Self {
@@ -135,7 +135,7 @@ impl CompileErrorMessage {
             replacement: Some(replacement),
         }
     }
-    pub fn source_range(source: SourceIndex, range: Range<ByteIndex>, message: String) -> Self {
+    pub fn source_range(source: SourceIndex, range: ByteRange, message: String) -> Self {
         CompileErrorMessage {
             message,
             source: Some(source),
@@ -163,7 +163,7 @@ impl CompileErrorMessage {
     pub fn source(&self) -> Option<SourceIndex> {
         self.source
     }
-    pub fn range(&self) -> &Option<Range<ByteIndex>> {
+    pub fn range(&self) -> &Option<ByteRange> {
         &self.range
     }
     pub fn replacement(&self) -> &Option<String> {
@@ -213,7 +213,7 @@ impl CompileErrorType {
     pub fn invalid_bytes(
         self,
         source: SourceIndex,
-        range: Range<ByteIndex>,
+        range: ByteRange,
         buffer: &ByteSlice,
     ) -> CompileError {
         use compiler::compile_errors::CompileErrorType::*;
@@ -232,7 +232,7 @@ impl CompileErrorType {
         let message = CompileErrorMessage::source_range(source, range, error_message);
         CompileError::new(self, vec![message])
     }
-    pub fn at(self, source: SourceIndex, range: Range<ByteIndex>, string: &str) -> CompileError {
+    pub fn at(self, source: SourceIndex, range: ByteRange, string: &str) -> CompileError {
         use compiler::compile_errors::CompileErrorType::*;
         let error_message = match self {
             UnsupportedCharacters => format!("Unsupported characters {:?}", string),
