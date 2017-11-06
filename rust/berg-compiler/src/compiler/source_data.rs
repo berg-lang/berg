@@ -6,7 +6,6 @@ use ast::{AstIndex,IdentifierIndex,LiteralIndex};
 use indexed_vec::IndexedVec;
 use public::*;
 use std::ffi::OsStr;
-use std::marker::PhantomData;
 use std::ops::Range;
 use std::u32;
 
@@ -19,11 +18,10 @@ pub type ByteSlice = IndexedSlice<u8,ByteIndex>;
 pub type ByteRange = Range<ByteIndex>;
 
 #[derive(Debug)]
-pub struct SourceData<'c> {
-    source_spec: SourceSpec,
+pub struct SourceData<'s> {
+    source_spec: SourceSpec<'s>,
     pub(crate) parse_data: Option<ParseData>,
     pub(crate) checked_type: Option<Type>,
-    phantom: PhantomData<&'c Compiler<'c>>,
 }
 
 #[derive(Debug)]
@@ -49,26 +47,25 @@ pub struct CharData {
     pub line_starts: Vec<ByteIndex>,
 }
 
-impl<'c> SourceData<'c> {
-    pub(crate) fn new(source_spec: SourceSpec) -> Self {
+impl<'s> SourceData<'s> {
+    pub(crate) fn new(source_spec: SourceSpec<'s>) -> Self {
         SourceData {
             source_spec,
             parse_data: None,
             checked_type: None,
-            phantom: PhantomData,
         }
     }
 
-    pub fn source_spec(&self) -> &SourceSpec {
+    pub fn source_spec(&self) -> &SourceSpec<'s> {
         &self.source_spec
     }
     pub fn name(&self) -> &OsStr {
         self.source_spec.name()
     }
-    pub fn parsed(&self) -> bool {
+    pub fn is_parsed(&self) -> bool {
         self.parse_data.is_some()
     }
-    pub fn checked(&self) -> bool {
+    pub fn is_checked(&self) -> bool {
         self.checked_type.is_some()
     }
     pub fn checked_type(&self) -> &Type {
@@ -105,7 +102,7 @@ impl ParseData {
             CloseParen(_) => self.identifier_string(CLOSE_PAREN),
             OpenParen(_) => self.identifier_string(OPEN_PAREN),
 
-            OpenPrecedence(_)|ClosePrecedence(_)|MissingOperand|NoExpression|MissingInfix => "",
+            MissingExpression|MissingInfix => "",
         }
     }
     pub fn token_range(&self, token: AstIndex) -> ByteRange {

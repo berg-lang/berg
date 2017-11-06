@@ -1,7 +1,7 @@
 use compiler::source_data::ByteSlice;
 use std::borrow::Cow;
 use indexed_vec::IndexedVec;
-use compiler::compile_errors::SourceCompileErrors;
+use compiler::compile_errors;
 use public::*;
 use compiler::Compiler;
 
@@ -12,58 +12,61 @@ use std::io::Read;
 use std::path::PathBuf;
 
 #[derive(Debug)]
-pub enum SourceSpec {
+pub enum SourceSpec<'s> {
     File { path: PathBuf },
-    Memory { name: String, contents: Vec<u8> },
+    Memory { name: &'s str, contents: &'s [u8] },
 }
 
-impl SourceSpec {
+impl<'s> SourceSpec<'s> {
     pub fn file(path: PathBuf) -> Self {
         SourceSpec::File { path }
     }
-    pub fn memory(name: String, contents: Vec<u8>) -> Self {
+    pub fn memory(name: &'s str, contents: &'s [u8]) -> Self {
         let contents = contents;
         SourceSpec::Memory { name, contents }
     }
     pub fn name(&self) -> &OsStr {
         match *self {
             SourceSpec::File { ref path, .. } => path.as_ref(),
-            SourceSpec::Memory { ref name, .. } => name.as_ref(),
+            SourceSpec::Memory { name, .. } => name.as_ref(),
         }
     }
 
-    pub(crate) fn open<'b>(
-        &'b self,
-        compiler: &Compiler,
-        errors: &mut SourceCompileErrors,
-    ) -> Cow<'b, ByteSlice> {
-        match *self {
-            SourceSpec::File { ref path, .. } => Self::open_file(compiler, errors, path),
-            SourceSpec::Memory { ref contents, .. } => Cow::Borrowed(ByteSlice::from_slice(contents)),
+    pub(crate) fn open<'p>(
+        &'p self,
+        compiler: &'p Compiler,
+        source: SourceIndex,
+    ) -> Cow<'s, ByteSlice> {
+        let result = match *self {
+            SourceSpec::File { ref path, .. } => Self::open_file(compiler, source, path),
+            SourceSpec::Memory { contents, .. } => Cow::Borrowed(ByteSlice::from_slice(contents)),
+        };
+        if result.as_raw_slice().len() >= usize::from(ByteIndex::MAX) {
+            compiler.report(compile_errors::SourceTooLarge { source, size: result.as_raw_slice().len() })
         }
+        result
     }
 
-    fn open_file<'b>(
+    fn open_file(
         compiler: &Compiler,
-        errors: &mut SourceCompileErrors,
+        source: SourceIndex,
         path: &PathBuf,
-    ) -> Cow<'b, ByteSlice> {
-        use CompileErrorType::*;
-        if let Some(ref path) = compiler.absolute_path(path, errors) {
+    ) -> Cow<'s, ByteSlice> {
+        if let Some(ref path) = compiler.absolute_path(path, source) {
             match File::open(path) {
                 Ok(mut file) => {
                     let mut buffer = Vec::new();
                     if let Err(error) = file.read_to_end(&mut buffer) {
-                        errors.report_io_read(ByteIndex::from(buffer.len()), &error);
+                        let range = ByteIndex::from(buffer.len())..ByteIndex::from(buffer.len());
+                        compiler.report(compile_errors::IoReadError { source, range, path: path.clone(), io_error_string: error.to_string() });
                     }
                     Cow::Owned(IndexedVec::from(buffer))
                 }
                 Err(error) => {
-                    let error_type = match error.kind() {
-                        io::ErrorKind::NotFound => SourceNotFound,
-                        _ => IoOpenError,
+                    match error.kind() {
+                        io::ErrorKind::NotFound => compiler.report(compile_errors::SourceNotFound { source, path: path.clone(), io_error_string: error.to_string() }),
+                        _ => compiler.report(compile_errors::IoOpenError { source, path: path.clone(), io_error_string: error.to_string() }),
                     };
-                    errors.report_io_open(error_type, &error, path.as_path());
                     Cow::Borrowed(ByteSlice::from_slice(&[]))
                 }
             }

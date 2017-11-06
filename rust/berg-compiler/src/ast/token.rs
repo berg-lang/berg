@@ -4,26 +4,22 @@ use ast::{AstDelta,IdentifierIndex,LiteralIndex};
 #[derive(Debug,Copy,Clone,PartialEq)]
 pub enum Token {
     IntegerLiteral(LiteralIndex),
-    MissingOperand,
-    NoExpression,
+    MissingExpression,
 
     InfixOperator(IdentifierIndex),
     MissingInfix,
 
     PrefixOperator(IdentifierIndex),
     OpenParen(AstDelta),
-    OpenPrecedence(AstDelta),
 
     PostfixOperator(IdentifierIndex),
     CloseParen(AstDelta),
-    ClosePrecedence(AstDelta),
 }
 
 #[derive(Debug,Copy,Clone,PartialEq)]
 pub enum TermToken {
     IntegerLiteral(LiteralIndex),
-    MissingOperand,
-    NoExpression,
+    MissingExpression,
 }
 
 #[derive(Debug,Copy,Clone,PartialEq)]
@@ -36,14 +32,12 @@ pub enum InfixToken {
 pub enum PrefixToken {
     PrefixOperator(IdentifierIndex),
     OpenParen(AstDelta),
-    OpenPrecedence(AstDelta)
 }
 
 #[derive(Debug,Copy,Clone,PartialEq)]
 pub enum PostfixToken {
     PostfixOperator(IdentifierIndex),
     CloseParen(AstDelta),
-    ClosePrecedence(AstDelta),
 }
 
 #[derive(Debug,Copy,Clone,PartialEq)]
@@ -58,10 +52,10 @@ impl Token {
     pub fn fixity(&self) -> Fixity {
         use Token::*;
         match *self {
-            IntegerLiteral(_)|MissingOperand|NoExpression => Fixity::Term,
+            IntegerLiteral(_)|MissingExpression => Fixity::Term,
             InfixOperator(_)|MissingInfix => Fixity::Infix,
-            PrefixOperator(_)|OpenParen(_)|OpenPrecedence(_) => Fixity::Prefix,
-            PostfixOperator(_)|CloseParen(_)|ClosePrecedence(_) => Fixity::Postfix,
+            PrefixOperator(_)|OpenParen(_) => Fixity::Prefix,
+            PostfixOperator(_)|CloseParen(_) => Fixity::Postfix,
         }
     }
     pub fn to_term(self) -> Option<TermToken> { TermToken::try_from(self) }
@@ -102,8 +96,7 @@ impl TermToken {
     pub fn try_from(token: Token) -> Option<Self> {
         match token {
             Token::IntegerLiteral(literal) => Some(TermToken::IntegerLiteral(literal)),
-            Token::MissingOperand => Some(TermToken::MissingOperand),
-            Token::NoExpression => Some(TermToken::NoExpression),
+            Token::MissingExpression => Some(TermToken::MissingExpression),
             _ => { assert_ne!(token.fixity(), Fixity::Term); None }
         }
     }
@@ -124,7 +117,6 @@ impl PostfixToken {
         match token {
             Token::PostfixOperator(identifier) => Some(PostfixToken::PostfixOperator(identifier)),
             Token::CloseParen(delta) => Some(PostfixToken::CloseParen(delta)),
-            Token::ClosePrecedence(delta) => Some(PostfixToken::ClosePrecedence(delta)),
             _ => { assert_ne!(token.fixity(), Fixity::Postfix); None }
         }
     }
@@ -135,7 +127,6 @@ impl PrefixToken {
         match token {
             Token::PrefixOperator(identifier) => Some(PrefixToken::PrefixOperator(identifier)),
             Token::OpenParen(delta) => Some(PrefixToken::OpenParen(delta)),
-            Token::OpenPrecedence(delta) => Some(PrefixToken::OpenPrecedence(delta)),
             _ => { assert_ne!(token.fixity(), Fixity::Prefix); None }
         }
     }

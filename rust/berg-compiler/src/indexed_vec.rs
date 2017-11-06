@@ -80,9 +80,12 @@ pub struct IndexedSlice<Elem, Index: IndexType> {
     slice: [Elem],
 }
 impl<Elem, Index: IndexType> IndexedSlice<Elem, Index> {
-    pub fn len(&self) -> Index { self.slice.len().into() }
+    pub fn first(&self) -> Option<&Elem> { self.slice.first() }
     pub fn from_slice(slice: &[Elem]) -> &Self { unsafe { mem::transmute(slice) } }
     pub fn from_mut_slice(slice: &mut [Elem]) -> &mut Self { unsafe { mem::transmute(slice) } }
+    pub fn last(&self) -> Option<&Elem> { self.slice.last() }
+    pub fn len(&self) -> Index { self.slice.len().into() }
+    pub fn as_raw_slice(&self) -> &[Elem] { &self.slice }
 }
 
 impl<Elem, I: IndexType> Index<I> for IndexedSlice<Elem,I> {
@@ -124,6 +127,7 @@ pub struct IndexedVec<Elem, I: IndexType> {
 impl<Elem, I: IndexType> IndexedVec<Elem,I> {
     pub fn push(&mut self, value: Elem) -> I { self.inner.push(value); self.len()-1 }
     pub fn insert(&mut self, index: I, value: Elem) { self.inner.insert(index.into(), value) }
+    pub fn as_raw_vec(&self) -> &Vec<Elem> { &self.inner }
 }
 impl<Elem, I: IndexType> Default for IndexedVec<Elem,I> {
     fn default() -> Self { Vec::default().into() }

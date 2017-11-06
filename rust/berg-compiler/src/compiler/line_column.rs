@@ -76,7 +76,7 @@ impl Display for LineColumnRange {
                 )
             }
         } else {
-            write!(f, "{}:{}", self.start.line, self.start.column)
+            write!(f, "{}:{}<0>", self.start.line, self.start.column)
         }
     }
 }

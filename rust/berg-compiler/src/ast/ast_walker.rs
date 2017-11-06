@@ -10,6 +10,7 @@ pub trait AstVisitorMut<T> {
     fn visit_postfix(&mut self, postfix: IdentifierIndex, operand: T, index: AstIndex, parse_data: &ParseData) -> T;
     fn visit_prefix(&mut self, prefix: IdentifierIndex, operand: T, index: AstIndex, parse_data: &ParseData) -> T;
     fn visit_infix(&mut self, token: InfixToken, left: T, right: T, index: AstIndex, parse_data: &ParseData) -> T;
+    fn visit_parentheses(&mut self, value: T, open_index: AstIndex, close_index: AstIndex, parse_data: &ParseData) -> T;
 }
 
 #[derive(Debug)]
@@ -70,8 +71,7 @@ impl AstWalkerMut {
                 InfixOperator(PLUS)|InfixOperator(DASH) => {
                     right = self.walk_infix_while(visitor, right, parse_data, Self::multiply_or_divide);
                 },
-                _ => {
-}
+                _ => {}
             }
 
             // Apply the operator now that we've grabbed anything we needed from the right!
@@ -126,17 +126,12 @@ impl AstWalkerMut {
                     if let NextToken(close_delta, close_index) = self.advance_if(parse_data, |token| match token { CloseParen(delta) => Some(delta), _ => None }) {
                         assert_eq!(close_delta, delta);
                         assert_eq!(delta, close_index-prefix_index);
+                        value = visitor.visit_parentheses(value, prefix_index, close_index, parse_data);
                     } else {
                         unreachable!();
                     }
-                },
-                OpenPrecedence(delta) => {                    
-                    // Walk the remainder of the expression in the group (we already got the term)
-                    value = self.walk_infix(visitor, value, parse_data);
 
-                    // Make sure there's a close precedence where it should be.
-                    assert_eq!(delta, self.index-prefix_index);
-                }
+                },
             };
         };
 

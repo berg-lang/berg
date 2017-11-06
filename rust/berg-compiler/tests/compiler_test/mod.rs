@@ -1,6 +1,6 @@
 extern crate berg_compiler;
 pub use compiler_test::berg_compiler::*;
-pub use compiler_test::berg_compiler::CompileErrorType::*;
+pub use compiler_test::berg_compiler::compile_errors::*;
 
 use std::ops::Range;
 
@@ -23,7 +23,7 @@ macro_rules! compiler_tests {
     };
     (@rule $test:ident errors $($error:ident@$at:tt),+) => {
         $test.assert_errors(vec![ $(
-            ($error, compiler_tests!(@at $at))
+            ($error::CODE, compiler_tests!(@at $at))
         ),+ ]);
     };
     (@rule $test:ident type error) => {
@@ -61,25 +61,28 @@ impl<'t> CompilerTest<'t> {
 
     pub fn assert_errors<Err: Into<ExpectedCompileError>>(&mut self, mut expected: Vec<Err>) {
         let mut expected: Vec<ExpectedCompileError> = expected.drain(..).map(|error| error.into()).collect();
-        self.compiler.with_errors(|actual| {
-            let mut actual = actual.to_vec().clone();
-            actual.retain(|actual_error| {
-                let mut found = false;
-                expected.retain(|expected_error| {
-                    if !found && expected_error.matches(actual_error) {
-                        found = true;
-                        false
-                    } else {
-                        true
-                    }
-                });
-                !found
+        let actual = self.compiler.errors.read().unwrap();
+        let actual_count = actual.iter().filter_map(|actual_error| {
+            let mut found = false;
+            expected.retain(|expected_error| {
+                if !found && expected_error.matches(&self.compiler, actual_error) {
+                    found = true;
+                    false
+                } else {
+                    true
+                }
             });
-            assert!(actual.len() == 0, "Unexpected compiler errors!\nExpected: {:?}\nActual: {:?}", expected, actual);
-            assert!(expected.len() == 0, "Expected errors not produced!\nExpected: {:?}\nActual: {:?}", expected, actual);
-        })
+            if found {
+                None
+            } else {
+                Some(&actual)
+            }
+        }).count();
+        assert!(actual_count == 0, "Unexpected compiler errors!\nExpected: {:?}\nActual: {:?}", expected, actual);
+        assert!(expected.len() == 0, "Expected errors not produced!\nExpected: {:?}\nActual: {:?}", expected, actual);
     }
 }
+
 pub trait AsBytes {
     fn as_bytes<'t>(&'t self) -> &'t [u8];
 }
@@ -90,34 +93,23 @@ impl AsBytes for [u8] {
     fn as_bytes<'t>(&'t self) -> &'t [u8] { self }
 }
 
-#[derive(Debug)]
+#[derive(Debug,Clone)]
 pub struct ExpectedCompileError {
-    error_type: CompileErrorType,
-    messages: Vec<ExpectedCompileErrorMessage>,
+    code: u32,
+    range: ByteRange,
 }
-#[derive(Debug)]
-pub struct ExpectedCompileErrorMessage {
-    range: Option<ByteRange>,
-}
-
-impl From<(CompileErrorType, Range<usize>)> for ExpectedCompileError {
-    fn from((error_type, range): (CompileErrorType, Range<usize>)) -> ExpectedCompileError {
-        let range = Range { start: ByteIndex::from(range.start), end: ByteIndex::from(range.end) };
-        ExpectedCompileError { error_type, messages: vec![ExpectedCompileErrorMessage { range: Some(range) }]}
-    }
-}
-
 impl ExpectedCompileError {
-    fn matches(&self, actual: &CompileError) -> bool {
-        if self.error_type != actual.error_type() || self.messages.len() != actual.messages().len() {
-            return false;
+    fn matches<'t>(&self, compiler: &Compiler, error: &Box<CompileError+'t>) -> bool {
+        let message = error.message(compiler);
+        match message.location {
+            CompileErrorLocation::Generic|CompileErrorLocation::SourceOnly{..} => false,
+            CompileErrorLocation::SourceRange{range,..} => self.code == error.code() && self.range == range
         }
-        self.messages.iter().all(|expected| actual.messages().iter().any(|actual| expected.matches(actual)))
     }
 }
-
-impl ExpectedCompileErrorMessage {
-    fn matches(&self, actual: &CompileErrorMessage) -> bool {
-        self.range == *actual.range()
+impl From<(u32, Range<usize>)> for ExpectedCompileError {
+    fn from((code, range): (u32, Range<usize>)) -> ExpectedCompileError {
+        let range = ByteIndex::from(range.start)..ByteIndex::from(range.end);
+        ExpectedCompileError { code, range }
     }
 }

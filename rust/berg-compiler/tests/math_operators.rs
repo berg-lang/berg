@@ -73,7 +73,7 @@ compiler_tests! {
 
     trailing_neg: "0-" => error(UnrecognizedOperator@1) type(error),
     trailing_pos: "0+" => error(UnrecognizedOperator@1) type(error),
-    neg_only:      "-" => error(MissingRightOperand@0) type(error),
-    pos_only:      "+" => error(MissingRightOperand@0) type(error),
+    sub_only:      "-" => errors(MissingLeftOperand@0,MissingRightOperand@0) type(error),
+    add_only:      "+" => errors(MissingLeftOperand@0,MissingRightOperand@0) type(error),
     plus_minus: "1+-2" => error(UnrecognizedOperator@[1-2]) type(error),
 }

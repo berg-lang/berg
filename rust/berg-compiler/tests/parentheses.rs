@@ -23,7 +23,7 @@ compiler_tests! {
     add_empty_parens_both: "()+()" => type(error),
     neg_empty_parens: "-()" => type(error),
 
-    outer_parens_missing_operand_error: "(+)" => error(MissingRightOperand@1) type(error),
+    outer_parens_missing_operand_error: "(+)" => errors(MissingLeftOperand@1,MissingRightOperand@1) type(error),
 
     missing_close_paren: "(" => error(OpenWithoutClose@0) type(nothing),
     missing_open_paren: ")" => error(CloseWithoutOpen@0) type(nothing),

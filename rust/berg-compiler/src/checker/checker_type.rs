@@ -1,10 +1,11 @@
 use num::BigRational;
 use num::bigint::BigInt;
 
-#[derive(Debug, PartialEq, PartialOrd)]
+#[derive(Debug,Clone,PartialEq,PartialOrd)]
 pub enum Type {
     Rational(BigRational),
     Error,
+    Missing,
     Nothing,
 }
 

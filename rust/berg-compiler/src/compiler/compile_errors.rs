@@ -1,317 +1,143 @@
-use compiler::source_data::{ByteRange,ByteSlice};
-use std::ops::Deref;
+use std::path::PathBuf;
+use compiler::source_data::{ByteRange};
 use public::*;
-use std::io;
-use std::ops::Range;
-use std::path::Path;
+use std::fmt;
 use std::str;
 
-#[derive(Clone, Debug)]
-pub struct CompileError {
-    error_type: CompileErrorType,
-    messages: Vec<CompileErrorMessage>,
+pub trait CompileError: fmt::Debug {
+    fn code(&self) -> u32;
+    fn message(&self, compiler: &Compiler) -> CompileErrorMessage;
 }
 
-#[derive(Clone, Debug)]
+#[derive(Debug,Clone)]
 pub struct CompileErrorMessage {
-    pub source: Option<SourceIndex>,
-    pub range: Option<ByteRange>,
-    pub replacement: Option<String>,
+    pub location: CompileErrorLocation,
     pub message: String,
 }
-
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub enum CompileErrorType {
-    // Compile errors related to I/O and format
-    SourceNotFound = 101,
-    IoOpenError = 102,
-    IoReadError = 103,
-    IoCurrentDirectoryError = 104,
-    SourceTooLarge = 105,
-    TooManySources = 106,
-    InvalidUtf8 = 107,
-    UnsupportedCharacters = 108,
-
-    // Compile errors related to structure
-    MissingOperandsBetween = 201,
-    MissingRightOperand = 202,
-    MissingLeftOperand = 203,    
-    UnrecognizedOperator = 204,
-    OpenWithoutClose = 205,
-    CloseWithoutOpen = 206,
-
-    // Compile errors related to type
-    DivideByZero = 1001,
-    BadTypeLeftOperand = 1002,
-    BadTypeRightOperand = 1003,
-    BadTypeBothOperands = 1004,
+#[derive(Debug,Clone)]
+pub enum CompileErrorLocation {
+    Generic,
+    SourceOnly { source: SourceIndex },
+    SourceRange { source: SourceIndex, range: ByteRange },
 }
 
-#[derive(Debug)]
-pub struct CompileErrors {
-    errors: Vec<CompileError>,
-}
-
-impl Default for CompileErrors {
-    fn default() -> Self { CompileErrors { errors: Default::default() } }
-}
-
-impl CompileErrors {
-    pub(crate) fn report(&mut self, error: CompileError) {
-        self.errors.push(error)
-    }
-    pub(crate) fn report_generic(&mut self, error_type: CompileErrorType) {
-        self.report(error_type.generic())
-    }
-    pub(crate) fn extend(&mut self, errors: CompileErrors) {
-        self.errors.extend(errors.errors)
-    }
-}
-
-impl Deref for CompileErrors {
-    type Target = Vec<CompileError>;
-    fn deref(&self) -> &Vec<CompileError> { &self.errors }
-}
-
-impl Deref for SourceCompileErrors {
-    type Target = Vec<CompileError>;
-    fn deref(&self) -> &Vec<CompileError> { &self.errors }
-}
-
-pub(crate) struct SourceCompileErrors {
-    errors: CompileErrors,
-    source: SourceIndex,
-}
-
-impl SourceCompileErrors {
-    pub(crate) fn new(source: SourceIndex) -> Self {
-        let errors = Default::default();
-        SourceCompileErrors { errors, source }
-    }
-    pub(crate) fn report(&mut self, error: CompileError) {
-        self.errors.report(error)
-    }
-    pub(crate) fn report_at(&mut self, error_type: CompileErrorType, range: ByteRange, string: &str) {
-        let error = error_type.at(self.source, range, string);
-        self.report(error)
-    }
-    pub(crate) unsafe fn report_at_utf8_unchecked(&mut self, error_type: CompileErrorType, range: ByteRange, buffer: &ByteSlice) {
-        let bytes = &buffer[range.start..range.end];
-        let string = str::from_utf8_unchecked(bytes);
-        self.report_at(error_type, range, string)
-    }
-    pub(crate) fn report_invalid_utf8(&mut self, range: ByteRange, buffer: &ByteSlice) {
-        let error = CompileErrorType::InvalidUtf8.invalid_bytes(self.source, range, buffer);
-        self.report(error)
-    }
-    pub(crate) fn report_io_read(&mut self, index: ByteIndex, error: &io::Error) {
-        let error = CompileErrorType::IoReadError.io_read(self.source, index, error);
-        self.report(error)
-    }
-    pub(crate) fn report_io_open(&mut self, error_type: CompileErrorType, error: &io::Error, path: &Path) {
-        let error = error_type.io_open(self.source, error, path);
-        self.report(error)
-    }
-    pub(crate) fn report_io_source(&mut self, error_type: CompileErrorType, error: &io::Error) {
-        let error = error_type.io_source(self.source, error);
-        self.report(error)
-    }
-    pub(crate) fn close(self) -> CompileErrors {
-        self.errors
-    }
-}
-
-impl CompileErrorMessage {
-    pub fn new_replacement(
-        source: SourceIndex,
-        range: ByteRange,
-        replacement: String,
-        message: String,
-    ) -> Self {
-        CompileErrorMessage {
-            message,
-            source: Some(source),
-            range: Some(range),
-            replacement: Some(replacement),
+macro_rules! compile_errors {
+    ($(pub struct $name:ident $fields:tt ($code:expr) = $message_type:ident $message:tt;)*) => {
+        $(compile_errors! { @single pub struct $name $fields ($code) = $message_type $message; })*
+    };
+    (@single pub struct $name:ident $fields:tt ($code:expr) = $message_type:ident $message:tt;) => {
+        compile_errors! { @define_struct $name, $fields, $message_type }
+        compile_errors! { @impl_struct $name, $code, $fields, $message_type, $message }
+    };
+    (@define_struct $name:ident, { $(pub $field:tt: $field_type:ty),* }, string_generic) => {
+        #[derive(Debug,Clone)]
+        pub struct $name { $(pub $field: $field_type,)* }
+    };
+    (@define_struct $name:ident, { $(pub $field:tt: $field_type:ty),* }, format_generic) => {
+        #[derive(Debug,Clone)]
+        pub struct $name { $(pub $field: $field_type,)* }
+    };
+    (@define_struct $name:ident, { $(pub $field:tt: $field_type:ty),* }, $message_type:ident) => {
+        #[derive(Debug,Clone)]
+        pub struct $name { pub source: SourceIndex, $(pub $field: $field_type,)* }
+    };
+    (@impl_struct $name:ident, $code:expr, $fields:tt, $message_type:ident, $message:tt) => {
+        impl $name {
+            pub const CODE: u32 = $code;
         }
-    }
-    pub fn source_range(source: SourceIndex, range: ByteRange, message: String) -> Self {
-        CompileErrorMessage {
-            message,
-            source: Some(source),
-            range: Some(range),
-            replacement: None,
+        impl CompileError for $name {
+            fn code(&self) -> u32 { $name::CODE }
+            compile_errors! { @message $message_type, $message, $fields }
         }
-    }
-    pub fn source_only(source: SourceIndex, message: String) -> Self {
-        CompileErrorMessage {
-            message,
-            source: Some(source),
-            range: None,
-            replacement: None,
-        }
-    }
-    pub fn generic(message: String) -> Self {
-        CompileErrorMessage {
-            message,
-            source: None,
-            range: None,
-            replacement: None,
-        }
-    }
-
-    pub fn source(&self) -> Option<SourceIndex> {
-        self.source
-    }
-    pub fn range(&self) -> &Option<ByteRange> {
-        &self.range
-    }
-    pub fn replacement(&self) -> &Option<String> {
-        &self.replacement
-    }
-    pub fn message(&self) -> &String {
-        &self.message
-    }
-}
-
-impl CompileErrorType {
-    pub fn code(self) -> u32 {
-        self as u32
-    }
-    pub fn io_source(self, source: SourceIndex, error: &io::Error) -> CompileError {
-        use compiler::compile_errors::CompileErrorType::*;
-        let error_message = match self {
-            IoCurrentDirectoryError => format!("I/O error getting current directory: {}", error),
-            _ => unreachable!(),
-        };
-        let message = CompileErrorMessage::source_only(source, error_message);
-        CompileError::new(self, vec![message])
-    }
-    pub fn io_read(self, source: SourceIndex, index: ByteIndex, error: &io::Error) -> CompileError {
-        use compiler::compile_errors::CompileErrorType::*;
-        let range = Range {
-            start: index,
-            end: index,
-        };
-        let error_message = match self {
-            IoReadError => format!("I/O read error: '{}'", error),
-            _ => unreachable!(),
-        };
-        let message = CompileErrorMessage::source_range(source, range, error_message);
-        CompileError::new(self, vec![message])
-    }
-    pub fn io_open(self, source: SourceIndex, error: &io::Error, path: &Path) -> CompileError {
-        use compiler::compile_errors::CompileErrorType::*;
-        let error_message = match self {
-            SourceNotFound => format!("Not found: '{:?}' (error: '{}')", path, error),
-            IoOpenError => format!("I/O error opening '{:?}': '{}'", path, error),
-            _ => unreachable!(),
-        };
-        let message = CompileErrorMessage::source_only(source, error_message);
-        CompileError::new(self, vec![message])
-    }
-    pub fn invalid_bytes(
-        self,
-        source: SourceIndex,
-        range: ByteRange,
-        buffer: &ByteSlice,
-    ) -> CompileError {
-        use compiler::compile_errors::CompileErrorType::*;
-        let bytes = &buffer[range.start..range.end];
-        let error_message = match self {
-            InvalidUtf8 => format!(
-                "Invalid UTF-8 bytes: '{}'",
-                bytes
-                    .iter()
-                    .map(|b| format!("{:02X}", b))
-                    .collect::<Vec<String>>()
-                    .join("")
-            ),
-            _ => unreachable!(),
-        };
-        let message = CompileErrorMessage::source_range(source, range, error_message);
-        CompileError::new(self, vec![message])
-    }
-    pub fn at(self, source: SourceIndex, range: ByteRange, string: &str) -> CompileError {
-        use compiler::compile_errors::CompileErrorType::*;
-        let error_message = match self {
-            UnsupportedCharacters => format!("Unsupported characters {:?}", string),
-            UnrecognizedOperator => format!("Unrecognized operator {:?}", string),
-            MissingOperandsBetween => format!(
-                "Operator {:?} has no value on either side to operate on!",
-                string
-            ),
-            MissingLeftOperand => format!(
-                "Operator {:?} has no value on the left hand side to operate on!",
-                string
-            ),
-            MissingRightOperand => format!(
-                "Operator {:?} has no value on the right hand side to operate on!",
-                string
-            ),
-            BadTypeLeftOperand => format!(
-                "The value on the left side of the operator {:?} is not a number!",
-                string
-            ),
-            BadTypeRightOperand => format!(
-                "The value on the right side of the operator {:?} is not a number!",
-                string
-            ),
-            BadTypeBothOperands => format!(
-                "The values on either side of the operator {:?} are not numbers!",
-                string
-            ),
-            DivideByZero => format!(
-                "Division by zero is illegal. Perhaps you meant a different number on the right hand side of the '{:?}'?",
-                string
-            ),
-            OpenWithoutClose => format!(
-                "Open '{:?}' found without a matching close.",
-                string
-            ),
-            CloseWithoutOpen => format!(
-                "Closing '{:?}' found without a matching open.",
-                string
-            ),
-            _ => unreachable!(),
-        };
-        let message = CompileErrorMessage::source_range(source, range, error_message);
-        CompileError::new(self, vec![message])
-    }
-    pub fn source_only(self, source: SourceIndex) -> CompileError {
-        use compiler::compile_errors::CompileErrorType::*;
-        let error_message = match self {
-            SourceTooLarge => {
-                "SourceSpec code too large: source files greater than 4GB are unsupported."
-                    .to_string()
+    };
+    (@message string, ($range:tt, $message:tt), $fields:tt) => (
+        fn message(&self, _: &Compiler) -> CompileErrorMessage {
+            CompileErrorMessage {
+                message: $message.to_string(),
+                location: CompileErrorLocation::SourceRange { source: self.source, range: self.$range.clone() }
             }
-            _ => unreachable!(),
-        };
-        let message = CompileErrorMessage::source_only(source, error_message);
-        CompileError::new(self, vec![message])
-    }
-    pub fn generic(self) -> CompileError {
-        use compiler::compile_errors::CompileErrorType::*;
-        let error_message = match self {
-            TooManySources => format!("Too many source files opened! Max is {}.", u32::max_value()),
-            _ => unreachable!(),
-        };
-        let message = CompileErrorMessage::generic(error_message);
-        CompileError::new(self, vec![message])
-    }
+        }
+    );
+    (@message string_source, ($message:tt), $fields:tt) => (
+        fn message(&self, _: &Compiler) -> CompileErrorMessage {
+            CompileErrorMessage {
+                message: $message.to_string(),
+                location: CompileErrorLocation::SourceOnly { source: self.source }
+            }
+        }
+    );
+    (@message string_generic, ($message:tt), $fields:tt) => (
+        fn message(&self, _: &Compiler) -> CompileErrorMessage {
+            CompileErrorMessage {
+                message: $message.to_string(),
+                location: CompileErrorLocation::Generic { }
+            }
+        }
+    );
+    (@message format, ($range:tt, $message:tt), { $(pub $field:tt: $field_type:tt),* }) => (
+        fn message(&self, _compiler: &Compiler) -> CompileErrorMessage {
+            CompileErrorMessage {
+                message: format!($message, $($field = compile_errors!(@field_value _compiler, self, (self.$field), $field_type)),*),
+                location: CompileErrorLocation::SourceRange { source: self.source, range: self.$range.clone() },
+            }
+        }
+    );
+    (@message format_source, ($message:tt), { $(pub $field:tt: $field_type:tt),* }) => (
+        fn message(&self, _compiler: &Compiler) -> CompileErrorMessage {
+            CompileErrorMessage {
+                message: format!($message, $($field = compile_errors!(@field_value _compiler, self, (self.$field), $field_type)),*),
+                location: CompileErrorLocation::SourceOnly { source: self.source },
+            }
+        }
+    );
+    (@message format_generic, ($message:tt), { $(pub $field:tt: $field_type:tt),* }) => (
+        fn message(&self, compiler: &Compiler) -> CompileErrorMessage {
+            CompileErrorMessage {
+                message: format!($message, $($field = compile_errors!(@field_value compiler, self, (self.$field), $field_type)),*),
+                location: CompileErrorLocation::Generic,
+            }
+        }
+    );
+    (@field_value $compiler:ident, $self:ident, $value:tt, ByteRange) => (source_string($compiler, $self.source, &$value));
+    (@field_value $compiler:ident, $self:ident, $value:tt, $type:tt) => ($value);
 }
 
-impl CompileError {
-    pub fn new(error_type: CompileErrorType, messages: Vec<CompileErrorMessage>) -> Self {
-        CompileError {
-            error_type,
-            messages,
+fn source_string(compiler: &Compiler, source: SourceIndex, range: &ByteRange) -> String {
+    let buffer = compiler.with_source(source, |source_data| source_data.source_spec().open(compiler, source));
+    if range.end <= buffer.len() {
+        if let Ok(string) = str::from_utf8(&buffer[range]) {
+            return string.to_string();
         }
     }
-    pub fn error_type(&self) -> CompileErrorType {
-        self.error_type
-    }
-    pub fn messages(&self) -> &Vec<CompileErrorMessage> {
-        &self.messages
-    }
+    String::from("ERROR: source may have changed since compiling, source range is no longer valid UTF-8")
+}
+
+// compile_errors! {
+//     pub struct SourceNotFound { pub path: PathBuf, pub io_error: io::Error } (101) = format("I/O error getting current directory to expand {path:?}: {io_error}")
+// }
+compile_errors! {
+    // Compile errors independent of parsing
+    pub struct SourceNotFound          { pub path: PathBuf, pub io_error_string: String } (101) = format_source("I/O error getting current directory to expand {path:?}: {io_error_string}");
+    pub struct IoOpenError             { pub path: PathBuf, pub io_error_string: String } (102) = format_source("I/O error opening {path:?}: {io_error_string}");
+    pub struct IoReadError             { pub range: ByteRange, pub path: PathBuf, pub io_error_string: String } (103) = format_source("I/O error at {range} reading {path:?}: {io_error_string}");
+    pub struct IoCurrentDirectoryError { pub path: PathBuf, pub io_error_string: String } (104) = format_source("I/O error getting current directory to determine path of {path:?}: {io_error_string}");
+    pub struct SourceTooLarge          { pub size: usize } (105) = string_source("SourceSpec code too large: source files greater than 4GB are unsupported.");
+    pub struct TooManySources          { pub num_sources: usize } (106) = string_generic("Too many source files opened!");
+
+    // Compile errors related to format (tokenizer)
+    pub struct InvalidUtf8             { pub bytes: ByteRange } (201) = string(bytes, "Invalid UTF-8! Perhaps this isn't a Berg source file?");
+    pub struct UnsupportedCharacters   { pub characters: ByteRange } (202) = string(characters, "Invalid Unicode characters");
+
+    // Compile errors related to structure (parser)
+    pub struct MissingRightOperand     { pub operator: ByteRange } (301) = format(operator, "Operator {operator} has no value on the right hand side to operate on!");
+    pub struct MissingLeftOperand      { pub operator: ByteRange } (302) = format(operator, "Operator {operator} has no value on the left hand side to operate on!");
+    pub struct OpenWithoutClose        { pub open: ByteRange, pub close: String } (303) = format(open, "Open '{open}' found without a matching close '{close}'.");
+    pub struct CloseWithoutOpen        { pub close: ByteRange, pub open: String } (304) = format(close, "Closing '{close}' found without a matching '{open}'.");
+
+    // Compile errors related to type (checker)
+    pub struct UnrecognizedOperator    { pub operator: ByteRange } (1001) = format(operator, "Unrecognized operator {operator}");
+    pub struct DivideByZero            { pub divide: ByteRange } (1002) = format(divide, "Division by zero is illegal. Perhaps you meant a different number on the right hand side of the '{divide}'?");
+    pub struct BadTypeLeftOperand      { pub operator: ByteRange, pub left: Type } (1003) = format(operator, "The value on the left side of '{operator}' is not a number! It is {left:?} instead.");
+    pub struct BadTypeRightOperand     { pub operator: ByteRange, pub right: Type } (1004) = format(operator, "The value on the right side of '{operator}' is not a number! It is {right:?} instead.");
+    pub struct BadTypeBothOperands     { pub operator: ByteRange, pub left: Type, pub right: Type } (1005) = format(operator, "The values on either side of '{operator}' are not numbers! They are {left:?} and {right:?} instead.");
 }
