@@ -139,5 +139,4 @@ compile_errors! {
     pub struct DivideByZero            { pub divide: ByteRange } (1002) = format(divide, "Division by zero is illegal. Perhaps you meant a different number on the right hand side of the '{divide}'?");
     pub struct BadTypeLeftOperand      { pub operator: ByteRange, pub left: Type } (1003) = format(operator, "The value on the left side of '{operator}' is not a number! It is {left:?} instead.");
     pub struct BadTypeRightOperand     { pub operator: ByteRange, pub right: Type } (1004) = format(operator, "The value on the right side of '{operator}' is not a number! It is {right:?} instead.");
-    pub struct BadTypeBothOperands     { pub operator: ByteRange, pub left: Type, pub right: Type } (1005) = format(operator, "The values on either side of '{operator}' are not numbers! They are {left:?} and {right:?} instead.");
 }

@@ -66,14 +66,26 @@ compiler_tests! {
     subadd1_2_3_neg: "-1-2+3" => type(0),
     subadd1_2_3_pos: "+1-2+3" => type(2),
 
+    addmul_missing_operator_precedence: "1 * + 3" => errors(MissingRightOperand@2) type(error),
+    muladd_missing_operator_precedence: "1 + * 3" => errors(MissingLeftOperand@4) type(error),
+    addparen_missing_operator_precedence: "(1 + )" => errors(MissingRightOperand@3) type(error),
+    parenadd_missing_operator_precedence: "( + 1)" => errors(MissingLeftOperand@2) type(error),
+
     neg_0: "-0" => type(0),
     neg_1: "-1" => type(-1),
     pos_0: "+0" => type(0),
     pos_1: "+1" => type(1),
+
+    plusneg_5_2: "5 + -2" => type(3),
+    timesneg_5_2: "5 * -2" => type(-10),
 
     trailing_neg: "0-" => error(UnrecognizedOperator@1) type(error),
     trailing_pos: "0+" => error(UnrecognizedOperator@1) type(error),
     sub_only:      "-" => errors(MissingLeftOperand@0,MissingRightOperand@0) type(error),
     add_only:      "+" => errors(MissingLeftOperand@0,MissingRightOperand@0) type(error),
     plus_minus: "1+-2" => error(UnrecognizedOperator@[1-2]) type(error),
+
+    add_1_nothing: "1+()" => error(BadTypeRightOperand@1) type(error),
+    add_nothing_1: "()+1" => error(BadTypeLeftOperand@2) type(error),
+    add_nothing_nothing: "()+()" => errors(BadTypeLeftOperand@2,BadTypeRightOperand@2) type(error),
 }

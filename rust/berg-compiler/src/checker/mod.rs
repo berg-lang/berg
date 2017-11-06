@@ -34,9 +34,19 @@ impl<'ch,'c:'ch> Checker<'ch,'c> {
         match (left, right) {
             (Rational(left), Rational(right)) => Some((left, right)),
             (Error, _)|(_, Error) => None,
-            (Rational(_), right) => { self.report(compile_errors::BadTypeRightOperand { source: self.source(), operator: parse_data.token_ranges[index].clone(), right }); None },
-            (left, Rational(_)) => { self.report(compile_errors::BadTypeLeftOperand { source: self.source(), operator: parse_data.token_ranges[index].clone(), left }); None },
-            (left, right) => { self.report(compile_errors::BadTypeBothOperands { source: self.source(), operator: parse_data.token_ranges[index].clone(), left, right }); None },
+            (Rational(_), right) => {
+                self.report(compile_errors::BadTypeRightOperand { source: self.source(), operator: parse_data.token_ranges[index].clone(), right });
+                None
+            },
+            (left, Rational(_)) => {
+                self.report(compile_errors::BadTypeLeftOperand { source: self.source(), operator: parse_data.token_ranges[index].clone(), left });
+                None
+            },
+            (left, right) => {
+                self.report(compile_errors::BadTypeLeftOperand { source: self.source(), operator: parse_data.token_ranges[index].clone(), left });
+                self.report(compile_errors::BadTypeRightOperand { source: self.source(), operator: parse_data.token_ranges[index].clone(), right });
+                None
+            },
         }
     }
     fn check_numeric_binary<F: Fn(BigRational,BigRational)->BigRational>(&mut self, left: Type, right: Type, index: AstIndex, parse_data: &ParseData, f: F) -> Type {
