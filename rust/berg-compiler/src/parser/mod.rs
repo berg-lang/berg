@@ -1,4 +1,3 @@
-mod ast_builder;
 mod scanner;
 mod tokenizer;
 
