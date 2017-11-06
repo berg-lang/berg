@@ -3,16 +3,14 @@ language: rust
 
 before_install: cd rust/berg-compiler
 install: cargo build $BUILD_FLAGS --verbose
-script: cargo build $BUILD_FLAGS --verbose && cargo test --verbose
+script: cargo build $BUILD_FLAGS --verbose && cargo test $BUILD_FLAGS --verbose
 
 matrix:
   include:
   - rust: stable
     env: { BUILD_FLAGS: --no-default-features }
-    install: cargo build --no-default-features --verbose
-    script: cargo build --no-default-features --verbose && cargo test --verbose
   - rust: beta
-    env: { CARGO_BUILD_FLAGS: --no-default-features --blarghle }
+    env: { BUILD_FLAGS: --no-default-features }
   - rust: nightly
   allow_failures:
     - rust: nightly
