@@ -3,8 +3,5 @@ rust:
   - stable
   - beta
   - nightly
-matrix:
-  allow_failures:
-    - rust: nightly
 install: cd rust/berg-compiler && cargo build --verbose
 script: cd rust/berg-compiler && cargo build --verbose && cargo test --verbose
