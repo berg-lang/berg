@@ -32,11 +32,11 @@ impl AstWalkerMut {
 
         // If there are extra close operators, report them.
         while let NextToken(..) = walker.advance_if(parse_data,
-            |token| match token { CloseParen(_) => Some(()), _ => None }) {
+            |token| match token { CloseParen(_)|CloseCompoundTerm(_) => Some(()), _ => None }) {
             // Walk any remaining postfixes.
             value = walker.walk_postfixes(visitor, value, parse_data);
             // Read any remaining infixes as well.
-            value = walker.walk_infix_while(visitor, value, parse_data, |_| true)
+            value = walker.walk_infix(visitor, value, parse_data)
         }
         assert!(walker.is_at_eof(parse_data));
         value
@@ -119,6 +119,7 @@ impl AstWalkerMut {
                 // Handle parentheses
                 OpenParen(delta) => {
                     // Walk the remainder of the expression in the parens (we already got the term)
+                    value = self.walk_postfixes(visitor, value, parse_data);
                     value = self.walk_infix(visitor, value, parse_data);
                     assert_eq!(delta, self.index-prefix_index);
 
@@ -133,7 +134,9 @@ impl AstWalkerMut {
                 },
                 OpenCompoundTerm(delta) => {
                     // Walk the remainder of the expression in the parens (we already got the term)
+                    value = self.walk_postfixes(visitor, value, parse_data);
                     value = self.walk_infix(visitor, value, parse_data);
+                    println!("{}, {}-{}", delta, self.index, prefix_index);
                     assert_eq!(delta, self.index-prefix_index);
 
                     // Skip the close token
@@ -152,12 +155,14 @@ impl AstWalkerMut {
     }
 
     fn walk_postfixes<T: Debug, V: AstVisitorMut<T>>(&mut self, visitor: &mut V, mut value: T, parse_data: &ParseData) -> T {
+        println!("walk_postfixes at {} ...", self.index);
         while let NextToken(postfix, postfix_index) = self.advance_if(parse_data,
             |token| match token { PostfixOperator(postfix) => Some(postfix), _ => None })
         {
             println!("Visit postfix {:?} {:?}", &parse_data.identifiers[postfix], value);
             value = visitor.visit_postfix(postfix, value, postfix_index, parse_data)
         }
+        println!("walk_postfixes done at {} ...", self.index);
         value
     }
 

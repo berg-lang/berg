@@ -90,8 +90,8 @@ fn choose_operator(identifier: IdentifierIndex, prev_char: Option<CharType>, buf
 
 fn is_space(char_type: Option<CharType>) -> bool {
     match char_type {
-        Some(Space)|Some(Unsupported)|Some(InvalidUtf8) => true,
-        None|Some(Open)|Some(Close)|Some(Digit)|Some(Operator) => false,
+        None|Some(Space)|Some(Unsupported)|Some(InvalidUtf8) => true,
+        Some(Open)|Some(Close)|Some(Digit)|Some(Operator) => false,
     }
 }
 

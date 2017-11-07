@@ -12,8 +12,8 @@ compiler_tests! {
 
     paren_space_all_over: " ( ( ) ) " => type(nothing),
 
-    // addmul_space_precedence: "1+2 * 3" => type(9),
-    // addmuladd_space_precedence: "1+2 * 3+4" => type(21),
+    addmul_space_precedence: "1+2 * 3" => type(9),
+    addmuladd_space_precedence: "1+2 * 3+4" => type(21),
     addmuladd_space_precedence_2: "1 + 2*3 + 4" => type(11),
     muladdmul_space_precedence: "1 * 2+3 * 4" => type(20),
     muladdmul_space_precedence_2: "1*2 + 3*4" => type(14),
