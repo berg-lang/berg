@@ -2,6 +2,7 @@ use indexed_vec::Delta;
 use compiler::source_data::{ByteSlice,ByteIndex};
 use parser::scanner::ByteType::*;
 use parser::scanner::CharType::*;
+use std::str;
 
 #[derive(Debug,Copy,Clone,PartialEq)]
 pub(super) enum CharType {
@@ -22,29 +23,53 @@ enum ByteType {
 
 impl CharType {
     pub(super) fn read(buffer: &ByteSlice, index: &mut ByteIndex) -> Option<CharType> {
-        if *index >= buffer.len() {
-            return None;
-        }
-        match ByteType::from(buffer[*index]) {
-            ByteType::Char(char_type) => { println!("{:?} at {}", char_type, *index); *index += 1; Some(char_type) },
-            ByteType::Utf8LeadingByte(char_length) => if Self::is_valid_utf8_char(buffer, *index, char_length) {
-                *index += char_length;
-                Some(Unsupported)
-            } else {
-                *index += 1;
-                Some(InvalidUtf8)
-            }
-        }
+        Self::read_if(buffer, index, |_| true)
     }
-    pub(super) fn read_many(&self, buffer: &ByteSlice, index: &mut ByteIndex) -> (ByteIndex, Option<CharType>) {
-        let mut end = *index;
-        while let Some(next_char) = Self::read(buffer, index) {
-            if next_char != *self {
-                return (end, Some(next_char));
+
+    pub(super) fn read_if<IfChar: Fn(CharType)->bool>(buffer: &ByteSlice, index: &mut ByteIndex, if_char: IfChar) -> Option<CharType> {
+        Self::peek_map(buffer, *index, |char_type,char_length| {
+            if char_type.is_some() && if_char(char_type.unwrap()) {
+                *index += char_length;
+                char_type
+            } else {
+                None
             }
-            end = *index;
+        })
+    }
+
+    pub(super) fn read_many(self, buffer: &ByteSlice, index: &mut ByteIndex) {
+        while Self::read_if(buffer, index, |char_type| char_type == self).is_some() {}
+    }
+
+    pub(super) fn read_many_to_str<'b>(self, buffer: &'b ByteSlice, start: ByteIndex, index: &mut ByteIndex) -> &'b str {
+        assert_ne!(self, CharType::InvalidUtf8);
+        self.read_many(buffer, index);
+        unsafe { str::from_utf8_unchecked(&buffer[start..*index]) }
+    }
+
+    // pub(super) fn peek(buffer: &ByteSlice, index: ByteIndex) -> Option<CharType> {
+    //     Self::peek_map(buffer, index, |char_type,_| char_type)
+    // }
+
+    pub(super) fn peek_if<IfChar: Fn(Option<CharType>)->bool>(buffer: &ByteSlice, index: ByteIndex, if_char: IfChar) -> bool {
+        Self::peek_map(buffer, index, |char_type,_| if_char(char_type))
+    }
+
+    pub(super) fn peek_map<T, MapChar: FnMut(Option<CharType>,Delta<ByteIndex>)->T>(buffer: &ByteSlice, index: ByteIndex, mut map_char: MapChar) -> T {
+        if index >= buffer.len() {
+            return map_char(None, Delta(ByteIndex(0)));
         }
-        (end, None)
+        let byte_type = ByteType::from_byte(buffer[index]);
+        match byte_type {
+            ByteType::Char(char_type) => map_char(Some(char_type),Delta(ByteIndex(1))),
+            ByteType::Utf8LeadingByte(char_length) => {
+                if Self::is_valid_utf8_char(buffer, index, char_length) {
+                    map_char(Some(Unsupported), char_length)
+                } else {
+                    map_char(Some(InvalidUtf8), Delta(ByteIndex(1)))
+                }
+            },
+        }
     }
 
     fn is_valid_utf8_char(buffer: &ByteSlice, index: ByteIndex, char_length: Delta<ByteIndex>) -> bool {
@@ -60,8 +85,8 @@ impl CharType {
     }
 }
 
-impl From<u8> for ByteType {
-    fn from(byte: u8) -> Self {
+impl ByteType {
+    fn from_byte(byte: u8) -> ByteType {
         match byte {
             b'+'|b'-'|b'*'|b'/' => Char(Operator),
             b'0'...b'9' => Char(Digit),
@@ -71,9 +96,6 @@ impl From<u8> for ByteType {
             _ => ByteType::from_generic(byte)
         }
     }
-}
-
-impl ByteType {
     fn from_generic(byte: u8) -> Self {
         use parser::scanner::ByteType::*;
         match byte {

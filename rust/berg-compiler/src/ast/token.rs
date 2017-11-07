@@ -11,9 +11,11 @@ pub enum Token {
 
     PrefixOperator(IdentifierIndex),
     OpenParen(AstDelta),
+    OpenCompoundTerm(AstDelta),
 
     PostfixOperator(IdentifierIndex),
     CloseParen(AstDelta),
+    CloseCompoundTerm(AstDelta),
 }
 
 #[derive(Debug,Copy,Clone,PartialEq)]
@@ -32,12 +34,14 @@ pub enum InfixToken {
 pub enum PrefixToken {
     PrefixOperator(IdentifierIndex),
     OpenParen(AstDelta),
+    OpenCompoundTerm(AstDelta),
 }
 
 #[derive(Debug,Copy,Clone,PartialEq)]
 pub enum PostfixToken {
     PostfixOperator(IdentifierIndex),
     CloseParen(AstDelta),
+    CloseCompoundTerm(AstDelta),
 }
 
 #[derive(Debug,Copy,Clone,PartialEq)]
@@ -54,8 +58,8 @@ impl Token {
         match *self {
             IntegerLiteral(_)|MissingExpression => Fixity::Term,
             InfixOperator(_)|MissingInfix => Fixity::Infix,
-            PrefixOperator(_)|OpenParen(_) => Fixity::Prefix,
-            PostfixOperator(_)|CloseParen(_) => Fixity::Postfix,
+            PrefixOperator(_)|OpenParen(_)|OpenCompoundTerm(_) => Fixity::Prefix,
+            PostfixOperator(_)|CloseParen(_)|CloseCompoundTerm(_) => Fixity::Postfix,
         }
     }
     pub fn to_term(self) -> Option<TermToken> { TermToken::try_from(self) }
@@ -112,22 +116,24 @@ impl InfixToken {
     }
 }
 
-impl PostfixToken {
-    pub fn try_from(token: Token) -> Option<Self> {
-        match token {
-            Token::PostfixOperator(identifier) => Some(PostfixToken::PostfixOperator(identifier)),
-            Token::CloseParen(delta) => Some(PostfixToken::CloseParen(delta)),
-            _ => { assert_ne!(token.fixity(), Fixity::Postfix); None }
-        }
-    }
-}
-
 impl PrefixToken {
     pub fn try_from(token: Token) -> Option<Self> {
         match token {
             Token::PrefixOperator(identifier) => Some(PrefixToken::PrefixOperator(identifier)),
             Token::OpenParen(delta) => Some(PrefixToken::OpenParen(delta)),
+            Token::OpenCompoundTerm(delta) => Some(PrefixToken::OpenCompoundTerm(delta)),
             _ => { assert_ne!(token.fixity(), Fixity::Prefix); None }
+        }
+    }
+}
+
+impl PostfixToken {
+    pub fn try_from(token: Token) -> Option<Self> {
+        match token {
+            Token::PostfixOperator(identifier) => Some(PostfixToken::PostfixOperator(identifier)),
+            Token::CloseParen(delta) => Some(PostfixToken::CloseParen(delta)),
+            Token::CloseCompoundTerm(delta) => Some(PostfixToken::CloseCompoundTerm(delta)),
+            _ => { assert_ne!(token.fixity(), Fixity::Postfix); None }
         }
     }
 }

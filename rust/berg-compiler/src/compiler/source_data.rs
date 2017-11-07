@@ -101,8 +101,7 @@ impl ParseData {
 
             CloseParen(_) => self.identifier_string(CLOSE_PAREN),
             OpenParen(_) => self.identifier_string(OPEN_PAREN),
-
-            MissingExpression|MissingInfix => "",
+            OpenCompoundTerm(_)|CloseCompoundTerm(_)|MissingExpression|MissingInfix => "",
         }
     }
     pub fn token_range(&self, token: AstIndex) -> ByteRange {

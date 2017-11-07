@@ -130,8 +130,20 @@ impl AstWalkerMut {
                     } else {
                         unreachable!();
                     }
-
                 },
+                OpenCompoundTerm(delta) => {
+                    // Walk the remainder of the expression in the parens (we already got the term)
+                    value = self.walk_infix(visitor, value, parse_data);
+                    assert_eq!(delta, self.index-prefix_index);
+
+                    // Skip the close token
+                    if let NextToken(close_delta, close_index) = self.advance_if(parse_data, |token| match token { CloseCompoundTerm(delta) => Some(delta), _ => None }) {
+                        assert_eq!(close_delta, delta);
+                        assert_eq!(delta, close_index-prefix_index);
+                    } else {
+                        unreachable!();
+                    }
+                }
             };
         };
 

@@ -1,6 +1,7 @@
 mod scanner;
 mod tokenizer;
 
+use ast::AstDelta;
 use ast::AstIndex;
 use ast::token::Token;
 use ast::token::Token::*;
@@ -9,105 +10,153 @@ use compiler::compile_errors;
 use compiler::source_data::{ByteIndex,ByteRange,ParseData,SourceIndex};
 use indexed_vec::{Delta,IndexedVec};
 
-pub(super) fn parse(compiler: &Compiler, source: SourceIndex) -> ParseData
+pub(super) fn parse<'c>(compiler: &Compiler<'c>, source: SourceIndex) -> ParseData
 {
-    // Actual list of tokens
-    let mut tokens: IndexedVec<Token,AstIndex> = Default::default();
-    let mut token_ranges: IndexedVec<ByteRange,AstIndex> = Default::default();
-    // Keeps track of open parentheses so we can close them appropriately
-    let mut open_parens: Vec<AstIndex> = Default::default();
+    let parser = Parser {
+        tokens: Default::default(),
+        token_ranges: Default::default(),
+        open_groups: Default::default(),
+        compiler,
+        source,
+    };
+    parser.parse()
+}
 
-    // Loop through tokens, inserting term, then operator, then term, then operator ...
-    let mut need_operand = true;
-    let (identifiers, literals) = tokenizer::tokenize(compiler, source, |mut token, range| {
+struct Parser<'p,'c:'p> {
+    tokens: IndexedVec<Token,AstIndex>,
+    token_ranges: IndexedVec<ByteRange,AstIndex>,
+    open_groups: Vec<AstIndex>,
+    compiler: &'p Compiler<'c>,
+    source: SourceIndex,
+}
+
+impl<'p,'c:'p> Parser<'p,'c> {
+
+    fn parse(mut self) -> ParseData {
+        // Loop through tokens, inserting term, then operator, then term, then operator ...
+        let mut need_operand = true;
+        let (identifiers, literals) = tokenizer::tokenize(self.compiler, self.source, |token, range| {
+            self.insert_missing_expression_or_infix(need_operand, token.has_left_operand(), range.start);
+            need_operand = token.has_right_operand();
+            self.insert_token(token, range);
+        });
+
+        let end = match self.token_ranges.last() { Some(range) => range.end, None => ByteIndex(0) };
+        self.insert_missing_expression_or_infix(need_operand, true, end);
+
+        self.close_all();
+
+        let char_data = Default::default();
+        ParseData { char_data, identifiers, literals, tokens: self.tokens, token_ranges: self.token_ranges }
+    }
+
+    fn push(&mut self, token: Token, range: ByteRange) {
+        self.tokens.push(token);
+        self.token_ranges.push(range);
+    }
+
+    fn next_index(&self) -> AstIndex { self.tokens.len() }
+
+    fn insert_missing_expression_or_infix(&mut self, need_operand: bool, has_left_operand: bool, location: ByteIndex) {
         // Put a MissingExpression or MissingInfix in between if we're missing something.
-        match (need_operand, token.has_left_operand()) {
-            (true, true) => {
-                tokens.push(MissingExpression);
-                token_ranges.push(range.start..range.start);
-            },
-            (false, false) => {
-                tokens.push(MissingInfix);
-                token_ranges.push(range.start..range.start);
-            },
+        match (need_operand, has_left_operand) {
+            (true, true) => self.push(MissingExpression, location..location),
+            (false, false) => self.push(MissingInfix, location..location),
             (true,false)|(false,true) => {}
         }
-        need_operand = token.has_right_operand();
+    }
 
-        // Handle open/close parens
+    fn insert_token(&mut self, mut token: Token, range: ByteRange) {
+        // First insert any extra close parens and push open parens on the list
         match token {
-            OpenParen(_) => open_parens.push(tokens.len()),
-            CloseParen(ref mut close_delta) => {
-                *close_delta = match open_parens.pop() {
-                    Some(open_index) => {
-                        let close_index = tokens.len();
-                        match tokens[open_index] {
-                            OpenParen(ref mut open_delta) => { *open_delta = close_index-open_index; *open_delta }
-                            _ => unreachable!()
-                        }
-                    }
-                    None => handle_close_without_open(&range, &mut tokens, &mut token_ranges, compiler, source),
+            OpenParen(_)|OpenCompoundTerm(_) => {
+                let next_index = self.next_index();
+                self.open_groups.push(next_index);
+            },
+            CloseParen(ref mut close_delta) => *close_delta = self.close_paren(&range),
+            CloseCompoundTerm(ref mut close_delta) => {
+                if let Some(delta) = self.close_compound_term() {
+                    *close_delta = delta;
+                } else {
+                    return;
                 }
             },
-            _ => {}
+            _ => {},
         }
 
-        // Insert the tokens
-        tokens.push(token);
-        token_ranges.push(range);
-    });
-
-    // Add a "missing operand" if we still need an operand
-    if need_operand {
-        let end = match token_ranges.last() { Some(range) => range.end, None => ByteIndex(0) };
-        tokens.push(MissingExpression);
-        token_ranges.push(end..end);
-    }
-    // Close off any remaining open parens
-    while let Some(open_index) = open_parens.pop() {
-        handle_open_without_close(open_index, &mut tokens, &mut token_ranges, compiler, source);
+        // Then insert the token
+        self.push(token, range);
     }
 
-    let char_data = Default::default();
-    ParseData { char_data, identifiers, literals, tokens, token_ranges }
-}
-
-fn handle_close_without_open(
-    range: &ByteRange,
-    tokens: &mut IndexedVec<Token,AstIndex>,
-    token_ranges: &mut IndexedVec<ByteRange,AstIndex>,
-    compiler: &Compiler,
-    source: SourceIndex
-) -> Delta<AstIndex> {
-    let open_index = AstIndex(0);
-    let open_loc = ByteIndex(0);
-    // We're about to shift the close_index over, so we need to set the delta correctly.
-    let close_index = tokens.len()+1;
-    let delta = close_index-open_index;
-    println!("  open/close: {}/{}", open_index, close_index);
-    tokens.insert(open_index, OpenParen(delta));
-    token_ranges.insert(open_index, open_loc..open_loc);
-    compiler.report(compile_errors::CloseWithoutOpen { source, close: range.clone(), open: String::from("(") });
-    delta
-}
-
-fn handle_open_without_close(
-    open_index: AstIndex,
-    tokens: &mut IndexedVec<Token,AstIndex>,
-    token_ranges: &mut IndexedVec<ByteRange,AstIndex>,
-    compiler: &Compiler,
-    source: SourceIndex
-) {
-    let close_index = tokens.len();
-    let close_loc = token_ranges[close_index-1].end;
-    let delta = close_index-open_index;
-    tokens.push(CloseParen(delta));
-    token_ranges.push(close_loc..close_loc);
-    if let OpenParen(ref mut open_delta) = tokens[open_index] {
-        *open_delta = delta;
-    } else {
-        unreachable!()
+    fn close_paren(&mut self, range: &ByteRange) -> AstDelta {
+        loop {
+            match self.open_groups.pop() {
+                Some(open_index) => {
+                    let close_index = self.next_index();
+                    let close_token = match self.tokens[open_index] {
+                        OpenParen(ref mut open_delta) => {
+                            *open_delta = close_index-open_index;
+                            return *open_delta;
+                        },
+                        OpenCompoundTerm(ref mut open_delta) => {
+                            *open_delta = close_index-open_index;
+                            CloseCompoundTerm(*open_delta)
+                        },
+                        _ => unreachable!()
+                    };
+                    self.push(close_token, range.start..range.start);
+                },
+                None => return self.handle_close_without_open(range),
+            }
+        }
     }
 
-    compiler.report(compile_errors::OpenWithoutClose { source, open: token_ranges[open_index].clone(), close: String::from(")") });
+    fn close_compound_term(&mut self) -> Option<AstDelta> {
+        let open_index = {
+            let open_index = self.open_groups.last();
+            if open_index.is_none() { return None; }
+            *open_index.unwrap()
+        };
+        let close_index = self.next_index();
+        if let OpenCompoundTerm(ref mut open_delta) = self.tokens[open_index] {
+            self.open_groups.pop();
+            *open_delta = close_index-open_index;
+            Some(*open_delta)
+        } else {
+            None
+        }
+    }
+
+    fn close_all(&mut self) {
+        while let Some(open_index) = self.open_groups.pop() {
+            let close_index = self.next_index();
+            let close_loc = self.token_ranges[close_index-1].end;
+            let delta = close_index-open_index;
+            let close_token = match self.tokens[open_index] {
+                OpenParen(ref mut open_delta) => {
+                    *open_delta = delta;
+                    self.compiler.report(compile_errors::OpenWithoutClose { source: self.source, open: self.token_ranges[open_index].clone(), close: String::from(")") });
+                    CloseParen(delta)
+                },
+                OpenCompoundTerm(ref mut open_delta) => {
+                    *open_delta = delta;
+                    CloseCompoundTerm(delta)
+                },
+                _ => unreachable!(),
+            };
+            self.push(close_token, close_loc..close_loc);
+        }
+    }
+
+    fn handle_close_without_open(&mut self, range: &ByteRange) -> Delta<AstIndex> {
+        let open_index = AstIndex(0);
+        let open_loc = ByteIndex(0);
+        // We're about to shift the close_index over, so we need to set the delta correctly.
+        let close_index = self.next_index()+1;
+        let delta = close_index-open_index;
+        self.tokens.insert(open_index, OpenParen(delta));
+        self.token_ranges.insert(open_index, open_loc..open_loc);
+        self.compiler.report(compile_errors::CloseWithoutOpen { source: self.source, close: range.clone(), open: String::from("(") });
+        delta
+    }
 }
