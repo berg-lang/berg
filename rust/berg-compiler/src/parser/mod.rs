@@ -1,14 +1,13 @@
 mod scanner;
 mod tokenizer;
 
-use ast::AstDelta;
 use ast::AstIndex;
-use ast::token::Token;
+use ast::token::{Token,OpenToken};
 use ast::token::Token::*;
 use compiler::Compiler;
 use compiler::compile_errors;
 use compiler::source_data::{ByteIndex,ByteRange,ParseData,SourceIndex};
-use indexed_vec::{Delta,IndexedVec};
+use indexed_vec::IndexedVec;
 
 pub(super) fn parse<'c>(compiler: &Compiler<'c>, source: SourceIndex) -> ParseData
 {
@@ -25,9 +24,16 @@ pub(super) fn parse<'c>(compiler: &Compiler<'c>, source: SourceIndex) -> ParseDa
 struct Parser<'p,'c:'p> {
     tokens: IndexedVec<Token,AstIndex>,
     token_ranges: IndexedVec<ByteRange,AstIndex>,
-    open_groups: Vec<AstIndex>,
+    open_groups: Vec<OpenGroup>,
     compiler: &'p Compiler<'c>,
     source: SourceIndex,
+}
+
+#[derive(Debug)]
+struct OpenGroup {
+    open_index: AstIndex,
+    open_token: OpenToken,
+    // root: Option<Token>,
 }
 
 impl<'p,'c:'p> Parser<'p,'c> {
@@ -54,6 +60,10 @@ impl<'p,'c:'p> Parser<'p,'c> {
         self.tokens.push(token);
         self.token_ranges.push(range);
     }
+    fn insert(&mut self, index: AstIndex, token: Token, range: ByteRange) {
+        self.tokens.insert(index, token);
+        self.token_ranges.insert(index, range);
+    }
 
     fn next_index(&self) -> AstIndex { self.tokens.len() }
 
@@ -66,97 +76,95 @@ impl<'p,'c:'p> Parser<'p,'c> {
         }
     }
 
-    fn insert_token(&mut self, mut token: Token, range: ByteRange) {
+    fn insert_token(&mut self, token: Token, range: ByteRange) {
         // First insert any extra close parens and push open parens on the list
         match token {
-            OpenParen(_)|OpenCompoundTerm(_) => {
-                let next_index = self.next_index();
-                self.open_groups.push(next_index);
-            },
-            CloseParen(ref mut close_delta) => *close_delta = self.close_paren(&range),
-            CloseCompoundTerm(ref mut close_delta) => {
-                if let Some(delta) = self.close_compound_term() {
-                    *close_delta = delta;
-                } else {
-                    return;
-                }
-            },
-            _ => {},
-        }
+            OpenParen(_) => self.on_open_paren(range),
+            OpenCompoundTerm(_) => self.on_open_compound_term(),
+            CloseParen(_) => self.on_close_paren(range),
+            CloseCompoundTerm(_) => self.on_close_compound_term(range),
 
-        // Then insert the token
-        self.push(token, range);
+            // Everything else, just push directly.
+            _ => self.push(token, range),
+        }
     }
 
-    fn close_paren(&mut self, range: &ByteRange) -> AstDelta {
-        loop {
-            match self.open_groups.pop() {
-                Some(open_index) => {
-                    let close_index = self.next_index();
-                    let close_token = match self.tokens[open_index] {
-                        OpenParen(ref mut open_delta) => {
-                            *open_delta = close_index-open_index;
-                            return *open_delta;
-                        },
-                        OpenCompoundTerm(ref mut open_delta) => {
-                            *open_delta = close_index-open_index;
-                            CloseCompoundTerm(*open_delta)
-                        },
-                        _ => unreachable!()
-                    };
-                    self.push(close_token, range.start..range.start);
+    fn on_open_paren(&mut self, range: ByteRange) {
+        let open_token = OpenToken::OpenParen(Default::default());
+        let open_index = self.next_index();
+        self.open_groups.push(OpenGroup { open_token, open_index});//, root: None });
+        self.push(open_token.into(), range);
+    }
+
+    fn on_open_compound_term(&mut self) {
+        let open_token = OpenToken::OpenCompoundTerm(Default::default());
+        let open_index = self.next_index();
+        self.open_groups.push(OpenGroup { open_token, open_index});//, root: None });
+        // Don't push the compound term yet. Most of them don't need to actually be in the
+        // AST since most things go the direction they should.
+    }
+
+    fn on_close_paren(&mut self, close_range: ByteRange) {
+        while let Some(open_group) = self.open_groups.pop() {
+            println!("Popped {:?}", open_group);
+            match open_group {
+                OpenGroup { open_token: OpenToken::OpenParen(_), open_index, .. } => {
+                    return self.close_paren(open_index, close_range)
                 },
-                None => return self.handle_close_without_open(range),
+                OpenGroup { open_token: OpenToken::OpenCompoundTerm(_), open_index, .. } => {
+                    self.close_compound_term(open_index, close_range.start..close_range.start);
+                },
             }
         }
+
+        // We didn't find an open paren, so we need to insert an open paren and report it!
+        let open_index = AstIndex(0);
+        self.insert(open_index, OpenParen(Default::default()), ByteIndex(0)..ByteIndex(0));
+        self.close_paren(open_index, close_range.clone());
+        self.compiler.report(compile_errors::CloseWithoutOpen { source: self.source, close_range, open: String::from("(") });
     }
 
-    fn close_compound_term(&mut self) -> Option<AstDelta> {
-        let open_index = {
-            let open_index = self.open_groups.last();
-            if open_index.is_none() { return None; }
-            *open_index.unwrap()
-        };
-        let close_index = self.next_index();
-        if let OpenCompoundTerm(ref mut open_delta) = self.tokens[open_index] {
+    fn on_close_compound_term(&mut self, close_range: ByteRange) {
+        if let Some(&OpenGroup { open_token: OpenToken::OpenCompoundTerm(_), open_index, .. }) = self.open_groups.last() {
             self.open_groups.pop();
-            *open_delta = close_index-open_index;
-            Some(*open_delta)
-        } else {
-            None
+            self.close_compound_term(open_index, close_range);
         }
+    }
+
+    fn close_paren(&mut self, open_index: AstIndex, close_range: ByteRange) {
+        let close_index = self.next_index();
+        let delta = close_index-open_index;
+        if let OpenParen(ref mut open_delta) = self.tokens[open_index] {
+            *open_delta = close_index-open_index;
+        } else {
+            unreachable!()
+        }
+        self.push(CloseParen(delta), close_range);
+    }
+
+    fn close_compound_term(&mut self, open_index: AstIndex, close_range: ByteRange) {
+        // We're about to insert the open token, so the close_index will move too.
+        let close_index = self.next_index()+1;
+        let delta = close_index-open_index;
+        // NOTE we are certain that there will be a term at this location, because
+        // OpenCompoundTerm could not have been generated without another term after it.
+        let open_location = self.token_ranges[open_index].start;
+
+        // Insert the open, then append the close
+        self.insert(open_index, OpenCompoundTerm(delta), open_location..open_location);
+        self.push(CloseCompoundTerm(delta), close_range);
     }
 
     fn close_all(&mut self) {
-        while let Some(open_index) = self.open_groups.pop() {
-            let close_index = self.next_index();
-            let close_loc = self.token_ranges[close_index-1].end;
-            let delta = close_index-open_index;
-            let close_token = match self.tokens[open_index] {
-                OpenParen(ref mut open_delta) => {
-                    *open_delta = delta;
-                    self.compiler.report(compile_errors::OpenWithoutClose { source: self.source, open: self.token_ranges[open_index].clone(), close: String::from(")") });
-                    CloseParen(delta)
+        while let Some(OpenGroup { open_token, open_index, .. }) = self.open_groups.pop() {
+            let end = self.token_ranges.last().unwrap().end;
+            match open_token {
+                OpenToken::OpenParen(_) => {
+                    self.compiler.report(compile_errors::OpenWithoutClose { source: self.source, open_range: self.token_ranges[open_index].clone(), close: String::from(")") });
+                    self.close_paren(open_index, end..end);
                 },
-                OpenCompoundTerm(ref mut open_delta) => {
-                    *open_delta = delta;
-                    CloseCompoundTerm(delta)
-                },
-                _ => unreachable!(),
-            };
-            self.push(close_token, close_loc..close_loc);
+                OpenToken::OpenCompoundTerm(_) => self.close_compound_term(open_index, end..end),
+            }
         }
-    }
-
-    fn handle_close_without_open(&mut self, range: &ByteRange) -> Delta<AstIndex> {
-        let open_index = AstIndex(0);
-        let open_loc = ByteIndex(0);
-        // We're about to shift the close_index over, so we need to set the delta correctly.
-        let close_index = self.next_index()+1;
-        let delta = close_index-open_index;
-        self.tokens.insert(open_index, OpenParen(delta));
-        self.token_ranges.insert(open_index, open_loc..open_loc);
-        self.compiler.report(compile_errors::CloseWithoutOpen { source: self.source, close: range.clone(), open: String::from("(") });
-        delta
     }
 }

@@ -131,8 +131,8 @@ compile_errors! {
     // Compile errors related to structure (parser)
     pub struct MissingRightOperand     { pub operator: ByteRange } (301) = format(operator, "Operator {operator} has no value on the right hand side to operate on!");
     pub struct MissingLeftOperand      { pub operator: ByteRange } (302) = format(operator, "Operator {operator} has no value on the left hand side to operate on!");
-    pub struct OpenWithoutClose        { pub open: ByteRange, pub close: String } (303) = format(open, "Open '{open}' found without a matching close '{close}'.");
-    pub struct CloseWithoutOpen        { pub close: ByteRange, pub open: String } (304) = format(close, "Closing '{close}' found without a matching '{open}'.");
+    pub struct OpenWithoutClose        { pub open_range: ByteRange, pub close: String } (303) = format(open_range, "Open '{open_range}' found without a matching close '{close}'.");
+    pub struct CloseWithoutOpen        { pub close_range: ByteRange, pub open: String } (304) = format(close_range, "Closing '{close_range}' found without a matching '{open}'.");
 
     // Compile errors related to type (checker)
     pub struct UnrecognizedOperator    { pub operator: ByteRange } (1001) = format(operator, "Unrecognized operator {operator}");

@@ -57,15 +57,14 @@ pub(crate) fn tokenize<OnToken: FnMut(Token,ByteRange)->()>(
                 None
             },
         };
+        
         if let Some(token) = token {
             // Insert open compound term if applicable
-            let compound_term_starts = is_space(prev_char);
-            let compound_term_ends = CharType::peek_if(&buffer, index, is_space);
-            if compound_term_starts && !compound_term_ends {
+            if !token.has_left_operand() && is_space(prev_char) {
                 on_token(OpenCompoundTerm(Default::default()), start..start);
             }
             on_token(token, start..index);
-            if compound_term_ends && !compound_term_starts {
+            if !token.has_right_operand() && CharType::peek_if(&buffer, index, is_space) {
                 on_token(CloseCompoundTerm(Default::default()), index..index);
             }
         }
