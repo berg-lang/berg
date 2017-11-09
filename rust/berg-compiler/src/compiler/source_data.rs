@@ -91,6 +91,7 @@ impl ParseData {
     }
     pub fn token_string(&self, token: AstIndex) -> &str {
         use Token::*;
+        use ast::token::ExpressionBoundary::*;
         match self.tokens[token] {
             IntegerLiteral(literal) => self.literal_string(literal),
 
@@ -99,9 +100,9 @@ impl ParseData {
             PrefixOperator(operator) =>
                 self.identifier_string(operator),
 
-            CloseParen(_) => self.identifier_string(CLOSE_PAREN),
-            OpenParen(_) => self.identifier_string(OPEN_PAREN),
-            OpenCompoundTerm(_)|CloseCompoundTerm(_)|MissingExpression|MissingInfix => "",
+            Close(Parentheses,_) => self.identifier_string(CLOSE_PAREN),
+            Open(Parentheses,_) => self.identifier_string(OPEN_PAREN),
+            Open(CompoundTerm,_)|Close(CompoundTerm,_)|Open(PrecedenceGroup,_)|Close(PrecedenceGroup,_)|Open(File,_)|Close(File,_)|MissingExpression|MissingInfix => "",
         }
     }
     pub fn token_range(&self, token: AstIndex) -> ByteRange {

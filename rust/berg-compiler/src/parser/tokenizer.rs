@@ -4,9 +4,9 @@ use ast::{AstDelta,IdentifierIndex,LiteralIndex};
 use ast::intern_pool::{StringPool,Pool};
 use ast::operators;
 use ast::token::Token::*;
+use ast::token::ExpressionBoundary::*;
 use compiler::compile_errors;
 use compiler::source_data::{ByteRange};
-use parser::scanner::CharType::*;
 use public::*;
 
 ///
@@ -18,8 +18,7 @@ pub(crate) fn tokenize<OnToken: FnMut(Token,ByteRange)->()>(
     source: SourceIndex,
     mut on_token: OnToken
 ) -> (StringPool<IdentifierIndex>, StringPool<LiteralIndex>) {
-    use parser::scanner::CharType::Operator;
-    use parser::scanner::CharType::Space;
+    use parser::scanner::CharType::*;
 
     let buffer = compiler.with_source(source, |source_data| {
         let source_spec = source_data.source_spec();
@@ -32,6 +31,8 @@ pub(crate) fn tokenize<OnToken: FnMut(Token,ByteRange)->()>(
     let mut start = ByteIndex(0);
     let mut index = start;
 
+    on_token(File.placeholder_open_token(), start..index);
+
     let mut prev_char = None;
     while let Some(char_type) = CharType::read(&buffer, &mut index) {
         let token = match char_type {
@@ -43,8 +44,8 @@ pub(crate) fn tokenize<OnToken: FnMut(Token,ByteRange)->()>(
                 let identifier = identifiers.add(CharType::Operator.read_many_to_str(&buffer, start, &mut index));
                 Some(choose_operator(identifier, prev_char, &buffer, index))
             },
-            Open        => Some(OpenParen(AstDelta::default())),
-            Close       => Some(CloseParen(AstDelta::default())),
+            Open        => Some(Token::Open(Parentheses, AstDelta::default())),
+            Close       => Some(Token::Close(Parentheses, AstDelta::default())),
             Space       => { Space.read_many(&buffer, &mut index); None },
             Unsupported => {
                 Unsupported.read_many(&buffer, &mut index);
@@ -61,16 +62,18 @@ pub(crate) fn tokenize<OnToken: FnMut(Token,ByteRange)->()>(
         if let Some(token) = token {
             // Insert open compound term if applicable
             if !token.has_left_operand() && is_space(prev_char) {
-                on_token(OpenCompoundTerm(Default::default()), start..start);
+                on_token(CompoundTerm.placeholder_open_token(), start..start);
             }
             on_token(token, start..index);
             if !token.has_right_operand() && CharType::peek_if(&buffer, index, is_space) {
-                on_token(CloseCompoundTerm(Default::default()), index..index);
+                on_token(CompoundTerm.placeholder_close_token(), index..index);
             }
         }
         prev_char = Some(char_type);
         start = index;
     }
+
+    on_token(File.placeholder_close_token(), start..index);
 
     (identifiers.strings, literals)
 }
@@ -88,6 +91,7 @@ fn choose_operator(identifier: IdentifierIndex, prev_char: Option<CharType>, buf
 }
 
 fn is_space(char_type: Option<CharType>) -> bool {
+    use parser::scanner::CharType::*;
     match char_type {
         None|Some(Space)|Some(Unsupported)|Some(InvalidUtf8) => true,
         Some(Open)|Some(Close)|Some(Digit)|Some(Operator) => false,
@@ -95,6 +99,7 @@ fn is_space(char_type: Option<CharType>) -> bool {
 }
 
 fn prev_is_operand(prev_char: Option<CharType>) -> bool {
+    use parser::scanner::CharType::*;
     match prev_char {
         Some(Close)|Some(Digit) => true,
         None|Some(Open)|Some(Space)|Some(Operator)|Some(Unsupported)|Some(InvalidUtf8) => false,
@@ -102,6 +107,7 @@ fn prev_is_operand(prev_char: Option<CharType>) -> bool {
 }
 
 fn next_is_operand(next_char: Option<CharType>) -> bool {
+    use parser::scanner::CharType::*;
     match next_char {
         Some(Open)|Some(Digit) => true,
         None|Some(Close)|Some(Space)|Some(Operator)|Some(Unsupported)|Some(InvalidUtf8) => false,

@@ -1,3 +1,4 @@
+use std::cmp::Ordering;
 use std::borrow::{Borrow,BorrowMut};
 use std::fmt;
 use std::ops::{Add,AddAssign,Deref,DerefMut,Index,IndexMut,Range,Sub,SubAssign};
@@ -64,9 +65,23 @@ impl<T: IndexType> fmt::Display for Delta<T> {
     }
 }
 
+impl<T: IndexType> From<Delta<T>> for usize { fn from(size: Delta<T>) -> Self { size.0.into() } }
+impl<T: IndexType> From<usize> for Delta<T> { fn from(size: usize) -> Self { Delta(T::from(size)) } }
+impl<T: IndexType> PartialEq<usize> for Delta<T> {
+    fn eq(&self, other: &usize) -> bool { self.0.eq(other) }
+}
+impl<T: IndexType> PartialOrd<usize> for Delta<T> {
+    fn partial_cmp(&self, other: &usize) -> Option<Ordering> { self.0.partial_cmp(other) }
+    fn lt(&self, other: &usize) -> bool { self.0 < *other }
+    fn le(&self, other: &usize) -> bool { self.0 <= *other }
+    fn gt(&self, other: &usize) -> bool { self.0 > *other }
+    fn ge(&self, other: &usize) -> bool { self.0 >= *other }
+}
+
 pub trait IndexType: Copy+Clone+fmt::Display+
     Into<usize>+From<usize>+
     PartialOrd+PartialEq+
+    PartialOrd<usize>+PartialEq<usize>+
     AddAssign<usize>+SubAssign<usize>+Add<usize,Output=Self>+Sub<usize,Output=Self>
 {
 }

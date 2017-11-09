@@ -2,6 +2,7 @@ use std::fmt::Debug;
 use ast::{AstIndex,IdentifierIndex};
 use ast::ast_walker::Advance::*;
 use ast::token::Token::*;
+use ast::token::ExpressionBoundary::*;
 use ast::token::Fixity::*;
 use public::*;
 
@@ -32,7 +33,7 @@ impl AstWalkerMut {
 
         // If there are extra close operators, report them.
         while let NextToken(..) = walker.advance_if(parse_data,
-            |token| match token { CloseParen(_)|CloseCompoundTerm(_) => Some(()), _ => None }) {
+            |token| match token { Close(..) => Some(()), _ => None }) {
             // Walk any remaining postfixes.
             value = walker.walk_postfixes(visitor, value, parse_data);
             // Read any remaining infixes as well.
@@ -117,36 +118,28 @@ impl AstWalkerMut {
                     value = visitor.visit_prefix(prefix, value, term_index, parse_data);
                 },
                 // Handle parentheses
-                OpenParen(delta) => {
+                Open(open_boundary,delta) => {
                     // Walk the remainder of the expression in the parens (we already got the term)
                     value = self.walk_postfixes(visitor, value, parse_data);
                     value = self.walk_infix(visitor, value, parse_data);
                     assert_eq!(delta, self.index-prefix_index);
 
                     // Skip the close token
-                    if let NextToken(close_delta, close_index) = self.advance_if(parse_data, |token| match token { CloseParen(delta) => Some(delta), _ => None }) {
+                    if let NextToken(close_delta, close_index) = self.advance_if(parse_data, |token| {
+                        match token {
+                            Close(close_boundary, delta) if close_boundary == open_boundary => Some(delta),
+                            _ => None
+                        }
+                    }) {
                         assert_eq!(close_delta, delta);
                         assert_eq!(delta, close_index-prefix_index);
-                        value = visitor.visit_parentheses(value, prefix_index, close_index, parse_data);
+                        if open_boundary == Parentheses {
+                            value = visitor.visit_parentheses(value, prefix_index, close_index, parse_data);
+                        }
                     } else {
                         unreachable!();
                     }
                 },
-                OpenCompoundTerm(delta) => {
-                    // Walk the remainder of the expression in the parens (we already got the term)
-                    value = self.walk_postfixes(visitor, value, parse_data);
-                    value = self.walk_infix(visitor, value, parse_data);
-                    println!("{}, {}-{}", delta, self.index, prefix_index);
-                    assert_eq!(delta, self.index-prefix_index);
-
-                    // Skip the close token
-                    if let NextToken(close_delta, close_index) = self.advance_if(parse_data, |token| match token { CloseCompoundTerm(delta) => Some(delta), _ => None }) {
-                        assert_eq!(close_delta, delta);
-                        assert_eq!(delta, close_index-prefix_index);
-                    } else {
-                        unreachable!();
-                    }
-                }
             };
         };
 
