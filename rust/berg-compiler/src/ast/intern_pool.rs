@@ -10,9 +10,9 @@ const DEFAULT_CAPACITY: usize = 1024;
 
 #[derive(Debug)]
 pub struct InternPool<Ind: IndexType> {
-    pub strings: StringPool<Ind>,
+    pub(crate) strings: StringPool<Ind>,
     // We use FnvHashMap because the hashing function is faster than the default
-    pub indices: FnvHashMap<String,Ind>,
+    pub(crate) indices: FnvHashMap<String,Ind>,
 }
 
 #[derive(Debug)]
@@ -35,12 +35,12 @@ impl<Ind: IndexType> Default for StringPool<Ind> {
 }
 
 impl<Ind: IndexType> InternPool<Ind> {
-    pub fn with_capacity(initial_capacity: usize) -> Self {
+    pub(crate) fn with_capacity(initial_capacity: usize) -> Self {
         let strings = StringPool::with_capacity(initial_capacity);
         let indices = FnvHashMap::with_capacity_and_hasher(initial_capacity, Default::default());
         InternPool { strings, indices }
     }
-    pub fn len(&self) -> Ind {
+    pub(crate) fn len(&self) -> Ind {
         self.strings.len()
     }
 }
@@ -51,8 +51,8 @@ impl<Ind: IndexType> Index<Ind> for InternPool<Ind> {
 }
 
 impl<Ind: IndexType> StringPool<Ind> {
-    pub fn len(&self) -> Ind { self.0.len() }
-    pub fn with_capacity(initial_capacity: usize) -> Self { StringPool(Vec::with_capacity(initial_capacity).into()) }
+    pub(crate) fn len(&self) -> Ind { self.0.len() }
+    pub(crate) fn with_capacity(initial_capacity: usize) -> Self { StringPool(Vec::with_capacity(initial_capacity).into()) }
 }
 
 impl<Ind: IndexType> Index<Ind> for StringPool<Ind> {

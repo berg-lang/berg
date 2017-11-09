@@ -45,7 +45,7 @@ pub struct CompilerTest<'t> {
     compiler: Compiler<'t>,
 }
 impl<'t> CompilerTest<'t> {
-    pub fn new(source: &'t [u8]) -> CompilerTest<'t> {
+    pub(crate) fn new(source: &'t [u8]) -> CompilerTest<'t> {
         let out: Vec<u8> = vec![];
         let err: Vec<u8> = vec![];
         let mut compiler = Compiler::new(None, None, Box::new(out), Box::new(err));
@@ -54,12 +54,12 @@ impl<'t> CompilerTest<'t> {
         CompilerTest { compiler }
     }
 
-    pub fn assert_type<T: Into<Type>>(&mut self, expected: T) {
+    pub(crate) fn assert_type<T: Into<Type>>(&mut self, expected: T) {
         let expected = expected.into();
         self.compiler.with_source(SourceIndex(0), |source| assert_eq!(expected, *source.checked_type()))
     }
 
-    pub fn assert_errors<Err: Into<ExpectedCompileError>>(&mut self, mut expected: Vec<Err>) {
+    pub(crate) fn assert_errors<Err: Into<ExpectedCompileError>>(&mut self, mut expected: Vec<Err>) {
         let mut expected: Vec<ExpectedCompileError> = expected.drain(..).map(|error| error.into()).collect();
         let actual = self.compiler.errors.read().unwrap();
         let actual_count = actual.iter().filter_map(|actual_error| {

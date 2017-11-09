@@ -15,7 +15,7 @@ use compiler::source_data::{ByteRange};
 /// Breaks a file into a series of Tokens, calling the given function for each
 /// token.
 /// 
-pub(crate) fn tokenize<OnToken: FnMut(Token,ByteRange)->()>(
+pub(super) fn tokenize<OnToken: FnMut(Token,ByteRange)->()>(
     compiler: &Compiler,
     source: SourceIndex,
     mut on_token: OnToken

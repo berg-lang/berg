@@ -32,19 +32,19 @@ macro_rules! compile_errors {
     };
     (@define_struct $name:ident, { $(pub $field:tt: $field_type:ty),* }, string_generic) => {
         #[derive(Debug,Clone)]
-        pub struct $name { $(pub $field: $field_type,)* }
+        pub(crate) struct $name { $(pub $field: $field_type,)* }
     };
     (@define_struct $name:ident, { $(pub $field:tt: $field_type:ty),* }, format_generic) => {
         #[derive(Debug,Clone)]
-        pub struct $name { $(pub $field: $field_type,)* }
+        pub(crate) struct $name { $(pub $field: $field_type,)* }
     };
     (@define_struct $name:ident, { $(pub $field:tt: $field_type:ty),* }, $message_type:ident) => {
         #[derive(Debug,Clone)]
-        pub struct $name { pub source: SourceIndex, $(pub $field: $field_type,)* }
+        pub(crate) struct $name { pub(crate) source: SourceIndex, $(pub $field: $field_type,)* }
     };
     (@impl_struct $name:ident, $code:expr, $fields:tt, $message_type:ident, $message:tt) => {
         impl $name {
-            pub const CODE: u32 = $code;
+            pub(crate) const CODE: u32 = $code;
         }
         impl CompileError for $name {
             fn code(&self) -> u32 { $name::CODE }
@@ -114,7 +114,7 @@ fn source_string(compiler: &Compiler, source: SourceIndex, range: &ByteRange) ->
 }
 
 // compile_errors! {
-//     pub struct SourceNotFound { pub path: PathBuf, pub io_error: io::Error } (101) = format("I/O error getting current directory to expand {path:?}: {io_error}")
+//     pub(crate) struct SourceNotFound { pub path: PathBuf, pub io_error: io::Error } (101) = format("I/O error getting current directory to expand {path:?}: {io_error}")
 // }
 compile_errors! {
     // Compile errors independent of parsing

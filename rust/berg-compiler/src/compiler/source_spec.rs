@@ -12,20 +12,20 @@ use std::io::Read;
 use std::path::PathBuf;
 
 #[derive(Debug)]
-pub enum SourceSpec<'s> {
+pub(crate) enum SourceSpec<'s> {
     File { path: PathBuf },
     Memory { name: &'s str, contents: &'s [u8] },
 }
 
 impl<'s> SourceSpec<'s> {
-    pub fn file(path: PathBuf) -> Self {
+    pub(crate) fn file(path: PathBuf) -> Self {
         SourceSpec::File { path }
     }
-    pub fn memory(name: &'s str, contents: &'s [u8]) -> Self {
+    pub(crate) fn memory(name: &'s str, contents: &'s [u8]) -> Self {
         let contents = contents;
         SourceSpec::Memory { name, contents }
     }
-    pub fn name(&self) -> &OsStr {
+    pub(crate) fn name(&self) -> &OsStr {
         match *self {
             SourceSpec::File { ref path, .. } => path.as_ref(),
             SourceSpec::Memory { name, .. } => name.as_ref(),

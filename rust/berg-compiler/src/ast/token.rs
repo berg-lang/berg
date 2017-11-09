@@ -77,10 +77,10 @@ impl Token {
 }
 
 impl ExpressionBoundary {
-    pub fn placeholder_open_token(self) -> Token {
+    pub(crate) fn placeholder_open_token(self) -> Token {
         Open(self, Default::default())
     }
-    pub fn placeholder_close_token(self) -> Token {
+    pub(crate) fn placeholder_close_token(self) -> Token {
         Close(self, Default::default())
     }
 }

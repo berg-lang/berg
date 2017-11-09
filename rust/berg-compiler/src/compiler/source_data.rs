@@ -30,11 +30,11 @@ pub struct SourceData<'s> {
 
 #[derive(Debug)]
 pub struct ParseData {
-    pub char_data: CharData,
-    pub identifiers: StringPool<IdentifierIndex>,
-    pub literals: StringPool<LiteralIndex>,
-    pub tokens: IndexedVec<Token,AstIndex>,
-    pub token_ranges: IndexedVec<ByteRange,AstIndex>,
+    pub(crate) char_data: CharData,
+    pub(crate) identifiers: StringPool<IdentifierIndex>,
+    pub(crate) literals: StringPool<LiteralIndex>,
+    pub(crate) tokens: IndexedVec<Token,AstIndex>,
+    pub(crate) token_ranges: IndexedVec<ByteRange,AstIndex>,
 }
 
 #[derive(Debug)]
@@ -42,13 +42,13 @@ pub struct CharData {
     // size in bytes
     // byte_size: usize,
     // Size in Unicode codepoints
-    pub byte_length: ByteIndex,
+    pub(crate) byte_length: ByteIndex,
     // checksum
     // time retrieved
     // time modified
     // system retrieved on
     // Start indices of each line
-    pub line_starts: Vec<ByteIndex>,
+    pub(crate) line_starts: Vec<ByteIndex>,
 }
 
 impl<'s> SourceData<'s> {
@@ -60,7 +60,7 @@ impl<'s> SourceData<'s> {
         }
     }
 
-    pub fn source_spec(&self) -> &SourceSpec<'s> {
+    pub(crate) fn source_spec(&self) -> &SourceSpec<'s> {
         &self.source_spec
     }
     pub fn name(&self) -> &OsStr {
@@ -84,16 +84,16 @@ impl<'s> SourceData<'s> {
 }
 
 impl ParseData {
-    pub fn num_tokens(&self) -> AstIndex {
+    pub(crate) fn num_tokens(&self) -> AstIndex {
         self.tokens.len()
     }
-    pub fn char_data(&self) -> &CharData {
+    pub(crate) fn char_data(&self) -> &CharData {
         &self.char_data
     }
-    pub fn token(&self, token: AstIndex) -> &Token {
+    pub(crate) fn token(&self, token: AstIndex) -> &Token {
         &self.tokens[token]
     }
-    pub fn token_string(&self, token: AstIndex) -> &str {
+    pub(crate) fn token_string(&self, token: AstIndex) -> &str {
         use ast::token::ExpressionBoundary::*;
         match self.tokens[token] {
             IntegerLiteral(literal) => self.literal_string(literal),
@@ -108,14 +108,14 @@ impl ParseData {
             Open(CompoundTerm,_)|Close(CompoundTerm,_)|Open(PrecedenceGroup,_)|Close(PrecedenceGroup,_)|Open(File,_)|Close(File,_)|MissingExpression|MissingInfix => "",
         }
     }
-    pub fn token_range(&self, token: AstIndex) -> ByteRange {
+    pub(crate) fn token_range(&self, token: AstIndex) -> ByteRange {
         let range = &self.token_ranges[token];
         Range { start: range.start, end: range.end }
     }
-    pub fn identifier_string(&self, index: IdentifierIndex) -> &str {
+    pub(crate) fn identifier_string(&self, index: IdentifierIndex) -> &str {
         &self.identifiers[index]
     }
-    pub fn literal_string(&self, index: LiteralIndex) -> &str {
+    pub(crate) fn literal_string(&self, index: LiteralIndex) -> &str {
         &self.literals[index]
     }
 }
@@ -138,10 +138,10 @@ impl Default for CharData {
 }
 
 impl CharData {
-    pub fn append_line(&mut self, line_start_index: ByteIndex) {
-        self.line_starts.push(line_start_index);
-    }
-    pub fn location(&self, index: ByteIndex) -> LineColumn {
+    // pub(crate) fn append_line(&mut self, line_start_index: ByteIndex) {
+    //     self.line_starts.push(line_start_index);
+    // }
+    pub(crate) fn location(&self, index: ByteIndex) -> LineColumn {
         // TODO binary search to make it faster. But, meh.
         let mut line = self.line_starts.len();
         while self.line_starts[line - 1] > index {
@@ -153,7 +153,7 @@ impl CharData {
         LineColumn { line, column }
     }
 
-    pub fn range(&self, range: ByteRange) -> LineColumnRange {
+    pub(crate) fn range(&self, range: ByteRange) -> LineColumnRange {
         let start = self.location(range.start);
         if range.start == range.end {
             LineColumnRange { start, end: None }
@@ -163,7 +163,7 @@ impl CharData {
         }
     }
 
-    pub fn byte_length(&self) -> ByteIndex {
-        self.byte_length
-    }
+    // pub(crate) fn byte_length(&self) -> ByteIndex {
+    //     self.byte_length
+    // }
 }

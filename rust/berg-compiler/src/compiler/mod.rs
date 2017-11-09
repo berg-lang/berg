@@ -23,7 +23,7 @@ pub struct Compiler<'c> {
     out: Box<Write>,
     err: Box<Write>,
     sources: RwLock<IndexedVec<SourceData<'c>, SourceIndex>>,
-    pub errors: RwLock<Vec<Box<CompileError+'c>>>,
+    pub(crate) errors: RwLock<Vec<Box<CompileError+'c>>>,
 }
 
 impl<'c> Debug for Compiler<'c> {
@@ -97,7 +97,7 @@ impl<'c> Compiler<'c> {
         f(&errors)
     }
 
-    pub fn report<T: CompileError+'c>(&self, error: T) {
+    pub(crate) fn report<T: CompileError+'c>(&self, error: T) {
         self.with_errors_mut(|errors| errors.push(Box::new(error)))
     }
 

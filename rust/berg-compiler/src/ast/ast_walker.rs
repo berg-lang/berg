@@ -7,7 +7,7 @@ use ast::token::ExpressionBoundary::*;
 use ast::token::Fixity::*;
 use compiler::source_data::ParseData;
 
-pub trait AstVisitorMut<T> {
+pub(crate) trait AstVisitorMut<T> {
     fn visit_term(&mut self, token: TermToken, index: AstIndex, parse_data: &ParseData) -> T;
     fn visit_postfix(&mut self, postfix: IdentifierIndex, operand: T, index: AstIndex, parse_data: &ParseData) -> T;
     fn visit_prefix(&mut self, prefix: IdentifierIndex, operand: T, index: AstIndex, parse_data: &ParseData) -> T;
@@ -23,12 +23,12 @@ enum Advance<T> {
 }
 
 #[derive(Debug,Copy,Clone,Default)]
-pub struct AstWalkerMut {
+pub(crate) struct AstWalkerMut {
     index: AstIndex
 }
 
 impl AstWalkerMut {
-    pub fn walk<T: Debug, V: AstVisitorMut<T>>(visitor: &mut V, parse_data: &ParseData) -> T {
+    pub(crate) fn walk<T: Debug, V: AstVisitorMut<T>>(visitor: &mut V, parse_data: &ParseData) -> T {
         let mut walker = AstWalkerMut { index: AstIndex(0) };
         let mut value = walker.walk_expression(visitor, parse_data);
 
