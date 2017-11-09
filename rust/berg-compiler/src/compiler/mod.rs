@@ -5,9 +5,10 @@ pub(crate) mod source_data;
 
 use checker;
 use compiler::compile_errors::{CompileError,CompileErrorLocation};
+use compiler::source_data::{SourceData,SourceIndex};
+use compiler::source_spec::SourceSpec;
 use indexed_vec::IndexedVec;
 use parser;
-use public::*;
 use std::default::Default;
 use std::env;
 use std::fmt::*;

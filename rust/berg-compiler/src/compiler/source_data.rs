@@ -3,8 +3,12 @@ use indexed_vec::IndexedSlice;
 use std::fmt::*;
 use ast::intern_pool::StringPool;
 use ast::{AstIndex,IdentifierIndex,LiteralIndex};
+use ast::token::Token;
+use ast::token::Token::*;
+use checker::checker_type::Type;
+use compiler::source_spec::SourceSpec;
+use compiler::line_column::{LineColumn,LineColumnRange};
 use indexed_vec::IndexedVec;
-use public::*;
 use std::ffi::OsStr;
 use std::ops::Range;
 use std::u32;
@@ -90,7 +94,6 @@ impl ParseData {
         &self.tokens[token]
     }
     pub fn token_string(&self, token: AstIndex) -> &str {
-        use Token::*;
         use ast::token::ExpressionBoundary::*;
         match self.tokens[token] {
             IntegerLiteral(literal) => self.literal_string(literal),

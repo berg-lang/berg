@@ -3,11 +3,13 @@ use parser::scanner::CharType;
 use ast::{AstDelta,IdentifierIndex,LiteralIndex};
 use ast::intern_pool::{StringPool,Pool};
 use ast::operators;
+use ast::token::Token;
 use ast::token::Token::*;
 use ast::token::ExpressionBoundary::*;
+use compiler::Compiler;
+use compiler::source_data::{SourceIndex,ByteIndex};
 use compiler::compile_errors;
 use compiler::source_data::{ByteRange};
-use public::*;
 
 ///
 /// Breaks a file into a series of Tokens, calling the given function for each

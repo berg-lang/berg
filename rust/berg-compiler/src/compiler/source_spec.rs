@@ -2,8 +2,8 @@ use compiler::source_data::ByteSlice;
 use std::borrow::Cow;
 use indexed_vec::IndexedVec;
 use compiler::compile_errors;
-use public::*;
 use compiler::Compiler;
+use compiler::source_data::{ByteIndex,SourceIndex};
 
 use std::ffi::OsStr;
 use std::fs::File;

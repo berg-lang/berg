@@ -1,12 +1,16 @@
 pub mod checker_type;
 
-use public::*;
-
 use ast::{AstIndex,IdentifierIndex};
 use ast::ast_walker::{AstWalkerMut,AstVisitorMut};
+use ast::token::{TermToken,InfixToken};
 use ast::token::TermToken::*;
 use ast::token::InfixToken::*;
+use checker::checker_type::Type;
+use checker::checker_type::Type::*;
+use compiler::Compiler;
+use compiler::source_data::{ParseData,SourceIndex};
 use compiler::compile_errors;
+use compiler::compile_errors::CompileError;
 use num::BigRational;
 use num::Zero;
 use std::str::FromStr;
@@ -26,8 +30,6 @@ struct Checker<'ch,'c:'ch> {
     compiler: &'ch Compiler<'c>,
     source: SourceIndex,
 }
-
-use Type::*;
 
 impl<'ch,'c:'ch> Checker<'ch,'c> {
     fn check_numeric_binary_arguments(&mut self, left: Type, right: Type, index: AstIndex, parse_data: &ParseData) -> Option<(BigRational, BigRational)> {

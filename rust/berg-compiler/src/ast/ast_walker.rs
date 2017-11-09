@@ -1,10 +1,11 @@
 use std::fmt::Debug;
 use ast::{AstIndex,IdentifierIndex};
 use ast::ast_walker::Advance::*;
+use ast::token::{Token,TermToken,InfixToken};
 use ast::token::Token::*;
 use ast::token::ExpressionBoundary::*;
 use ast::token::Fixity::*;
-use public::*;
+use compiler::source_data::ParseData;
 
 pub trait AstVisitorMut<T> {
     fn visit_term(&mut self, token: TermToken, index: AstIndex, parse_data: &ParseData) -> T;

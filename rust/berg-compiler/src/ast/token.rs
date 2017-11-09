@@ -59,7 +59,7 @@ pub enum Fixity {
 
 impl Token {
     pub fn fixity(&self) -> Fixity {
-        use Token::*;
+        use ast::token::Token::*;
         match *self {
             IntegerLiteral(_)|MissingExpression => Fixity::Term,
             InfixOperator(_)|MissingInfix => Fixity::Infix,

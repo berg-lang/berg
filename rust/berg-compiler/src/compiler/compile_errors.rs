@@ -1,6 +1,7 @@
 use std::path::PathBuf;
-use compiler::source_data::{ByteRange};
-use public::*;
+use compiler::Compiler;
+use compiler::source_data::{ByteRange,SourceIndex};
+use checker::checker_type::Type;
 use std::fmt;
 use std::str;
 
