@@ -17,58 +17,49 @@ Runtime
 Math
 ----
 [X] Add/Subtract Operators
-
 [X] Multiply/Divide Operators
-[ ] Precedence
+[X] Precedence
 
-[ ] ProducesBecause { Values(): ValueSet, BecauseAll(): Iterator<(Expression, ValueSet)> }
-[ ] Expression { Produces() -> Iterator<ProducesBecause> }
-[ ] Type.Contains(value)
+Types
+-----
 [X] Type::Single(Value)
-[ ] Expression as Producer
 [X] Type Error: Divide By Zero
-
 [X] Negative/Positive Operators
 
 Parens
 ------
-[ ] Expression Operator "(", ")"
-[ ] Parse Error: Unclosed Paren
-[ ] Parse Error: Unopened Paren Error
+[X] Expression Operator "(", ")"
+[X] Parse Error: Unclosed Paren
+[X] Parse Error: Unopened Paren Error
 
 Space
 -----
-[ ] Whitespace, Tabs
-
-[ ] Compound Term Grouping
-
+[X] Whitespace, Tabs
+[X] Compound Term Grouping
 [ ] Newlines; Record Line / Column Data
 [ ] Parse Error: Line Too Long (4K characters)
-
 [ ] Single-Line Comment
 [ ] Errors: Invalid UTF-8, Comment Too Long. Denormalized OK. Unsupported Characters OK.
 
-Errors
-------
+Visual Studio Code Extension
+----------------------------
+[ ] Syntax highlighting
+[ ] Error reporting
+
+Command Line
+------------
 [ ] Display error context
-
 [ ] Display context with possible fixes
-
-[X] Parse Error: Improve Unsupported Character Error (many characters)
 
 Objects
 =======
 
 Nothing
 -------
-[ ] "nothing"
 [X] Type::Nothing
-
 [X] Empty source file -> nothing
-
-[ ] Empty parentheses -> nothing
-
-[ ] Error: cannot apply operator [/*+-] to "nothing" (either left or right side or both)
+[X] Empty parentheses -> nothing
+[X] Error: cannot apply operator [/*+-] to "nothing" (either left or right side or both)
 
 Sequences
 ---------
@@ -89,46 +80,42 @@ Properties
 [ ] Parse Error: Identifier Starts With Number
 [ ] Parse Error: Identifier Must Be Immediately After ":"
 [ ] Parse Error: Identifier Required In Declaration
-
 [ ] Object Extend On ";" and "\n" (combine / overwrite properties)
 
-[ ] Property Assignment (=)
-[ ] Parse Error: Missing Operand
-
+Property Reference
+------------------
 [ ] Property Reference (Identifier)
+[ ] "nothing"
 [ ] Object.GetProperty(Identifier) -> Object
 [ ] Error: Property not declared
-
 [ ] Error: Property not declared - check for misspelled, give suggestion
-
-Lazy Declaration
-----------------
 [ ] Out Of Order Declaration ("[:]A: B; :B: 2")
 [ ] Parse Error: Missing : in front of declaration
+
+Property Assignment
+-------------------
+[ ] Property Assignment (=)
+[ ] Parse Error: Missing Operand
 
 Apply
 -----
 [ ] Apply Operator (Extend With Block) "F <+ A: 1" or "F <+ { A: 1; B: 2 }"
-[ ] BecauseOf multiple reasons! Figure out error dedup strategies here ...
+[ ] Because of multiple reasons! Figure out error dedup strategies here ...
 
 Functions
 =========
 
-Series
+List
 ------
-[ ] Series Operator (,)
-
+[ ] List Operator (,)
 [ ] Trailing Comma Acceptable
 
 Function Calls
 --------------
 
 [ ] Call Operator Overload: ("Call :: { :Arguments, ... }")
-
 [ ] Function Call: "F Arguments"
-
 [ ] Function Declaration Syntax: ":F(:A,:B,:C)"
-
 [ ] Inline Function Declaration Syntax
 
 Indented Function Calls
