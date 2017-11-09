@@ -17,9 +17,7 @@ pub(super) fn parse<'c>(compiler: &Compiler<'c>, source: SourceIndex) -> ParseDa
         source,
         tokens: Default::default(),
         token_ranges: Default::default(),
-
         open_expressions: Default::default(),
-        delayed_close: None,
     };
     parser.parse()
 }
@@ -29,9 +27,7 @@ struct Parser<'p,'c:'p> {
     source: SourceIndex,
     tokens: IndexedVec<Token,AstIndex>,
     token_ranges: IndexedVec<ByteRange,AstIndex>,
-
     open_expressions: Vec<OpenExpression>,
-    delayed_close: Option<ByteRange>,
 }
 
 #[derive(Debug)]
@@ -54,7 +50,6 @@ impl<'p,'c:'p> Parser<'p,'c> {
             self.insert_token(token, range);
         });
 
-        assert!(self.delayed_close.is_none());
         assert!(self.open_expressions.is_empty());
 
         let char_data = Default::default();
@@ -62,11 +57,6 @@ impl<'p,'c:'p> Parser<'p,'c> {
     }
 
     fn insert_token(&mut self, token: Token, range: ByteRange) {
-        // Handle delayed close first
-        if let Some(close_range) = self.delayed_close.take() {
-            self.on_close_delayed(close_range, token.to_infix());
-        }
-
         match token {
             // Push the newly opened group onto open_expressions
             Open(boundary, _) => self.on_open(boundary, range),
@@ -77,7 +67,7 @@ impl<'p,'c:'p> Parser<'p,'c> {
             InfixOperator(_)|MissingInfix => {
                 // Open or close PrecedenceGroups as necessary based on this infix.
                 let infix = token.to_infix().unwrap();
-                self.handle_precedence(infix);
+                self.handle_precedence(infix, range.start);
                 let infix_index = self.push(token, range);
                 // Set this as the last infix for future precedence checking
                 self.open_expressions.last_mut().unwrap().infix = Some((infix, infix_index));
@@ -90,32 +80,31 @@ impl<'p,'c:'p> Parser<'p,'c> {
         }
     }
 
-    fn handle_precedence(&mut self, infix: InfixToken) {
-        if let Some((prev_infix, prev_index)) = self.open_expression().infix {
+    fn handle_precedence(&mut self, next_infix: InfixToken, next_infix_start: ByteIndex) {
+        if let Some((infix, index)) = self.open_expression().infix {
             // The normal order of things is that infixes run left to right.
-            // If this token binds *tighter* than the previous, wrap it in a
+            // If the next infix binds *tighter* than current, wrap it in a
             // "invisible parentheses" (a precedence subexpression).
-            if prev_infix.takes_right_child(infix) {
-                let loc = self.token_ranges[prev_index].end;
-                self.on_open(PrecedenceGroup, loc..loc);
-                return;
-            }
-        }
+            // e.g. 1+2*3 -> 1+2 -> 1+(2* ...
+            // e.g. 1*2>3+4 -> 1*2>(3+ ...
+            // e.g. 1+2>3*4 -> 1+2>(3* ...
+            // e.g. 1>2+3*4 -> 1>(2+(3* ...
+            if infix.takes_right_child(next_infix) {
+                let boundary = PrecedenceGroup;
+                let open_index = index+1;
+                self.open_expressions.push(OpenExpression { open_index, boundary, infix: None });
 
-        // On the other hand, if it binds *looser*--if it wants the *parent*
-        // expression as a left child--close the current precedence group and
-        // continue with the outer one.
-        if self.open_expression().boundary == PrecedenceGroup && self.open_expressions.len() >= 2 {
-            while let OpenExpression { boundary: PrecedenceGroup, infix: parent_infix, .. } = self.open_expressions[self.open_expressions.len()-2] {
-                if !infix.takes_left_child(parent_infix.unwrap().0) {
-                    break;
-                }
-
-                let loc = self.token_ranges[self.next_index()].end;
-                self.close(loc..loc);
-
-                if self.open_expressions.len() < 2 {
-                    break;
+            } else {
+                // If the current expression is precedence, and its *parent* doesn't
+                // want the next infix as a child, we have to close off the invisible
+                // parentheses. Repeat as necessary.
+                // 1+2*3>4 -> 1+(2*3) -> 1+(2*3)> ...
+                while self.open_expression().boundary == PrecedenceGroup {
+                    if let Some((parent_infix,_)) = self.parent_expression().infix {
+                        if !parent_infix.takes_right_child(next_infix) {
+                            self.close(next_infix_start..next_infix_start);
+                        }
+                    }
                 }
             }
         }
@@ -134,13 +123,8 @@ impl<'p,'c:'p> Parser<'p,'c> {
         self.open_expressions.last().unwrap()
     }
 
-    fn parent_expression(&self) -> Option<&OpenExpression> {
-        let len = self.open_expressions.len();
-        if len >= 2 {
-            Some(&self.open_expressions[len-2])
-        } else {
-            None
-        }
+    fn parent_expression(&self) -> &OpenExpression {
+        &self.open_expressions[self.open_expressions.len()-2]
     }
 
     fn on_close(&mut self, boundary: ExpressionBoundary, range: ByteRange) {
@@ -163,9 +147,7 @@ impl<'p,'c:'p> Parser<'p,'c> {
                     self.close(range.start..range.start);
                 },
                 Equal => {
-                    if let Some(range) = self.try_close(range) {
-                        self.delayed_close = Some(range);
-                    }
+                    self.close(range);
                     break;
                 },
                 Less => {
@@ -185,69 +167,29 @@ impl<'p,'c:'p> Parser<'p,'c> {
     }
 
     fn close(&mut self, range: ByteRange) {
-        if let Some(range) = self.try_close(range) {
-            self.on_close_delayed(range, None);
-        }
-    }
-
-    fn try_close(&mut self, range: ByteRange) -> Option<ByteRange> {
+        println!("try_close({:?})", self.open_expression());
         match self.open_expression().boundary {
             File => self.actually_close(range),
-            Parentheses|CompoundTerm|PrecedenceGroup => {
-                if let Some((infix,_)) = self.open_expression().infix {
-                    // If there is a parent infix and we would reach outside the parens to take it as
-                    // a child, we are *definitely* necessary.
-                    let parent_infix = self.parent_expression().unwrap().infix;
-                    if parent_infix.is_some() && infix.takes_left_child(parent_infix.unwrap().0) {
-                        self.actually_close(range);
-                    } else {
-                        // If we have an infix but wouldn't grab a left argument, we have to wait to
-                        // see if we would take the next argument.
-                        return Some(range);
-                    }
-
-                } else {
-                    // If we have no infix, we are definitely *not* necessary.
-                    self.close_unnecessary(range);
-                }
+            PrecedenceGroup => {
+                // PrecedenceGroups are already known to be necessary by virtue of how we insert them.
+                self.actually_close(range);
             },
-        }
-        None
-    }
-
-    fn on_close_delayed(&mut self, range: ByteRange, next_infix: Option<InfixToken>) {
-        match self.open_expression().boundary {
-            File => unreachable!(),
-            Parentheses|CompoundTerm|PrecedenceGroup => {
-                // If we would reach outside the parentheses to take the next infix, we are definitely necessary.
-                // Otherwise, we are not.
-                let (infix,_) = self.open_expression().infix.unwrap();
-                if next_infix.is_some() && infix.takes_right_child(next_infix.unwrap()) {
+            Parentheses|CompoundTerm => {
+                // If we have an infix and there is a previous (parent) infix, the parentheses
+                // are necessary so we can be its right child.
+                // Otherwise, they are redundant (infix is processed left to right always).
+                if self.open_expression().infix.is_some() && self.parent_expression().infix.is_some() {
                     self.actually_close(range);
                 } else {
                     self.close_unnecessary(range);
                 }
-            }
+            },
         }
-    }
-
-    fn close_unnecessary(&mut self, range: ByteRange) {
-        if self.open_expression().boundary == Parentheses {
-            self.report_unnecessary_parentheses(&range);
-            self.actually_close(range);
-        } else {
-            println!("Closing {:?} as unnecessary", self.open_expression().boundary);
-            self.open_expressions.pop();
-        }
-    }
-
-    fn report_unnecessary_parentheses(&mut self, _range: &ByteRange) {
-        // TODO this is where you would warn!
     }
 
     fn actually_close(&mut self, range: ByteRange) {
+        println!("actually_close({:?})", self.open_expression());
         let expression = self.open_expressions.pop().unwrap();
-        println!("Actually closing {:?}", expression.boundary);
         match expression.boundary {
             File => {}, // Popping the expression is enough.
             CompoundTerm|PrecedenceGroup => {
@@ -268,6 +210,21 @@ impl<'p,'c:'p> Parser<'p,'c> {
                 self.push(Close(expression.boundary, delta), range);
             },
         }
+    }
+
+    fn close_unnecessary(&mut self, range: ByteRange) {
+        println!("close_unnecessary({:?})", self.open_expression());
+        if self.open_expression().boundary == Parentheses {
+            self.report_unnecessary_parentheses(&range);
+            self.actually_close(range);
+        } else {
+            println!("Closing {:?} as unnecessary", self.open_expression().boundary);
+            self.open_expressions.pop();
+        }
+    }
+
+    fn report_unnecessary_parentheses(&mut self, _range: &ByteRange) {
+        // TODO this is where you would warn!
     }
 
     fn on_open(&mut self, boundary: ExpressionBoundary, open_range: ByteRange) {

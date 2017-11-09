@@ -65,30 +65,11 @@ impl AstWalkerMut {
             // Get the right operand.
             let mut right = self.walk_infix_operand(visitor, parse_data);
 
-            // Handle precedence: if we see + or -, grab all the * and / first.
-            use ast::operators::*;
-            use ast::token::InfixToken::*;
-            match infix {
-                InfixOperator(PLUS)|InfixOperator(DASH) => {
-                    right = self.walk_infix_while(visitor, right, parse_data, Self::multiply_or_divide);
-                },
-                _ => {}
-            }
-
             // Apply the operator now that we've grabbed anything we needed from the right!
             println!("Visit infix {:?} {:?}, {:?}", infix, left, right);
             left = visitor.visit_infix(infix, left, right, infix_index, parse_data);
         }
         left
-    }
-
-    fn multiply_or_divide(infix: InfixToken) -> bool {
-        use ast::operators::*;
-        use ast::token::InfixToken::*;
-        match infix {
-            InfixOperator(STAR)|InfixOperator(SLASH) => true,
-            InfixOperator(_)|MissingInfix => false,
-        }
     }
 
     fn walk_infix_operand<T: Debug, V: AstVisitorMut<T>>(&mut self, visitor: &mut V, parse_data: &ParseData) -> T {

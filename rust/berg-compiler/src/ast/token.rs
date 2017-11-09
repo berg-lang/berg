@@ -154,6 +154,7 @@ impl InfixToken {
         }
     }
     pub fn takes_left_child(self, left: InfixToken) -> bool {
+        println!("takes_right_child({:?}, {:?}) = {:?}", left, self, left.takes_right_child(self));
         !left.takes_right_child(self)
     }
 }
