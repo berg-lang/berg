@@ -97,111 +97,130 @@ impl<'p,'c:'p> Tokenizer<'p,'c> {
         let mut index = start;
         let mut state = TokenizerState::Start;
 
-        on_token(File.placeholder_open_token(), start..index);
+        Self::emit_token(File.placeholder_open_token(), state, &buffer, start, index, &mut on_token);
 
         while let Some(char_type) = CharType::read(&buffer, &mut index) {
             use parser::scanner::CharType::*;
-            let (token, next_state) = match char_type {
-                Digit       => self.integer(state, &buffer, start, &mut index),
-                Operator    => self.operator(state, &buffer, start, &mut index),
-                Open        => self.open(state, &buffer, start, &mut index),
-                Close       => self.close(state, &buffer, start, &mut index),
-                Newline     => self.newline(state, &buffer, start, &mut index),
-                Space       => self.skip_space(state, &buffer, start, &mut index),
+            state = match char_type {
+                Digit       => self.integer(state, &buffer, start, &mut index, &mut on_token),
+                Operator    => self.operator(state, &buffer, start, &mut index, &mut on_token),
+                Open        => Self::emit_token(Parentheses.placeholder_open_token(), state, &buffer, start, index, &mut on_token),
+                Close       => Self::emit_token(Parentheses.placeholder_close_token(), state, &buffer, start, index, &mut on_token),
+                Newline     => { self.char_data.append_line(index); state.after_newline(start, index) },
+                Space       => { Space.read_many(&buffer, &mut index); state.after_space() },
                 Unsupported => self.report_unsupported(state, &buffer, start, &mut index),
                 InvalidUtf8 => self.report_invalid_utf8(state, &buffer, start, &mut index),
             };
-            
-            if let Some(token) = token {
-                // Insert missing term if needed
-                if token.has_left_operand() {
-                    if !state.is_left_operand() {
-                        on_token(MissingExpression, start..start);
-                    }
-
-                } else {
-                    // Insert newline sequence operator if applicable
-                    if let NewlineAfterOperand { newline_start, newline_length } = state {
-                        let newline_end = newline_start+(newline_length as usize);
-                        on_token(NewlineSequence, newline_start..newline_end);
-
-                    // Insert missing infix if applicable
-                    } else if state.is_left_operand() {
-                        on_token(MissingInfix, start..start)
-                    }
-
-                    // Insert open compound term if applicable
-                    if state.is_space() {
-                        on_token(CompoundTerm.placeholder_open_token(), start..start);
-                    }
-                }
-
-                // Insert the token
-                on_token(token, start..index);
-
-                // Insert close compound term if applicable
-                if !token.has_right_operand() && CharType::peek_if(&buffer, index, Self::is_space) {
-                    on_token(CompoundTerm.placeholder_close_token(), index..index);
-                }
-            }
-
-            state = next_state;
+         
             start = index;
         }
 
-        on_token(File.placeholder_close_token(), start..index);
+        Self::emit_token(File.placeholder_close_token(), state, &buffer, start, index, &mut on_token);
 
         (self.char_data, self.identifiers.strings, self.literals)
     }
 
-    fn integer(&mut self, _state: TokenizerState, buffer: &ByteSlice, start: ByteIndex, index: &mut ByteIndex) -> (Option<Token>, TokenizerState) {
+    fn emit_token<OnToken: FnMut(Token,ByteRange)->()>(
+        token: Token,
+        state: TokenizerState,
+        buffer: &ByteSlice,
+        start: ByteIndex,
+        index: ByteIndex,
+        on_token: &mut OnToken
+    ) -> TokenizerState {
+        if token.has_left_operand() {
+            // Insert missing expression if applicable
+            if !state.is_left_operand() {
+                on_token(MissingExpression, start..start)
+            }
+        } else {
+            // Insert newline sequence operator if applicable
+            if let NewlineAfterOperand { newline_start, newline_length } = state {
+                let newline_end = newline_start+(newline_length as usize);
+                on_token(NewlineSequence, newline_start..newline_end);
+
+            // Insert missing infix if applicable
+            } else if state.is_left_operand() {
+                on_token(MissingInfix, start..start)
+            }
+
+            // Insert open compound term if applicable
+            if state.is_space() {
+                on_token(CompoundTerm.placeholder_open_token(), start..start);
+            }
+        }
+
+        on_token(token, start..index);
+
+        // Insert close compound term if applicable
+        if CharType::peek_if(buffer, index, Self::is_space) {
+            on_token(CompoundTerm.placeholder_close_token(), index..index);
+        }
+
+        if token.has_right_operand() {
+            TokenizerState::ImmediateLeftOperator
+        } else {
+            TokenizerState::ImmediateLeftOperand
+        }
+    }
+
+    fn integer<OnToken: FnMut(Token,ByteRange)->()>(
+        &mut self,
+        state: TokenizerState,
+        buffer: &ByteSlice,
+        start: ByteIndex,
+        index: &mut ByteIndex,
+        on_token: &mut OnToken
+    ) -> TokenizerState {
         let string = Digit.read_many_to_str(buffer, start, index);
         let literal = self.literals.add(string);
-        (Some(IntegerLiteral(literal)), TokenizerState::ImmediateLeftOperand)
+        Self::emit_token(IntegerLiteral(literal), state, buffer, start, *index, on_token)
     }
 
-    fn open(&mut self, _state: TokenizerState, _buffer: &ByteSlice, _start: ByteIndex, _index: &mut ByteIndex) -> (Option<Token>, TokenizerState) {
-        (Some(Parentheses.placeholder_open_token()), TokenizerState::ImmediateLeftOperator)
-    }
-
-    fn close(&mut self, _state: TokenizerState, _buffer: &ByteSlice, _start: ByteIndex, _index: &mut ByteIndex) -> (Option<Token>, TokenizerState) {
-        (Some(Parentheses.placeholder_close_token()), TokenizerState::ImmediateLeftOperand)
-    }
-
-    fn operator(&mut self, state: TokenizerState, buffer: &ByteSlice, start: ByteIndex, index: &mut ByteIndex) -> (Option<Token>, TokenizerState) {
+    fn operator<OnToken: FnMut(Token,ByteRange)->()>(
+        &mut self,
+        state: TokenizerState,
+        buffer: &ByteSlice,
+        start: ByteIndex,
+        index: &mut ByteIndex,
+        on_token: &mut OnToken
+    ) -> TokenizerState {
         let string = Operator.read_many_to_str(buffer, start, index);
         let identifier = self.identifiers.add(string);
         let left_operand = !state.is_space_or_explicit_operator();
         let right_operand = !CharType::peek_if(buffer, *index, Self::is_space_or_explicit_operator);
-        if left_operand && !right_operand {
-            (Some(PostfixOperator(identifier)), TokenizerState::ImmediateLeftOperand)
+        let token = if left_operand && !right_operand {
+            PostfixOperator(identifier)
         } else if !left_operand && right_operand {
-            (Some(PrefixOperator(identifier)), TokenizerState::ImmediateLeftOperator)
+            PrefixOperator(identifier)
         } else {
-            (Some(InfixOperator(identifier)), TokenizerState::ImmediateLeftOperator)
-        }
+            InfixOperator(identifier)
+        };
+        Self::emit_token(token, state, buffer, start, *index, on_token)
     }
 
-    fn newline(&mut self, state: TokenizerState, _buffer: &ByteSlice, start: ByteIndex, index: &mut ByteIndex) -> (Option<Token>, TokenizerState) {
-        self.char_data.append_line(*index);
-        (None, state.after_newline(start, *index))
-    }
-
-    fn skip_space(&self, state: TokenizerState, buffer: &ByteSlice, _start: ByteIndex, index: &mut ByteIndex) -> (Option<Token>, TokenizerState) {
-        Space.read_many(buffer, index);
-        (None, state.after_space())
-    }
-
-    fn report_unsupported(&self, state: TokenizerState, buffer: &ByteSlice, start: ByteIndex, index: &mut ByteIndex) -> (Option<Token>, TokenizerState) {
+    fn report_unsupported(
+        &self,
+        state: TokenizerState,
+        buffer: &ByteSlice,
+        start: ByteIndex,
+        index: &mut ByteIndex
+    ) -> TokenizerState {
         Unsupported.read_many(buffer, index);
         self.compiler.report(compile_errors::UnsupportedCharacters { source: self.source, characters: start..*index });
-        (None, state.after_space())
+        state.after_space()
     }
  
-    fn report_invalid_utf8(&self, state: TokenizerState, buffer: &ByteSlice, start: ByteIndex, index: &mut ByteIndex) -> (Option<Token>, TokenizerState) {
+    fn report_invalid_utf8(
+        &self,
+        state: TokenizerState,
+        buffer: &ByteSlice,
+        start: ByteIndex,
+        index: &mut ByteIndex
+    ) -> TokenizerState {
         InvalidUtf8.read_many(buffer, index);
         self.compiler.report(compile_errors::InvalidUtf8 { source: self.source, bytes: start..*index });
-        (None, state.after_space())
+        state.after_space()
     }
 
     fn is_space(char_type: Option<CharType>) -> bool {

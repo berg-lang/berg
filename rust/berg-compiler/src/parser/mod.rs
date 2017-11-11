@@ -176,12 +176,7 @@ impl<'p,'c:'p> Parser<'p,'c> {
     fn actually_close(&mut self, range: ByteRange) {
         let expression = self.open_expressions.pop().unwrap();
         match expression.boundary {
-            File => {
-                // If there are no tokens, insert MissingExpression.
-                if self.next_index() == 0 {
-                    self.push(MissingExpression, range.start..range.start);
-                }
-            }, // Popping the expression is enough.
+            File => {}, // Popping the expression is enough.
             CompoundTerm|PrecedenceGroup => {
                 let start = self.token_ranges[expression.open_index].start;
                 let close_index = self.next_index()+1; // Have to add 1 due to the impending insert.
