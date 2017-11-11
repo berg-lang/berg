@@ -23,7 +23,7 @@ pub struct Compiler<'c> {
     out: Box<Write>,
     err: Box<Write>,
     sources: RwLock<IndexedVec<SourceData<'c>, SourceIndex>>,
-    pub(crate) errors: RwLock<Vec<Box<CompileError+'c>>>,
+    pub errors: RwLock<Vec<Box<CompileError+'c>>>,
 }
 
 impl<'c> Debug for Compiler<'c> {

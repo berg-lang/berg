@@ -1,4 +1,4 @@
-extern crate berg_compiler;
+pub extern crate berg_compiler;
 pub use compiler_test::berg_compiler::*;
 pub use compiler_test::berg_compiler::compile_errors::*;
 
@@ -41,7 +41,6 @@ macro_rules! compiler_tests {
 }
 
 pub struct CompilerTest<'t> {
-//    source: &'t [u8],
     compiler: Compiler<'t>,
 }
 impl<'t> CompilerTest<'t> {

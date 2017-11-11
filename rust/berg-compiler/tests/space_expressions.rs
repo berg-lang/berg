@@ -20,4 +20,14 @@ compiler_tests! {
     addmuladd_space_precedence_2: "1 + 2*3 + 4" => type(11),
     muladdmul_space_precedence: "1 * 2+3 * 4" => type(20),
     muladdmul_space_precedence_2: "1*2 + 3*4" => type(14),
+
+    // Ensure precedence with newline works like with space
+    addmul_paren_newline_precedence: "1+(2\n*\n3)" => type(7),
+    addmul_paren_newline_precedence_2: "(1+2)\n*\n3" => type(9),
+
+    addmul_newline_precedence: "1+2\n*\n3" => type(9),
+    addmuladd_newline_precedence: "1+2\n*\n3+4" => type(21),
+    addmuladd_newline_precedence_2: "1\n+\n2*3\n+\n4" => type(11),
+    muladdmul_newline_precedence: "1\n*\n2+3\n*\n4" => type(20),
+    muladdmul_newline_precedence_2: "1*2\n+\n3*4" => type(14),
 }

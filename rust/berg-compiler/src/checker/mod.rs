@@ -121,6 +121,7 @@ impl<'ch,'c:'ch> AstVisitorMut<Type> for Checker<'ch,'c> {
                 }
                 _ => self.report(compile_errors::UnrecognizedOperator { source: self.source(), operator: parse_data.token_range(index) }),
             },
+            NewlineSequence => if left == Error { left } else { right },
             MissingInfix => Error,
         }
     }

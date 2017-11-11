@@ -8,6 +8,7 @@ pub enum Token {
     MissingExpression,
 
     InfixOperator(IdentifierIndex),
+    NewlineSequence,
     MissingInfix,
 
     Open(ExpressionBoundary,AstDelta),
@@ -26,6 +27,7 @@ pub enum TermToken {
 #[derive(Debug,Copy,Clone,PartialEq)]
 pub enum InfixToken {
     InfixOperator(IdentifierIndex),
+    NewlineSequence,
     MissingInfix,
 }
 
@@ -62,7 +64,7 @@ impl Token {
         use ast::token::Token::*;
         match *self {
             IntegerLiteral(_)|MissingExpression => Fixity::Term,
-            InfixOperator(_)|MissingInfix => Fixity::Infix,
+            InfixOperator(_)|NewlineSequence|MissingInfix => Fixity::Infix,
             PrefixOperator(_)|Open(..) => Fixity::Prefix,
             PostfixOperator(_)|Close(..) => Fixity::Postfix,
         }
@@ -123,7 +125,7 @@ impl TermToken {
         match token {
             IntegerLiteral(literal) => Some(TermToken::IntegerLiteral(literal)),
             MissingExpression => Some(TermToken::MissingExpression),
-            InfixOperator(_)|MissingInfix|PrefixOperator(_)|Open(..)|PostfixOperator(_)|Close(..) => None,
+            InfixOperator(_)|NewlineSequence|MissingInfix|PrefixOperator(_)|Open(..)|PostfixOperator(_)|Close(..) => None,
         }
     }
 }
@@ -132,6 +134,7 @@ impl From<InfixToken> for Token {
     fn from(token: InfixToken) -> Self {
         match token {
             InfixToken::InfixOperator(identifier) => InfixOperator(identifier),
+            InfixToken::NewlineSequence => NewlineSequence,
             InfixToken::MissingInfix => MissingInfix,
         }
     }
@@ -140,6 +143,7 @@ impl InfixToken {
     pub fn try_from(token: Token) -> Option<Self> {
         match token {
             InfixOperator(identifier) => Some(InfixToken::InfixOperator(identifier)),
+            NewlineSequence => Some(InfixToken::NewlineSequence),
             MissingInfix => Some(InfixToken::MissingInfix),
             IntegerLiteral(_)|MissingExpression|PrefixOperator(_)|Open(..)|PostfixOperator(_)|Close(..) => None,
         }
@@ -154,7 +158,6 @@ impl InfixToken {
         }
     }
     pub fn takes_left_child(self, left: InfixToken) -> bool {
-        println!("takes_right_child({:?}, {:?}) = {:?}", left, self, left.takes_right_child(self));
         !left.takes_right_child(self)
     }
 }
@@ -172,7 +175,7 @@ impl PrefixToken {
         match token {
             PrefixOperator(identifier) => Some(PrefixToken::PrefixOperator(identifier)),
             Open(boundary,delta) => Some(PrefixToken::Open(boundary,delta)),
-            IntegerLiteral(_)|MissingExpression|InfixOperator(_)|MissingInfix|PostfixOperator(_)|Close(..) => None,
+            IntegerLiteral(_)|NewlineSequence|MissingExpression|InfixOperator(_)|MissingInfix|PostfixOperator(_)|Close(..) => None,
         }
     }
 }
@@ -190,7 +193,7 @@ impl PostfixToken {
         match token {
             PostfixOperator(identifier) => Some(PostfixToken::PostfixOperator(identifier)),
             Close(boundary,delta) => Some(PostfixToken::Close(boundary,delta)),
-            IntegerLiteral(_)|MissingExpression|InfixOperator(_)|MissingInfix|PrefixOperator(_)|Open(..) => None,
+            IntegerLiteral(_)|NewlineSequence|MissingExpression|InfixOperator(_)|MissingInfix|PrefixOperator(_)|Open(..) => None,
         }
     }
 }

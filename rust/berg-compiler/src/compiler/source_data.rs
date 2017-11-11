@@ -103,6 +103,7 @@ impl ParseData {
             PrefixOperator(operator) =>
                 self.identifier_string(operator),
 
+            NewlineSequence => "\\n",
             Close(Parentheses,_) => self.identifier_string(CLOSE_PAREN),
             Open(Parentheses,_) => self.identifier_string(OPEN_PAREN),
             Open(CompoundTerm,_)|Close(CompoundTerm,_)|Open(PrecedenceGroup,_)|Close(PrecedenceGroup,_)|Open(File,_)|Close(File,_)|MissingExpression|MissingInfix => "",
@@ -138,9 +139,9 @@ impl Default for CharData {
 }
 
 impl CharData {
-    // pub(crate) fn append_line(&mut self, line_start_index: ByteIndex) {
-    //     self.line_starts.push(line_start_index);
-    // }
+    pub(crate) fn append_line(&mut self, line_start: ByteIndex) {
+        self.line_starts.push(line_start);
+    }
     pub(crate) fn location(&self, index: ByteIndex) -> LineColumn {
         // TODO binary search to make it faster. But, meh.
         let mut line = self.line_starts.len();

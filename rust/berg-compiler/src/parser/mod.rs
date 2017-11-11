@@ -8,7 +8,7 @@ use ast::token::ExpressionBoundary::*;
 use compiler::Compiler;
 use compiler::compile_errors;
 use compiler::source_data::{ByteIndex,ByteRange,ParseData,SourceIndex};
-use indexed_vec::IndexedVec;
+use indexed_vec::{Delta,IndexedVec};
 
 pub(super) fn parse<'c>(compiler: &Compiler<'c>, source: SourceIndex) -> ParseData
 {
@@ -42,17 +42,13 @@ impl<'p,'c:'p> Parser<'p,'c> {
     fn parse(mut self) -> ParseData {
 
         // Loop through tokens, inserting term, then operator, then term, then operator ...
-        let mut need_operand = true;
-        let (identifiers, literals) = tokenizer::tokenize(self.compiler, self.source, |token, range| {
+        let (char_data, identifiers, literals) = tokenizer::tokenize(self.compiler, self.source, |token, range| {
             println!("TOKEN {:?}", token);
-            self.insert_missing_expression_or_infix(need_operand, token.has_left_operand(), range.start);
-            need_operand = token.has_right_operand();
             self.insert_token(token, range);
         });
 
         assert!(self.open_expressions.is_empty());
 
-        let char_data = Default::default();
         ParseData { char_data, identifiers, literals, tokens: self.tokens, token_ranges: self.token_ranges }
     }
 
@@ -64,7 +60,7 @@ impl<'p,'c:'p> Parser<'p,'c> {
             Close(boundary, _) => self.on_close(boundary, range),
 
             // Infix tokens may have left->right or right->left precedence.
-            InfixOperator(_)|MissingInfix => {
+            InfixOperator(_)|NewlineSequence|MissingInfix => {
                 // Open or close PrecedenceGroups as necessary based on this infix.
                 let infix = token.to_infix().unwrap();
                 self.handle_precedence(infix, range.start);
@@ -107,15 +103,6 @@ impl<'p,'c:'p> Parser<'p,'c> {
                     }
                 }
             }
-        }
-    }
-
-    fn insert_missing_expression_or_infix(&mut self, need_operand: bool, has_left_operand: bool, location: ByteIndex) {
-        // Put a MissingExpression or MissingInfix in between if we're missing something.
-        match (need_operand, has_left_operand) {
-            (true, true) => self.insert_token(MissingExpression, location..location),
-            (false, false) => self.insert_token(MissingInfix, location..location),
-            (true,false)|(false,true) => {}
         }
     }
 
@@ -167,7 +154,6 @@ impl<'p,'c:'p> Parser<'p,'c> {
     }
 
     fn close(&mut self, range: ByteRange) {
-        println!("try_close({:?})", self.open_expression());
         match self.open_expression().boundary {
             File => self.actually_close(range),
             PrecedenceGroup => {
@@ -188,10 +174,14 @@ impl<'p,'c:'p> Parser<'p,'c> {
     }
 
     fn actually_close(&mut self, range: ByteRange) {
-        println!("actually_close({:?})", self.open_expression());
         let expression = self.open_expressions.pop().unwrap();
         match expression.boundary {
-            File => {}, // Popping the expression is enough.
+            File => {
+                // If there are no tokens, insert MissingExpression.
+                if self.next_index() == 0 {
+                    self.push(MissingExpression, range.start..range.start);
+                }
+            }, // Popping the expression is enough.
             CompoundTerm|PrecedenceGroup => {
                 let start = self.token_ranges[expression.open_index].start;
                 let close_index = self.next_index()+1; // Have to add 1 due to the impending insert.
@@ -200,7 +190,10 @@ impl<'p,'c:'p> Parser<'p,'c> {
                 self.push(Close(expression.boundary, delta), range);
             },
             Parentheses => {
-                let delta = self.next_index()-expression.open_index;
+                let mut delta = self.next_index()-expression.open_index;
+                // If we're fixing a missing open/close parentheses, we may be creating *empty* parens, which
+                // require a MissingExpression between them.
+                if delta == 1 { self.push(MissingExpression, range.start..range.start); delta = Delta(AstIndex(2)); }
                 if let Open(boundary, ref mut open_delta) = self.tokens[expression.open_index] {
                     assert!(boundary == expression.boundary);
                     *open_delta = delta;
@@ -213,12 +206,10 @@ impl<'p,'c:'p> Parser<'p,'c> {
     }
 
     fn close_unnecessary(&mut self, range: ByteRange) {
-        println!("close_unnecessary({:?})", self.open_expression());
         if self.open_expression().boundary == Parentheses {
             self.report_unnecessary_parentheses(&range);
             self.actually_close(range);
         } else {
-            println!("Closing {:?} as unnecessary", self.open_expression().boundary);
             self.open_expressions.pop();
         }
     }
@@ -228,7 +219,6 @@ impl<'p,'c:'p> Parser<'p,'c> {
     }
 
     fn on_open(&mut self, boundary: ExpressionBoundary, open_range: ByteRange) {
-        println!("Opening {:?}", boundary);
         let open_index = self.next_index();
         self.open_expressions.push(OpenExpression { open_index, boundary, infix: None });
         match boundary {

@@ -95,11 +95,12 @@ pub struct IndexedSlice<Elem, Index: IndexType> {
     slice: [Elem],
 }
 impl<Elem, Index: IndexType> IndexedSlice<Elem, Index> {
-    pub fn first(&self) -> Option<&Elem> { self.slice.first() }
+    pub fn len(&self) -> Index { self.slice.len().into() }
+    pub fn get(&self, index: Index) -> Option<&Elem> { self.slice.get(index.into()) }
     pub fn from_slice(slice: &[Elem]) -> &Self { unsafe { mem::transmute(slice) } }
     pub fn from_mut_slice(slice: &mut [Elem]) -> &mut Self { unsafe { mem::transmute(slice) } }
+    pub fn first(&self) -> Option<&Elem> { self.slice.first() }
     pub fn last(&self) -> Option<&Elem> { self.slice.last() }
-    pub fn len(&self) -> Index { self.slice.len().into() }
     pub fn as_raw_slice(&self) -> &[Elem] { &self.slice }
 }
 

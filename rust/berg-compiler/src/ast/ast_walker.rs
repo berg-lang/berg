@@ -85,7 +85,6 @@ impl AstWalkerMut {
         // Handle the term
         let (term_token, term_index) = self.advance(parse_data);
         let term = term_token.to_term().unwrap();
-        println!("Visit term {:?}", term_index);
         let mut value = visitor.visit_term(term, term_index, parse_data);
 
         // Handle prefixes (in reverse order)
@@ -130,14 +129,12 @@ impl AstWalkerMut {
     }
 
     fn walk_postfixes<T: Debug, V: AstVisitorMut<T>>(&mut self, visitor: &mut V, mut value: T, parse_data: &ParseData) -> T {
-        println!("walk_postfixes at {} ...", self.index);
         while let NextToken(postfix, postfix_index) = self.advance_if(parse_data,
             |token| match token { PostfixOperator(postfix) => Some(postfix), _ => None })
         {
             println!("Visit postfix {:?} {:?}", &parse_data.identifiers[postfix], value);
             value = visitor.visit_postfix(postfix, value, postfix_index, parse_data)
         }
-        println!("walk_postfixes done at {} ...", self.index);
         value
     }
 

@@ -11,6 +11,7 @@ pub(super) enum CharType {
     Open,
     Close,
     Space,
+    Newline,
     Unsupported,
     InvalidUtf8,
 }
@@ -18,6 +19,7 @@ pub(super) enum CharType {
 #[derive(Debug,Copy,Clone,PartialEq)]
 enum ByteType {
     Char(CharType),
+    CarriageReturn,
     Utf8LeadingByte(Delta<ByteIndex>),
 }
 
@@ -62,6 +64,10 @@ impl CharType {
         let byte_type = ByteType::from_byte(buffer[index]);
         match byte_type {
             ByteType::Char(char_type) => map_char(Some(char_type),Delta(ByteIndex(1))),
+            ByteType::CarriageReturn => {
+                let char_length = if let Some(&b'\n') = buffer.get(index+1) { Delta(ByteIndex(2)) } else { Delta(ByteIndex(1)) };
+                map_char(Some(CharType::Newline),char_length)
+            },
             ByteType::Utf8LeadingByte(char_length) => {
                 if Self::is_valid_utf8_char(buffer, index, char_length) {
                     map_char(Some(Unsupported), char_length)
@@ -93,6 +99,8 @@ impl ByteType {
             b'(' => Char(Open),
             b')' => Char(Close),
             b' '|b'\t' => Char(Space),
+            b'\n' => Char(Newline),
+            b'\r' => ByteType::CarriageReturn,
             _ => ByteType::from_generic(byte)
         }
     }
