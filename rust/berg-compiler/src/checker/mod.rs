@@ -2,6 +2,7 @@ pub mod checker_type;
 
 use ast::{AstIndex,IdentifierIndex};
 use ast::ast_walker::{AstWalkerMut,AstVisitorMut};
+use ast::identifiers::*;
 use ast::token::{TermToken,InfixToken};
 use ast::token::TermToken::*;
 use ast::token::InfixToken::*;
@@ -94,9 +95,14 @@ impl<'ch,'c:'ch> AstVisitorMut<Type> for Checker<'ch,'c> {
                 let value = BigRational::from_str(string).unwrap();
                 Rational(value)
             },
-            PropertyReference(_) => {
-                self.report(compile_errors::NoSuchProperty { source: self.source(), reference: parse_data.token_range(index) });
-                Error
+            PropertyReference(identifier) => {
+                match identifier {
+                    NOTHING => Nothing,
+                    _ => {
+                        self.report(compile_errors::NoSuchProperty { source: self.source(), reference: parse_data.token_range(index) });
+                        Error
+                    }
+                }
             },
             SyntaxErrorTerm(_) => Error,
             MissingExpression => Missing,
@@ -104,7 +110,7 @@ impl<'ch,'c:'ch> AstVisitorMut<Type> for Checker<'ch,'c> {
     }
 
     fn visit_infix(&mut self, token: InfixToken, mut left: Type, mut right: Type, index: AstIndex, parse_data: &ParseData) -> Type {
-        use ast::operators::*;
+        use ast::identifiers::*;
         if left == Missing {
             self.report(compile_errors::MissingLeftOperand { source: self.source(), operator: parse_data.token_range(index) });
             left = Error;
@@ -132,7 +138,7 @@ impl<'ch,'c:'ch> AstVisitorMut<Type> for Checker<'ch,'c> {
     }
 
     fn visit_prefix(&mut self, prefix: IdentifierIndex, mut operand: Type, index: AstIndex, parse_data: &ParseData) -> Type {
-        use ast::operators::*;
+        use ast::identifiers::*;
         if operand == Missing {
             self.report(compile_errors::MissingRightOperand { source: self.source(), operator: parse_data.token_range(index) });
             operand = Error;

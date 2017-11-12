@@ -1,6 +1,6 @@
 use ast::{IdentifierIndex,LiteralIndex};
 use ast::intern_pool::{StringPool,InternPool,Pool};
-use ast::operators;
+use ast::identifiers;
 use ast::token::Token;
 use ast::token::Token::*;
 use ast::token::ExpressionBoundary::*;
@@ -48,7 +48,7 @@ enum TokenizerState {
 impl<'p,'c:'p> Tokenizer<'p,'c> {
     fn new(compiler: &'p Compiler<'c>, source: SourceIndex) -> Self {
         let char_data = Default::default();
-        let identifiers = operators::intern_all();
+        let identifiers = identifiers::intern_all();
         let literals = Default::default();
         Tokenizer { compiler, source, char_data, identifiers, literals }
     }

@@ -1,4 +1,4 @@
-use ast::operators::*;
+use ast::identifiers::*;
 use indexed_vec::IndexedSlice;
 use std::fmt::*;
 use ast::intern_pool::StringPool;

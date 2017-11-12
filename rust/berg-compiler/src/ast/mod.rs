@@ -1,5 +1,5 @@
 pub(crate) mod ast_walker;
-pub(crate) mod operators;
+pub(crate) mod identifiers;
 pub(crate) mod intern_pool;
 pub(crate) mod token;
 

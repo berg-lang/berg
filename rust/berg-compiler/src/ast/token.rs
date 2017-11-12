@@ -157,7 +157,7 @@ impl InfixToken {
         }
     }
     pub fn takes_right_child(self, right: InfixToken) -> bool {
-        use ast::operators::*;
+        use ast::identifiers::*;
         match (self,right) {
             (InfixToken::InfixOperator(left),InfixToken::InfixOperator(right)) => {
                 (left == PLUS || left == DASH) && (right == STAR || right == SLASH)
