@@ -4,11 +4,17 @@ use num::bigint::BigInt;
 #[derive(Debug,Clone,PartialEq,PartialOrd)]
 pub enum Type {
     Rational(BigRational),
+    Boolean(bool),
     Error,
     Missing,
     Nothing,
 }
 
+impl From<bool> for Type {
+    fn from(value: bool) -> Type {
+        Type::Boolean(value)
+    }
+}
 impl From<i64> for Type {
     fn from(value: i64) -> Type {
         BigInt::from(value).into()

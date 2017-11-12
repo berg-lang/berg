@@ -95,14 +95,12 @@ impl<'ch,'c:'ch> AstVisitorMut<Type> for Checker<'ch,'c> {
                 let value = BigRational::from_str(string).unwrap();
                 Rational(value)
             },
-            PropertyReference(identifier) => {
-                match identifier {
-                    NOTHING => Nothing,
-                    _ => {
-                        self.report(compile_errors::NoSuchProperty { source: self.source(), reference: parse_data.token_range(index) });
-                        Error
-                    }
-                }
+            PropertyReference(NOTHING) => Nothing,
+            PropertyReference(TRUE) => Boolean(true),
+            PropertyReference(FALSE) => Boolean(false),
+            PropertyReference(_) => {
+                self.report(compile_errors::NoSuchProperty { source: self.source(), reference: parse_data.token_range(index) });
+                Error
             },
             SyntaxErrorTerm(_) => Error,
             MissingExpression => Missing,
