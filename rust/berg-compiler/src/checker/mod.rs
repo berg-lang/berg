@@ -87,13 +87,18 @@ impl<'ch,'c:'ch> Checker<'ch,'c> {
 }
 
 impl<'ch,'c:'ch> AstVisitorMut<Type> for Checker<'ch,'c> {
-    fn visit_term(&mut self, token: TermToken, _: AstIndex, parse_data: &ParseData) -> Type {
+    fn visit_term(&mut self, token: TermToken, index: AstIndex, parse_data: &ParseData) -> Type {
         match token {
             IntegerLiteral(literal) => {
                 let string = parse_data.literal_string(literal);
                 let value = BigRational::from_str(string).unwrap();
                 Rational(value)
             },
+            PropertyReference(_) => {
+                self.report(compile_errors::NoSuchProperty { source: self.source(), reference: parse_data.token_range(index) });
+                Error
+            },
+            SyntaxErrorTerm(_) => Error,
             MissingExpression => Missing,
         }
     }

@@ -21,7 +21,7 @@ macro_rules! index_type {
         use std::ops::{Add,AddAssign,Sub,SubAssign};
         use std::cmp::Ordering;
         $(
-            #[derive(Debug, Copy, Clone, Default, PartialEq, Eq, Ord, PartialOrd)]
+            #[derive(Debug,Copy,Clone,Default,PartialEq,Eq,PartialOrd,Ord,Hash)]
             pub struct $name(pub $($type)*);
             impl PartialEq<usize> for $name {
                 fn eq(&self, other: &usize) -> bool { (self.0 as usize).eq(other) }
@@ -57,7 +57,7 @@ macro_rules! index_type {
     }
 }
 
-#[derive(Debug,Copy,Clone,Default,PartialEq,PartialOrd)]
+#[derive(Debug,Copy,Clone,Default,PartialEq,Eq,PartialOrd,Ord,Hash)]
 pub struct Delta<IndexType>(pub IndexType);
 impl<T: IndexType> fmt::Display for Delta<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {

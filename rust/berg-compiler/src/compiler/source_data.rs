@@ -96,12 +96,13 @@ impl ParseData {
     pub(crate) fn token_string(&self, token: AstIndex) -> &str {
         use ast::token::ExpressionBoundary::*;
         match self.tokens[token] {
-            IntegerLiteral(literal) => self.literal_string(literal),
-
-            InfixOperator(operator)|
-            PostfixOperator(operator)|
-            PrefixOperator(operator) =>
-                self.identifier_string(operator),
+            IntegerLiteral(literal)|SyntaxErrorTerm(literal) => self.literal_string(literal),
+            
+            PropertyReference(identifier)|
+            InfixOperator(identifier)|
+            PostfixOperator(identifier)|
+            PrefixOperator(identifier) =>
+                self.identifier_string(identifier),
 
             NewlineSequence => "\\n",
             Close(Parentheses,_) => self.identifier_string(CLOSE_PAREN),
