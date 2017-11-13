@@ -148,7 +148,6 @@ impl<'ch,'c:'ch> AstVisitorMut<Type> for Checker<'ch,'c> {
                 let value = BigRational::from_str(string).unwrap();
                 Rational(value)
             },
-            PropertyReference(NOTHING) => Nothing,
             PropertyReference(TRUE) => Boolean(true),
             PropertyReference(FALSE) => Boolean(false),
             PropertyReference(_) => {
@@ -167,31 +166,35 @@ impl<'ch,'c:'ch> AstVisitorMut<Type> for Checker<'ch,'c> {
             left = Error;
         }
         if right == Missing {
-            self.report(compile_errors::MissingRightOperand { source: self.source(), operator: parse_data.token_range(index) });
-            right = Error;
+            if let InfixOperator(SEMICOLON) = token {
+            } else {
+                self.report(compile_errors::MissingRightOperand { source: self.source(), operator: parse_data.token_range(index) });
+                right = Error;
+            }
+        }
+        if let InfixOperator(SEMICOLON) = token {
+            println!("Semicolon {:?} {:?}", left, right);
         }
         match token {
-            InfixOperator(identifier) => match identifier {
-                PLUS  => self.check_numeric_binary(left, right, index, parse_data, |left, right| left + right),
-                DASH  => self.check_numeric_binary(left, right, index, parse_data, |left, right| left - right),
-                STAR  => self.check_numeric_binary(left, right, index, parse_data, |left, right| left * right),
-                SLASH => match self.check_numeric_binary_arguments(left, right, index, parse_data) {
-                    Some((_, ref right)) if right.is_zero() => 
-                        self.report(compile_errors::DivideByZero { source: self.source(), divide: parse_data.token_range(index) }),
-                    Some((ref left, ref right)) => Rational(left / right),
-                    None => Error,
-                },
-                EQUAL_TO      => self.check_equal_to(left, right),
-                NOT_EQUAL_TO  => match self.check_equal_to(left, right) { Boolean(value) => Boolean(!value), value => value },
-                GREATER_THAN  => self.check_numeric_comparison(left, right, index, parse_data, |left, right| left > right),
-                LESS_THAN     => self.check_numeric_comparison(left, right, index, parse_data, |left, right| left < right),
-                GREATER_EQUAL => self.check_numeric_comparison(left, right, index, parse_data, |left, right| left >= right),
-                LESS_EQUAL    => self.check_numeric_comparison(left, right, index, parse_data, |left, right| left <= right),
-                AND_AND => self.check_boolean_binary(left, right, index, parse_data, |left, right| left && right),
-                OR_OR => self.check_boolean_binary(left, right, index, parse_data, |left, right| left || right),
-                _ => self.report(compile_errors::UnrecognizedOperator { source: self.source(), operator: parse_data.token_range(index) }),
+            InfixOperator(PLUS)  => self.check_numeric_binary(left, right, index, parse_data, |left, right| left + right),
+            InfixOperator(DASH)  => self.check_numeric_binary(left, right, index, parse_data, |left, right| left - right),
+            InfixOperator(STAR)  => self.check_numeric_binary(left, right, index, parse_data, |left, right| left * right),
+            InfixOperator(SLASH) => match self.check_numeric_binary_arguments(left, right, index, parse_data) {
+                Some((_, ref right)) if right.is_zero() => 
+                    self.report(compile_errors::DivideByZero { source: self.source(), divide: parse_data.token_range(index) }),
+                Some((ref left, ref right)) => Rational(left / right),
+                None => Error,
             },
-            NewlineSequence => if left == Error { left } else { right },
+            InfixOperator(EQUAL_TO)      => self.check_equal_to(left, right),
+            InfixOperator(NOT_EQUAL_TO)  => match self.check_equal_to(left, right) { Boolean(value) => Boolean(!value), value => value },
+            InfixOperator(GREATER_THAN)  => self.check_numeric_comparison(left, right, index, parse_data, |left, right| left > right),
+            InfixOperator(LESS_THAN)     => self.check_numeric_comparison(left, right, index, parse_data, |left, right| left < right),
+            InfixOperator(GREATER_EQUAL) => self.check_numeric_comparison(left, right, index, parse_data, |left, right| left >= right),
+            InfixOperator(LESS_EQUAL)    => self.check_numeric_comparison(left, right, index, parse_data, |left, right| left <= right),
+            InfixOperator(AND_AND)       => self.check_boolean_binary(left, right, index, parse_data, |left, right| left && right),
+            InfixOperator(OR_OR)         => self.check_boolean_binary(left, right, index, parse_data, |left, right| left || right),
+            InfixOperator(SEMICOLON)|NewlineSequence => right,
+            InfixOperator(_) => self.report(compile_errors::UnrecognizedOperator { source: self.source(), operator: parse_data.token_range(index) }),
             MissingInfix => Error,
         }
     }

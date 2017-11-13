@@ -54,13 +54,13 @@ impl Scanner {
     pub(super) fn peek_if_space(&self, buffer: &ByteSlice) -> bool {
         match CharType::peek(buffer, self.index) {
             None|Some(Space)|Some(Newline)|Some(Unsupported)|Some(InvalidUtf8) => true,
-            Some(Open)|Some(Close)|Some(Operator)|Some(Digit)|Some(Identifier) => false,
+            Some(Open)|Some(Close)|Some(Operator)|Some(Separator)|Some(Digit)|Some(Identifier) => false,
         }
     }
 
     pub(super) fn peek_if_space_or_operator(&self, buffer: &ByteSlice) -> bool {
         match CharType::peek(buffer, self.index) {
-            Some(Close)|Some(Operator)|None|Some(Space)|Some(Newline)|Some(Unsupported)|Some(InvalidUtf8) => true,
+            Some(Close)|Some(Operator)|Some(Separator)|None|Some(Space)|Some(Newline)|Some(Unsupported)|Some(InvalidUtf8) => true,
             Some(Open)|Some(Digit)|Some(Identifier) => false,
         }
     }
@@ -73,6 +73,7 @@ pub(super) enum CharType {
     Operator,
     Open,
     Close,
+    Separator,
     Space,
     Newline,
     Unsupported,
@@ -136,6 +137,7 @@ impl ByteType {
             b'a'...b'z'|b'A'...b'Z'|b'_' => Char(Identifier),
             b'(' => Char(Open),
             b')' => Char(Close),
+            b';' => Char(Separator),
             b' '|b'\t' => Char(Space),
             b'\n' => Char(Newline),
             b'\r' => ByteType::CarriageReturn,

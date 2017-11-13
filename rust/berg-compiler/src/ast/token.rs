@@ -161,7 +161,7 @@ impl InfixToken {
         match self {
             InfixToken::InfixOperator(identifier) => Precedence::from(identifier),
             InfixToken::MissingInfix => Precedence::default(),
-            InfixToken::NewlineSequence => Precedence::StatementSequence,
+            InfixToken::NewlineSequence => Precedence::NewlineSequence,
         }
     }
     pub fn takes_right_child(self, right: InfixToken) -> bool {

@@ -71,6 +71,7 @@ impl<'p,'c:'p> Tokenizer<'p,'c> {
                 Digit       => self.integer(state, &buffer, start, &mut scanner, &mut on_token),
                 Identifier  => self.identifier(state, &buffer, start, &mut scanner, &mut on_token),
                 Operator    => self.operator(state, &buffer, start, &mut scanner, &mut on_token),
+                Separator   => self.separator(state, &buffer, start, &mut scanner, &mut on_token),
                 Open        => Self::emit_token(Parentheses.placeholder_open_token(), state, &buffer, start, &scanner, &mut on_token),
                 Close       => Self::emit_token(Parentheses.placeholder_close_token(), state, &buffer, start, &scanner, &mut on_token),
                 Newline     => { self.char_data.append_line(scanner.index); state.after_newline(start, scanner.index) },
@@ -185,6 +186,19 @@ impl<'p,'c:'p> Tokenizer<'p,'c> {
             InfixOperator(identifier)
         };
         Self::emit_token(token, state, buffer, start, scanner, on_token)
+    }
+
+    fn separator<OnToken: FnMut(Token,ByteRange)->()>(
+        &mut self,
+        state: TokenizerState,
+        buffer: &ByteSlice,
+        start: ByteIndex,
+        scanner: &mut Scanner,
+        on_token: &mut OnToken
+    ) -> TokenizerState {
+        let string = unsafe { str::from_utf8_unchecked(&buffer[start..scanner.index]) };
+        let identifier = self.identifiers.add(string);
+        Self::emit_token(InfixOperator(identifier), state, buffer, start, scanner, on_token)
     }
 
     fn report_unsupported(

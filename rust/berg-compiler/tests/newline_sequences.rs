@@ -2,13 +2,14 @@
 pub mod compiler_test;
 
 compiler_tests! {
-    left_newline_1: "\n1" => type(1),
-    right_newline_1: "1\n" => type(1),
-    both_newline_1: "\n1\n" => type(1),
+    left_newline: "\n1" => type(1),
+    right_newline: "1\n" => type(1),
+    both_newline: "\n1\n" => type(1),
 
-    left_double_newline_1: "\n\n1" => type(1),
-    right_double_newline_1: "1\n\n" => type(1),
-    both_double_newline_1: "\n\n1\n\n" => type(1),
+    left_double_newline: "\n\n1" => type(1),
+    right_double_newline: "1\n\n" => type(1),
+    both_double_newline: "\n\n1\n\n" => type(1),
+    double_newline_between: "1\n\n2" => type(2),
 
     paren_newline_all_over: "\n(\n(\n)\n)\n" => type(nothing),
 
