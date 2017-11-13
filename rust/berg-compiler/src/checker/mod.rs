@@ -33,6 +33,15 @@ struct Checker<'ch,'c:'ch> {
 }
 
 impl<'ch,'c:'ch> Checker<'ch,'c> {
+    fn check_equal_to(&mut self, left: Type, right: Type) -> Type {
+        match (left, right) {
+            (Error, _)|(_, Error) => Error,
+            (Rational(left), Rational(right)) => Boolean(left == right),
+            (Boolean(left), Boolean(right)) => Boolean(left == right),
+            (Nothing, Nothing) => Boolean(true),
+            (_, _) => Boolean(false),
+        }
+    }
     fn check_numeric_binary_arguments(&mut self, left: Type, right: Type, index: AstIndex, parse_data: &ParseData) -> Option<(BigRational, BigRational)> {
         match (left, right) {
             (Rational(left), Rational(right)) => Some((left, right)),
@@ -172,8 +181,8 @@ impl<'ch,'c:'ch> AstVisitorMut<Type> for Checker<'ch,'c> {
                     Some((ref left, ref right)) => Rational(left / right),
                     None => Error,
                 },
-                EQUAL_TO => self.check_numeric_comparison(left, right, index, parse_data, |left, right| left == right),
-                NOT_EQUAL_TO => self.check_numeric_comparison(left, right, index, parse_data, |left, right| left != right),
+                EQUAL_TO      => self.check_equal_to(left, right),
+                NOT_EQUAL_TO  => match self.check_equal_to(left, right) { Boolean(value) => Boolean(!value), value => value },
                 GREATER_THAN  => self.check_numeric_comparison(left, right, index, parse_data, |left, right| left > right),
                 LESS_THAN     => self.check_numeric_comparison(left, right, index, parse_data, |left, right| left < right),
                 GREATER_EQUAL => self.check_numeric_comparison(left, right, index, parse_data, |left, right| left >= right),

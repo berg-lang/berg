@@ -96,7 +96,7 @@ impl AstWalkerMut {
             match prefix_token {
                 PrefixOperator(prefix) => {
                     println!("Visit prefix {:?} {:?}", &parse_data.identifiers[prefix], value);
-                    value = visitor.visit_prefix(prefix, value, term_index, parse_data);
+                    value = visitor.visit_prefix(prefix, value, prefix_index, parse_data);
                 },
                 // Handle parentheses
                 Open(open_boundary,delta) => {

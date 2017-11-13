@@ -14,4 +14,6 @@ compiler_tests! {
 
     newline_sequence: "1\n2" => type(2),
     newline_sequence_add: "1+1\n2+2" => type(4),
+    newline_sequence_or_and_ge_plus_mul: "1*2+3>=4&&true||false\nfalse||true&&4>=3+2*1" => type(false),
+    newline_sequence_or_and_le_plus_mul: "1*2+3<=4&&true||false\nfalse||true&&4<=3+2*1" => type(true),
 }
