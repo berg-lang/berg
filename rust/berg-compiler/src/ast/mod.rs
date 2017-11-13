@@ -1,6 +1,7 @@
 pub(crate) mod ast_walker;
 pub(crate) mod identifiers;
 pub(crate) mod intern_pool;
+pub(crate) mod precedence;
 pub(crate) mod token;
 
 use indexed_vec;

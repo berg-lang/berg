@@ -131,7 +131,7 @@ impl CharType {
 impl ByteType {
     fn from_byte(byte: u8) -> ByteType {
         match byte {
-            b'+'|b'-'|b'*'|b'/' => Char(Operator),
+            b'+'|b'-'|b'*'|b'/'|b'='|b'>'|b'<'|b'&'|b'|'|b'!' => Char(Operator),
             b'0'...b'9' => Char(Digit),
             b'a'...b'z'|b'A'...b'Z'|b'_' => Char(Identifier),
             b'(' => Char(Open),

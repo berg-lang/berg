@@ -52,9 +52,40 @@ impl<'ch,'c:'ch> Checker<'ch,'c> {
             },
         }
     }
+    fn check_boolean_binary_arguments(&mut self, left: Type, right: Type, index: AstIndex, parse_data: &ParseData) -> Option<(bool, bool)> {
+        match (left, right) {
+            (Boolean(left), Boolean(right)) => Some((left, right)),
+            (Error, _)|(_, Error) => None,
+            (Boolean(_), right) => {
+                self.report(compile_errors::BadTypeRightOperand { source: self.source(), operator: parse_data.token_ranges[index].clone(), right });
+                None
+            },
+            (left, Boolean(_)) => {
+                self.report(compile_errors::BadTypeLeftOperand { source: self.source(), operator: parse_data.token_ranges[index].clone(), left });
+                None
+            },
+            (left, right) => {
+                self.report(compile_errors::BadTypeLeftOperand { source: self.source(), operator: parse_data.token_ranges[index].clone(), left });
+                self.report(compile_errors::BadTypeRightOperand { source: self.source(), operator: parse_data.token_ranges[index].clone(), right });
+                None
+            },
+        }
+    }
     fn check_numeric_binary<F: Fn(BigRational,BigRational)->BigRational>(&mut self, left: Type, right: Type, index: AstIndex, parse_data: &ParseData, f: F) -> Type {
         match self.check_numeric_binary_arguments(left, right, index, parse_data) {
             Some((left, right)) => Rational(f(left, right)),
+            None => Error,
+        }
+    }
+    fn check_numeric_comparison<F: Fn(BigRational,BigRational)->bool>(&mut self, left: Type, right: Type, index: AstIndex, parse_data: &ParseData, f: F) -> Type {
+        match self.check_numeric_binary_arguments(left, right, index, parse_data) {
+            Some((left, right)) => Boolean(f(left, right)),
+            None => Error,
+        }
+    }
+    fn check_boolean_binary<F: Fn(bool,bool)->bool>(&mut self, left: Type, right: Type, index: AstIndex, parse_data: &ParseData, f: F) -> Type {
+        match self.check_boolean_binary_arguments(left, right, index, parse_data) {
+            Some((left, right)) => Boolean(f(left, right)),
             None => Error,
         }
     }
@@ -65,9 +96,22 @@ impl<'ch,'c:'ch> Checker<'ch,'c> {
             _ => { self.report(compile_errors::BadTypeRightOperand { source: self.source(), operator: parse_data.token_ranges[index].clone(), right: operand }); None },
         }
     }
+    fn check_boolean_prefix_argument(&mut self, operand: Type, index: AstIndex, parse_data: &ParseData) -> Option<bool> {
+        match operand {
+            Boolean(operand) => Some(operand),
+            Error => None,
+            _ => { self.report(compile_errors::BadTypeRightOperand { source: self.source(), operator: parse_data.token_ranges[index].clone(), right: operand }); None },
+        }
+    }
     fn check_numeric_prefix<F: Fn(BigRational)->BigRational>(&mut self, operand: Type, index: AstIndex, parse_data: &ParseData, f: F) -> Type {
         match self.check_numeric_prefix_argument(operand, index, parse_data) {
             Some(operand) => Rational(f(operand)),
+            None => Error,
+        }
+    }
+    fn check_boolean_prefix<F: Fn(bool)->bool>(&mut self, operand: Type, index: AstIndex, parse_data: &ParseData, f: F) -> Type {
+        match self.check_boolean_prefix_argument(operand, index, parse_data) {
+            Some(operand) => Boolean(f(operand)),
             None => Error,
         }
     }
@@ -127,7 +171,15 @@ impl<'ch,'c:'ch> AstVisitorMut<Type> for Checker<'ch,'c> {
                         self.report(compile_errors::DivideByZero { source: self.source(), divide: parse_data.token_range(index) }),
                     Some((ref left, ref right)) => Rational(left / right),
                     None => Error,
-                }
+                },
+                EQUAL_TO => self.check_numeric_comparison(left, right, index, parse_data, |left, right| left == right),
+                NOT_EQUAL_TO => self.check_numeric_comparison(left, right, index, parse_data, |left, right| left != right),
+                GREATER_THAN  => self.check_numeric_comparison(left, right, index, parse_data, |left, right| left > right),
+                LESS_THAN     => self.check_numeric_comparison(left, right, index, parse_data, |left, right| left < right),
+                GREATER_EQUAL => self.check_numeric_comparison(left, right, index, parse_data, |left, right| left >= right),
+                LESS_EQUAL    => self.check_numeric_comparison(left, right, index, parse_data, |left, right| left <= right),
+                AND_AND => self.check_boolean_binary(left, right, index, parse_data, |left, right| left && right),
+                OR_OR => self.check_boolean_binary(left, right, index, parse_data, |left, right| left || right),
                 _ => self.report(compile_errors::UnrecognizedOperator { source: self.source(), operator: parse_data.token_range(index) }),
             },
             NewlineSequence => if left == Error { left } else { right },
@@ -144,6 +196,7 @@ impl<'ch,'c:'ch> AstVisitorMut<Type> for Checker<'ch,'c> {
         match prefix {
             PLUS => self.check_numeric_prefix(operand, index, parse_data, |operand| operand),
             DASH => self.check_numeric_prefix(operand, index, parse_data, |operand| -operand),
+            NOT => self.check_boolean_prefix(operand, index, parse_data, |operand| !operand),
             _ => self.report(compile_errors::UnrecognizedOperator { source: self.source(), operator: parse_data.token_ranges[index].clone() }),
         }
     }

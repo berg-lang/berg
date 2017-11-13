@@ -58,6 +58,7 @@ impl<'t> CompilerTest<'t> {
         self.compiler.with_source(SourceIndex(0), |source| assert_eq!(expected, *source.checked_type()))
     }
 
+    #[allow(dead_code)]
     pub(crate) fn assert_errors<Err: Into<ExpectedCompileError>>(&mut self, mut expected: Vec<Err>) {
         let mut expected: Vec<ExpectedCompileError> = expected.drain(..).map(|error| error.into()).collect();
         let actual = self.compiler.errors.read().unwrap();
@@ -92,6 +93,7 @@ impl AsBytes for [u8] {
     fn as_bytes<'t>(&'t self) -> &'t [u8] { self }
 }
 
+#[allow(dead_code)]
 #[derive(Debug,Clone)]
 pub struct ExpectedCompileError {
     code: u32,

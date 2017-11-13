@@ -1,4 +1,5 @@
 use ast::{AstDelta,IdentifierIndex,LiteralIndex};
+use ast::precedence::Precedence;
 use ast::token::Token::*;
 
 // ExpressionType, String, LeftChild, RightChild
@@ -156,17 +157,18 @@ impl InfixToken {
             IntegerLiteral(_)|PropertyReference(_)|SyntaxErrorTerm(_)|MissingExpression|PrefixOperator(_)|Open(..)|PostfixOperator(_)|Close(..) => None,
         }
     }
-    pub fn takes_right_child(self, right: InfixToken) -> bool {
-        use ast::identifiers::*;
-        match (self,right) {
-            (InfixToken::InfixOperator(left),InfixToken::InfixOperator(right)) => {
-                (left == PLUS || left == DASH) && (right == STAR || right == SLASH)
-            },
-            _ => false,
+    pub fn precedence(self) -> Precedence {
+        match self {
+            InfixToken::InfixOperator(identifier) => Precedence::from(identifier),
+            InfixToken::MissingInfix => Precedence::default(),
+            InfixToken::NewlineSequence => Precedence::StatementSequence,
         }
     }
+    pub fn takes_right_child(self, right: InfixToken) -> bool {
+        self.precedence().takes_right_child(right.precedence())
+    }
     pub fn takes_left_child(self, left: InfixToken) -> bool {
-        !left.takes_right_child(self)
+        self.precedence().takes_left_child(left.precedence())
     }
 }
 
