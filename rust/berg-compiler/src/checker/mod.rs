@@ -45,12 +45,12 @@ impl<'ch,'c:'ch> Checker<'ch,'c> {
     fn check_numeric_binary_arguments(&mut self, left: Type, right: Type, index: AstIndex, parse_data: &ParseData) -> Option<(BigRational, BigRational)> {
         match (left, right) {
             (Rational(left), Rational(right)) => Some((left, right)),
-            (Error, _)|(_, Error) => None,
-            (Rational(_), right) => {
+            (Error, Error)|(Rational(_), Error)|(Error, Rational(_)) => None,
+            (Rational(_), right)|(Error, right) => {
                 self.report(compile_errors::BadTypeRightOperand { source: self.source(), operator: parse_data.token_ranges[index].clone(), right });
                 None
             },
-            (left, Rational(_)) => {
+            (left, Rational(_))|(left, Error) => {
                 self.report(compile_errors::BadTypeLeftOperand { source: self.source(), operator: parse_data.token_ranges[index].clone(), left });
                 None
             },
@@ -64,12 +64,12 @@ impl<'ch,'c:'ch> Checker<'ch,'c> {
     fn check_boolean_binary_arguments(&mut self, left: Type, right: Type, index: AstIndex, parse_data: &ParseData) -> Option<(bool, bool)> {
         match (left, right) {
             (Boolean(left), Boolean(right)) => Some((left, right)),
-            (Error, _)|(_, Error) => None,
-            (Boolean(_), right) => {
+            (Error, Error)|(Boolean(_), Error)|(Error, Boolean(_)) => None,
+            (Boolean(_), right)|(Error, right) => {
                 self.report(compile_errors::BadTypeRightOperand { source: self.source(), operator: parse_data.token_ranges[index].clone(), right });
                 None
             },
-            (left, Boolean(_)) => {
+            (left, Boolean(_))|(left, Error) => {
                 self.report(compile_errors::BadTypeLeftOperand { source: self.source(), operator: parse_data.token_ranges[index].clone(), left });
                 None
             },
