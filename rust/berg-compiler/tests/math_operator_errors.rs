@@ -3,7 +3,7 @@ pub mod compiler_test;
 
 compiler_tests! {
     addmul_missing_operator_precedence: "1 * + 3" => errors(MissingRightOperand@2) type(error),
-    // muladd_missing_operator_precedence: "1 + * 3" => errors(MissingLeftOperand@4) type(error),
+    muladd_missing_operator_precedence: "1 + * 3" => errors(MissingLeftOperand@4) type(error),
     addparen_missing_operator_precedence: "(1 + )" => errors(MissingRightOperand@3) type(error),
     parenadd_missing_operator_precedence: "( + 1)" => errors(MissingLeftOperand@2) type(error),
 

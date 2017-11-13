@@ -119,14 +119,13 @@ impl<'p,'c:'p> Tokenizer<'p,'c> {
 
         on_token(token, start..scanner.index);
 
-        // Insert close compound term if applicable
-        if scanner.peek_if_space(buffer) {
-            on_token(CompoundTerm.placeholder_close_token(), scanner.index..scanner.index);
-        }
-
         if token.has_right_operand() {
             TokenizerState::ImmediateLeftOperator
         } else {
+            // Insert close compound term if applicable
+            if scanner.peek_if_space(buffer) {
+                on_token(CompoundTerm.placeholder_close_token(), scanner.index..scanner.index);
+            }
             TokenizerState::ImmediateLeftOperand
         }
     }
