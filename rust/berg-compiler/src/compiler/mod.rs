@@ -155,7 +155,7 @@ impl<'c> Compiler<'c> {
                 match message.location {
                     CompileErrorLocation::Generic|CompileErrorLocation::SourceOnly{..} => println!("{}", message.message),
                     CompileErrorLocation::SourceRange{range,..} => {
-                        let range = parse_data.char_data().range(range);
+                        let range = parse_data.char_data().range(&range);
                         println!("{}: {}", range, message.message)
                     },
                 }

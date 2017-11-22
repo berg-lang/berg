@@ -127,7 +127,7 @@ impl Display for ParseData {
         writeln!(f, "Tokens:")?;
         let mut index = AstIndex(0);
         while index < self.tokens.len() {
-            let range = self.char_data().range(self.token_range(index));
+            let range = self.char_data().range(&self.token_range(index));
             writeln!(f, "[{}] {} {:?}", range, self.token_string(index), self.token(index))?;
             index += 1;
         }
@@ -155,7 +155,7 @@ impl CharData {
         LineColumn { line, column }
     }
 
-    pub(crate) fn range(&self, range: ByteRange) -> LineColumnRange {
+    pub(crate) fn range(&self, range: &ByteRange) -> LineColumnRange {
         let start = self.location(range.start);
         if range.start == range.end {
             LineColumnRange { start, end: None }
