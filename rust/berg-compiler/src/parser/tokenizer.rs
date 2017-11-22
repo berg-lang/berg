@@ -1,35 +1,21 @@
+use compiler::source_data::ParseData;
 use ast::{IdentifierIndex,LiteralIndex};
 use ast::intern_pool::{StringPool,InternPool,Pool};
 use ast::identifiers;
 use ast::token::Token;
 use ast::token::Token::*;
 use ast::token::ExpressionBoundary::*;
-use compiler::Compiler;
-use compiler::source_data::{ByteIndex,ByteSlice,CharData,SourceIndex};
+use compiler::source_data::{ByteIndex,ByteSlice,CharData};
 use compiler::compile_errors;
-use compiler::source_data::{ByteRange};
+use parser::ast_builder::AstBuilder;
 use parser::scanner::Scanner;
 use parser::scanner::CharType::*;
 use parser::tokenizer::TokenizerState::*;
 use std::str;
 
-///
-/// Breaks a file into a series of Tokens, calling the given function for each
-/// token.
-/// 
-pub(super) fn tokenize<OnToken: FnMut(Token,ByteRange)->()>(
-    compiler: &Compiler,
-    source: SourceIndex,
-    on_token: OnToken
-) -> (CharData, StringPool<IdentifierIndex>, StringPool<LiteralIndex>) {
-    let tokenizer = Tokenizer::new(compiler, source);
-    tokenizer.tokenize(on_token)
-}
-
 #[derive(Debug)]
-struct Tokenizer<'p,'c:'p> {
-    compiler: &'p Compiler<'c>,
-    source: SourceIndex,
+pub(super) struct Tokenizer<'p,'c:'p> {
+    ast_builder: AstBuilder<'p,'c>,
     char_data: CharData,
     identifiers: InternPool<IdentifierIndex>,
     literals: StringPool<LiteralIndex>,
@@ -46,34 +32,36 @@ enum TokenizerState {
 }
 
 impl<'p,'c:'p> Tokenizer<'p,'c> {
-    fn new(compiler: &'p Compiler<'c>, source: SourceIndex) -> Self {
-        let char_data = Default::default();
-        let identifiers = identifiers::intern_all();
-        let literals = Default::default();
-        Tokenizer { compiler, source, char_data, identifiers, literals }
+    pub(super) fn new(ast_builder: AstBuilder<'p,'c>) -> Self {
+        Tokenizer {
+            ast_builder,
+            char_data: Default::default(),
+            identifiers: identifiers::intern_all(),
+            literals: Default::default(),
+        }
     }
 
-    fn tokenize<OnToken: FnMut(Token,ByteRange)->()>(mut self, mut on_token: OnToken) -> (CharData, StringPool<IdentifierIndex>, StringPool<LiteralIndex>) {
-        let buffer = self.compiler.with_source(self.source, |source_data| {
+    pub(super) fn tokenize(&mut self) {
+        let buffer = self.ast_builder.compiler.with_source(self.ast_builder.source, |source_data| {
             let source_spec = source_data.source_spec();
-            source_spec.open(self.compiler, self.source)
+            source_spec.open(self.ast_builder.compiler, self.ast_builder.source)
         });
 
         let mut scanner = Scanner::default();
         let mut start = scanner.index;
         let mut state = TokenizerState::Start;
 
-        Self::emit_token(File.placeholder_open_token(), state, &buffer, start, &scanner, &mut on_token);
+        self.emit_token(File.placeholder_open_token(), state, &buffer, start, &scanner);
 
         while let Some(char_type) = scanner.next(&buffer) {
             use parser::scanner::CharType::*;
             state = match char_type {
-                Digit       => self.integer(state, &buffer, start, &mut scanner, &mut on_token),
-                Identifier  => self.identifier(state, &buffer, start, &mut scanner, &mut on_token),
-                Operator    => self.operator(state, &buffer, start, &mut scanner, &mut on_token),
-                Separator   => self.separator(state, &buffer, start, &mut scanner, &mut on_token),
-                Open        => Self::emit_token(Parentheses.placeholder_open_token(), state, &buffer, start, &scanner, &mut on_token),
-                Close       => Self::emit_token(Parentheses.placeholder_close_token(), state, &buffer, start, &scanner, &mut on_token),
+                Digit       => self.integer(state, &buffer, start, &mut scanner),
+                Identifier  => self.identifier(state, &buffer, start, &mut scanner),
+                Operator    => self.operator(state, &buffer, start, &mut scanner),
+                Separator   => self.separator(state, &buffer, start, &mut scanner),
+                Open        => self.emit_token(Parentheses.placeholder_open_token(), state, &buffer, start, &scanner),
+                Close       => self.emit_token(Parentheses.placeholder_close_token(), state, &buffer, start, &scanner),
                 Newline     => { self.char_data.append_line(scanner.index); state.after_newline(start, scanner.index) },
                 Space       => { scanner.next_while(Space, &buffer); state.after_space() },
                 Unsupported => self.report_unsupported(state, &buffer, start, &mut scanner),
@@ -83,95 +71,101 @@ impl<'p,'c:'p> Tokenizer<'p,'c> {
             start = scanner.index;
         }
 
-        Self::emit_token(File.placeholder_close_token(), state, &buffer, start, &scanner, &mut on_token);
-
-        (self.char_data, self.identifiers.strings, self.literals)
+        self.emit_token(File.placeholder_close_token(), state, &buffer, start, &scanner);
     }
 
-    fn emit_token<OnToken: FnMut(Token,ByteRange)->()>(
+    pub(super) fn complete(self) -> ParseData {
+        let (tokens, token_ranges) = self.ast_builder.complete();
+        ParseData {
+            char_data: self.char_data,
+            identifiers: self.identifiers.strings,
+            literals: self.literals,
+            tokens: tokens,
+            token_ranges: token_ranges,
+        }
+    }
+
+    fn emit_token(
+        &mut self,
         token: Token,
         state: TokenizerState,
         buffer: &ByteSlice,
         start: ByteIndex,
-        scanner: &Scanner,
-        on_token: &mut OnToken
+        scanner: &Scanner
     ) -> TokenizerState {
         if token.has_left_operand() {
             // Insert missing expression if applicable
             if !state.is_left_operand() {
-                on_token(MissingExpression, start..start)
+                self.ast_builder.on_token(MissingExpression, start..start)
             }
         } else {
             // Insert newline sequence operator if applicable
             if let NewlineAfterOperand { newline_start, newline_length } = state {
                 let newline_end = newline_start+(newline_length as usize);
-                on_token(NewlineSequence, newline_start..newline_end);
+                self.ast_builder.on_token(NewlineSequence, newline_start..newline_end);
 
             // Insert missing infix if applicable
             } else if state.is_left_operand() {
-                on_token(MissingInfix, start..start)
+                self.ast_builder.on_token(MissingInfix, start..start)
             }
 
             // Insert open compound term if applicable
             if state.is_space() {
-                on_token(CompoundTerm.placeholder_open_token(), start..start);
+                self.ast_builder.on_token(CompoundTerm.placeholder_open_token(), start..start);
             }
         }
 
-        on_token(token, start..scanner.index);
+        self.ast_builder.on_token(token, start..scanner.index);
 
         if token.has_right_operand() {
             TokenizerState::ImmediateLeftOperator
         } else {
             // Insert close compound term if applicable
             if scanner.peek_if_space(buffer) {
-                on_token(CompoundTerm.placeholder_close_token(), scanner.index..scanner.index);
+                self.ast_builder.on_token(CompoundTerm.placeholder_close_token(), scanner.index..scanner.index);
             }
             TokenizerState::ImmediateLeftOperand
         }
     }
 
-    fn integer<OnToken: FnMut(Token,ByteRange)->()>(
+    fn integer(
         &mut self,
         state: TokenizerState,
         buffer: &ByteSlice,
         start: ByteIndex,
-        scanner: &mut Scanner,
-        on_token: &mut OnToken
+        scanner: &mut Scanner
     ) -> TokenizerState {
         scanner.next_while(Digit, buffer);
         let token_type = if scanner.next_while_identifier(buffer) {
-            self.compiler.report(compile_errors::IdentifierStartsWithNumber { source: self.source, identifier: start..scanner.index });
+            self.ast_builder.compiler.report(compile_errors::IdentifierStartsWithNumber { source: self.ast_builder.source, identifier: start..scanner.index });
             SyntaxErrorTerm
         } else {
             IntegerLiteral
         };
         let string = unsafe { str::from_utf8_unchecked(&buffer[start..scanner.index]) };
         let literal = self.literals.add(string);
-        Self::emit_token(token_type(literal), state, buffer, start, scanner, on_token)
+        self.emit_token(token_type(literal), state, buffer, start, scanner)
     }
 
-    fn identifier<OnToken: FnMut(Token,ByteRange)->()>(
+    fn identifier(
         &mut self,
         state: TokenizerState,
         buffer: &ByteSlice,
         start: ByteIndex,
-        scanner: &mut Scanner,
-        on_token: &mut OnToken
+        scanner: &mut Scanner
     ) -> TokenizerState {
         scanner.next_while_identifier(buffer);
         let string = unsafe { str::from_utf8_unchecked(&buffer[start..scanner.index]) };
         let identifier = self.identifiers.add(string);
-        Self::emit_token(PropertyReference(identifier), state, buffer, start, scanner, on_token)
+        self.emit_token(PropertyReference(identifier), state, buffer, start, scanner)
     }
 
-    fn operator<OnToken: FnMut(Token,ByteRange)->()>(
+    fn operator(
         &mut self,
         state: TokenizerState,
         buffer: &ByteSlice,
         start: ByteIndex,
-        scanner: &mut Scanner,
-        on_token: &mut OnToken
+        scanner: &mut Scanner
     ) -> TokenizerState {
         scanner.next_while(Operator, buffer);
         let string = unsafe { str::from_utf8_unchecked(&buffer[start..scanner.index]) };
@@ -185,20 +179,19 @@ impl<'p,'c:'p> Tokenizer<'p,'c> {
         } else {
             InfixOperator(identifier)
         };
-        Self::emit_token(token, state, buffer, start, scanner, on_token)
+        self.emit_token(token, state, buffer, start, scanner)
     }
 
-    fn separator<OnToken: FnMut(Token,ByteRange)->()>(
+    fn separator(
         &mut self,
         state: TokenizerState,
         buffer: &ByteSlice,
         start: ByteIndex,
-        scanner: &mut Scanner,
-        on_token: &mut OnToken
+        scanner: &mut Scanner
     ) -> TokenizerState {
         let string = unsafe { str::from_utf8_unchecked(&buffer[start..scanner.index]) };
         let identifier = self.identifiers.add(string);
-        Self::emit_token(InfixOperator(identifier), state, buffer, start, scanner, on_token)
+        self.emit_token(InfixOperator(identifier), state, buffer, start, scanner)
     }
 
     fn report_unsupported(
@@ -209,7 +202,7 @@ impl<'p,'c:'p> Tokenizer<'p,'c> {
         scanner: &mut Scanner
     ) -> TokenizerState {
         scanner.next_while(Unsupported, buffer);
-        self.compiler.report(compile_errors::UnsupportedCharacters { source: self.source, characters: start..scanner.index });
+        self.ast_builder.compiler.report(compile_errors::UnsupportedCharacters { source: self.ast_builder.source, characters: start..scanner.index });
         state.after_space()
     }
  
@@ -221,7 +214,7 @@ impl<'p,'c:'p> Tokenizer<'p,'c> {
         scanner: &mut Scanner
     ) -> TokenizerState {
         scanner.next_while(InvalidUtf8, buffer);
-        self.compiler.report(compile_errors::InvalidUtf8 { source: self.source, bytes: start..scanner.index });
+        self.ast_builder.compiler.report(compile_errors::InvalidUtf8 { source: self.ast_builder.source, bytes: start..scanner.index });
         state.after_space()
     }
 }
