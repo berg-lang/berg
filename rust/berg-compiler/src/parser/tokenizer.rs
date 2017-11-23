@@ -24,6 +24,7 @@ pub(super) struct Tokenizer<'p,'c:'p> {
 #[derive(Debug,Copy,Clone,PartialEq)]
 enum TokenizerState {
     ImmediateLeftOperand,
+    ImmediateLeftIdentifier,
     ImmediateLeftOperator,
     Start,
     SpaceAfterOperand,
@@ -58,6 +59,7 @@ impl<'p,'c:'p> Tokenizer<'p,'c> {
             state = match char_type {
                 Digit       => self.integer(state, &buffer, start, &mut scanner),
                 Identifier  => self.identifier(state, &buffer, start, &mut scanner),
+                Colon       => self.colon(state, &buffer, start, &mut scanner),
                 Operator    => self.operator(state, &buffer, start, &mut scanner),
                 Separator   => self.separator(state, &buffer, start, &mut scanner),
                 Open        => self.emit_token(Parentheses.placeholder_open_token(), state, &buffer, start, &scanner),
@@ -147,26 +149,32 @@ impl<'p,'c:'p> Tokenizer<'p,'c> {
         self.emit_token(token_type(literal), state, buffer, start, scanner)
     }
 
-    fn identifier(
-        &mut self,
-        state: TokenizerState,
-        buffer: &ByteSlice,
-        start: ByteIndex,
-        scanner: &mut Scanner
-    ) -> TokenizerState {
+    fn identifier(&mut self, state: TokenizerState, buffer: &ByteSlice, start: ByteIndex, scanner: &mut Scanner) -> TokenizerState {
         scanner.next_while_identifier(buffer);
         let string = unsafe { str::from_utf8_unchecked(&buffer[start..scanner.index]) };
         let identifier = self.identifiers.add(string);
-        self.emit_token(PropertyReference(identifier), state, buffer, start, scanner)
+        self.emit_token(PropertyReference(identifier), state, buffer, start, scanner);
+        TokenizerState::ImmediateLeftIdentifier
     }
 
-    fn operator(
-        &mut self,
-        state: TokenizerState,
-        buffer: &ByteSlice,
-        start: ByteIndex,
-        scanner: &mut Scanner
-    ) -> TokenizerState {
+    fn colon(&mut self, state: TokenizerState, buffer: &ByteSlice, start: ByteIndex, scanner: &mut Scanner) -> TokenizerState {
+        // :abc, :_abc, etc. are declarations
+        if state != ImmediateLeftIdentifier && scanner.next_while_identifier(buffer) {
+            self.declaration(state, buffer, start, scanner)
+        // a: b, a:b, a:-b and a : b are the : operator
+        } else {
+            self.separator(state, buffer, start, scanner)
+        }
+    }
+
+    fn declaration(&mut self, state: TokenizerState, buffer: &ByteSlice, start: ByteIndex, scanner: &mut Scanner) -> TokenizerState {
+        scanner.next_while_identifier(buffer);
+        let string = unsafe { str::from_utf8_unchecked(&buffer[(start+1)..scanner.index]) };
+        let identifier = self.identifiers.add(string);
+        self.emit_token(PropertyDeclaration(identifier), state, buffer, start, scanner)
+    }
+
+    fn operator(&mut self, state: TokenizerState, buffer: &ByteSlice, start: ByteIndex, scanner: &mut Scanner) -> TokenizerState {
         scanner.next_while(Operator, buffer);
         let string = unsafe { str::from_utf8_unchecked(&buffer[start..scanner.index]) };
         let identifier = self.identifiers.add(string);
@@ -182,37 +190,19 @@ impl<'p,'c:'p> Tokenizer<'p,'c> {
         self.emit_token(token, state, buffer, start, scanner)
     }
 
-    fn separator(
-        &mut self,
-        state: TokenizerState,
-        buffer: &ByteSlice,
-        start: ByteIndex,
-        scanner: &mut Scanner
-    ) -> TokenizerState {
+    fn separator(&mut self, state: TokenizerState, buffer: &ByteSlice, start: ByteIndex, scanner: &mut Scanner) -> TokenizerState {
         let string = unsafe { str::from_utf8_unchecked(&buffer[start..scanner.index]) };
         let identifier = self.identifiers.add(string);
         self.emit_token(InfixOperator(identifier), state, buffer, start, scanner)
     }
 
-    fn report_unsupported(
-        &self,
-        state: TokenizerState,
-        buffer: &ByteSlice,
-        start: ByteIndex,
-        scanner: &mut Scanner
-    ) -> TokenizerState {
+    fn report_unsupported(&mut self, state: TokenizerState, buffer: &ByteSlice, start: ByteIndex, scanner: &mut Scanner) -> TokenizerState {
         scanner.next_while(Unsupported, buffer);
         self.ast_builder.compiler.report(compile_errors::UnsupportedCharacters { source: self.ast_builder.source, characters: start..scanner.index });
         state.after_space()
     }
  
-    fn report_invalid_utf8(
-        &self,
-        state: TokenizerState,
-        buffer: &ByteSlice,
-        start: ByteIndex,
-        scanner: &mut Scanner
-    ) -> TokenizerState {
+    fn report_invalid_utf8(&mut self, state: TokenizerState, buffer: &ByteSlice, start: ByteIndex, scanner: &mut Scanner) -> TokenizerState {
         scanner.next_while(InvalidUtf8, buffer);
         self.ast_builder.compiler.report(compile_errors::InvalidUtf8 { source: self.ast_builder.source, bytes: start..scanner.index });
         state.after_space()
@@ -223,13 +213,13 @@ impl TokenizerState {
     fn after_space(self) -> Self {
         match self {
             Start|SpaceAfterOperator|SpaceAfterOperand|NewlineAfterOperand {..} => self,
-            ImmediateLeftOperand => SpaceAfterOperand,
+            ImmediateLeftOperand|ImmediateLeftIdentifier => SpaceAfterOperand,
             ImmediateLeftOperator => SpaceAfterOperator,
         }
     }
     fn after_newline(self, start: ByteIndex, end: ByteIndex) -> Self {
         match self {
-            SpaceAfterOperand|ImmediateLeftOperand => NewlineAfterOperand { newline_start: start, newline_length: usize::from(end-start) as u8 },
+            SpaceAfterOperand|ImmediateLeftOperand|ImmediateLeftIdentifier => NewlineAfterOperand { newline_start: start, newline_length: usize::from(end-start) as u8 },
             ImmediateLeftOperator => SpaceAfterOperator,
             Start|SpaceAfterOperator|NewlineAfterOperand {..} => self,
         }
@@ -237,19 +227,19 @@ impl TokenizerState {
     fn is_space(self) -> bool {
         match self {
             Start|SpaceAfterOperator|SpaceAfterOperand|NewlineAfterOperand {..} => true,
-            ImmediateLeftOperand|ImmediateLeftOperator => false,
+            ImmediateLeftOperand|ImmediateLeftIdentifier|ImmediateLeftOperator => false,
         }
     }
     fn is_left_operand(self) -> bool {
         match self {
-            ImmediateLeftOperand|SpaceAfterOperand|NewlineAfterOperand {..} => true,
+            ImmediateLeftOperand|ImmediateLeftIdentifier|SpaceAfterOperand|NewlineAfterOperand {..} => true,
             ImmediateLeftOperator|Start|SpaceAfterOperator => false,
         }
     }
     fn is_space_or_explicit_operator(self) -> bool {
         match self {
             ImmediateLeftOperator|Start|SpaceAfterOperator|SpaceAfterOperand|NewlineAfterOperand {..} => true,
-            ImmediateLeftOperand => false,
+            ImmediateLeftOperand|ImmediateLeftIdentifier => false,
         }
     }
 }

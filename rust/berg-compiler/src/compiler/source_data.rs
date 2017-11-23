@@ -99,6 +99,7 @@ impl ParseData {
             IntegerLiteral(literal)|SyntaxErrorTerm(literal) => self.literal_string(literal),
             
             PropertyReference(identifier)|
+            PropertyDeclaration(identifier)|
             InfixOperator(identifier)|
             PostfixOperator(identifier)|
             PrefixOperator(identifier) =>

@@ -7,6 +7,7 @@ use ast::token::Token::*;
 pub enum Token {
     IntegerLiteral(LiteralIndex),
     PropertyReference(IdentifierIndex),
+    PropertyDeclaration(IdentifierIndex),
     SyntaxErrorTerm(LiteralIndex),
     MissingExpression,
 
@@ -25,6 +26,7 @@ pub enum Token {
 pub enum TermToken {
     IntegerLiteral(LiteralIndex),
     PropertyReference(IdentifierIndex),
+    PropertyDeclaration(IdentifierIndex),
     SyntaxErrorTerm(LiteralIndex),
     MissingExpression,
 }
@@ -68,7 +70,7 @@ impl Token {
     pub fn fixity(&self) -> Fixity {
         use ast::token::Token::*;
         match *self {
-            IntegerLiteral(_)|PropertyReference(_)|SyntaxErrorTerm(_)|MissingExpression => Fixity::Term,
+            IntegerLiteral(_)|PropertyReference(_)|PropertyDeclaration(_)|SyntaxErrorTerm(_)|MissingExpression => Fixity::Term,
             InfixOperator(_)|NewlineSequence|MissingInfix => Fixity::Infix,
             PrefixOperator(_)|Open(..) => Fixity::Prefix,
             PostfixOperator(_)|Close(..) => Fixity::Postfix,
@@ -121,18 +123,21 @@ impl From<TermToken> for Token {
     fn from(token: TermToken) -> Self {
         match token {
             TermToken::IntegerLiteral(literal) => IntegerLiteral(literal),
+            TermToken::PropertyDeclaration(identifier) => PropertyDeclaration(identifier),
             TermToken::PropertyReference(identifier) => PropertyReference(identifier),
             TermToken::SyntaxErrorTerm(literal) => SyntaxErrorTerm(literal),
             TermToken::MissingExpression => MissingExpression,
         }
     }
 }
+
 impl TermToken {
     pub fn try_from(token: Token) -> Option<Self> {
         match token {
             IntegerLiteral(literal) => Some(TermToken::IntegerLiteral(literal)),
             SyntaxErrorTerm(literal) => Some(TermToken::SyntaxErrorTerm(literal)),
             MissingExpression => Some(TermToken::MissingExpression),
+            PropertyDeclaration(identifier) => Some(TermToken::PropertyDeclaration(identifier)),
             PropertyReference(identifier) => Some(TermToken::PropertyReference(identifier)),
             InfixOperator(_)|NewlineSequence|MissingInfix|PrefixOperator(_)|Open(..)|PostfixOperator(_)|Close(..) => None,
         }
@@ -154,7 +159,7 @@ impl InfixToken {
             InfixOperator(identifier) => Some(InfixToken::InfixOperator(identifier)),
             NewlineSequence => Some(InfixToken::NewlineSequence),
             MissingInfix => Some(InfixToken::MissingInfix),
-            IntegerLiteral(_)|PropertyReference(_)|SyntaxErrorTerm(_)|MissingExpression|PrefixOperator(_)|Open(..)|PostfixOperator(_)|Close(..) => None,
+            IntegerLiteral(_)|PropertyReference(_)|PropertyDeclaration(_)|SyntaxErrorTerm(_)|MissingExpression|PrefixOperator(_)|Open(..)|PostfixOperator(_)|Close(..) => None,
         }
     }
     pub fn precedence(self) -> Precedence {
@@ -185,7 +190,7 @@ impl PrefixToken {
         match token {
             PrefixOperator(identifier) => Some(PrefixToken::PrefixOperator(identifier)),
             Open(boundary,delta) => Some(PrefixToken::Open(boundary,delta)),
-            IntegerLiteral(_)|PropertyReference(_)|SyntaxErrorTerm(_)|MissingExpression|InfixOperator(_)|NewlineSequence|MissingInfix|PostfixOperator(_)|Close(..) => None,
+            IntegerLiteral(_)|PropertyReference(_)|PropertyDeclaration(_)|SyntaxErrorTerm(_)|MissingExpression|InfixOperator(_)|NewlineSequence|MissingInfix|PostfixOperator(_)|Close(..) => None,
         }
     }
 }
@@ -203,7 +208,7 @@ impl PostfixToken {
         match token {
             PostfixOperator(identifier) => Some(PostfixToken::PostfixOperator(identifier)),
             Close(boundary,delta) => Some(PostfixToken::Close(boundary,delta)),
-            IntegerLiteral(_)|PropertyReference(_)|SyntaxErrorTerm(_)|MissingExpression|InfixOperator(_)|NewlineSequence|MissingInfix|PrefixOperator(_)|Open(..) => None,
+            IntegerLiteral(_)|PropertyReference(_)|PropertyDeclaration(_)|SyntaxErrorTerm(_)|MissingExpression|InfixOperator(_)|NewlineSequence|MissingInfix|PrefixOperator(_)|Open(..) => None,
         }
     }
 }

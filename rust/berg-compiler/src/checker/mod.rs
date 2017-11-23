@@ -1,5 +1,6 @@
 pub mod checker_type;
 
+use fnv::FnvHashMap;
 use ast::{AstIndex,IdentifierIndex};
 use ast::ast_walker::{AstWalkerMut,AstVisitorMut};
 use ast::identifiers::*;
@@ -21,15 +22,72 @@ pub(super) fn check<'ch,'c:'ch>(
     compiler: &'ch Compiler<'c>,
     source: SourceIndex,
 ) -> Type {
-    let mut checker = Checker { compiler, source };
+    let scope = Scope::with_keywords();
+    let mut checker = Checker { compiler, source, scope };
     let value = AstWalkerMut::walk(&mut checker, parse_data);
     if value == Missing { return Nothing; }
     value
 }
 
+#[derive(Debug)]
+struct Scope {
+    properties: FnvHashMap<IdentifierIndex,Property>,
+}
+
+#[derive(Debug)]
+enum Property {
+    Undefined { declaration: AstIndex },
+    Undeclared { definition: Type },
+    Valid { declaration: AstIndex, definition: Type },
+}
+
+impl Scope {
+    fn with_keywords() -> Self {
+        let mut scope = Scope { properties: Default::default() };
+        scope.define(TRUE, Boolean(true));
+        scope.define(FALSE, Boolean(false));
+        scope
+    }
+    fn get(&self, name: IdentifierIndex) -> Option<&Property> {
+        self.properties.get(&name)
+    }
+    fn declare(&mut self, name: IdentifierIndex, declaration: AstIndex) {
+        use checker::Property::*;
+        self.properties.insert(name, Undefined { declaration });
+    }
+    fn define(&mut self, name: IdentifierIndex, definition: Type) {
+        use checker::Property::*;
+        let new_value = match self.properties.get(&name) {
+            Some(property) => match property.declaration() {
+                Some(declaration) => Valid{declaration,definition},
+                None => Undeclared{definition},
+            }
+            None => Undeclared{definition},
+        };
+        self.properties.insert(name, new_value);
+    }
+}
+
+impl Property {
+    fn declaration(&self) -> Option<AstIndex> {
+        match *self {
+            Property::Undefined{declaration}|Property::Valid{declaration,..} => Some(declaration),
+            Property::Undeclared{..} => None,
+        }
+    }
+    fn definition(&self) -> Option<&Type> {
+        match *self {
+            Property::Undeclared{ref definition}|Property::Valid{ref definition,..} => Some(definition),
+            Property::Undefined{..} => None,
+        }
+    }
+}
+
+#[derive(Debug)]
 struct Checker<'ch,'c:'ch> {
     compiler: &'ch Compiler<'c>,
     source: SourceIndex,
+    scope: Scope,
 }
 
 impl<'ch,'c:'ch> Checker<'ch,'c> {
@@ -148,11 +206,22 @@ impl<'ch,'c:'ch> AstVisitorMut<Type> for Checker<'ch,'c> {
                 let value = BigRational::from_str(string).unwrap();
                 Rational(value)
             },
-            PropertyReference(TRUE) => Boolean(true),
-            PropertyReference(FALSE) => Boolean(false),
-            PropertyReference(_) => {
-                self.report(compile_errors::NoSuchProperty { source: self.source(), reference: parse_data.token_range(index) });
-                Error
+            PropertyDeclaration(identifier) => {
+                self.scope.declare(identifier, index);
+                Nothing
+            },
+            PropertyReference(identifier) => {
+                if let Some(property) = self.scope.get(identifier) {
+                    if let Some(value) = property.definition() {
+                        value.clone()
+                    } else {
+                        self.report(compile_errors::PropertyNotSet { source: self.source(), reference: parse_data.token_range(index) });
+                        Error
+                    }
+                } else {
+                    self.report(compile_errors::NoSuchProperty { source: self.source(), reference: parse_data.token_range(index) });
+                    Error
+                }
             },
             SyntaxErrorTerm(_) => Error,
             MissingExpression => Missing,

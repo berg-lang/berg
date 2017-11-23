@@ -52,16 +52,24 @@ impl Scanner {
     }
 
     pub(super) fn peek_if_space(&self, buffer: &ByteSlice) -> bool {
-        match CharType::peek(buffer, self.index) {
-            None|Some(Space)|Some(Newline)|Some(Unsupported)|Some(InvalidUtf8) => true,
-            Some(Open)|Some(Close)|Some(Operator)|Some(Separator)|Some(Digit)|Some(Identifier) => false,
+        if let Some(char_type) = CharType::peek(buffer, self.index) {
+            match char_type {
+                Space|Newline|Unsupported|InvalidUtf8 => true,
+                Open|Close|Operator|Separator|Digit|Identifier|Colon => false,
+            }
+        } else {
+            true
         }
     }
 
     pub(super) fn peek_if_space_or_operator(&self, buffer: &ByteSlice) -> bool {
-        match CharType::peek(buffer, self.index) {
-            Some(Close)|Some(Operator)|Some(Separator)|None|Some(Space)|Some(Newline)|Some(Unsupported)|Some(InvalidUtf8) => true,
-            Some(Open)|Some(Digit)|Some(Identifier) => false,
+        if let Some(char_type) = CharType::peek(buffer, self.index) {
+            match char_type {
+                Close|Operator|Separator|Space|Newline|Unsupported|InvalidUtf8 => true,
+                Open|Digit|Identifier|Colon => false,
+            }
+        } else {
+            true
         }
     }
 }
@@ -75,6 +83,7 @@ pub(super) enum CharType {
     Close,
     Separator,
     Space,
+    Colon,
     Newline,
     Unsupported,
     InvalidUtf8,
@@ -137,6 +146,7 @@ impl ByteType {
             b'a'...b'z'|b'A'...b'Z'|b'_' => Char(Identifier),
             b'(' => Char(Open),
             b')' => Char(Close),
+            b':' => Char(Colon),
             b';' => Char(Separator),
             b' '|b'\t' => Char(Space),
             b'\n' => Char(Newline),
