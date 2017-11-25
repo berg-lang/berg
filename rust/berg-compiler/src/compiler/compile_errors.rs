@@ -134,6 +134,10 @@ compile_errors! {
     pub struct MissingLeftOperand      { pub operator: ByteRange } (302) = format(operator, "Operator {operator} has no value on the left hand side to operate on!");
     pub struct OpenWithoutClose        { pub open_range: ByteRange, pub close: String } (303) = format(open_range, "Open '{open_range}' found without a matching close '{close}'.");
     pub struct CloseWithoutOpen        { pub close_range: ByteRange, pub open: String } (304) = format(close_range, "Closing '{close_range}' found without a matching '{open}'.");
+    pub struct LeftSideOfAssignmentMustBeIdentifier { pub left: ByteRange, pub operator: ByteRange } (305) = format(left, "The assignment operator '{operator}' must have a property declaration or name on the left side (like \":foo {operator} ...\" or \"foo {operator} ...\"): the left side is currently {left}.");
+    pub struct LeftSideOfAssignmentOperationMustBeReference { pub left: ByteRange, pub operator: ByteRange } (305) = format(left, "The assignment operator '{operator}' must have a property name on the left side (like \"foo {operator} ...\"): the left side is currently '{left}'.");
+    pub struct LeftSideOfIncrementOrDecrementOperandMustBeIdentifier { pub left: ByteRange, pub operator: ByteRange } (305) = format(left, "The assignment operator '{operator}' must have a property name on the left side (like \"foo{operator}\"): the left side is currently '{left}'.");
+    pub struct RightSideOfIncrementOrDecrementOperandMustBeIdentifier { pub right: ByteRange, pub operator: ByteRange } (305) = format(right, "The assignment operator '{operator}' must have a property name on the right side (like \"{operator}foo ...\" or \"{operator}foo ...\"): the right side is currently {right}.");
 
     // Compile errors related to type (checker)
     pub struct UnrecognizedOperator    { pub operator: ByteRange } (1001) = format(operator, "Unrecognized operator {operator}");

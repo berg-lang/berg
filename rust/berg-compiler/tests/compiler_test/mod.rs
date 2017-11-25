@@ -32,6 +32,9 @@ macro_rules! compiler_tests {
     (@rule $test:ident type nothing) => {
         $test.assert_type(Type::Nothing);
     };
+    (@rule $test:ident type undefined) => {
+        $test.assert_type_matches(|t| match *t { Type::Undefined{..} => true, _ => false, });
+    };
     (@rule $test:ident type $($type:tt)*) => {
         $test.assert_type($($type)*);
     };
@@ -53,9 +56,15 @@ impl<'t> CompilerTest<'t> {
         CompilerTest { compiler }
     }
 
+    #[allow(dead_code)]
     pub(crate) fn assert_type<T: Into<Type>>(&mut self, expected: T) {
         let expected = expected.into();
         self.compiler.with_source(SourceIndex(0), |source| assert_eq!(expected, *source.checked_type()))
+    }
+
+    #[allow(dead_code)]
+    pub(crate) fn assert_type_matches<Matcher: Fn(&Type)->bool>(&mut self, matcher: Matcher) {
+        self.compiler.with_source(SourceIndex(0), |source| assert!(matcher(source.checked_type())))
     }
 
     #[allow(dead_code)]

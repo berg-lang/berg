@@ -1,11 +1,10 @@
-use compiler::source_data::ParseData;
 use ast::{IdentifierIndex,LiteralIndex};
 use ast::intern_pool::{StringPool,InternPool,Pool};
 use ast::identifiers;
-use ast::token::Token;
+use ast::token::{Fixity,Token};
 use ast::token::Token::*;
 use ast::token::ExpressionBoundary::*;
-use compiler::source_data::{ByteIndex,ByteSlice,CharData};
+use compiler::source_data::{ByteIndex,ByteSlice,CharData,ParseData};
 use compiler::compile_errors;
 use parser::ast_builder::AstBuilder;
 use parser::scanner::Scanner;
@@ -87,14 +86,7 @@ impl<'p,'c:'p> Tokenizer<'p,'c> {
         }
     }
 
-    fn emit_token(
-        &mut self,
-        token: Token,
-        state: TokenizerState,
-        buffer: &ByteSlice,
-        start: ByteIndex,
-        scanner: &Scanner
-    ) -> TokenizerState {
+    fn emit_token(&mut self, token: Token, state: TokenizerState, buffer: &ByteSlice, start: ByteIndex, scanner: &Scanner) -> TokenizerState {
         if token.has_left_operand() {
             // Insert missing expression if applicable
             if !state.is_left_operand() {
@@ -117,6 +109,12 @@ impl<'p,'c:'p> Tokenizer<'p,'c> {
             }
         }
 
+        if token.fixity() == Fixity::Infix
+           && !state.is_space_or_explicit_operator()
+           && scanner.peek_if_space(buffer) {
+            self.ast_builder.on_token(CompoundTerm.placeholder_close_token(), scanner.index..scanner.index);
+        }
+
         self.ast_builder.on_token(token, start..scanner.index);
 
         if token.has_right_operand() {
@@ -130,13 +128,7 @@ impl<'p,'c:'p> Tokenizer<'p,'c> {
         }
     }
 
-    fn integer(
-        &mut self,
-        state: TokenizerState,
-        buffer: &ByteSlice,
-        start: ByteIndex,
-        scanner: &mut Scanner
-    ) -> TokenizerState {
+    fn integer(&mut self, state: TokenizerState, buffer: &ByteSlice, start: ByteIndex, scanner: &mut Scanner) -> TokenizerState {
         scanner.next_while(Digit, buffer);
         let token_type = if scanner.next_while_identifier(buffer) {
             self.ast_builder.compiler.report(compile_errors::IdentifierStartsWithNumber { source: self.ast_builder.source, identifier: start..scanner.index });
@@ -158,20 +150,18 @@ impl<'p,'c:'p> Tokenizer<'p,'c> {
     }
 
     fn colon(&mut self, state: TokenizerState, buffer: &ByteSlice, start: ByteIndex, scanner: &mut Scanner) -> TokenizerState {
-        // :abc, :_abc, etc. are declarations
-        if state != ImmediateLeftIdentifier && scanner.next_while_identifier(buffer) {
-            self.declaration(state, buffer, start, scanner)
-        // a: b, a:b, a:-b and a : b are the : operator
+        let token = if state != ImmediateLeftIdentifier && scanner.next_while_identifier(buffer) {
+            // :abc, :_abc, etc. are declarations
+            let string = unsafe { str::from_utf8_unchecked(&buffer[start+1..scanner.index]) };
+            let identifier = self.identifiers.add(string);
+            PropertyDeclaration(identifier)
         } else {
-            self.separator(state, buffer, start, scanner)
-        }
-    }
-
-    fn declaration(&mut self, state: TokenizerState, buffer: &ByteSlice, start: ByteIndex, scanner: &mut Scanner) -> TokenizerState {
-        scanner.next_while_identifier(buffer);
-        let string = unsafe { str::from_utf8_unchecked(&buffer[(start+1)..scanner.index]) };
-        let identifier = self.identifiers.add(string);
-        self.emit_token(PropertyDeclaration(identifier), state, buffer, start, scanner)
+            // a: b, a:b, a:-b and a : b are the : operator
+            let string = unsafe { str::from_utf8_unchecked(&buffer[start..scanner.index]) };
+            let identifier = self.identifiers.add(string);
+            InfixOperator(identifier)
+        };
+        self.emit_token(token, state, buffer, start, scanner)
     }
 
     fn operator(&mut self, state: TokenizerState, buffer: &ByteSlice, start: ByteIndex, scanner: &mut Scanner) -> TokenizerState {
@@ -193,7 +183,7 @@ impl<'p,'c:'p> Tokenizer<'p,'c> {
     fn separator(&mut self, state: TokenizerState, buffer: &ByteSlice, start: ByteIndex, scanner: &mut Scanner) -> TokenizerState {
         let string = unsafe { str::from_utf8_unchecked(&buffer[start..scanner.index]) };
         let identifier = self.identifiers.add(string);
-        self.emit_token(InfixOperator(identifier), state, buffer, start, scanner)
+        self.emit_token(Token::InfixOperator(identifier), state, buffer, start, scanner)
     }
 
     fn report_unsupported(&mut self, state: TokenizerState, buffer: &ByteSlice, start: ByteIndex, scanner: &mut Scanner) -> TokenizerState {

@@ -1,3 +1,5 @@
+use compiler::source_data::SourceIndex;
+use ast::AstIndex;
 use num::BigRational;
 use num::bigint::BigInt;
 
@@ -7,6 +9,7 @@ pub enum Type {
     Boolean(bool),
     Error,
     Missing,
+    Undefined { reference_source: SourceIndex, reference_index: AstIndex },
     Nothing,
 }
 

@@ -40,6 +40,7 @@ impl<'p,'c:'p> AstBuilder<'p,'c> {
     }
 
     pub(super) fn on_token(&mut self, token: Token, range: ByteRange) {
+        println!("TOKEN {:?}", token);
         match token {
             // Push the newly opened group onto open_expressions
             Open(boundary, _) => self.on_open(boundary, range),
