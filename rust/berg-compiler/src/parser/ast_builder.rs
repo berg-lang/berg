@@ -41,6 +41,7 @@ impl<'p,'c:'p> AstBuilder<'p,'c> {
 
     pub(super) fn on_token(&mut self, token: Token, range: ByteRange) {
         println!("TOKEN {:?}", token);
+        use ast::identifiers::*;
         match token {
             // Push the newly opened group onto open_expressions
             Open(boundary, _) => self.on_open(boundary, range),
@@ -52,9 +53,41 @@ impl<'p,'c:'p> AstBuilder<'p,'c> {
                 // Open or close PrecedenceGroups as necessary based on this infix.
                 let infix = token.to_infix().unwrap();
                 self.handle_precedence(infix, range.start);
+
+                // If it's a = b or :a = b, fix the declaration/reference to be a target.
+                if infix.is_assignment() {
+                    if let Some(token) = self.tokens.last_mut() {
+                        *token = Self::fix_assignment_target(*token);
+                    }
+                }
+
+                // Add the infix.
                 let infix_index = self.push(token, range);
+
                 // Set this as the last infix for future precedence checking
                 self.open_expressions.last_mut().unwrap().infix = Some((infix, infix_index));
+            },
+
+            PostfixOperator(PLUS_PLUS)|PostfixOperator(DASH_DASH) => {
+                // Fix the `a` in `a++` and `a--` to be a target
+                if let Some(token) = self.tokens.last_mut() {
+                    *token = Self::fix_assignment_target(*token);
+                }
+                self.push(token, range);
+            },
+
+            PropertyReference(_)|PropertyDeclaration(_) => {
+                // Fix the `a` in `++a` and `--a` to be a target
+                let mut token = token;
+                if let Some(prefix) = self.tokens.last_mut() {
+                    match *prefix {
+                        PrefixOperator(PLUS_PLUS)|PrefixOperator(DASH_DASH) => {
+                            token = Self::fix_assignment_target(token);
+                        },
+                        _ => {},
+                    }
+                }
+                self.push(token, range);
             },
 
             _ => {
@@ -223,4 +256,11 @@ impl<'p,'c:'p> AstBuilder<'p,'c> {
     }
 
     fn next_index(&self) -> AstIndex { self.tokens.len() }
+
+    fn fix_assignment_target(token: Token) -> Token {
+        match token {
+            PropertyDeclaration(identifier) => PropertyDeclarationTarget(identifier),
+            _ => token
+        }
+    }
 }

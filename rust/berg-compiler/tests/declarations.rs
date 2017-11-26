@@ -60,10 +60,10 @@ compiler_tests! {
     // Test assignment to non-properties
     //
     assign_non_property:         "1 = 1" => type(error) error(LeftSideOfAssignmentMustBeIdentifier@0),
-    assign_plus_non_property:    "1 += 1" => type(error) error(LeftSideOfAssignmentOperationMustBeReference@0),
-    assign_minus_non_property:   "1 -= 1" => type(error) error(LeftSideOfAssignmentOperationMustBeReference@0),
-    assign_times_non_property:   "1 *= 1" => type(error) error(LeftSideOfAssignmentOperationMustBeReference@0),
-    assign_divide_non_property:  "1 /= 1" => type(error) error(LeftSideOfAssignmentOperationMustBeReference@0),
+    assign_plus_non_property:    "1 += 1" => type(error) error(LeftSideOfAssignmentMustBeIdentifier@0),
+    assign_minus_non_property:   "1 -= 1" => type(error) error(LeftSideOfAssignmentMustBeIdentifier@0),
+    assign_times_non_property:   "1 *= 1" => type(error) error(LeftSideOfAssignmentMustBeIdentifier@0),
+    assign_divide_non_property:  "1 /= 1" => type(error) error(LeftSideOfAssignmentMustBeIdentifier@0),
     increment_post_non_property: "1++" => type(error) error(LeftSideOfIncrementOrDecrementOperandMustBeIdentifier@0),
     decrement_post_non_property: "1--" => type(error) error(LeftSideOfIncrementOrDecrementOperandMustBeIdentifier@0),
     increment_pre_non_property:  "++1" => type(error) error(RightSideOfIncrementOrDecrementOperandMustBeIdentifier@2),
@@ -71,10 +71,10 @@ compiler_tests! {
 
     // TODO make these work--right now we only print one token, need to print whole expr
     // assign_non_property_expr:         "1+2 = 1" => type(error) error(LeftSideOfAssignmentMustBeIdentifier@0),
-    // assign_plus_non_property_expr:    "1+2 += 1" => type(error) error(LeftSideOfAssignmentOperationMustBeReference@0),
-    // assign_minus_non_property_expr:   "1+2 -= 1" => type(error) error(LeftSideOfAssignmentOperationMustBeReference@0),
-    // assign_times_non_property_expr:   "1+2 *= 1" => type(error) error(LeftSideOfAssignmentOperationMustBeReference@0),
-    // assign_divide_non_property_expr:  "1+2 /= 1" => type(error) error(LeftSideOfAssignmentOperationMustBeReference@0),
+    // assign_plus_non_property_expr:    "1+2 += 1" => type(error) error(LeftSideOfAssignmentMustBeIdentifier@0),
+    // assign_minus_non_property_expr:   "1+2 -= 1" => type(error) error(LeftSideOfAssignmentMustBeIdentifier@0),
+    // assign_times_non_property_expr:   "1+2 *= 1" => type(error) error(LeftSideOfAssignmentMustBeIdentifier@0),
+    // assign_divide_non_property_expr:  "1+2 /= 1" => type(error) error(LeftSideOfAssignmentMustBeIdentifier@0),
     // increment_post_non_property_expr: "(1+2)++" => type(error) error(LeftSideOfIncrementOrDecrementOperandMustBeIdentifier@0),
     // decrement_post_non_property_expr: "(1+2)--" => type(error) error(LeftSideOfIncrementOrDecrementOperandMustBeIdentifier@0),
     // increment_pre_non_property_expr:  "++(1+2)" => type(error) error(RightSideOfIncrementOrDecrementOperandMustBeIdentifier@2),
@@ -142,12 +142,12 @@ compiler_tests! {
     increment_post_undefined: ":a; a++" => type(nothing) errors(PropertyNotSet@[0-1]),
     decrement_post_undefined: ":a; a--" => type(nothing) errors(PropertyNotSet@[0-1]),
 
-    assign_plus_undefined_bad_type:   ":a += true" => type(nothing) errors(PropertyNotSet@[0-1],BadTypeRightOperand@[3-4]),
-    assign_minus_undefined_bad_type:  ":a -= true" => type(nothing) errors(PropertyNotSet@[0-1],BadTypeRightOperand@[3-4]),
-    assign_times_undefined_bad_type:  ":a *= true" => type(nothing) errors(PropertyNotSet@[0-1],BadTypeRightOperand@[3-4]),
-    assign_divide_undefined_bad_type: ":a /= true" => type(nothing) errors(PropertyNotSet@[0-1],BadTypeRightOperand@[3-4]),
-    assign_and_undefined_bad_type:    ":a &&= 1"   => type(nothing) errors(PropertyNotSet@[0-1],BadTypeRightOperand@[3-5]),
-    assign_or_undefined_bad_type:     ":a ||= 2"   => type(nothing) errors(PropertyNotSet@[0-1],BadTypeRightOperand@[3-5]),
+    assign_plus_undefined_bad_type:   ":a; a += true" => type(nothing) errors(PropertyNotSet@[0-1],BadTypeRightOperand@[6-7]),
+    assign_minus_undefined_bad_type:  ":a; a -= true" => type(nothing) errors(PropertyNotSet@[0-1],BadTypeRightOperand@[6-7]),
+    assign_times_undefined_bad_type:  ":a; a *= true" => type(nothing) errors(PropertyNotSet@[0-1],BadTypeRightOperand@[6-7]),
+    assign_divide_undefined_bad_type: ":a; a /= true" => type(nothing) errors(PropertyNotSet@[0-1],BadTypeRightOperand@[6-7]),
+    assign_and_undefined_bad_type:    ":a; a &&= 1"   => type(nothing) errors(PropertyNotSet@[0-1],BadTypeRightOperand@[6-8]),
+    assign_or_undefined_bad_type:     ":a; a ||= 2"   => type(nothing) errors(PropertyNotSet@[0-1],BadTypeRightOperand@[6-8]),
 
     assign_plus_declaration:   ":a += 1"      => type(nothing) errors(PropertyNotSet@[0-1]),
     assign_minus_declaration:  ":a -= 1"      => type(nothing) errors(PropertyNotSet@[0-1]),
@@ -191,7 +191,7 @@ compiler_tests! {
 
     // Test error reporting (and result values) for references to failed assignments
 
-    declaration_declaration_ref:               ":a; a" => type(undefined),
+    declaration_declaration_ref:   ":a; a" => type(undefined),
     assign_plus_declaration_ref:   ":a += 1; a"      => type(error) errors(PropertyNotSet@[0-1]),
     assign_minus_declaration_ref:  ":a -= 1; a"      => type(error) errors(PropertyNotSet@[0-1]),
     assign_times_declaration_ref:  ":a *= 1; a"      => type(error) errors(PropertyNotSet@[0-1]),
@@ -199,12 +199,12 @@ compiler_tests! {
     assign_and_declaration_ref:    ":a &&= true; a"  => type(error) errors(PropertyNotSet@[0-1]),
     assign_or_declaration_ref:     ":a ||= false; a" => type(error) errors(PropertyNotSet@[0-1]),
 
-    assign_plus_declaration_bad_type_ref:   ":a += true; a" => type(error) errors(PropertyNotSet@[0-1],BadTypeRightOperand@[3-4]),
-    assign_minus_declaration_bad_type_ref:  ":a -= true; a" => type(error) errors(PropertyNotSet@[0-1],BadTypeRightOperand@[3-4]),
-    assign_times_declaration_bad_type_ref:  ":a *= true; a" => type(error) errors(PropertyNotSet@[0-1],BadTypeRightOperand@[3-4]),
-    assign_divide_declaration_bad_type_ref: ":a /= true; a" => type(error) errors(PropertyNotSet@[0-1],BadTypeRightOperand@[3-4]),
-    assign_and_declaration_bad_type_ref:    ":a &&= 1; a"   => type(error) errors(PropertyNotSet@[0-1],BadTypeRightOperand@[3-5]),
-    assign_or_declaration_bad_type_ref:     ":a ||= 2; a"   => type(error) errors(PropertyNotSet@[0-1],BadTypeRightOperand@[3-5]),
+    assign_plus_declaration_bad_type_ref:   ":a; a += true; a" => type(error) errors(PropertyNotSet@[0-1],BadTypeRightOperand@[6-7]),
+    assign_minus_declaration_bad_type_ref:  ":a; a -= true; a" => type(error) errors(PropertyNotSet@[0-1],BadTypeRightOperand@[6-7]),
+    assign_times_declaration_bad_type_ref:  ":a; a *= true; a" => type(error) errors(PropertyNotSet@[0-1],BadTypeRightOperand@[6-7]),
+    assign_divide_declaration_bad_type_ref: ":a; a /= true; a" => type(error) errors(PropertyNotSet@[0-1],BadTypeRightOperand@[6-7]),
+    assign_and_declaration_bad_type_ref:    ":a; a &&= 1; a"   => type(error) errors(PropertyNotSet@[0-1],BadTypeRightOperand@[6-8]),
+    assign_or_declaration_bad_type_ref:     ":a; a ||= 2; a"   => type(error) errors(PropertyNotSet@[0-1],BadTypeRightOperand@[6-8]),
 
     assign_plus_bad_type_left_ref:      ":a = true; a += 2; a"    => type(error) errors(BadTypeLeftOperand@[13-14]),
     assign_plus_bad_type_right_ref:     ":a = 2;    a += true; a" => type(error) errors(BadTypeRightOperand@[13-14]),

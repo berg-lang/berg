@@ -57,6 +57,91 @@ struct Checker<'ch,'c:'ch> {
     scope: Scope,
 }
 
+impl<'ch,'c:'ch> AstVisitorMut<Type> for Checker<'ch,'c> {
+    fn visit_term(&mut self, token: TermToken, index: AstIndex, parse_data: &ParseData) -> Type {
+        match token {
+            IntegerLiteral(literal) => {
+                let string = parse_data.literal_string(literal);
+                let value = BigRational::from_str(string).unwrap();
+                Rational(value)
+            },
+            // If we're introducing the identifier into scope right now,
+            // all subsequent expressions can use it.
+            PropertyDeclaration(identifier) => {
+                let undefined = Undefined { reference_source: self.source(), reference_index: index };
+                self.scope.set(identifier, undefined.clone());
+                undefined
+            },
+            // If it's a target, we don't *set* it yet; the old value rules.
+            PropertyDeclarationTarget(identifier) => {
+                if let Some(value) = self.scope.get(identifier) {
+                    value.clone()
+                } else {
+                    Undefined { reference_source: self.source(), reference_index: index }
+                }
+            },
+            PropertyReference(identifier) => {
+                if let Some(value) = self.scope.get(identifier) {
+                    value.clone()
+                } else {
+                    self.report(compile_errors::NoSuchProperty { source: self.source(), reference: parse_data.token_range(index) });
+                    Error
+                }
+            },
+            SyntaxErrorTerm(_) => Error,
+            MissingExpression => Missing,
+        }
+    }
+
+    fn visit_infix(&mut self, token: InfixToken, mut left: Type, mut right: Type, index: AstIndex, parse_data: &ParseData) -> Type {
+        use ast::identifiers::*;
+        if left == Missing {
+            self.report(compile_errors::MissingLeftOperand { source: self.source(), operator: parse_data.token_range(index) });
+            left = Error;
+        }
+        if right == Missing {
+            if let InfixOperator(SEMICOLON) = token {
+            } else {
+                self.report(compile_errors::MissingRightOperand { source: self.source(), operator: parse_data.token_range(index) });
+                right = Error;
+            }
+        }
+       self.check_infix(token, left, right, index, parse_data)
+    }
+
+    fn visit_prefix(&mut self, prefix: IdentifierIndex, mut operand: Type, index: AstIndex, parse_data: &ParseData) -> Type {
+        use ast::identifiers::*;
+        if operand == Missing {
+            self.report(compile_errors::MissingRightOperand { source: self.source(), operator: parse_data.token_range(index) });
+            operand = Error;
+        }
+        match prefix {
+            PLUS => self.check_numeric_prefix(operand, index, parse_data, |operand| operand),
+            DASH => self.check_numeric_prefix(operand, index, parse_data, |operand| -operand),
+            NOT => self.check_boolean_prefix(operand, index, parse_data, |operand| !operand),
+            PLUS_PLUS => self.assign_integer_prefix(operand, index, parse_data, |operand| operand+BigRational::one()),
+            DASH_DASH => self.assign_integer_prefix(operand, index, parse_data, |operand| operand-BigRational::one()),
+            _ => self.report(compile_errors::UnrecognizedOperator { source: self.source(), operator: parse_data.token_ranges[index].clone() }),
+        }
+    }
+
+    fn visit_postfix(&mut self, postfix: IdentifierIndex, operand: Type, index: AstIndex, parse_data: &ParseData) -> Type {
+        match postfix {
+            PLUS_PLUS => self.assign_integer_postfix(operand, index, parse_data, |operand| operand+BigRational::one()),
+            DASH_DASH => self.assign_integer_postfix(operand, index, parse_data, |operand| operand-BigRational::one()),
+            _ => self.report(compile_errors::UnrecognizedOperator { source: self.source(), operator: parse_data.token_ranges[index].clone() }),
+        }
+    }
+
+    fn visit_parentheses(&mut self, value: Type, _: AstIndex, _: AstIndex, _: &ParseData) -> Type {
+        if value == Missing {
+            Nothing
+        } else {
+            value
+        }
+    }
+}
+
 impl<'ch,'c:'ch> Checker<'ch,'c> {
     fn check_infix(&mut self, token: InfixToken, left: Type, right: Type, index: AstIndex, parse_data: &ParseData) -> Type {
         match token {
@@ -259,12 +344,12 @@ impl<'ch,'c:'ch> Checker<'ch,'c> {
     fn assign(&mut self, right: Type, index: AstIndex, parse_data: &ParseData) -> Type {
         let value = right;
         match parse_data.tokens[index-1] {
-            Token::PropertyReference(identifier)|Token::PropertyDeclaration(identifier) => {
+            Token::PropertyReference(identifier)|Token::PropertyDeclarationTarget(identifier) => {
                 self.scope.set(identifier, value);
                 Nothing
             },
             _ => {
-                self.report(compile_errors::LeftSideOfAssignmentOperationMustBeReference { source: self.source(), left: parse_data.token_range(index-1), operator: parse_data.token_range(index) });
+                self.report(compile_errors::LeftSideOfAssignmentMustBeIdentifier { source: self.source(), left: parse_data.token_range(index-1), operator: parse_data.token_range(index) });
                 Error
             },
         }
@@ -273,12 +358,12 @@ impl<'ch,'c:'ch> Checker<'ch,'c> {
     fn assign_operation(&mut self, operation: IdentifierIndex, left: Type, right: Type, index: AstIndex, parse_data: &ParseData) -> Type {
         let value = self.check_infix(InfixOperator(operation), left, right, index, parse_data);
         match parse_data.tokens[index-1] {
-            Token::PropertyReference(identifier)|Token::PropertyDeclaration(identifier) => {
+            Token::PropertyReference(identifier)|Token::PropertyDeclarationTarget(identifier) => {
                 self.scope.set(identifier, value);
                 Nothing
             },
             _ => {
-                self.report(compile_errors::LeftSideOfAssignmentOperationMustBeReference { source: self.source(), left: parse_data.token_range(index-1), operator: parse_data.token_range(index) });
+                self.report(compile_errors::LeftSideOfAssignmentMustBeIdentifier { source: self.source(), left: parse_data.token_range(index-1), operator: parse_data.token_range(index) });
                 Error
             },
         }
@@ -287,12 +372,12 @@ impl<'ch,'c:'ch> Checker<'ch,'c> {
     fn assign_integer_postfix<F: Fn(BigRational)->BigRational>(&mut self, operand: Type, index: AstIndex, parse_data: &ParseData, f: F) -> Type {
         let value = self.check_integer_postfix(operand, index, parse_data, f);
         match parse_data.tokens[index-1] {
-            Token::PropertyReference(identifier)|Token::PropertyDeclaration(identifier) => {
+            Token::PropertyReference(identifier)|Token::PropertyDeclarationTarget(identifier) => {
                 self.scope.set(identifier, value);
                 Nothing
             },
             _ => {
-                self.report(compile_errors::LeftSideOfAssignmentOperationMustBeReference { source: self.source(), left: parse_data.token_range(index-1), operator: parse_data.token_range(index) });
+                self.report(compile_errors::LeftSideOfAssignmentMustBeIdentifier { source: self.source(), left: parse_data.token_range(index-1), operator: parse_data.token_range(index) });
                 Error
             },
         }
@@ -301,7 +386,7 @@ impl<'ch,'c:'ch> Checker<'ch,'c> {
     fn assign_integer_prefix<F: Fn(BigRational)->BigRational>(&mut self, operand: Type, index: AstIndex, parse_data: &ParseData, f: F) -> Type {
         let value = self.check_integer_prefix(operand, index, parse_data, f);
         match parse_data.tokens[index+1] {
-            Token::PropertyReference(identifier)|Token::PropertyDeclaration(identifier) => {
+            Token::PropertyReference(identifier)|Token::PropertyDeclarationTarget(identifier) => {
                 self.scope.set(identifier, value);
                 Nothing
             },
@@ -322,79 +407,3 @@ impl<'ch,'c:'ch> Checker<'ch,'c> {
         self.source
     }
 }
-
-impl<'ch,'c:'ch> AstVisitorMut<Type> for Checker<'ch,'c> {
-    fn visit_term(&mut self, token: TermToken, index: AstIndex, parse_data: &ParseData) -> Type {
-        match token {
-            IntegerLiteral(literal) => {
-                let string = parse_data.literal_string(literal);
-                let value = BigRational::from_str(string).unwrap();
-                Rational(value)
-            },
-            PropertyDeclaration(identifier) => {
-                let undefined = Undefined { reference_source: self.source(), reference_index: index };
-                self.scope.set(identifier, undefined.clone());
-                undefined
-            },
-            PropertyReference(identifier) => {
-                if let Some(value) = self.scope.get(identifier) {
-                    value.clone()
-                } else {
-                    self.report(compile_errors::NoSuchProperty { source: self.source(), reference: parse_data.token_range(index) });
-                    Error
-                }
-            },
-            SyntaxErrorTerm(_) => Error,
-            MissingExpression => Missing,
-        }
-    }
-
-    fn visit_infix(&mut self, token: InfixToken, mut left: Type, mut right: Type, index: AstIndex, parse_data: &ParseData) -> Type {
-        use ast::identifiers::*;
-        if left == Missing {
-            self.report(compile_errors::MissingLeftOperand { source: self.source(), operator: parse_data.token_range(index) });
-            left = Error;
-        }
-        if right == Missing {
-            if let InfixOperator(SEMICOLON) = token {
-            } else {
-                self.report(compile_errors::MissingRightOperand { source: self.source(), operator: parse_data.token_range(index) });
-                right = Error;
-            }
-        }
-       self.check_infix(token, left, right, index, parse_data)
-    }
-
-    fn visit_prefix(&mut self, prefix: IdentifierIndex, mut operand: Type, index: AstIndex, parse_data: &ParseData) -> Type {
-        use ast::identifiers::*;
-        if operand == Missing {
-            self.report(compile_errors::MissingRightOperand { source: self.source(), operator: parse_data.token_range(index) });
-            operand = Error;
-        }
-        match prefix {
-            PLUS => self.check_numeric_prefix(operand, index, parse_data, |operand| operand),
-            DASH => self.check_numeric_prefix(operand, index, parse_data, |operand| -operand),
-            NOT => self.check_boolean_prefix(operand, index, parse_data, |operand| !operand),
-            PLUS_PLUS => self.assign_integer_prefix(operand, index, parse_data, |operand| operand+BigRational::one()),
-            DASH_DASH => self.assign_integer_prefix(operand, index, parse_data, |operand| operand-BigRational::one()),
-            _ => self.report(compile_errors::UnrecognizedOperator { source: self.source(), operator: parse_data.token_ranges[index].clone() }),
-        }
-    }
-
-    fn visit_postfix(&mut self, postfix: IdentifierIndex, operand: Type, index: AstIndex, parse_data: &ParseData) -> Type {
-        match postfix {
-            PLUS_PLUS => self.assign_integer_postfix(operand, index, parse_data, |operand| operand+BigRational::one()),
-            DASH_DASH => self.assign_integer_postfix(operand, index, parse_data, |operand| operand-BigRational::one()),
-            _ => self.report(compile_errors::UnrecognizedOperator { source: self.source(), operator: parse_data.token_ranges[index].clone() }),
-        }
-    }
-
-    fn visit_parentheses(&mut self, value: Type, _: AstIndex, _: AstIndex, _: &ParseData) -> Type {
-        if value == Missing {
-            Nothing
-        } else {
-            value
-        }
-    }
-}
-

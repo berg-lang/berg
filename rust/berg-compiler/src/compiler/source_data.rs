@@ -100,6 +100,7 @@ impl ParseData {
             
             PropertyReference(identifier)|
             PropertyDeclaration(identifier)|
+            PropertyDeclarationTarget(identifier)|
             InfixOperator(identifier)|
             PostfixOperator(identifier)|
             PrefixOperator(identifier) =>

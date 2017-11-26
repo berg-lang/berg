@@ -101,6 +101,7 @@ impl<Elem, Index: IndexType> IndexedSlice<Elem, Index> {
     pub fn from_mut_slice(slice: &mut [Elem]) -> &mut Self { unsafe { mem::transmute(slice) } }
     pub fn first(&self) -> Option<&Elem> { self.slice.first() }
     pub fn last(&self) -> Option<&Elem> { self.slice.last() }
+    pub fn last_mut(&mut self) -> Option<&mut Elem> { self.slice.last_mut() }
     pub fn as_raw_slice(&self) -> &[Elem] { &self.slice }
 }
 

@@ -73,6 +73,13 @@ impl AstWalkerMut {
         left
     }
 
+    fn walk_term<T: Debug, V: AstVisitorMut<T>>(&mut self, visitor: &mut V, parse_data: &ParseData) -> (T, AstIndex) {
+        let (term_token, term_index) = self.advance(parse_data);
+        let term = term_token.to_term().unwrap();
+        let value = visitor.visit_term(term, term_index, parse_data);
+        (value, term_index)
+    }
+
     fn walk_infix_operand<T: Debug, V: AstVisitorMut<T>>(&mut self, visitor: &mut V, parse_data: &ParseData) -> T {
         // Skip any prefixes (we'll apply them after we calculate the term)
         let first_prefix = self.index;
@@ -83,9 +90,7 @@ impl AstWalkerMut {
         }
 
         // Handle the term
-        let (term_token, term_index) = self.advance(parse_data);
-        let term = term_token.to_term().unwrap();
-        let mut value = visitor.visit_term(term, term_index, parse_data);
+        let (mut value, term_index) = self.walk_term(visitor, parse_data);
 
         // Handle prefixes (in reverse order)
         let mut prefix_index = term_index;
