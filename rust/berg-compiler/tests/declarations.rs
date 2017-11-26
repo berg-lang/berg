@@ -40,21 +40,28 @@ compiler_tests! {
     assign_minus:   ":a = 3;  a -= 2" => type(nothing),
     assign_times:   ":a = 2;  a *= 3" => type(nothing),
     assign_divide:  ":a = 12; a /= 4" => type(nothing),
+    assign_and:     ":a = true;  a &&= false" => type(nothing),
+    assign_or:      ":a = false; a ||= true"  => type(nothing),
     increment_post: ":a = 1;  a++"    => type(nothing),
     increment_pre:  ":a = 1;  ++a"    => type(nothing),
     decrement_post: ":a = 1;  a--"    => type(nothing),
     decrement_pre:  ":a = 1;  --a"    => type(nothing),
 
-    assign_and:    ":a = true;  a &&= false" => type(nothing),
-    assign_or:     ":a = false; a ||= true"  => type(nothing),
-
     //
-    // TODO Test behavior of undefined self references
+    // Test behavior of references to other variables of the same name
     //
 
-    //
-    // TODO Test behavior of references to other variables of the same name
-    //
+    assign_prev_ref:         ":a = 1; :a = a + 1; a" => type(2),
+    reassign_prev_ref:       ":a = 1; a = a + 1; a" => type(2),
+
+    assign_plus_prev_ref:    ":a = 3;  a += a; a" => type(6),
+    assign_minus_prev_ref:   ":a = 3;  a -= a; a" => type(0),
+    assign_times_prev_ref:   ":a = 3;  a *= a; a" => type(9),
+    assign_divide_prev_ref:  ":a = 3; a /= a; a" => type(1),
+    assign_and_prev_ref_true:  ":a = true;  a &&= a; a" => type(true),
+    assign_and_prev_ref_false: ":a = false; a &&= a; a" => type(false),
+    assign_or_prev_ref_true:   ":a = true; a ||= a; a"  => type(true),
+    assign_or_prev_ref_false:  ":a = false; a ||= a; a"  => type(false),
 
     //
     // Test assignment to non-properties
@@ -149,6 +156,10 @@ compiler_tests! {
     assign_and_undefined_bad_type:    ":a; a &&= 1"   => type(nothing) errors(PropertyNotSet@[0-1],BadTypeRightOperand@[6-8]),
     assign_or_undefined_bad_type:     ":a; a ||= 2"   => type(nothing) errors(PropertyNotSet@[0-1],BadTypeRightOperand@[6-8]),
 
+    //
+    // Test behavior of assignment operations with declarations on the LHS
+    //
+
     assign_plus_declaration:   ":a += 1"      => type(nothing) errors(PropertyNotSet@[0-1]),
     assign_minus_declaration:  ":a -= 1"      => type(nothing) errors(PropertyNotSet@[0-1]),
     assign_times_declaration:  ":a *= 1"      => type(nothing) errors(PropertyNotSet@[0-1]),
@@ -167,7 +178,29 @@ compiler_tests! {
     assign_and_declaration_bad_type:    ":a &&= 1"   => type(nothing) errors(PropertyNotSet@[0-1],BadTypeRightOperand@[3-5]),
     assign_or_declaration_bad_type:     ":a ||= 2"   => type(nothing) errors(PropertyNotSet@[0-1],BadTypeRightOperand@[3-5]),
 
+    //
+    // Test behavior of undefined self references
+    //
+
+    assign_self_ref:          ":a = a + 1" => type(nothing) errors(NoSuchProperty@5),
+    reassign_self_ref:        "a = a + 1" => type(nothing) errors(NoSuchProperty@0,NoSuchProperty@4),
+    assign_plus_self_ref:     "a += a" => type(nothing) errors(NoSuchProperty@0,NoSuchProperty@5),
+    assign_minus_self_ref:    "a -= a" => type(nothing) errors(NoSuchProperty@0,NoSuchProperty@5),
+    assign_multiply_self_ref: "a *= a" => type(nothing) errors(NoSuchProperty@0,NoSuchProperty@5),
+    assign_divide_self_ref:   "a /= a" => type(nothing) errors(NoSuchProperty@0,NoSuchProperty@5),
+    assign_and_self_ref:      "a &&= a" => type(nothing) errors(NoSuchProperty@0,NoSuchProperty@6),
+    assign_or_self_ref:       "a ||= a" => type(nothing) errors(NoSuchProperty@0,NoSuchProperty@6),
+
+    assign_plus_declaration_self_ref:     ":a += a" => type(nothing) errors(PropertyNotSet@[0-1],NoSuchProperty@6),
+    assign_minus_declaration_self_ref:    ":a -= a" => type(nothing) errors(PropertyNotSet@[0-1],NoSuchProperty@6),
+    assign_multiply_declaration_self_ref: ":a *= a" => type(nothing) errors(PropertyNotSet@[0-1],NoSuchProperty@6),
+    assign_divide_declaration_self_ref:   ":a /= a" => type(nothing) errors(PropertyNotSet@[0-1],NoSuchProperty@6),
+    assign_and_declaration_self_ref:      ":a &&= a" => type(nothing) errors(PropertyNotSet@[0-1],NoSuchProperty@7),
+    assign_or_declaration_self_ref:       ":a ||= a" => type(nothing) errors(PropertyNotSet@[0-1],NoSuchProperty@7),
+
+    //
     // Test bad type errors on assignment
+    //
 
     assign_plus_bad_type_left:      ":a = true; a += 2"    => type(nothing) errors(BadTypeLeftOperand@[13-14]),
     assign_plus_bad_type_right:     ":a = 2;    a += true" => type(nothing) errors(BadTypeRightOperand@[13-14]),
