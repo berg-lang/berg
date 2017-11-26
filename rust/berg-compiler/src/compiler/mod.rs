@@ -1,3 +1,6 @@
+#[macro_use]
+mod compile_error_macros;
+
 pub mod compile_errors;
 pub(crate) mod line_column;
 pub(crate) mod source_spec;

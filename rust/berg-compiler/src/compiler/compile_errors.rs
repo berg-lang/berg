@@ -3,119 +3,7 @@ use compiler::Compiler;
 use compiler::source_data::{ByteRange,SourceIndex};
 use checker::checker_type::Type;
 use std::fmt;
-use std::str;
 
-pub trait CompileError: fmt::Debug {
-    fn code(&self) -> u32;
-    fn message(&self, compiler: &Compiler) -> CompileErrorMessage;
-}
-
-#[derive(Debug,Clone)]
-pub struct CompileErrorMessage {
-    pub location: CompileErrorLocation,
-    pub message: String,
-}
-#[derive(Debug,Clone)]
-pub enum CompileErrorLocation {
-    Generic,
-    SourceOnly { source: SourceIndex },
-    SourceRange { source: SourceIndex, range: ByteRange },
-}
-
-macro_rules! compile_errors {
-    ($(pub struct $name:ident $fields:tt ($code:expr) = $message_type:ident $message:tt;)*) => {
-        $(compile_errors! { @single pub struct $name $fields ($code) = $message_type $message; })*
-    };
-    (@single pub struct $name:ident $fields:tt ($code:expr) = $message_type:ident $message:tt;) => {
-        compile_errors! { @define_struct $name, $fields, $message_type }
-        compile_errors! { @impl_struct $name, $code, $fields, $message_type, $message }
-    };
-    (@define_struct $name:ident, { $(pub $field:tt: $field_type:ty),* }, string_generic) => {
-        #[derive(Debug,Clone)]
-        pub struct $name { $(pub $field: $field_type,)* }
-    };
-    (@define_struct $name:ident, { $(pub $field:tt: $field_type:ty),* }, format_generic) => {
-        #[derive(Debug,Clone)]
-        pub struct $name { $(pub $field: $field_type,)* }
-    };
-    (@define_struct $name:ident, { $(pub $field:tt: $field_type:ty),* }, $message_type:ident) => {
-        #[derive(Debug,Clone)]
-        pub struct $name { pub source: SourceIndex, $(pub $field: $field_type,)* }
-    };
-    (@impl_struct $name:ident, $code:expr, $fields:tt, $message_type:ident, $message:tt) => {
-        impl $name {
-            pub const CODE: u32 = $code;
-        }
-        impl CompileError for $name {
-            fn code(&self) -> u32 { $name::CODE }
-            compile_errors! { @message $message_type, $message, $fields }
-        }
-    };
-    (@message string, ($range:tt, $message:tt), $fields:tt) => (
-        fn message(&self, _: &Compiler) -> CompileErrorMessage {
-            CompileErrorMessage {
-                message: $message.to_string(),
-                location: CompileErrorLocation::SourceRange { source: self.source, range: self.$range.clone() }
-            }
-        }
-    );
-    (@message string_source, ($message:tt), $fields:tt) => (
-        fn message(&self, _: &Compiler) -> CompileErrorMessage {
-            CompileErrorMessage {
-                message: $message.to_string(),
-                location: CompileErrorLocation::SourceOnly { source: self.source }
-            }
-        }
-    );
-    (@message string_generic, ($message:tt), $fields:tt) => (
-        fn message(&self, _: &Compiler) -> CompileErrorMessage {
-            CompileErrorMessage {
-                message: $message.to_string(),
-                location: CompileErrorLocation::Generic { }
-            }
-        }
-    );
-    (@message format, ($range:tt, $message:tt), { $(pub $field:tt: $field_type:tt),* }) => (
-        fn message(&self, _compiler: &Compiler) -> CompileErrorMessage {
-            CompileErrorMessage {
-                message: format!($message, $($field = compile_errors!(@field_value _compiler, self, (self.$field), $field_type)),*),
-                location: CompileErrorLocation::SourceRange { source: self.source, range: self.$range.clone() },
-            }
-        }
-    );
-    (@message format_source, ($message:tt), { $(pub $field:tt: $field_type:tt),* }) => (
-        fn message(&self, _compiler: &Compiler) -> CompileErrorMessage {
-            CompileErrorMessage {
-                message: format!($message, $($field = compile_errors!(@field_value _compiler, self, (self.$field), $field_type)),*),
-                location: CompileErrorLocation::SourceOnly { source: self.source },
-            }
-        }
-    );
-    (@message format_generic, ($message:tt), { $(pub $field:tt: $field_type:tt),* }) => (
-        fn message(&self, compiler: &Compiler) -> CompileErrorMessage {
-            CompileErrorMessage {
-                message: format!($message, $($field = compile_errors!(@field_value compiler, self, (self.$field), $field_type)),*),
-                location: CompileErrorLocation::Generic,
-            }
-        }
-    );
-    (@field_value $compiler:ident, $self:ident, $value:tt, ByteRange) => (source_string($compiler, $self.source, &$value));
-    (@field_value $compiler:ident, $self:ident, $value:tt, $type:tt) => ($value);
-}
-
-fn source_string(compiler: &Compiler, source: SourceIndex, range: &ByteRange) -> String {
-    let buffer = compiler.with_source(source, |source_data| source_data.source_spec().open(compiler, source));
-    if range.end <= buffer.len() {
-        if let Ok(string) = str::from_utf8(&buffer[range]) {
-            return string.to_string();
-        }
-    }
-    String::from("ERROR: source may have changed since compiling, source range is no longer valid UTF-8")
-}
-
-// compile_errors! {
-//     pub(crate) struct SourceNotFound { pub path: PathBuf, pub io_error: io::Error } (101) = format("I/O error getting current directory to expand {path:?}: {io_error}")
-// }
 compile_errors! {
     // Compile errors independent of parsing
     pub struct SourceNotFound          { pub path: PathBuf, pub io_error_string: String } (101) = format_source("I/O error getting current directory to expand {path:?}: {io_error_string}");
@@ -147,4 +35,21 @@ compile_errors! {
     pub struct NoSuchProperty          { pub reference: ByteRange } (1005) = format(reference, "No such property: '{reference}'");
     pub struct PropertyNotSet          { pub reference: ByteRange } (1006) = format(reference, "Property '{reference}' was declared, but never set to a value!");
     pub struct IdentifierStartsWithNumber { pub identifier: ByteRange } (1005) = format(identifier, "Properties cannot start with a number: '{identifier}'");
+}
+
+pub trait CompileError: fmt::Debug {
+    fn code(&self) -> u32;
+    fn message(&self, compiler: &Compiler) -> CompileErrorMessage;
+}
+
+#[derive(Debug,Clone)]
+pub struct CompileErrorMessage {
+    pub location: CompileErrorLocation,
+    pub message: String,
+}
+#[derive(Debug,Clone)]
+pub enum CompileErrorLocation {
+    Generic,
+    SourceOnly { source: SourceIndex },
+    SourceRange { source: SourceIndex, range: ByteRange },
 }
