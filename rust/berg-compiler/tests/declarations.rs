@@ -29,35 +29,15 @@ compiler_tests! {
     assign_or_false_false_ref:  ":a = false; a ||= false; a" => type(false),
 
     //
-    // Test missing syntax
+    // Test precedence
     //
-    assign_missing_right: ":a =" => type(nothing) errors(MissingRightOperand@3),
-    reassign_missing_right: "a =" => type(nothing) errors(NoSuchProperty@0,MissingRightOperand@2),
-    assign_plus_missing_right: "a +=" => type(nothing) errors(NoSuchProperty@0,MissingRightOperand@[2-3]),
-    assign_minus_missing_right: "a -=" => type(nothing) errors(NoSuchProperty@0,MissingRightOperand@[2-3]),
-    assign_multiply_missing_right: "a *=" => type(nothing) errors(NoSuchProperty@0,MissingRightOperand@[2-3]),
-    assign_divide_missing_right: "a /=" => type(nothing) errors(NoSuchProperty@0,MissingRightOperand@[2-3]),
-    assign_and_missing_right: "a &&=" => type(nothing) errors(NoSuchProperty@0,MissingRightOperand@[2-4]),
-    assign_or_missing_right: "a ||=" => type(nothing) errors(NoSuchProperty@0,MissingRightOperand@[2-4]),
-
-    assign_missing_left: "= 1" => type(error) errors(MissingLeftOperand@0),
-    assign_plus_missing_left: "+= 1" => type(error) errors(MissingLeftOperand@[0-1]),
-    assign_minus_missing_left: "-= 1" => type(error) errors(MissingLeftOperand@[0-1]),
-    assign_multiply_missing_left: "*= 1" => type(error) errors(MissingLeftOperand@[0-1]),
-    assign_divide_missing_left: "/= 1" => type(error) errors(MissingLeftOperand@[0-1]),
-    assign_and_missing_left: "&&= false" => type(error) errors(MissingLeftOperand@[0-2]),
-    assign_or_missing_left: "||= true" => type(error) errors(MissingLeftOperand@[0-2]),
-
-    assign_missing_both: "=" => type(error) errors(MissingLeftOperand@0,MissingRightOperand@0),
-    assign_plus_missing_both: "+=" => type(error) errors(MissingLeftOperand@[0-1],MissingRightOperand@[0-1]),
-    assign_minus_missing_both: "-=" => type(error) errors(MissingLeftOperand@[0-1],MissingRightOperand@[0-1]),
-    assign_multiply_missing_both: "*=" => type(error) errors(MissingLeftOperand@[0-1],MissingRightOperand@[0-1]),
-    assign_divide_missing_both: "/=" => type(error) errors(MissingLeftOperand@[0-1],MissingRightOperand@[0-1]),
-    assign_and_missing_both: "&&=" => type(error) errors(MissingLeftOperand@[0-2],MissingRightOperand@[0-2]),
-    assign_or_missing_both: "||=" => type(error) errors(MissingLeftOperand@[0-2],MissingRightOperand@[0-2]),
-
-    increment_no_operand: "++" => type(error) errors(UnrecognizedOperator@[0-1],MissingLeftOperand@[0-1],MissingRightOperand@[0-1]),
-    decrement_no_operand: "--" => type(error) errors(UnrecognizedOperator@[0-1],MissingLeftOperand@[0-1],MissingRightOperand@[0-1]),
+    assign_precedence: "a = false; b = false || true && 14 == 2 + 3 * 4; b" => type(true),
+    assign_plus_precedence: ":b = 1; b += 2 + 3 * 4; b" => type(15),
+    assign_minus_precedence: ":b = 1; b -= 2 + 3 * 4; b" => type(-13),
+    assign_multiply_precedence: ":b = 2; b *= 2 + 3 * 4; b" => type(28),
+    assign_divide_precedence: ":b = 28; b /= 2 + 3 * 4; b" => type(2),
+    assign_and_precedence: "a = false; b = true; b &&= false || true && 14 == 2 + 3 * 4; b" => type(true),
+    assign_or_precedence: "a = false; b = false; b ||= false || true && 14 == 2 + 3 * 4; b" => type(true),
 
     //
     // Test declarations without references
@@ -93,6 +73,37 @@ compiler_tests! {
     assign_and_prev_ref_false: ":a = false; a &&= a; a" => type(false),
     assign_or_prev_ref_true:   ":a = true; a ||= a; a"  => type(true),
     assign_or_prev_ref_false:  ":a = false; a ||= a; a"  => type(false),
+
+    //
+    // Test missing syntax
+    //
+    assign_missing_right: ":a =" => type(nothing) errors(MissingRightOperand@3),
+    reassign_missing_right: "a =" => type(nothing) errors(NoSuchProperty@0,MissingRightOperand@2),
+    assign_plus_missing_right: "a +=" => type(nothing) errors(NoSuchProperty@0,MissingRightOperand@[2-3]),
+    assign_minus_missing_right: "a -=" => type(nothing) errors(NoSuchProperty@0,MissingRightOperand@[2-3]),
+    assign_multiply_missing_right: "a *=" => type(nothing) errors(NoSuchProperty@0,MissingRightOperand@[2-3]),
+    assign_divide_missing_right: "a /=" => type(nothing) errors(NoSuchProperty@0,MissingRightOperand@[2-3]),
+    assign_and_missing_right: "a &&=" => type(nothing) errors(NoSuchProperty@0,MissingRightOperand@[2-4]),
+    assign_or_missing_right: "a ||=" => type(nothing) errors(NoSuchProperty@0,MissingRightOperand@[2-4]),
+
+    assign_missing_left: "= 1" => type(error) errors(MissingLeftOperand@0),
+    assign_plus_missing_left: "+= 1" => type(error) errors(MissingLeftOperand@[0-1]),
+    assign_minus_missing_left: "-= 1" => type(error) errors(MissingLeftOperand@[0-1]),
+    assign_multiply_missing_left: "*= 1" => type(error) errors(MissingLeftOperand@[0-1]),
+    assign_divide_missing_left: "/= 1" => type(error) errors(MissingLeftOperand@[0-1]),
+    assign_and_missing_left: "&&= false" => type(error) errors(MissingLeftOperand@[0-2]),
+    assign_or_missing_left: "||= true" => type(error) errors(MissingLeftOperand@[0-2]),
+
+    assign_missing_both: "=" => type(error) errors(MissingLeftOperand@0,MissingRightOperand@0),
+    assign_plus_missing_both: "+=" => type(error) errors(MissingLeftOperand@[0-1],MissingRightOperand@[0-1]),
+    assign_minus_missing_both: "-=" => type(error) errors(MissingLeftOperand@[0-1],MissingRightOperand@[0-1]),
+    assign_multiply_missing_both: "*=" => type(error) errors(MissingLeftOperand@[0-1],MissingRightOperand@[0-1]),
+    assign_divide_missing_both: "/=" => type(error) errors(MissingLeftOperand@[0-1],MissingRightOperand@[0-1]),
+    assign_and_missing_both: "&&=" => type(error) errors(MissingLeftOperand@[0-2],MissingRightOperand@[0-2]),
+    assign_or_missing_both: "||=" => type(error) errors(MissingLeftOperand@[0-2],MissingRightOperand@[0-2]),
+
+    increment_no_operand: "++" => type(error) errors(UnrecognizedOperator@[0-1],MissingLeftOperand@[0-1],MissingRightOperand@[0-1]),
+    decrement_no_operand: "--" => type(error) errors(UnrecognizedOperator@[0-1],MissingLeftOperand@[0-1],MissingRightOperand@[0-1]),
 
     //
     // Test assignment to non-properties
