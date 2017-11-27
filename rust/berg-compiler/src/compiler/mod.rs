@@ -57,23 +57,11 @@ impl<'c> Compiler<'c> {
         Self::new(root, root_error, out, err)
     }
 
-    pub fn new(
-        root: Option<PathBuf>,
-        root_error: Option<io::Error>,
-        out: Box<Write>,
-        err: Box<Write>,
-    ) -> Self {
+    pub fn new(root: Option<PathBuf>, root_error: Option<io::Error>, out: Box<Write>, err: Box<Write>) -> Self {
         let root_error = RwLock::new(root_error);
         let sources = RwLock::default();
         let errors = RwLock::default();
-        Compiler {
-            root,
-            root_error,
-            out,
-            err,
-            sources,
-            errors,
-        }
+        Compiler { root, root_error, out, err, sources, errors }
     }
 
     pub fn add_file_source<P: Into<PathBuf>>(&mut self, path: P) {

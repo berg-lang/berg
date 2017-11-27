@@ -86,10 +86,9 @@ impl<'p,'c:'p> AstBuilder<'p,'c> {
                 // parentheses. Repeat as necessary.
                 // 1+2*3>4 -> 1+(2*3) -> 1+(2*3)> ...
                 while self.open_expression().boundary == PrecedenceGroup {
-                    if let Some((parent_infix,_)) = self.parent_expression().infix {
-                        if !parent_infix.takes_right_child(next_infix) {
-                            self.close(next_infix_start..next_infix_start);
-                        }
+                    match self.parent_expression().infix {
+                        Some((parent_infix,_)) if !parent_infix.takes_right_child(next_infix) => self.close(next_infix_start..next_infix_start),
+                        _ => break,
                     }
                 }
             }

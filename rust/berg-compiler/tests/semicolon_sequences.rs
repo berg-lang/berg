@@ -6,7 +6,7 @@ compiler_tests! {
     semicolon_right_space: "1; 2" => type(2),
     semicolon_both_space: "1 ; 2" => type(2),
     semicolon_sequence: "1;2" => type(2),
-    semicolon_sequence_add: "1+1;2+2" => type(4),
+    semicolon_sequence_add: "1+1+1;2+2+2" => type(6),
     semicolon_sequence_or_and_ge_plus_mul: "1*2+3>=4&&true||false;false||true&&4>=3+2*1" => type(false),
     semicolon_sequence_or_and_le_plus_mul: "1*2+3<=4&&true||false;false||true&&4<=3+2*1" => type(true),
 

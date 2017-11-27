@@ -42,12 +42,12 @@ fn main() {
     add_source(&mut compiler, &args);
 }
 
-fn add_source(compiler: &mut Compiler, args: &Args) {
+fn add_source<'p>(compiler: &mut Compiler<'p>, args: &'p Args) {
     if let Some(ref file) = args.arg_file {
         assert!(args.flag_e.is_none());
         compiler.add_file_source(file)
     } else if let Some(ref expr) = args.flag_e {
-        compiler.add_memory_source(String::from("expr"), expr.clone())
+        compiler.add_memory_source("expr", expr.as_bytes())
     } else {
         panic!("No source passed: {:?}", args)
     }
