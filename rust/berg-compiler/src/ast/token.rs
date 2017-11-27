@@ -1,6 +1,7 @@
 use ast::{AstDelta,IdentifierIndex,LiteralIndex};
 use ast::precedence::Precedence;
 use ast::token::Token::*;
+use std::fmt;
 
 // ExpressionType, String, LeftChild, RightChild
 #[derive(Debug,Copy,Clone,PartialEq)]
@@ -118,6 +119,19 @@ impl Fixity {
             Term|Postfix => false,
             Infix|Prefix => true,
         }
+    }
+}
+
+impl fmt::Display for Fixity {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        use ast::token::Fixity::*;
+        let fixity = match *self {
+            Term => "term",
+            Prefix => "unary",
+            Infix => "binary",
+            Postfix => "postfix"
+        };
+        write!(f, "{}", fixity)
     }
 }
 

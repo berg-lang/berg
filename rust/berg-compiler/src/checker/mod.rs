@@ -4,7 +4,7 @@ use fnv::FnvHashMap;
 use ast::{AstIndex,IdentifierIndex};
 use ast::ast_walker::{AstWalkerMut,AstVisitorMut};
 use ast::identifiers::*;
-use ast::token::{Token,TermToken,InfixToken};
+use ast::token::{Token,TermToken,InfixToken,Fixity};
 use ast::token::TermToken::*;
 use ast::token::InfixToken::*;
 use checker::checker_type::Type;
@@ -121,7 +121,7 @@ impl<'ch,'c:'ch> AstVisitorMut<Type> for Checker<'ch,'c> {
             NOT => self.check_boolean_prefix(operand, index, parse_data, |operand| !operand),
             PLUS_PLUS => self.assign_integer_prefix(operand, index, parse_data, |operand| operand+BigRational::one()),
             DASH_DASH => self.assign_integer_prefix(operand, index, parse_data, |operand| operand-BigRational::one()),
-            _ => self.report(compile_errors::UnrecognizedOperator { source: self.source(), operator: parse_data.token_ranges[index].clone() }),
+            _ => self.report(compile_errors::UnrecognizedOperator { source: self.source(), operator: parse_data.token_ranges[index].clone(), fixity: Fixity::Prefix }),
         }
     }
 
@@ -129,7 +129,7 @@ impl<'ch,'c:'ch> AstVisitorMut<Type> for Checker<'ch,'c> {
         match postfix {
             PLUS_PLUS => self.assign_integer_postfix(operand, index, parse_data, |operand| operand+BigRational::one()),
             DASH_DASH => self.assign_integer_postfix(operand, index, parse_data, |operand| operand-BigRational::one()),
-            _ => self.report(compile_errors::UnrecognizedOperator { source: self.source(), operator: parse_data.token_ranges[index].clone() }),
+            _ => self.report(compile_errors::UnrecognizedOperator { source: self.source(), operator: parse_data.token_ranges[index].clone(), fixity: Fixity::Postfix }),
         }
     }
 
@@ -170,7 +170,7 @@ impl<'ch,'c:'ch> Checker<'ch,'c> {
             InfixOperator(ASSIGN_AND_AND)=> self.assign_operation(AND_AND, left, right, index, parse_data),
             InfixOperator(ASSIGN_OR_OR)  => self.assign_operation(OR_OR, left, right, index, parse_data),
             InfixOperator(SEMICOLON)|NewlineSequence => right,
-            InfixOperator(_) => self.report(compile_errors::UnrecognizedOperator { source: self.source(), operator: parse_data.token_range(index) }),
+            InfixOperator(_) => self.report(compile_errors::UnrecognizedOperator { source: self.source(), operator: parse_data.token_range(index), fixity: Fixity::Infix }),
             MissingInfix => Error,
         }
     }

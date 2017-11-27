@@ -1,8 +1,9 @@
-use std::path::PathBuf;
+use ast::token::Fixity;
 use compiler::Compiler;
 use compiler::source_data::{ByteRange,SourceIndex};
 use checker::checker_type::Type;
 use std::fmt;
+use std::path::PathBuf;
 
 compile_errors! {
     // Compile errors independent of parsing
@@ -27,7 +28,7 @@ compile_errors! {
     pub struct RightSideOfIncrementOrDecrementOperandMustBeIdentifier { pub right: ByteRange, pub operator: ByteRange } (305) = format(right, "The assignment operator '{operator}' must have a property name on the right side (like \"{operator}foo ...\" or \"{operator}foo ...\"): the right side is currently {right}.");
 
     // Compile errors related to type (checker)
-    pub struct UnrecognizedOperator    { pub operator: ByteRange } (1001) = format(operator, "Unrecognized operator {operator}");
+    pub struct UnrecognizedOperator    { pub operator: ByteRange, pub fixity: Fixity } (1001) = format(operator, "Unrecognized {fixity} operator {operator}");
     pub struct DivideByZero            { pub divide: ByteRange } (1002) = format(divide, "Division by zero is illegal. Perhaps you meant a different number on the right hand side of the '{divide}'?");
     pub struct BadTypeLeftOperand      { pub operator: ByteRange, pub left: Type } (1003) = format(operator, "The value on the left side of '{operator}' is not a number! It is {left:?} instead.");
     pub struct BadTypeRightOperand     { pub operator: ByteRange, pub right: Type } (1004) = format(operator, "The value on the right side of '{operator}' is not a number! It is {right:?} instead.");
