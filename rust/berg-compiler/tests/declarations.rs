@@ -29,6 +29,37 @@ compiler_tests! {
     assign_or_false_false_ref:  ":a = false; a ||= false; a" => type(false),
 
     //
+    // Test missing syntax
+    //
+    assign_missing_right: ":a =" => type(nothing) errors(MissingRightOperand@3),
+    reassign_missing_right: "a =" => type(nothing) errors(NoSuchProperty@0,MissingRightOperand@2),
+    assign_plus_missing_right: "a +=" => type(nothing) errors(NoSuchProperty@0,MissingRightOperand@[2-3]),
+    assign_minus_missing_right: "a -=" => type(nothing) errors(NoSuchProperty@0,MissingRightOperand@[2-3]),
+    assign_multiply_missing_right: "a *=" => type(nothing) errors(NoSuchProperty@0,MissingRightOperand@[2-3]),
+    assign_divide_missing_right: "a /=" => type(nothing) errors(NoSuchProperty@0,MissingRightOperand@[2-3]),
+    assign_and_missing_right: "a &&=" => type(nothing) errors(NoSuchProperty@0,MissingRightOperand@[2-4]),
+    assign_or_missing_right: "a ||=" => type(nothing) errors(NoSuchProperty@0,MissingRightOperand@[2-4]),
+
+    assign_missing_left: "= 1" => type(error) errors(MissingLeftOperand@0),
+    assign_plus_missing_left: "+= 1" => type(error) errors(MissingLeftOperand@[0-1]),
+    assign_minus_missing_left: "-= 1" => type(error) errors(MissingLeftOperand@[0-1]),
+    assign_multiply_missing_left: "*= 1" => type(error) errors(MissingLeftOperand@[0-1]),
+    assign_divide_missing_left: "/= 1" => type(error) errors(MissingLeftOperand@[0-1]),
+    assign_and_missing_left: "&&= false" => type(error) errors(MissingLeftOperand@[0-2]),
+    assign_or_missing_left: "||= true" => type(error) errors(MissingLeftOperand@[0-2]),
+
+    assign_missing_both: "=" => type(error) errors(MissingLeftOperand@0,MissingRightOperand@0),
+    assign_plus_missing_both: "+=" => type(error) errors(MissingLeftOperand@[0-1],MissingRightOperand@[0-1]),
+    assign_minus_missing_both: "-=" => type(error) errors(MissingLeftOperand@[0-1],MissingRightOperand@[0-1]),
+    assign_multiply_missing_both: "*=" => type(error) errors(MissingLeftOperand@[0-1],MissingRightOperand@[0-1]),
+    assign_divide_missing_both: "/=" => type(error) errors(MissingLeftOperand@[0-1],MissingRightOperand@[0-1]),
+    assign_and_missing_both: "&&=" => type(error) errors(MissingLeftOperand@[0-2],MissingRightOperand@[0-2]),
+    assign_or_missing_both: "||=" => type(error) errors(MissingLeftOperand@[0-2],MissingRightOperand@[0-2]),
+
+    increment_no_operand: "++" => type(error) errors(UnrecognizedOperator@[0-1],MissingLeftOperand@[0-1],MissingRightOperand@[0-1]),
+    decrement_no_operand: "--" => type(error) errors(UnrecognizedOperator@[0-1],MissingLeftOperand@[0-1],MissingRightOperand@[0-1]),
+
+    //
     // Test declarations without references
     //
 

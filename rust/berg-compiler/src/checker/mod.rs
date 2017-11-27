@@ -348,6 +348,8 @@ impl<'ch,'c:'ch> Checker<'ch,'c> {
                 self.scope.set(identifier, value);
                 Nothing
             },
+            // Error already reported. TODO assert this
+            Token::MissingExpression => Error,
             _ => {
                 self.report(compile_errors::LeftSideOfAssignmentMustBeIdentifier { source: self.source(), left: parse_data.token_range(index-1), operator: parse_data.token_range(index) });
                 Error
@@ -362,6 +364,8 @@ impl<'ch,'c:'ch> Checker<'ch,'c> {
                 self.scope.set(identifier, value);
                 Nothing
             },
+            // Error already reported. TODO assert this
+            Token::MissingExpression => Error,
             _ => {
                 self.report(compile_errors::LeftSideOfAssignmentMustBeIdentifier { source: self.source(), left: parse_data.token_range(index-1), operator: parse_data.token_range(index) });
                 Error
@@ -376,6 +380,8 @@ impl<'ch,'c:'ch> Checker<'ch,'c> {
                 self.scope.set(identifier, value);
                 Nothing
             },
+            // Error already reported. TODO assert this
+            Token::MissingExpression => Error,
             _ => {
                 self.report(compile_errors::LeftSideOfAssignmentMustBeIdentifier { source: self.source(), left: parse_data.token_range(index-1), operator: parse_data.token_range(index) });
                 Error
@@ -390,6 +396,8 @@ impl<'ch,'c:'ch> Checker<'ch,'c> {
                 self.scope.set(identifier, value);
                 Nothing
             },
+            // Error already reported. TODO assert this!!!
+            Token::MissingExpression => Error,
             // TODO if left side is a parenthetical, this will look silly. Fix by including the whole range of the expression.
             _ => {
                 self.report(compile_errors::RightSideOfIncrementOrDecrementOperandMustBeIdentifier { source: self.source(), right: parse_data.token_range(index+1), operator: parse_data.token_range(index) });
