@@ -1,10 +1,9 @@
 use std::fmt::Debug;
 use ast::{AstIndex,IdentifierIndex};
 use ast::ast_walker::Advance::*;
-use ast::token::{Token,TermToken,InfixToken};
+use ast::token::{Token,TermToken,InfixToken,PrefixToken};
 use ast::token::Token::*;
 use ast::token::ExpressionBoundary::*;
-use ast::token::Fixity::*;
 use compiler::source_data::ParseData;
 
 pub(crate) trait AstVisitorMut<T> {
@@ -49,19 +48,8 @@ impl AstWalkerMut {
         self.walk_infix(visitor, left, parse_data)
     }
 
-    fn walk_infix<T: Debug, V: AstVisitorMut<T>>(&mut self, visitor: &mut V, left: T, parse_data: &ParseData) -> T {
-        self.walk_infix_while(visitor, left, parse_data, |_| true)
-    }
-
-    fn walk_infix_while<T: Debug, V: AstVisitorMut<T>, F: Fn(InfixToken)->bool>(
-        &mut self,
-        visitor: &mut V,
-        mut left: T,
-        parse_data: &ParseData,
-        walk_if: F
-    ) -> T {
-        while let NextToken(infix, infix_index) = self.advance_if(parse_data,
-            |token| match InfixToken::try_from(token) { Some(infix) if walk_if(infix) => Some(infix), _ => None })
+    fn walk_infix<T: Debug, V: AstVisitorMut<T>>(&mut self, visitor: &mut V, mut left: T, parse_data: &ParseData) -> T {
+        while let NextToken(infix, infix_index) = self.advance_if(parse_data, InfixToken::try_from)
         {
             // Get the right operand.
             let mut right = self.walk_infix_operand(visitor, parse_data);
@@ -81,18 +69,18 @@ impl AstWalkerMut {
     }
 
     fn walk_infix_operand<T: Debug, V: AstVisitorMut<T>>(&mut self, visitor: &mut V, parse_data: &ParseData) -> T {
+        let value = self.walk_prefixes_and_term(visitor, parse_data);
+        self.walk_postfixes(visitor, value, parse_data)
+    }
+
+    fn walk_prefixes_and_term<T: Debug, V: AstVisitorMut<T>>(&mut self, visitor: &mut V, parse_data: &ParseData) -> T {
         // Skip any prefixes (we'll apply them after we calculate the term)
         let first_prefix = self.index;
-        while let NextToken(..) = self.advance_if(parse_data, |token|
-            match token.fixity() { Prefix => Some(()), _ => None }
-        ) {
-            // Do-nothing loop, we're just skipping them to be dealt with later
+        while let NextToken(..) = self.advance_if(parse_data, PrefixToken::try_from) {
         }
 
-        // Handle the term
         let (mut value, term_index) = self.walk_term(visitor, parse_data);
 
-        // Handle prefixes (in reverse order)
         let mut prefix_index = term_index;
         while prefix_index > first_prefix {
             prefix_index -= 1;
@@ -128,9 +116,7 @@ impl AstWalkerMut {
                 },
             };
         };
-
-        // Now a apply any postfixes. Stop when we see a close operator.
-        self.walk_postfixes(visitor, value, parse_data)
+        value
     }
 
     fn walk_postfixes<T: Debug, V: AstVisitorMut<T>>(&mut self, visitor: &mut V, mut value: T, parse_data: &ParseData) -> T {

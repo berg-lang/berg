@@ -99,9 +99,8 @@ impl ParseData {
             IntegerLiteral(literal)|SyntaxErrorTerm(literal) => self.literal_string(literal),
             
             PropertyReference(identifier)|
-            PropertyDeclaration(identifier)|
-            PropertyDeclarationTarget(identifier)|
             InfixOperator(identifier)|
+            InfixAssignment(identifier)|
             PostfixOperator(identifier)|
             PrefixOperator(identifier) =>
                 self.identifier_string(identifier),

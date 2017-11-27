@@ -55,7 +55,7 @@ impl Scanner {
         if let Some(char_type) = CharType::peek(buffer, self.index) {
             match char_type {
                 Space|Newline|Unsupported|InvalidUtf8 => true,
-                Open|Close|Operator|Separator|Digit|Identifier|Colon => false,
+                Open|Close|Operator|Separator|Digit|Identifier => false,
             }
         } else {
             true
@@ -66,7 +66,7 @@ impl Scanner {
         if let Some(char_type) = CharType::peek(buffer, self.index) {
             match char_type {
                 Close|Operator|Separator|Space|Newline|Unsupported|InvalidUtf8 => true,
-                Open|Digit|Identifier|Colon => false,
+                Open|Digit|Identifier => false,
             }
         } else {
             true
@@ -83,7 +83,6 @@ pub(super) enum CharType {
     Close,
     Separator,
     Space,
-    Colon,
     Newline,
     Unsupported,
     InvalidUtf8,
@@ -146,8 +145,7 @@ impl ByteType {
             b'a'...b'z'|b'A'...b'Z'|b'_' => Char(Identifier),
             b'(' => Char(Open),
             b')' => Char(Close),
-            b':' => Char(Colon),
-            b';' => Char(Separator),
+            b';'|b':' => Char(Separator),
             b' '|b'\t' => Char(Space),
             b'\n' => Char(Newline),
             b'\r' => ByteType::CarriageReturn,

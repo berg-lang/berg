@@ -8,28 +8,25 @@ use std::fmt;
 pub enum Token {
     IntegerLiteral(LiteralIndex),
     PropertyReference(IdentifierIndex),
-    PropertyDeclaration(IdentifierIndex),
-    PropertyDeclarationTarget(IdentifierIndex),
     SyntaxErrorTerm(LiteralIndex),
     MissingExpression,
 
     InfixOperator(IdentifierIndex),
+    InfixAssignment(IdentifierIndex),
     NewlineSequence,
     MissingInfix,
 
-    Open(ExpressionBoundary,AstDelta),
     PrefixOperator(IdentifierIndex),
+    Open(ExpressionBoundary,AstDelta),
 
-    Close(ExpressionBoundary,AstDelta),
     PostfixOperator(IdentifierIndex),
+    Close(ExpressionBoundary,AstDelta),
 }
 
 #[derive(Debug,Copy,Clone,PartialEq)]
 pub enum TermToken {
     IntegerLiteral(LiteralIndex),
     PropertyReference(IdentifierIndex),
-    PropertyDeclaration(IdentifierIndex),
-    PropertyDeclarationTarget(IdentifierIndex),
     SyntaxErrorTerm(LiteralIndex),
     MissingExpression,
 }
@@ -37,6 +34,7 @@ pub enum TermToken {
 #[derive(Debug,Copy,Clone,PartialEq)]
 pub enum InfixToken {
     InfixOperator(IdentifierIndex),
+    InfixAssignment(IdentifierIndex),
     NewlineSequence,
     MissingInfix,
 }
@@ -73,8 +71,8 @@ impl Token {
     pub fn fixity(&self) -> Fixity {
         use ast::token::Token::*;
         match *self {
-            IntegerLiteral(_)|PropertyReference(_)|PropertyDeclaration(_)|PropertyDeclarationTarget(_)|SyntaxErrorTerm(_)|MissingExpression => Fixity::Term,
-            InfixOperator(_)|NewlineSequence|MissingInfix => Fixity::Infix,
+            IntegerLiteral(_)|PropertyReference(_)|SyntaxErrorTerm(_)|MissingExpression => Fixity::Term,
+            InfixOperator(_)|InfixAssignment(_)|NewlineSequence|MissingInfix => Fixity::Infix,
             PrefixOperator(_)|Open(..) => Fixity::Prefix,
             PostfixOperator(_)|Close(..) => Fixity::Postfix,
         }
@@ -139,9 +137,7 @@ impl From<TermToken> for Token {
     fn from(token: TermToken) -> Self {
         match token {
             TermToken::IntegerLiteral(literal) => IntegerLiteral(literal),
-            TermToken::PropertyDeclaration(identifier) => PropertyDeclaration(identifier),
             TermToken::PropertyReference(identifier) => PropertyReference(identifier),
-            TermToken::PropertyDeclarationTarget(identifier) => PropertyDeclarationTarget(identifier),
             TermToken::SyntaxErrorTerm(literal) => SyntaxErrorTerm(literal),
             TermToken::MissingExpression => MissingExpression,
         }
@@ -154,10 +150,8 @@ impl TermToken {
             IntegerLiteral(literal) => Some(TermToken::IntegerLiteral(literal)),
             SyntaxErrorTerm(literal) => Some(TermToken::SyntaxErrorTerm(literal)),
             MissingExpression => Some(TermToken::MissingExpression),
-            PropertyDeclaration(identifier) => Some(TermToken::PropertyDeclaration(identifier)),
             PropertyReference(identifier) => Some(TermToken::PropertyReference(identifier)),
-            PropertyDeclarationTarget(identifier) => Some(TermToken::PropertyDeclarationTarget(identifier)),
-            InfixOperator(_)|NewlineSequence|MissingInfix|PrefixOperator(_)|Open(..)|PostfixOperator(_)|Close(..) => None,
+            InfixOperator(_)|InfixAssignment(_)|NewlineSequence|MissingInfix|PrefixOperator(_)|Open(..)|PostfixOperator(_)|Close(..) => None,
         }
     }
 }
@@ -166,6 +160,7 @@ impl From<InfixToken> for Token {
     fn from(token: InfixToken) -> Self {
         match token {
             InfixToken::InfixOperator(identifier) => InfixOperator(identifier),
+            InfixToken::InfixAssignment(identifier) => InfixAssignment(identifier),
             InfixToken::NewlineSequence => NewlineSequence,
             InfixToken::MissingInfix => MissingInfix,
         }
@@ -175,30 +170,28 @@ impl InfixToken {
     pub fn try_from(token: Token) -> Option<Self> {
         match token {
             InfixOperator(identifier) => Some(InfixToken::InfixOperator(identifier)),
+            InfixAssignment(identifier) => Some(InfixToken::InfixAssignment(identifier)),
             NewlineSequence => Some(InfixToken::NewlineSequence),
             MissingInfix => Some(InfixToken::MissingInfix),
-            IntegerLiteral(_)|PropertyReference(_)|PropertyDeclaration(_)|PropertyDeclarationTarget(_)|SyntaxErrorTerm(_)|MissingExpression|PrefixOperator(_)|Open(..)|PostfixOperator(_)|Close(..) => None,
+            IntegerLiteral(_)|PropertyReference(_)|SyntaxErrorTerm(_)|MissingExpression|PrefixOperator(_)|Open(..)|PostfixOperator(_)|Close(..) => None,
         }
     }
     pub fn precedence(self) -> Precedence {
         use ast::token::InfixToken::*;
-        match self {
-            InfixOperator(identifier) => Precedence::from(identifier),
-            MissingInfix => Precedence::default(),
-            NewlineSequence => Precedence::NewlineSequence,
-        }
-    }
-    pub fn is_assignment(self) -> bool {
-        use ast::token::InfixToken::*;
+        use ast::token::Precedence::*;
         use ast::identifiers::*;
         match self {
-            InfixOperator(identifier) => match identifier {
-                ASSIGN|ASSIGN_STAR|ASSIGN_SLASH|
-                ASSIGN_PLUS|ASSIGN_DASH|ASSIGN_AND_AND|
-                ASSIGN_OR_OR => true,
-                _ => false
+            InfixOperator(operator) => match operator {
+                STAR|SLASH => TimesDivide,
+                EQUAL_TO|NOT_EQUAL_TO|GREATER_THAN|GREATER_EQUAL|LESS_THAN|LESS_EQUAL => Comparison,
+                AND_AND => And,
+                OR_OR => Or,
+                SEMICOLON => SemicolonSequence,
+                _ => Precedence::default(),
             },
-            MissingInfix|NewlineSequence => false,
+            InfixAssignment(_) => Assign,
+            InfixToken::NewlineSequence => Precedence::NewlineSequence,
+            _ => Precedence::default(),
         }
     }
     pub fn takes_right_child(self, right: InfixToken) -> bool {
@@ -222,7 +215,7 @@ impl PrefixToken {
         match token {
             PrefixOperator(identifier) => Some(PrefixToken::PrefixOperator(identifier)),
             Open(boundary,delta) => Some(PrefixToken::Open(boundary,delta)),
-            IntegerLiteral(_)|PropertyReference(_)|PropertyDeclaration(_)|PropertyDeclarationTarget(_)|SyntaxErrorTerm(_)|MissingExpression|InfixOperator(_)|NewlineSequence|MissingInfix|PostfixOperator(_)|Close(..) => None,
+            IntegerLiteral(_)|PropertyReference(_)|SyntaxErrorTerm(_)|MissingExpression|InfixOperator(_)|InfixAssignment(_)|NewlineSequence|MissingInfix|PostfixOperator(_)|Close(..) => None,
         }
     }
 }
@@ -240,7 +233,7 @@ impl PostfixToken {
         match token {
             PostfixOperator(identifier) => Some(PostfixToken::PostfixOperator(identifier)),
             Close(boundary,delta) => Some(PostfixToken::Close(boundary,delta)),
-            IntegerLiteral(_)|PropertyReference(_)|PropertyDeclaration(_)|PropertyDeclarationTarget(_)|SyntaxErrorTerm(_)|MissingExpression|InfixOperator(_)|NewlineSequence|MissingInfix|PrefixOperator(_)|Open(..) => None,
+            IntegerLiteral(_)|PropertyReference(_)|SyntaxErrorTerm(_)|MissingExpression|InfixOperator(_)|InfixAssignment(_)|NewlineSequence|MissingInfix|PrefixOperator(_)|Open(..) => None,
         }
     }
 }

@@ -65,24 +65,16 @@ impl<'ch,'c:'ch> AstVisitorMut<Type> for Checker<'ch,'c> {
                 let value = BigRational::from_str(string).unwrap();
                 Rational(value)
             },
-            // If we're introducing the identifier into scope right now,
-            // all subsequent expressions can use it.
-            PropertyDeclaration(identifier) => {
-                let undefined = Undefined { reference_source: self.source(), reference_index: index };
-                self.scope.set(identifier, undefined.clone());
-                undefined
-            },
-            // If it's a target, we don't *set* it yet; the old value rules.
-            PropertyDeclarationTarget(identifier) => {
-                if let Some(value) = self.scope.get(identifier) {
-                    value.clone()
-                } else {
-                    Undefined { reference_source: self.source(), reference_index: index }
-                }
-            },
             PropertyReference(identifier) => {
                 if let Some(value) = self.scope.get(identifier) {
                     value.clone()
+                // If we're going to be used as an argument to a bare assignment, our value doesn't
+                // matter, so don't get the value.
+                } else if let Some(&Token::InfixAssignment(EMPTY_STRING)) = parse_data.tokens.get(index+1) {
+                    Undefined { reference_source: self.source(), reference_index: index }
+                // If we're part of a declaration, the fact that we're undefined doesn't matter, either.
+                } else if index > 0 && match *parse_data.token(index-1) { Token::PrefixOperator(COLON) => true, _ => false } {
+                    Undefined { reference_source: self.source(), reference_index: index }
                 } else {
                     self.report(compile_errors::NoSuchProperty { source: self.source(), reference: parse_data.token_range(index) });
                     Error
@@ -108,7 +100,7 @@ impl<'ch,'c:'ch> AstVisitorMut<Type> for Checker<'ch,'c> {
         }
        self.check_infix(token, left, right, index, parse_data)
     }
-
+    
     fn visit_prefix(&mut self, prefix: IdentifierIndex, mut operand: Type, index: AstIndex, parse_data: &ParseData) -> Type {
         use ast::identifiers::*;
         if operand == Missing {
@@ -116,6 +108,7 @@ impl<'ch,'c:'ch> AstVisitorMut<Type> for Checker<'ch,'c> {
             operand = Error;
         }
         match prefix {
+            COLON => self.check_declaration(operand, index, parse_data),
             PLUS => self.check_numeric_prefix(operand, index, parse_data, |operand| operand),
             DASH => self.check_numeric_prefix(operand, index, parse_data, |operand| -operand),
             NOT => self.check_boolean_prefix(operand, index, parse_data, |operand| !operand),
@@ -162,15 +155,10 @@ impl<'ch,'c:'ch> Checker<'ch,'c> {
             InfixOperator(LESS_EQUAL)    => self.check_numeric_comparison(left, right, index, parse_data, |left, right| left <= right),
             InfixOperator(AND_AND)       => self.check_boolean_binary(left, right, index, parse_data, |left, right| left && right),
             InfixOperator(OR_OR)         => self.check_boolean_binary(left, right, index, parse_data, |left, right| left || right),
-            InfixOperator(ASSIGN)        => self.assign(right, index, parse_data),
-            InfixOperator(ASSIGN_PLUS)   => self.assign_operation(PLUS, left, right, index, parse_data),
-            InfixOperator(ASSIGN_DASH)   => self.assign_operation(DASH, left, right, index, parse_data),
-            InfixOperator(ASSIGN_STAR)   => self.assign_operation(STAR, left, right, index, parse_data),
-            InfixOperator(ASSIGN_SLASH)  => self.assign_operation(SLASH, left, right, index, parse_data),
-            InfixOperator(ASSIGN_AND_AND)=> self.assign_operation(AND_AND, left, right, index, parse_data),
-            InfixOperator(ASSIGN_OR_OR)  => self.assign_operation(OR_OR, left, right, index, parse_data),
             InfixOperator(SEMICOLON)|NewlineSequence => right,
             InfixOperator(_) => self.report(compile_errors::UnrecognizedOperator { source: self.source(), operator: parse_data.token_range(index), fixity: Fixity::Infix }),
+            InfixAssignment(EMPTY_STRING) => self.assign(right, index, parse_data),
+            InfixAssignment(identifier)   => self.assign_operation(identifier, left, right, index, parse_data),
             MissingInfix => Error,
         }
     }
@@ -341,68 +329,76 @@ impl<'ch,'c:'ch> Checker<'ch,'c> {
         }
     }
 
+    fn check_declaration(&mut self, value: Type, index: AstIndex, parse_data: &ParseData) -> Type {
+        if let Token::PropertyReference(property) = *parse_data.token(index+1) {
+            if index > 0 {
+                match *parse_data.token(index-1) {
+                    Token::PrefixOperator(PLUS_PLUS) |
+                    Token::PrefixOperator(DASH_DASH) => return value,
+                    Token::PrefixOperator(_) => { self.scope.set(property, value.clone()); return value; }
+                    _ => {},
+                }
+            }
+            // If this is an assignment operator, :a = b, we don't initialize.
+            match parse_data.tokens.get(index+2) {
+                Some(&Token::InfixAssignment(_)) |
+                Some(&Token::PostfixOperator(PLUS_PLUS)) |
+                Some(&Token::PostfixOperator(DASH_DASH)) => return value,
+                _ => { self.scope.set(property, value.clone()); return value; }
+            }
+            
+        } else {
+            self.report(compile_errors::UnrecognizedOperator { source: self.source(), operator: parse_data.token_ranges[index].clone(), fixity: Fixity::Prefix });
+            Error
+        }
+    }
+
     fn assign(&mut self, right: Type, index: AstIndex, parse_data: &ParseData) -> Type {
         let value = right;
-        match parse_data.tokens[index-1] {
-            Token::PropertyReference(identifier)|Token::PropertyDeclarationTarget(identifier) => {
-                self.scope.set(identifier, value);
-                Nothing
-            },
-            // Error already reported. TODO assert this
-            Token::MissingExpression => Error,
-            _ => {
-                self.report(compile_errors::LeftSideOfAssignmentMustBeIdentifier { source: self.source(), left: parse_data.token_range(index-1), operator: parse_data.token_range(index) });
-                Error
-            },
-        }
+        self.assign_value(value, index-1, parse_data).unwrap_or_else(|| {
+            self.report(compile_errors::LeftSideOfAssignmentMustBeIdentifier { source: self.source(), left: parse_data.token_range(index-1), operator: parse_data.token_range(index) });
+            Error
+        })
     }
 
     fn assign_operation(&mut self, operation: IdentifierIndex, left: Type, right: Type, index: AstIndex, parse_data: &ParseData) -> Type {
         let value = self.check_infix(InfixOperator(operation), left, right, index, parse_data);
-        match parse_data.tokens[index-1] {
-            Token::PropertyReference(identifier)|Token::PropertyDeclarationTarget(identifier) => {
-                self.scope.set(identifier, value);
-                Nothing
-            },
-            // Error already reported. TODO assert this
-            Token::MissingExpression => Error,
-            _ => {
-                self.report(compile_errors::LeftSideOfAssignmentMustBeIdentifier { source: self.source(), left: parse_data.token_range(index-1), operator: parse_data.token_range(index) });
-                Error
-            },
-        }
+        self.assign(value, index, parse_data)
     }
 
     fn assign_integer_postfix<F: Fn(BigRational)->BigRational>(&mut self, operand: Type, index: AstIndex, parse_data: &ParseData, f: F) -> Type {
         let value = self.check_integer_postfix(operand, index, parse_data, f);
-        match parse_data.tokens[index-1] {
-            Token::PropertyReference(identifier)|Token::PropertyDeclarationTarget(identifier) => {
-                self.scope.set(identifier, value);
-                Nothing
-            },
-            // Error already reported. TODO assert this
-            Token::MissingExpression => Error,
-            _ => {
-                self.report(compile_errors::LeftSideOfAssignmentMustBeIdentifier { source: self.source(), left: parse_data.token_range(index-1), operator: parse_data.token_range(index) });
-                Error
-            },
-        }
+        self.assign_value(value, index-1, parse_data).unwrap_or_else(|| {
+            self.report(compile_errors::LeftSideOfIncrementOrDecrementMustBeIdentifier { source: self.source(), left: parse_data.token_range(index-1), operator: parse_data.token_range(index) });
+            Error
+        })
     }
 
     fn assign_integer_prefix<F: Fn(BigRational)->BigRational>(&mut self, operand: Type, index: AstIndex, parse_data: &ParseData, f: F) -> Type {
         let value = self.check_integer_prefix(operand, index, parse_data, f);
-        match parse_data.tokens[index+1] {
-            Token::PropertyReference(identifier)|Token::PropertyDeclarationTarget(identifier) => {
+        self.assign_value(value, index+1, parse_data).unwrap_or_else(|| {
+            self.report(compile_errors::RightSideOfIncrementOrDecrementMustBeIdentifier { source: self.source(), right: parse_data.token_range(index+1), operator: parse_data.token_range(index) });
+            Error
+        })
+    }
+
+    fn assign_value(&mut self, value: Type, property_index: AstIndex, parse_data: &ParseData) -> Option<Type> {
+        match parse_data.tokens[property_index] {
+            Token::PropertyReference(identifier) => {
+                let is_declared = {
+                    if self.scope.get(identifier).is_some() { true }
+                    else if property_index == 0 { false }
+                    else if let Token::PrefixOperator(COLON) = *parse_data.token(property_index-1) { true }
+                    else { false }
+                };
+                if !is_declared {
+                    self.report(compile_errors::NoSuchProperty { source: self.source(), reference: parse_data.token_range(property_index) });
+                }
                 self.scope.set(identifier, value);
-                Nothing
+                Some(Nothing)
             },
-            // Error already reported. TODO assert this!!!
-            Token::MissingExpression => Error,
-            // TODO if left side is a parenthetical, this will look silly. Fix by including the whole range of the expression.
-            _ => {
-                self.report(compile_errors::RightSideOfIncrementOrDecrementOperandMustBeIdentifier { source: self.source(), right: parse_data.token_range(index+1), operator: parse_data.token_range(index) });
-                Error
-            },
+            Token::MissingExpression => Some(Error),
+            _ => None
         }
     }
 
