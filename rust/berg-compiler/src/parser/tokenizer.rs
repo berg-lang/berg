@@ -170,7 +170,7 @@ impl<'p,'c:'p> Tokenizer<'p,'c> {
         self.emit_token(token, state, buffer, start, scanner)
     }
 
-    // Anything ending with exactly one = is assignment, EXCCEPT
+    // Anything ending with exactly one = is assignment, EXCEPT
     // >=, != and <=.
     fn is_assignment_operator(slice: &[u8]) -> bool {
         if slice[slice.len()-1] != b'=' { return false; }
@@ -182,6 +182,11 @@ impl<'p,'c:'p> Tokenizer<'p,'c> {
     }
 
     fn separator(&mut self, state: TokenizerState, buffer: &ByteSlice, start: ByteIndex, scanner: &mut Scanner) -> TokenizerState {
+        // Read runs of the separator (;; or :: for example)
+        assert!(scanner.index-start == 1);
+        let separator_byte = buffer[start];
+        scanner.next_while_byte(separator_byte, buffer);
+
         let identifier = self.make_identifier(&buffer[start..scanner.index]);
         let left_operand = !state.is_space_or_explicit_operator();
         let right_operand = !scanner.peek_if_space_or_operator(buffer);

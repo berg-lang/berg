@@ -27,6 +27,12 @@ impl Scanner {
         }
     }
 
+    pub(super) fn next_while_byte(&mut self, if_byte: u8, buffer: &ByteSlice) {
+        while self.index < buffer.len() && buffer[self.index] == if_byte {
+            self.index += 1;
+        }
+    }
+
     pub(super) fn next_while_identifier(&mut self, buffer: &ByteSlice) -> bool {
         let mut found = false;
         loop {

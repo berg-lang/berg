@@ -10,6 +10,7 @@ macro_rules! compiler_tests {
         $(
             #[test]
             fn $name() {
+                println!("\nSOURCE\n======\n{:?}\n======\n", $source);
                 let source = compiler_tests!(@source $source);
                 let mut test = CompilerTest::new(source.as_bytes());
                 $( compiler_tests!(@rule test $rule $($arg)*); )+

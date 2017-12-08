@@ -1,6 +1,7 @@
 use ast::token::Fixity;
 use compiler::Compiler;
 use compiler::source_data::{ByteRange,SourceIndex};
+use checker::OperandType;
 use checker::checker_type::Type;
 use std::fmt;
 use std::path::PathBuf;
@@ -11,7 +12,7 @@ compile_errors! {
     pub struct IoOpenError             { pub path: PathBuf, pub io_error_string: String } (102) = format_source("I/O error opening {path:?}: {io_error_string}");
     pub struct IoReadError             { pub range: ByteRange, pub path: PathBuf, pub io_error_string: String } (103) = format_source("I/O error at {range} reading {path:?}: {io_error_string}");
     pub struct IoCurrentDirectoryError { pub path: PathBuf, pub io_error_string: String } (104) = format_source("I/O error getting current directory to determine path of {path:?}: {io_error_string}");
-    pub struct SourceTooLarge          { pub size: usize } (105) = string_source("SourceSpec code too large: source files greater than 4GB are unsupported.");
+    pub struct SourceTooLarge          { pub size: usize } (105) = string_source("Source file too large: source files greater than 4GB are unsupported.");
     pub struct TooManySources          { pub num_sources: usize } (106) = string_generic("Too many source files opened!");
 
     // Compile errors related to format (tokenizer)
@@ -30,8 +31,8 @@ compile_errors! {
     // Compile errors related to type (checker)
     pub struct UnrecognizedOperator    { pub operator: ByteRange, pub fixity: Fixity } (1001) = format(operator, "Unrecognized {fixity} operator {operator}");
     pub struct DivideByZero            { pub divide: ByteRange } (1002) = format(divide, "Division by zero is illegal. Perhaps you meant a different number on the right hand side of the '{divide}'?");
-    pub struct BadTypeLeftOperand      { pub operator: ByteRange, pub left: Type } (1003) = format(operator, "The value on the left side of '{operator}' is not a number! It is {left:?} instead.");
-    pub struct BadTypeRightOperand     { pub operator: ByteRange, pub right: Type } (1004) = format(operator, "The value on the right side of '{operator}' is not a number! It is {right:?} instead.");
+    pub struct BadTypeLeftOperand      { pub operator: ByteRange, pub operand: ByteRange, pub actual_type: Type, pub expected_type: OperandType } (1003) = format(operator, "The value of '{operand}' is {actual_type}, but the left side of '{operator}' must be an {expected_type}!");
+    pub struct BadTypeRightOperand     { pub operator: ByteRange, pub operand: ByteRange, pub actual_type: Type, pub expected_type: OperandType } (1003) = format(operator, "The value of '{operand}' is {actual_type}, but the right side of '{operator}' must be an {expected_type}!");
     pub struct NoSuchProperty          { pub reference: ByteRange } (1005) = format(reference, "No such property: '{reference}'");
     pub struct PropertyNotSet          { pub reference: ByteRange } (1006) = format(reference, "Property '{reference}' was declared, but never set to a value!");
     pub struct IdentifierStartsWithNumber { pub identifier: ByteRange } (1005) = format(identifier, "Properties cannot start with a number: '{identifier}'");

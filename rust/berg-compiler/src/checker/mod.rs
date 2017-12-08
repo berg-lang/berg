@@ -1,31 +1,33 @@
 pub mod checker_type;
 
-use fnv::FnvHashMap;
-use ast::{AstIndex,IdentifierIndex};
-use ast::ast_walker::{AstWalkerMut,AstVisitorMut};
+use compiler::source_data::ByteIndex;
+use std::ops::Range;
+use ast::{IdentifierIndex,LiteralIndex};
+use ast::expression::Expression;
 use ast::identifiers::*;
-use ast::token::{Token,TermToken,InfixToken,Fixity};
-use ast::token::TermToken::*;
-use ast::token::InfixToken::*;
+use ast::token::Token;
+use ast::token::ExpressionBoundary::*;
+use ast::token::Token::*;
+use checker::OperandPosition::*;
 use checker::checker_type::Type;
 use checker::checker_type::Type::*;
 use compiler::Compiler;
 use compiler::source_data::{ParseData,SourceIndex};
-use compiler::compile_errors;
-use compiler::compile_errors::CompileError;
-use num::BigRational;
-use num::Zero;
-use num::One;
+use compiler::compile_errors::*;
+use fnv::FnvHashMap;
+use num::{BigRational,One,Zero};
+use std::fmt;
+use std::fmt::{Formatter,Display};
 use std::str::FromStr;
 
 pub(super) fn check<'ch,'c:'ch>(
-    parse_data: &ParseData,
+    parse_data: &'ch ParseData,
     compiler: &'ch Compiler<'c>,
     source: SourceIndex,
 ) -> Type {
     let scope = Scope::with_keywords();
-    let mut checker = Checker { compiler, source, scope };
-    let value = AstWalkerMut::walk(&mut checker, parse_data);
+    let mut checker = Checker { compiler, source, parse_data, scope };
+    let value = checker.check(Expression::from_source(parse_data));
     if value == Missing { return Nothing; }
     value
 }
@@ -54,351 +56,319 @@ impl Scope {
 struct Checker<'ch,'c:'ch> {
     compiler: &'ch Compiler<'c>,
     source: SourceIndex,
+    parse_data: &'ch ParseData,
     scope: Scope,
 }
 
-impl<'ch,'c:'ch> AstVisitorMut<Type> for Checker<'ch,'c> {
-    fn visit_term(&mut self, token: TermToken, index: AstIndex, parse_data: &ParseData) -> Type {
-        match token {
-            IntegerLiteral(literal) => {
-                let string = parse_data.literal_string(literal);
-                let value = BigRational::from_str(string).unwrap();
-                Rational(value)
-            },
-            PropertyReference(identifier) => {
-                if let Some(value) = self.scope.get(identifier) {
-                    value.clone()
-                // If we're going to be used as an argument to a bare assignment, our value doesn't
-                // matter, so don't get the value.
-                } else if let Some(&Token::InfixAssignment(EMPTY_STRING)) = parse_data.tokens.get(index+1) {
-                    Undefined { reference_source: self.source(), reference_index: index }
-                // If we're part of a declaration, the fact that we're undefined doesn't matter, either.
-                } else if index > 0 && match *parse_data.token(index-1) { Token::PrefixOperator(COLON) => true, _ => false } {
-                    Undefined { reference_source: self.source(), reference_index: index }
-                } else {
-                    self.report(compile_errors::NoSuchProperty { source: self.source(), reference: parse_data.token_range(index) });
-                    Error
-                }
+#[derive(Debug,Copy,Clone,PartialEq)]
+pub enum OperandType {
+    Any,
+    Number,
+    Boolean,
+    Integer,
+}
+
+#[derive(Debug,Copy,Clone,PartialEq)]
+enum OperandPosition {
+    LeftOperand,
+    RightOperand,
+    PrefixOperand,
+    PostfixOperand,
+}
+
+impl Display for OperandType {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        use checker::OperandType::*;
+        let string = match *self {
+            Any => "any",
+            Number => "number",
+            Boolean => "boolean",
+            Integer => "integer",
+        };
+        write!(f, "{}", string)
+    }
+}
+
+impl OperandType {
+    fn matches(self, value: &Type) -> bool {
+        match (self, value) {
+            (OperandType::Any, _) => true,
+            (OperandType::Number,&Rational(_)) => true,
+            (OperandType::Integer,&Rational(ref value)) if value.is_integer() => true,
+            (OperandType::Boolean,&Boolean(_)) => true,
+            (OperandType::Number,_)|(OperandType::Integer,_)|(OperandType::Boolean,_) => false,
+        }
+    }
+}
+
+impl OperandPosition {
+    fn get(self, expression: &Expression, checker: &Checker) -> Expression {
+        match self {
+            LeftOperand|PostfixOperand => expression.left(&checker.parse_data),
+            RightOperand|PrefixOperand => expression.right(&checker.parse_data),
+        }
+    }
+    fn range(self, expression: &Expression, checker: &Checker) -> Range<ByteIndex> {
+        self.get(expression, checker).range(&checker.parse_data)
+    }
+}
+
+impl<'ch,'c:'ch> Checker<'ch,'c> {
+    fn check(&mut self, expression: Expression) -> Type {
+        let token = expression.token(&self.parse_data);
+        println!("check({})", expression.debug_string(&self.parse_data));
+
+        match *token {
+            IntegerLiteral(literal) => self.check_integer_literal(literal),
+            PropertyReference(identifier) => self.check_property_reference(identifier, expression),
+            InfixOperator(identifier) => self.check_infix(identifier, expression),
+            InfixAssignment(identifier) => self.check_assignment(identifier, expression),
+            NewlineSequence => self.check_sequence(expression),
+            PrefixOperator(identifier) => self.check_prefix(identifier, expression),
+            PostfixOperator(identifier) => self.check_postfix(identifier, expression),
+            Open(Parentheses,_) => self.check_parentheses(expression),
+            Open(..) => self.check_open(expression),
+            Close(..) => unreachable!(),
+            MissingInfix => {
+                self.check_operand(&expression, LeftOperand, OperandType::Any);
+                self.check_operand(&expression, RightOperand, OperandType::Any);
+                Error
             },
             SyntaxErrorTerm(_) => Error,
             MissingExpression => Missing,
         }
     }
 
-    fn visit_infix(&mut self, token: InfixToken, mut left: Type, mut right: Type, index: AstIndex, parse_data: &ParseData) -> Type {
-        use ast::identifiers::*;
-        if left == Missing {
-            self.report(compile_errors::MissingLeftOperand { source: self.source(), operator: parse_data.token_range(index) });
-            left = Error;
-        }
-        if right == Missing {
-            if let InfixOperator(SEMICOLON) = token {
-            } else {
-                self.report(compile_errors::MissingRightOperand { source: self.source(), operator: parse_data.token_range(index) });
-                right = Error;
-            }
-        }
-       self.check_infix(token, left, right, index, parse_data)
+    fn check_integer_literal(&self, literal: LiteralIndex) -> Type {
+        let string = self.parse_data.literal_string(literal);
+        let value = BigRational::from_str(string).unwrap();
+        Rational(value)
     }
-    
-    fn visit_prefix(&mut self, prefix: IdentifierIndex, mut operand: Type, index: AstIndex, parse_data: &ParseData) -> Type {
-        use ast::identifiers::*;
-        if operand == Missing {
-            self.report(compile_errors::MissingRightOperand { source: self.source(), operator: parse_data.token_range(index) });
-            operand = Error;
-        }
-        match prefix {
-            COLON => self.check_declaration(operand, index, parse_data),
-            PLUS => self.check_numeric_prefix(operand, index, parse_data, |operand| operand),
-            DASH => self.check_numeric_prefix(operand, index, parse_data, |operand| -operand),
-            NOT => self.check_boolean_prefix(operand, index, parse_data, |operand| !operand),
-            PLUS_PLUS => self.assign_integer_prefix(operand, index, parse_data, |operand| operand+BigRational::one()),
-            DASH_DASH => self.assign_integer_prefix(operand, index, parse_data, |operand| operand-BigRational::one()),
-            _ => self.report(compile_errors::UnrecognizedOperator { source: self.source(), operator: parse_data.token_ranges[index].clone(), fixity: Fixity::Prefix }),
+
+    fn check_property_reference(&self, identifier: IdentifierIndex, expression: Expression) -> Type {
+        if let Some(value) = self.scope.get(identifier) {
+            value.clone()
+        } else {
+            self.no_such_property_error(expression)
         }
     }
 
-    fn visit_postfix(&mut self, postfix: IdentifierIndex, operand: Type, index: AstIndex, parse_data: &ParseData) -> Type {
-        match postfix {
-            PLUS_PLUS => self.assign_integer_postfix(operand, index, parse_data, |operand| operand+BigRational::one()),
-            DASH_DASH => self.assign_integer_postfix(operand, index, parse_data, |operand| operand-BigRational::one()),
-            _ => self.report(compile_errors::UnrecognizedOperator { source: self.source(), operator: parse_data.token_ranges[index].clone(), fixity: Fixity::Postfix }),
+    fn check_sequence(&mut self, expression: Expression) -> Type {
+        self.check_operand(&expression, LeftOperand, OperandType::Any);
+        let right = expression.right(&self.parse_data);
+        let result = self.check(right);
+        if result == Missing {
+            Nothing
+        } else {
+            result
         }
     }
 
-    fn visit_parentheses(&mut self, value: Type, _: AstIndex, _: AstIndex, _: &ParseData) -> Type {
+    fn check_infix(&mut self, identifier: IdentifierIndex, expression: Expression) -> Type {
+        match identifier {
+            PLUS  => self.check_numeric_binary(expression, |left, right| left + right),
+            DASH  => self.check_numeric_binary(expression, |left, right| left - right),
+            STAR  => self.check_numeric_binary(expression, |left, right| left * right),
+            SLASH => self.check_divide(expression),
+            EQUAL_TO      => self.check_equal_to(expression),
+            NOT_EQUAL_TO  => match self.check_equal_to(expression) { Boolean(value) => Boolean(!value), value => value },
+            GREATER_THAN  => self.check_numeric_comparison(expression, |left, right| left > right),
+            LESS_THAN     => self.check_numeric_comparison(expression, |left, right| left < right),
+            GREATER_EQUAL => self.check_numeric_comparison(expression, |left, right| left >= right),
+            LESS_EQUAL    => self.check_numeric_comparison(expression, |left, right| left <= right),
+            AND_AND       => self.check_and(expression),
+            OR_OR         => self.check_or(expression),
+            SEMICOLON     => self.check_sequence(expression),
+            _ => self.unrecognized_operator_error(expression),
+        }
+    }
+
+    fn check_assignment(&mut self, identifier: IdentifierIndex, expression: Expression) -> Type {
+        let value = match identifier {
+            EMPTY_STRING => self.check_operand(&expression, RightOperand, OperandType::Any),
+            _ => self.check_infix(identifier, expression.clone()),
+        };
+        self.assign_value(expression, LeftOperand, value)
+    }
+
+    fn check_prefix(&mut self, identifier: IdentifierIndex, expression: Expression) -> Type {
+        match identifier {
+            COLON => self.check_declaration(expression),
+            PLUS => self.check_numeric_unary(expression, PrefixOperand, |operand| operand),
+            DASH => self.check_numeric_unary(expression, PrefixOperand, |operand| -operand),
+            EXCLAMATION_POINT => self.check_boolean_unary(expression, PrefixOperand, |operand| !operand),
+            PLUS_PLUS => self.assign_integer_unary(expression, PrefixOperand, |operand| operand+BigRational::one()),
+            DASH_DASH => self.assign_integer_unary(expression, PrefixOperand, |operand| operand-BigRational::one()),
+            _ => self.unrecognized_operator_error(expression),
+        }
+    }
+
+    fn check_postfix(&mut self, identifier: IdentifierIndex, expression: Expression) -> Type {
+        match identifier {
+            PLUS_PLUS => self.assign_integer_unary(expression, PostfixOperand, |operand| operand+BigRational::one()),
+            DASH_DASH => self.assign_integer_unary(expression, PostfixOperand, |operand| operand-BigRational::one()),
+            _ => self.unrecognized_operator_error(expression),
+        }
+    }
+
+    fn check_declaration(&mut self, expression: Expression) -> Type {
+        if let Token::PropertyReference(property) = *expression.right(&self.parse_data).token(&self.parse_data) {
+            // TODO nothing and undefined are almost certainly different.
+            self.scope.set(property, Nothing);
+            Nothing
+        } else {
+            self.unrecognized_operator_error(expression)
+        }
+    }
+
+    fn check_parentheses(&mut self, expression: Expression) -> Type {
+        let value = self.check_open(expression);
         if value == Missing {
             Nothing
         } else {
             value
         }
     }
-}
 
-impl<'ch,'c:'ch> Checker<'ch,'c> {
-    fn check_infix(&mut self, token: InfixToken, left: Type, right: Type, index: AstIndex, parse_data: &ParseData) -> Type {
-        match token {
-            InfixOperator(PLUS)  => self.check_numeric_binary(left, right, index, parse_data, |left, right| left + right),
-            InfixOperator(DASH)  => self.check_numeric_binary(left, right, index, parse_data, |left, right| left - right),
-            InfixOperator(STAR)  => self.check_numeric_binary(left, right, index, parse_data, |left, right| left * right),
-            InfixOperator(SLASH) => match self.check_numeric_binary_arguments(left, right, index, parse_data) {
-                Some((_, ref right)) if right.is_zero() => 
-                    self.report(compile_errors::DivideByZero { source: self.source(), divide: parse_data.token_range(index) }),
-                Some((ref left, ref right)) => Rational(left / right),
-                None => Error,
-            },
-            InfixOperator(EQUAL_TO)      => self.check_equal_to(left, right, index, parse_data),
-            InfixOperator(NOT_EQUAL_TO)  => match self.check_equal_to(left, right, index, parse_data) { Boolean(value) => Boolean(!value), value => value },
-            InfixOperator(GREATER_THAN)  => self.check_numeric_comparison(left, right, index, parse_data, |left, right| left > right),
-            InfixOperator(LESS_THAN)     => self.check_numeric_comparison(left, right, index, parse_data, |left, right| left < right),
-            InfixOperator(GREATER_EQUAL) => self.check_numeric_comparison(left, right, index, parse_data, |left, right| left >= right),
-            InfixOperator(LESS_EQUAL)    => self.check_numeric_comparison(left, right, index, parse_data, |left, right| left <= right),
-            InfixOperator(AND_AND)       => self.check_boolean_binary(left, right, index, parse_data, |left, right| left && right),
-            InfixOperator(OR_OR)         => self.check_boolean_binary(left, right, index, parse_data, |left, right| left || right),
-            InfixOperator(SEMICOLON)|NewlineSequence => right,
-            InfixOperator(_) => self.report(compile_errors::UnrecognizedOperator { source: self.source(), operator: parse_data.token_range(index), fixity: Fixity::Infix }),
-            InfixAssignment(EMPTY_STRING) => self.assign(right, index, parse_data),
-            InfixAssignment(identifier)   => self.assign_operation(identifier, left, right, index, parse_data),
-            MissingInfix => Error,
+    fn check_open(&mut self, expression: Expression) -> Type {
+        let inner = expression.inner(&self.parse_data);
+        self.check(inner)
+    }
+
+    fn check_divide(&mut self, expression: Expression) -> Type {
+        let numerator = self.check_operand(&expression, LeftOperand, OperandType::Number);
+        let denominator = self.check_operand(&expression, RightOperand, OperandType::Number);
+        if let Rational(denominator) = denominator {
+            if denominator.is_zero() {
+                self.divide_by_zero_error(expression)
+            } else if let Rational(numerator) = numerator {
+                Rational(numerator / denominator)
+            } else {
+                Error
+            }
+        } else {
+            assert!(numerator == Error || denominator == Error);
+            Error
         }
     }
 
-    fn check_equal_to(&mut self, left: Type, right: Type, index: AstIndex, parse_data: &ParseData) -> Type {
+    fn check_equal_to(&mut self, expression: Expression) -> Type {
+        let left = self.check_operand(&expression, LeftOperand, OperandType::Any);
+        let right = self.check_operand(&expression, RightOperand, OperandType::Any);
         match (left, right) {
             (Rational(left), Rational(right)) => Boolean(left == right),
             (Boolean(left), Boolean(right)) => Boolean(left == right),
-            (Nothing, Nothing)|(Undefined{..},Undefined{..}) => Boolean(true),
-            (Missing,Missing) => {
-                self.report(compile_errors::MissingLeftOperand { source: self.source(), operator: parse_data.token_range(index) });
-                self.report(compile_errors::MissingRightOperand { source: self.source(), operator: parse_data.token_range(index) });
-                Error
-            },
-            (Missing,_) => {
-                self.report(compile_errors::MissingLeftOperand { source: self.source(), operator: parse_data.token_range(index) });
-                Error
-            },
-            (_,Missing) => {
-                self.report(compile_errors::MissingRightOperand { source: self.source(), operator: parse_data.token_range(index) });
-                Error
-            },
+            (Nothing, Nothing) => Boolean(true),
             (Error,_)|(_,Error) => Error,
-            (Rational(_),_)|(Boolean(_),_)|(Nothing,_)|(Undefined{..},_) => Boolean(false),
+            (Missing,_)|(_,Missing) => unreachable!(),
+            (Rational(_),_)|(Boolean(_),_)|(Nothing,_) => Boolean(false),
         }
     }
 
-    fn check_numeric_binary_arguments(&mut self, left: Type, right: Type, index: AstIndex, parse_data: &ParseData) -> Option<(BigRational, BigRational)> {
-        match left {
-            Error|Rational(_) => {},
-            Missing => { self.report(compile_errors::MissingLeftOperand { source: self.source(), operator: parse_data.token_range(index) }); },
-            // TODO this isn't the absolute best place to report against, if it comes from another source--on the other hand, it's an important place to mention
-            // because it is where the undefined value was introduced.
-            Undefined{reference_source,reference_index} => { self.report(compile_errors::PropertyNotSet { source: reference_source, reference: parse_data.token_ranges[reference_index].clone() }); },
-            Nothing|Boolean(_) => { self.report(compile_errors::BadTypeLeftOperand { source: self.source(), operator: parse_data.token_ranges[index].clone(), left: left.clone() }); },
+    fn check_operand(&mut self, expression: &Expression, position: OperandPosition, expected_type: OperandType) -> Type {
+        let operand = position.get(expression, self);
+        let value = self.check(operand.clone());
+        match value {
+            Missing => self.missing_operand_error(expression, position),
+            Error => Error,
+            _ if !expected_type.matches(&value) => self.bad_type_error(expression, position, expected_type, value),
+            _ => value,
         }
-        match right {
-            Error|Rational(_) => {},
-            Missing => { self.report(compile_errors::MissingRightOperand { source: self.source(), operator: parse_data.token_range(index) }); },
-            // TODO this isn't the absolute best place to report against, if it comes from another source--on the other hand, it's an important place to mention
-            // because it is where the undefined value was introduced to the expression.
-            Undefined{reference_source,reference_index} => { self.report(compile_errors::PropertyNotSet { source: reference_source, reference: parse_data.token_ranges[reference_index].clone() }); },
-            Nothing|Boolean(_) => { self.report(compile_errors::BadTypeRightOperand { source: self.source(), operator: parse_data.token_ranges[index].clone(), right: right.clone() }); },
-        }
+    }
+
+    fn check_numeric_binary<F: Fn(BigRational,BigRational)->BigRational>(&mut self, expression: Expression, f: F) -> Type {
+        let left = self.check_operand(&expression, LeftOperand, OperandType::Number);
+        let right = self.check_operand(&expression, RightOperand, OperandType::Number);
         match (left, right) {
-            (Rational(left), Rational(right)) => Some((left, right)),
-            _ => None
+            (Rational(left), Rational(right)) => Rational(f(left, right)),
+            (Error,_)|(_,Error) => Error,
+            _ => unreachable!(),
         }
     }
 
-    fn check_boolean_binary_arguments(&mut self, left: Type, right: Type, index: AstIndex, parse_data: &ParseData) -> Option<(bool, bool)> {
-        match left {
-            Error|Boolean(_) => {},
-            Missing => { self.report(compile_errors::MissingLeftOperand { source: self.source(), operator: parse_data.token_range(index) }); },
-            // TODO this isn't the absolute best place to report against, if it comes from another source--on the other hand, it's an important place to mention
-            // because it is where the undefined value was introduced.
-            Undefined{reference_source,reference_index} => { self.report(compile_errors::PropertyNotSet { source: reference_source, reference: parse_data.token_ranges[reference_index].clone() }); },
-            Nothing|Rational(_) => { self.report(compile_errors::BadTypeLeftOperand { source: self.source(), operator: parse_data.token_ranges[index].clone(), left: left.clone() }); },
-        }
-        match right {
-            Error|Boolean(_) => {},
-            Missing => { self.report(compile_errors::MissingRightOperand { source: self.source(), operator: parse_data.token_range(index) }); },
-            // TODO this isn't the absolute best place to report against, if it comes from another source--on the other hand, it's an important place to mention
-            // because it is where the undefined value was introduced to the expression.
-            Undefined{reference_source,reference_index} => { self.report(compile_errors::PropertyNotSet { source: reference_source, reference: parse_data.token_ranges[reference_index].clone() }); },
-            Nothing|Rational(_) => { self.report(compile_errors::BadTypeRightOperand { source: self.source(), operator: parse_data.token_ranges[index].clone(), right: right.clone() }); },
-        }
+    fn check_numeric_comparison<F: Fn(BigRational,BigRational)->bool>(&mut self, expression: Expression, f: F) -> Type {
+        let left = self.check_operand(&expression, LeftOperand, OperandType::Number);
+        let right = self.check_operand(&expression, RightOperand, OperandType::Number);
         match (left, right) {
-            (Boolean(left), Boolean(right)) => Some((left, right)),
-            _ => None
+            (Rational(left), Rational(right)) => Boolean(f(left, right)),
+            (Error,_)|(_,Error) => Error,
+            _ => unreachable!(),
         }
     }
 
-    fn check_numeric_binary<F: Fn(BigRational,BigRational)->BigRational>(&mut self, left: Type, right: Type, index: AstIndex, parse_data: &ParseData, f: F) -> Type {
-        match self.check_numeric_binary_arguments(left, right, index, parse_data) {
-            Some((left, right)) => Rational(f(left, right)),
-            None => Error,
+    fn check_and(&mut self, expression: Expression) -> Type {
+        let left = self.check_operand(&expression, LeftOperand, OperandType::Boolean);
+        let right = self.check_operand(&expression, RightOperand, OperandType::Boolean);
+        match (left, right) {
+            (Error, _) | (_, Error) => Error,
+            (Boolean(a), Boolean(b)) => Boolean(a && b),
+            _ => unreachable!(),
         }
     }
 
-    fn check_numeric_comparison<F: Fn(BigRational,BigRational)->bool>(&mut self, left: Type, right: Type, index: AstIndex, parse_data: &ParseData, f: F) -> Type {
-        match self.check_numeric_binary_arguments(left, right, index, parse_data) {
-            Some((left, right)) => Boolean(f(left, right)),
-            None => Error,
+    fn check_or(&mut self, expression: Expression) -> Type {
+        let left = self.check_operand(&expression, LeftOperand, OperandType::Boolean);
+        let right = self.check_operand(&expression, RightOperand, OperandType::Boolean);
+        match (left, right) {
+            (Error, _) | (_, Error) => Error,
+            (Boolean(a), Boolean(b)) => Boolean(a || b),
+            _ => unreachable!(),
         }
     }
 
-    fn check_boolean_binary<F: Fn(bool,bool)->bool>(&mut self, left: Type, right: Type, index: AstIndex, parse_data: &ParseData, f: F) -> Type {
-        match self.check_boolean_binary_arguments(left, right, index, parse_data) {
-            Some((left, right)) => Boolean(f(left, right)),
-            None => Error,
-        }
-    }
-
-    fn check_numeric_prefix_argument(&mut self, operand: Type, index: AstIndex, parse_data: &ParseData) -> Option<BigRational> {
+    fn check_numeric_unary<F: Fn(BigRational)->BigRational>(&mut self, expression: Expression, position: OperandPosition, f: F) -> Type {
+        let operand = self.check_operand(&expression, position, OperandType::Number);
         match operand {
-            Rational(operand) => Some(operand),
-            Error => None,
-            // TODO this isn't the absolute best place to report against, if it comes from another source--on the other hand, it's an important place to mention
-            // because it is where the undefined value was introduced.
-            Undefined{reference_source,reference_index} => { self.report(compile_errors::PropertyNotSet { source: reference_source, reference: parse_data.token_ranges[reference_index].clone() }); None },
-            // TODO bad type should be on the operand itself, not the operation.
-            Boolean(_)|Missing|Nothing => { self.report(compile_errors::BadTypeRightOperand { source: self.source(), operator: parse_data.token_ranges[index].clone(), right: operand }); None },
+            Rational(operand) => Rational(f(operand)),
+            Error => Error,
+            _ => unreachable!(),
         }
     }
 
-    fn check_integer_prefix_argument(&mut self, operand: Type, index: AstIndex, parse_data: &ParseData) -> Option<BigRational> {
+    fn check_integer_unary<F: Fn(BigRational)->BigRational>(&mut self, expression: Expression, position: OperandPosition, f: F) -> Type {
+        let operand = self.check_operand(&expression, position, OperandType::Integer);
         match operand {
-            Rational(operand) => if operand.is_integer() { Some(operand) } else { None },
-            Error => None,
-            // TODO this isn't the absolute best place to report against, if it comes from another source--on the other hand, it's an important place to mention
-            // because it is where the undefined value was introduced.
-            Undefined{reference_source,reference_index} => { self.report(compile_errors::PropertyNotSet { source: reference_source, reference: parse_data.token_ranges[reference_index].clone() }); None },
-            // TODO bad type should be on the operand itself, not the operation.
-            Boolean(_)|Missing|Nothing => { self.report(compile_errors::BadTypeRightOperand { source: self.source(), operator: parse_data.token_ranges[index].clone(), right: operand }); None },
+            Rational(operand) => Rational(f(operand)),
+            Error => Error,
+            _ => unreachable!(),
         }
     }
 
-    fn check_integer_postfix_argument(&mut self, operand: Type, index: AstIndex, parse_data: &ParseData) -> Option<BigRational> {
+    fn check_boolean_unary<F: Fn(bool)->bool>(&mut self, expression: Expression, position: OperandPosition, f: F) -> Type {
+        let operand = self.check_operand(&expression, position, OperandType::Boolean);
         match operand {
-            Rational(operand) => if operand.is_integer() { Some(operand) } else { None },
-            Error => None,
-            // TODO this isn't the absolute best place to report against, if it comes from another source--on the other hand, it's an important place to mention
-            // because it is where the undefined value was introduced.
-            Undefined{reference_source,reference_index} => { self.report(compile_errors::PropertyNotSet { source: reference_source, reference: parse_data.token_ranges[reference_index].clone() }); None },
-            // TODO bad type should be on the operand itself, not the operation.
-            Boolean(_)|Missing|Nothing => { self.report(compile_errors::BadTypeLeftOperand { source: self.source(), operator: parse_data.token_ranges[index].clone(), left: operand }); None },
+            Boolean(operand) => Boolean(f(operand)),
+            Error => Error,
+            _ => unreachable!(),
         }
     }
 
-    fn check_boolean_prefix_argument(&mut self, operand: Type, index: AstIndex, parse_data: &ParseData) -> Option<bool> {
-        match operand {
-            Boolean(operand) => Some(operand),
-            Error => None,
-            // TODO this isn't the absolute best place to report against, if it comes from another source--on the other hand, it's an important place to mention
-            // because it is where the undefined value was introduced.
-            Undefined{reference_source,reference_index} => { self.report(compile_errors::PropertyNotSet { source: reference_source, reference: parse_data.token_ranges[reference_index].clone() }); None },
-            // TODO bad type should be on the operand itself, not the operation.
-            Rational(_)|Missing|Nothing => { self.report(compile_errors::BadTypeRightOperand { source: self.source(), operator: parse_data.token_ranges[index].clone(), right: operand }); None },
-        }
+    fn assign_integer_unary<F: Fn(BigRational)->BigRational>(&mut self, expression: Expression, position: OperandPosition, f: F) -> Type {
+        let value = self.check_integer_unary(expression.clone(), position, f);
+        self.assign_value(expression, position, value)
     }
 
-    fn check_numeric_prefix<F: Fn(BigRational)->BigRational>(&mut self, operand: Type, index: AstIndex, parse_data: &ParseData, f: F) -> Type {
-        match self.check_numeric_prefix_argument(operand, index, parse_data) {
-            Some(operand) => Rational(f(operand)),
-            None => Error,
-        }
-    }
-
-    fn check_integer_prefix<F: Fn(BigRational)->BigRational>(&mut self, operand: Type, index: AstIndex, parse_data: &ParseData, f: F) -> Type {
-        match self.check_integer_prefix_argument(operand, index, parse_data) {
-            Some(operand) => Rational(f(operand)),
-            None => Error,
-        }
-    }
-
-    fn check_boolean_prefix<F: Fn(bool)->bool>(&mut self, operand: Type, index: AstIndex, parse_data: &ParseData, f: F) -> Type {
-        match self.check_boolean_prefix_argument(operand, index, parse_data) {
-            Some(operand) => Boolean(f(operand)),
-            None => Error,
-        }
-    }
-
-    fn check_integer_postfix<F: Fn(BigRational)->BigRational>(&mut self, operand: Type, index: AstIndex, parse_data: &ParseData, f: F) -> Type {
-        match self.check_integer_postfix_argument(operand, index, parse_data) {
-            Some(operand) => Rational(f(operand)),
-            None => Error,
-        }
-    }
-
-    fn check_declaration(&mut self, value: Type, index: AstIndex, parse_data: &ParseData) -> Type {
-        if let Token::PropertyReference(property) = *parse_data.token(index+1) {
-            if index > 0 {
-                match *parse_data.token(index-1) {
-                    Token::PrefixOperator(PLUS_PLUS) |
-                    Token::PrefixOperator(DASH_DASH) => return value,
-                    Token::PrefixOperator(_) => { self.scope.set(property, value.clone()); return value; }
-                    _ => {},
+    fn assign_value(&mut self, expression: Expression, target_position: OperandPosition, value: Type) -> Type {
+        let target = target_position.get(&expression, self);
+        match *target.token(&self.parse_data) {
+            PrefixOperator(COLON) => {
+                let token = target.right(&self.parse_data).token(&self.parse_data);
+                if let PropertyReference(identifier) = *token {
+                    self.scope.set(identifier, value);
+                    Nothing
+                } else {
+                    self.invalid_target_error(&expression, target_position)
                 }
-            }
-            // If this is an assignment operator, :a = b, we don't initialize.
-            match parse_data.tokens.get(index+2) {
-                Some(&Token::InfixAssignment(_)) |
-                Some(&Token::PostfixOperator(PLUS_PLUS)) |
-                Some(&Token::PostfixOperator(DASH_DASH)) => return value,
-                _ => { self.scope.set(property, value.clone()); return value; }
-            }
-            
-        } else {
-            self.report(compile_errors::UnrecognizedOperator { source: self.source(), operator: parse_data.token_ranges[index].clone(), fixity: Fixity::Prefix });
-            Error
-        }
-    }
-
-    fn assign(&mut self, right: Type, index: AstIndex, parse_data: &ParseData) -> Type {
-        let value = right;
-        self.assign_value(value, index-1, parse_data).unwrap_or_else(|| {
-            self.report(compile_errors::LeftSideOfAssignmentMustBeIdentifier { source: self.source(), left: parse_data.token_range(index-1), operator: parse_data.token_range(index) });
-            Error
-        })
-    }
-
-    fn assign_operation(&mut self, operation: IdentifierIndex, left: Type, right: Type, index: AstIndex, parse_data: &ParseData) -> Type {
-        let value = self.check_infix(InfixOperator(operation), left, right, index, parse_data);
-        self.assign(value, index, parse_data)
-    }
-
-    fn assign_integer_postfix<F: Fn(BigRational)->BigRational>(&mut self, operand: Type, index: AstIndex, parse_data: &ParseData, f: F) -> Type {
-        let value = self.check_integer_postfix(operand, index, parse_data, f);
-        self.assign_value(value, index-1, parse_data).unwrap_or_else(|| {
-            self.report(compile_errors::LeftSideOfIncrementOrDecrementMustBeIdentifier { source: self.source(), left: parse_data.token_range(index-1), operator: parse_data.token_range(index) });
-            Error
-        })
-    }
-
-    fn assign_integer_prefix<F: Fn(BigRational)->BigRational>(&mut self, operand: Type, index: AstIndex, parse_data: &ParseData, f: F) -> Type {
-        let value = self.check_integer_prefix(operand, index, parse_data, f);
-        self.assign_value(value, index+1, parse_data).unwrap_or_else(|| {
-            self.report(compile_errors::RightSideOfIncrementOrDecrementMustBeIdentifier { source: self.source(), right: parse_data.token_range(index+1), operator: parse_data.token_range(index) });
-            Error
-        })
-    }
-
-    fn assign_value(&mut self, value: Type, property_index: AstIndex, parse_data: &ParseData) -> Option<Type> {
-        match parse_data.tokens[property_index] {
-            Token::PropertyReference(identifier) => {
-                let is_declared = {
-                    if self.scope.get(identifier).is_some() { true }
-                    else if property_index == 0 { false }
-                    else if let Token::PrefixOperator(COLON) = *parse_data.token(property_index-1) { true }
-                    else { false }
-                };
-                if !is_declared {
-                    self.report(compile_errors::NoSuchProperty { source: self.source(), reference: parse_data.token_range(property_index) });
+            },
+            PropertyReference(identifier) => {
+                if self.scope.get(identifier).is_none() {
+                    self.no_such_property_error(target);
                 }
                 self.scope.set(identifier, value);
-                Some(Nothing)
+                Nothing
             },
-            Token::MissingExpression => Some(Error),
-            _ => None
+            Token::MissingExpression => self.missing_operand_error(&expression, target_position),
+            _ => self.invalid_target_error(&expression, target_position),
         }
     }
 
@@ -407,7 +377,55 @@ impl<'ch,'c:'ch> Checker<'ch,'c> {
         Error
     }
 
-    fn source(&self) -> SourceIndex {
-        self.source
+    fn divide_by_zero_error(&self, expression: Expression) -> Type {
+        self.report(DivideByZero { source: self.source, divide: self.parse_data.token_range(expression.operator()) })
+    }
+
+    fn unrecognized_operator_error(&mut self, expression: Expression) -> Type {
+        let token = expression.token(self.parse_data);
+        if token.has_left_operand() {
+            self.check(expression.left(self.parse_data));
+        }
+        if token.has_right_operand() {
+            self.check(expression.right(self.parse_data));
+        }
+        let operator = expression.operator_range(self.parse_data);
+        let fixity = token.fixity();
+        self.report(UnrecognizedOperator { source: self.source, operator, fixity })
+    }
+
+    fn no_such_property_error(&self, operand: Expression) -> Type {
+        self.report(NoSuchProperty { source: self.source, reference: operand.range(self.parse_data) })
+    }
+
+    fn invalid_target_error(&self, expression: &Expression, position: OperandPosition) -> Type {
+        let source = self.source;
+        let target = position.range(&expression, self);
+        let operator = self.parse_data.token_range(expression.operator());
+        match position {
+            LeftOperand => self.report(LeftSideOfAssignmentMustBeIdentifier { source, operator, left: target }),
+            PrefixOperand => self.report(RightSideOfIncrementOrDecrementMustBeIdentifier { source, operator, right: target }),
+            PostfixOperand => self.report(LeftSideOfIncrementOrDecrementMustBeIdentifier { source, operator, left: target }),
+            RightOperand => unreachable!(),
+        }
+    }
+
+    fn missing_operand_error(&self, expression: &Expression, position: OperandPosition) -> Type {
+        let source = self.source;
+        let operator = self.parse_data.token_range(expression.operator());
+        match position {
+            LeftOperand|PostfixOperand => self.report(MissingLeftOperand { source, operator }),
+            RightOperand|PrefixOperand => self.report(MissingRightOperand { source, operator }),
+        }
+    }
+
+    fn bad_type_error(&self, expression: &Expression, position: OperandPosition, expected_type: OperandType, actual_type: Type) -> Type {
+        let source = self.source;
+        let operand = position.range(&expression, self);
+        let operator = self.parse_data.token_range(expression.operator());
+        match position {
+            LeftOperand|PostfixOperand => self.report(BadTypeLeftOperand { source, operator, operand, expected_type, actual_type }),
+            RightOperand|PrefixOperand => self.report(BadTypeRightOperand { source, operator, operand, expected_type, actual_type }),
+        }
     }
 }

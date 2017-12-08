@@ -84,9 +84,6 @@ impl<'s> SourceData<'s> {
 }
 
 impl ParseData {
-    pub(crate) fn num_tokens(&self) -> AstIndex {
-        self.tokens.len()
-    }
     pub(crate) fn char_data(&self) -> &CharData {
         &self.char_data
     }
@@ -112,8 +109,7 @@ impl ParseData {
         }
     }
     pub(crate) fn token_range(&self, token: AstIndex) -> ByteRange {
-        let range = &self.token_ranges[token];
-        Range { start: range.start, end: range.end }
+        self.token_ranges[token].clone()
     }
     pub(crate) fn identifier_string(&self, index: IdentifierIndex) -> &str {
         &self.identifiers[index]

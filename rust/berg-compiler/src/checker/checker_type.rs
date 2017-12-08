@@ -1,5 +1,5 @@
-use compiler::source_data::SourceIndex;
-use ast::AstIndex;
+use std::fmt;
+use std::fmt::{Display,Formatter};
 use num::BigRational;
 use num::bigint::BigInt;
 
@@ -9,8 +9,20 @@ pub enum Type {
     Boolean(bool),
     Error,
     Missing,
-    Undefined { reference_source: SourceIndex, reference_index: AstIndex },
     Nothing,
+}
+
+impl Display for Type {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        use checker::checker_type::Type::*;
+        match *self {
+            Rational(ref value) => write!(f, "{}", value),
+            Boolean(ref value) => write!(f, "{}", value),
+            Error => write!(f, "{}", "error"),
+            Missing => write!(f, "{}", "missing"),
+            Nothing => write!(f, "{}", "nothing"),
+       }
+    }
 }
 
 impl From<bool> for Type {
