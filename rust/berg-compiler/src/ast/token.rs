@@ -1,5 +1,7 @@
 use ast::{AstDelta,IdentifierIndex,LiteralIndex};
+use ast::identifiers::*;
 use ast::precedence::Precedence;
+use ast::token::ExpressionBoundary::*;
 use ast::token::Token::*;
 use std::fmt;
 
@@ -56,7 +58,8 @@ pub enum ExpressionBoundary {
     PrecedenceGroup,
     CompoundTerm,
     Parentheses,
-    File,
+    CurlyBraces,
+    Source,
 }
 
 #[derive(Debug,Copy,Clone,PartialEq)]
@@ -68,9 +71,8 @@ pub enum Fixity {
 }
 
 impl Token {
-    pub fn fixity(&self) -> Fixity {
-        use ast::token::Token::*;
-        match *self {
+    pub fn fixity(self) -> Fixity {
+        match self {
             IntegerLiteral(_)|PropertyReference(_)|SyntaxErrorTerm(_)|MissingExpression => Fixity::Term,
             InfixOperator(_)|InfixAssignment(_)|NewlineSequence|MissingInfix => Fixity::Infix,
             PrefixOperator(_)|Open(..) => Fixity::Prefix,
@@ -92,6 +94,20 @@ impl ExpressionBoundary {
     }
     pub(crate) fn placeholder_close_token(self) -> Token {
         Close(self, Default::default())
+    }
+    pub(crate) fn open_string(self) -> &'static str {
+        match self {
+            CurlyBraces => identifier_string(OPEN_CURLY),
+            Parentheses => identifier_string(OPEN_PAREN),
+            PrecedenceGroup|CompoundTerm|Source => "",
+        }
+    }
+    pub(crate) fn close_string(self) -> &'static str {
+        match self {
+            CurlyBraces => identifier_string(CLOSE_CURLY),
+            Parentheses => identifier_string(CLOSE_PAREN),
+            PrecedenceGroup|CompoundTerm|Source => "",
+        }
     }
 }
 

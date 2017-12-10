@@ -1,7 +1,7 @@
 use ast::IdentifierIndex;
 use ast::intern_pool::*;
 
-const ALL_OPERATORS: [(IdentifierIndex,&str);23] = [
+pub(crate) const ALL_IDENTIFIERS: [(IdentifierIndex,&str);25] = [
     (EMPTY_STRING,""),
     (STAR,"*"),
     (SLASH,"/"),
@@ -9,6 +9,8 @@ const ALL_OPERATORS: [(IdentifierIndex,&str);23] = [
     (DASH,"-"),
     (OPEN_PAREN,"("),
     (CLOSE_PAREN,")"),
+    (OPEN_CURLY,"{"),
+    (CLOSE_CURLY,"}"),
     (SEMICOLON, ";"),
     (AND_AND,"&&"),
     (OR_OR,"||"),
@@ -26,37 +28,43 @@ const ALL_OPERATORS: [(IdentifierIndex,&str);23] = [
     (TRUE,"true"),
     (FALSE,"false"),
 ];
-pub const EMPTY_STRING: IdentifierIndex = IdentifierIndex(0);
-pub const STAR: IdentifierIndex = IdentifierIndex(1);
-pub const SLASH: IdentifierIndex = IdentifierIndex(2);
-pub const PLUS: IdentifierIndex = IdentifierIndex(3);
-pub const DASH: IdentifierIndex = IdentifierIndex(4);
-pub const OPEN_PAREN: IdentifierIndex = IdentifierIndex(5);
-pub const CLOSE_PAREN: IdentifierIndex = IdentifierIndex(6);
-pub const SEMICOLON: IdentifierIndex = IdentifierIndex(7);
-pub const AND_AND: IdentifierIndex = IdentifierIndex(8);
-pub const OR_OR: IdentifierIndex = IdentifierIndex(9);
-pub const EXCLAMATION_POINT: IdentifierIndex = IdentifierIndex(10);
-pub const DOUBLE_EXCLAMATION_POINT: IdentifierIndex = IdentifierIndex(11);
-pub const EQUAL_TO: IdentifierIndex = IdentifierIndex(12);
-pub const NOT_EQUAL_TO: IdentifierIndex = IdentifierIndex(13);
-pub const GREATER_THAN: IdentifierIndex = IdentifierIndex(14);
-pub const LESS_THAN: IdentifierIndex = IdentifierIndex(15);
-pub const GREATER_EQUAL: IdentifierIndex = IdentifierIndex(16);
-pub const LESS_EQUAL: IdentifierIndex = IdentifierIndex(17);
-pub const PLUS_PLUS: IdentifierIndex = IdentifierIndex(18);
-pub const DASH_DASH: IdentifierIndex = IdentifierIndex(19);
-pub const COLON: IdentifierIndex = IdentifierIndex(20);
-pub const TRUE: IdentifierIndex = IdentifierIndex(21);
-pub const FALSE: IdentifierIndex = IdentifierIndex(22);
+pub(crate) const EMPTY_STRING: IdentifierIndex = IdentifierIndex(0);
+pub(crate) const STAR: IdentifierIndex = IdentifierIndex(1);
+pub(crate) const SLASH: IdentifierIndex = IdentifierIndex(2);
+pub(crate) const PLUS: IdentifierIndex = IdentifierIndex(3);
+pub(crate) const DASH: IdentifierIndex = IdentifierIndex(4);
+pub(crate) const OPEN_PAREN: IdentifierIndex = IdentifierIndex(5);
+pub(crate) const CLOSE_PAREN: IdentifierIndex = IdentifierIndex(6);
+pub(crate) const OPEN_CURLY: IdentifierIndex = IdentifierIndex(7);
+pub(crate) const CLOSE_CURLY: IdentifierIndex = IdentifierIndex(8);
+pub(crate) const SEMICOLON: IdentifierIndex = IdentifierIndex(9);
+pub(crate) const AND_AND: IdentifierIndex = IdentifierIndex(10);
+pub(crate) const OR_OR: IdentifierIndex = IdentifierIndex(11);
+pub(crate) const EXCLAMATION_POINT: IdentifierIndex = IdentifierIndex(12);
+pub(crate) const DOUBLE_EXCLAMATION_POINT: IdentifierIndex = IdentifierIndex(13);
+pub(crate) const EQUAL_TO: IdentifierIndex = IdentifierIndex(14);
+pub(crate) const NOT_EQUAL_TO: IdentifierIndex = IdentifierIndex(15);
+pub(crate) const GREATER_THAN: IdentifierIndex = IdentifierIndex(16);
+pub(crate) const LESS_THAN: IdentifierIndex = IdentifierIndex(17);
+pub(crate) const GREATER_EQUAL: IdentifierIndex = IdentifierIndex(18);
+pub(crate) const LESS_EQUAL: IdentifierIndex = IdentifierIndex(19);
+pub(crate) const PLUS_PLUS: IdentifierIndex = IdentifierIndex(20);
+pub(crate) const DASH_DASH: IdentifierIndex = IdentifierIndex(21);
+pub(crate) const COLON: IdentifierIndex = IdentifierIndex(22);
+pub(crate) const TRUE: IdentifierIndex = IdentifierIndex(23);
+pub(crate) const FALSE: IdentifierIndex = IdentifierIndex(24);
 
 pub(crate) fn intern_all() -> InternPool<IdentifierIndex> {
     let mut identifiers = InternPool::default();
-    for operator in &ALL_OPERATORS {
+    for operator in &ALL_IDENTIFIERS {
         let (operator,string) = *operator;
         let actual_identifier = identifiers.add(string);
         assert_eq!(actual_identifier, operator);
     }
-    assert_eq!(identifiers.len(), ALL_OPERATORS.len());
+    assert_eq!(identifiers.len(), ALL_IDENTIFIERS.len());
     identifiers
+}
+
+pub(crate) fn identifier_string(identifier: IdentifierIndex) -> &'static str {
+    ALL_IDENTIFIERS[identifier.0 as usize].1
 }

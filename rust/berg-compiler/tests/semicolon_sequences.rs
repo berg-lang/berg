@@ -10,15 +10,15 @@ compiler_tests! {
     semicolon_sequence_or_and_ge_plus_mul: "1*2+3>=4&&true||false;false||true&&4>=3+2*1" => type(false),
     semicolon_sequence_or_and_le_plus_mul: "1*2+3<=4&&true||false;false||true&&4<=3+2*1" => type(true),
 
-    left_semicolon: ";1" => errors(UnrecognizedOperator@0) type(error),
-    both_semicolon: ";1;" => errors(UnrecognizedOperator@0) type(nothing),
+    left_semicolon: ";1" => errors(MissingLeftOperand@0) type(1),
+    both_semicolon: ";1;" => errors(MissingLeftOperand@0) type(nothing),
 
-    semicolon_left_space: "1 ;2" => errors(UnrecognizedOperator@2) type(error),
+    semicolon_left_space: "1 ;2" => type(2),
 
-    left_double_semicolon: ";;1" => errors(UnrecognizedOperator@[0-1]) type(error),
-    right_double_semicolon: "1;;" => errors(UnrecognizedOperator@[1-2]) type(error),
-    both_double_semicolon: ";;1;;" => errors(UnrecognizedOperator@[0-1],UnrecognizedOperator@[3-4]) type(error),
-    between_double_semicolon: "1;;2" => errors(UnrecognizedOperator@[1-2]) type(error),
+    left_double_semicolon: ";;1" => errors(MissingLeftOperand@0,MissingLeftOperand@1) type(1),
+    right_double_semicolon: "1;;" => errors(MissingLeftOperand@2) type(nothing),
+    both_double_semicolon: ";;1;;" => errors(MissingLeftOperand@0,MissingLeftOperand@1,MissingLeftOperand@4) type(nothing),
+    between_double_semicolon: "1;;2" => errors(MissingLeftOperand@2) type(2),
 
-    paren_semicolon_all_over: ";(;(;););" => errors(UnrecognizedOperator@0,UnrecognizedOperator@2,MissingLeftOperand@4) type(nothing),
+    paren_semicolon_all_over: ";(;(;););" => errors(MissingLeftOperand@0,MissingLeftOperand@2,MissingLeftOperand@4) type(nothing),
 }

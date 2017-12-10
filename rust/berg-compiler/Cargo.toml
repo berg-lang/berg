@@ -9,4 +9,4 @@ fnv = "1"
 clippy = {version = "*", optional = true}
 
 [features]
-default = []
+default = ["clippy"]

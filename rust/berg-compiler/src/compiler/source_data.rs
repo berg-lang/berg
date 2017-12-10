@@ -104,8 +104,10 @@ impl ParseData {
 
             NewlineSequence => "\\n",
             Close(Parentheses,_) => self.identifier_string(CLOSE_PAREN),
+            Close(CurlyBraces,_) => self.identifier_string(CLOSE_CURLY),
             Open(Parentheses,_) => self.identifier_string(OPEN_PAREN),
-            Open(CompoundTerm,_)|Close(CompoundTerm,_)|Open(PrecedenceGroup,_)|Close(PrecedenceGroup,_)|Open(File,_)|Close(File,_)|MissingExpression|MissingInfix => "",
+            Open(CurlyBraces,_) => self.identifier_string(OPEN_CURLY),
+            Open(CompoundTerm,_)|Close(CompoundTerm,_)|Open(PrecedenceGroup,_)|Close(PrecedenceGroup,_)|Open(Source,_)|Close(Source,_)|MissingExpression|MissingInfix => "",
         }
     }
     pub(crate) fn token_range(&self, token: AstIndex) -> ByteRange {

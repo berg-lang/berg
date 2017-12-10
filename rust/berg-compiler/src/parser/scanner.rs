@@ -3,19 +3,28 @@ use compiler::source_data::{ByteSlice,ByteIndex};
 use parser::scanner::ByteType::*;
 use parser::scanner::CharType::*;
 
-#[derive(Default)]
+#[derive(Default,Clone)]
 pub(super) struct Scanner {
     pub(super) index: ByteIndex,
 }
 
 impl Scanner {
-    pub(super) fn next(&mut self, buffer: &ByteSlice) -> Option<CharType> {
-        if let Some((char_type, char_length)) = CharType::read(buffer, self.index) {
-            self.index += char_length;
-            Some(char_type)
+    pub(super) fn next(&mut self, buffer: &ByteSlice) -> CharType {
+        let (char_type, char_length) = CharType::read(buffer, self.index);
+        if char_length == 0 {
+            assert!(char_type == Eof);
         } else {
-            None
+            self.advance(char_length);
         }
+        char_type
+    }
+
+    pub(super) fn peek(&self, buffer: &ByteSlice) -> CharType {
+        CharType::peek(buffer, self.index)
+    }
+
+    pub(super) fn peek_at<At: Into<Delta<ByteIndex>>>(&self, buffer: &ByteSlice, delta: At) -> CharType {
+        CharType::peek(buffer, self.index+delta.into())
     }
 
     pub(super) fn next_while(&mut self, if_type: CharType, buffer: &ByteSlice) -> bool {
@@ -27,56 +36,33 @@ impl Scanner {
         }
     }
 
-    pub(super) fn next_while_byte(&mut self, if_byte: u8, buffer: &ByteSlice) {
-        while self.index < buffer.len() && buffer[self.index] == if_byte {
-            self.index += 1;
-        }
-    }
-
     pub(super) fn next_while_identifier(&mut self, buffer: &ByteSlice) -> bool {
         let mut found = false;
         loop {
-            match CharType::read(buffer, self.index) {
-                Some((Identifier,char_length))|Some((Digit,char_length)) => {
-                    self.index += char_length;
-                    found = true;
-                },
-                _ => break,
+            let (char_type, char_length) = CharType::read(buffer, self.index);
+            if char_type.is_identifier_middle() {
+                self.advance(char_length);
+                found = true;
+            } else {
+                break;
             }
         }
         found
     }
 
     pub(super) fn next_if(&mut self, if_type: CharType, buffer: &ByteSlice) -> bool {
-        if let Some((char_type, char_length)) = CharType::read(buffer, self.index) {
-            if char_type == if_type {
-                self.index += char_length;
-                return true;
-            }
-        }
-        false
-    }
-
-    pub(super) fn peek_if_space(&self, buffer: &ByteSlice) -> bool {
-        if let Some(char_type) = CharType::peek(buffer, self.index) {
-            match char_type {
-                Space|Newline|Unsupported|InvalidUtf8 => true,
-                Open|Close|Operator|Separator|Digit|Identifier => false,
-            }
-        } else {
+        let (char_type, char_length) = CharType::read(buffer, self.index);
+        if char_type == if_type {
+            self.advance(char_length);
             true
+        } else {
+            false
         }
     }
 
-    pub(super) fn peek_if_space_or_operator(&self, buffer: &ByteSlice) -> bool {
-        if let Some(char_type) = CharType::peek(buffer, self.index) {
-            match char_type {
-                Close|Operator|Separator|Space|Newline|Unsupported|InvalidUtf8 => true,
-                Open|Digit|Identifier => false,
-            }
-        } else {
-            true
-        }
+    fn advance(&mut self, char_length: Delta<ByteIndex>) {
+        assert!(char_length > 0);
+        self.index += char_length;
     }
 }
 
@@ -85,13 +71,17 @@ pub(super) enum CharType {
     Digit,
     Identifier,
     Operator,
-    Open,
-    Close,
+    OpenParen,
+    CloseParen,
+    OpenCurly,
+    CloseCurly,
     Separator,
+    Colon,
     Space,
     Newline,
     Unsupported,
     InvalidUtf8,
+    Eof,
 }
 
 #[derive(Debug,Copy,Clone,PartialEq)]
@@ -102,56 +92,110 @@ enum ByteType {
 }
 
 impl CharType {
-    fn read(buffer: &ByteSlice, index: ByteIndex) -> Option<(CharType,Delta<ByteIndex>)> {
-        if index >= buffer.len() {
-            return None;
-        }
-        match ByteType::from_byte(buffer[index]) {
-            ByteType::Char(char_type) => Some((char_type,1.into())),
-            ByteType::CarriageReturn => {
-                let char_length = if let Some(&b'\n') = buffer.get(index+1) { 2 } else { 1 };
-                Some((CharType::Newline, char_length.into()))
-            },
-            ByteType::Utf8LeadingByte(char_length) => {
-                if Self::is_valid_utf8_char(buffer, index, char_length) {
-                    Some((Unsupported, char_length))
-                } else {
-                    Some((InvalidUtf8, 1.into()))
-                }
-            },
-        }
-    }
-
-    fn peek(buffer: &ByteSlice, index: ByteIndex) -> Option<CharType> {
-        if let Some((char_type, _)) = Self::read(buffer, index) {
-            Some(char_type)
+    fn read(buffer: &ByteSlice, index: ByteIndex) -> (CharType,Delta<ByteIndex>) {
+        if let Some(byte_type) = ByteType::peek(buffer, index) {
+            match byte_type {
+                Char(char_type) => (char_type,1.into()),
+                CarriageReturn => {
+                    let char_length = if let Some(&b'\n') = buffer.get(index+1) { 2 } else { 1 };
+                    (Newline, char_length.into())
+                },
+                ByteType::Utf8LeadingByte(char_length) => {
+                    if Self::is_valid_utf8_char(buffer, index, char_length) {
+                        (Unsupported, char_length)
+                    } else {
+                        (InvalidUtf8, 1.into())
+                    }
+                },
+            }
         } else {
-            None
+            (Eof,0.into())
         }
     }
 
-   fn is_valid_utf8_char(buffer: &ByteSlice, index: ByteIndex, char_length: Delta<ByteIndex>) -> bool {
-       if index + char_length > buffer.len() {
-           return false;
-       }
-       match char_length {
-           Delta(ByteIndex(2)) => ByteType::is_utf8_cont(buffer[index+1]),
-           Delta(ByteIndex(3)) => ByteType::is_utf8_cont(buffer[index+1]) && ByteType::is_utf8_cont(buffer[index+2]),
-           Delta(ByteIndex(4)) => ByteType::is_utf8_cont(buffer[index+1]) && ByteType::is_utf8_cont(buffer[index+2]) && ByteType::is_utf8_cont(buffer[index+3]),
-           _ => unreachable!()
-       }
-   }
+    fn peek(buffer: &ByteSlice, index: ByteIndex) -> CharType {
+        CharType::read(buffer, index).0
+    }
+
+    fn is_valid_utf8_char(buffer: &ByteSlice, index: ByteIndex, char_length: Delta<ByteIndex>) -> bool {
+        if index + char_length > buffer.len() {
+            return false;
+        }
+        match char_length {
+            Delta(ByteIndex(2)) => ByteType::is_utf8_cont(buffer[index+1]),
+            Delta(ByteIndex(3)) => ByteType::is_utf8_cont(buffer[index+1]) && ByteType::is_utf8_cont(buffer[index+2]),
+            Delta(ByteIndex(4)) => ByteType::is_utf8_cont(buffer[index+1]) && ByteType::is_utf8_cont(buffer[index+2]) && ByteType::is_utf8_cont(buffer[index+3]),
+            _ => unreachable!()
+        }
+    }
+
+    pub(crate) fn is_identifier_middle(self) -> bool {
+        match self {
+            Identifier|Digit => true,
+            _ => false,
+        }
+    }
+
+    pub(crate) fn is_space(self) -> bool {
+        match self {
+            Space|Newline|Unsupported|InvalidUtf8|Eof => true,
+            _ => false,
+        }
+    }
+
+    pub(crate) fn is_close(self) -> bool {
+        match self {
+            CloseParen|CloseCurly => true,
+            _ => false,
+        }
+    }
+
+    pub(crate) fn is_open(self) -> bool {
+        match self {
+            OpenParen|OpenCurly => true,
+            _ => false,
+        }
+    }
+
+    pub(crate) fn is_separator(self) -> bool {
+        match self {
+            Separator => true,
+            _ => false,
+        }
+    }
+
+    pub(crate) fn is_always_operand(self) -> bool {
+        match self {
+            Digit|Identifier => true,
+            _ => false,
+        }
+    }
+
+    pub(crate) fn is_right_term_operand(self) -> bool {
+        self.is_always_operand() || self.is_open()
+    }
 }
 
 impl ByteType {
+    fn peek(buffer: &ByteSlice, index: ByteIndex) -> Option<ByteType> {
+        if index >= buffer.len() {
+            None
+        } else {
+            Some(ByteType::from_byte(buffer[index]))
+        }
+    }
+
     fn from_byte(byte: u8) -> ByteType {
         match byte {
             b'+'|b'-'|b'*'|b'/'|b'='|b'>'|b'<'|b'&'|b'|'|b'!' => Char(Operator),
             b'0'...b'9' => Char(Digit),
             b'a'...b'z'|b'A'...b'Z'|b'_' => Char(Identifier),
-            b'(' => Char(Open),
-            b')' => Char(Close),
-            b';'|b':' => Char(Separator),
+            b'(' => Char(OpenParen),
+            b'{' => Char(OpenCurly),
+            b')' => Char(CloseParen),
+            b'}' => Char(CloseCurly),
+            b';' => Char(Separator),
+            b':' => Char(Colon),
             b' '|b'\t' => Char(Space),
             b'\n' => Char(Newline),
             b'\r' => ByteType::CarriageReturn,

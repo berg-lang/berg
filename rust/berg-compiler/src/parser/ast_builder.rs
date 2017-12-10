@@ -18,9 +18,9 @@ pub(super) struct AstBuilder<'p,'c:'p> {
 
 #[derive(Debug)]
 struct OpenExpression {
+    infix: Option<(InfixToken,AstIndex)>,
     open_index: AstIndex,
     boundary: ExpressionBoundary,
-    infix: Option<(InfixToken,AstIndex)>,
 }
 
 impl<'p,'c:'p> AstBuilder<'p,'c> {
@@ -112,29 +112,30 @@ impl<'p,'c:'p> AstBuilder<'p,'c> {
                 Greater => {
                     // Close and continue. Report "open without close" if parentheses get closed early
                     match open_boundary {
-                        Parentheses => {
+                        Parentheses|CurlyBraces => {
                             let source = self.source;
                             let open_range = self.token_ranges[self.open_expression().open_index].clone();
-                            let close = String::from(")");
+                            let close = open_boundary.close_string().to_string();
                             self.compiler.report(compile_errors::OpenWithoutClose { source, open_range, close });
                         },
-                        CompoundTerm|PrecedenceGroup|File => {},
+                        CompoundTerm|PrecedenceGroup|Source => {},
                     }
                     self.close(range.start..range.start);
                 },
                 Equal => {
                     self.close(range);
+
                     break;
                 },
                 Less => {
                     match boundary {
-                        Parentheses => {
+                        Parentheses|CurlyBraces => {
                             let source = self.source;
                             let close_range = range.clone();
-                            let open = String::from("(");
+                            let open = boundary.open_string().to_string();
                             self.compiler.report(compile_errors::CloseWithoutOpen { source, close_range, open });
                         },
-                        CompoundTerm|PrecedenceGroup|File => {},
+                        CompoundTerm|PrecedenceGroup|Source => {},
                     }
                     break;
                 }
@@ -143,39 +144,27 @@ impl<'p,'c:'p> AstBuilder<'p,'c> {
     }
 
     fn close(&mut self, range: ByteRange) {
-        match self.open_expression().boundary {
-            File => self.actually_close(range),
-            PrecedenceGroup => {
-                // PrecedenceGroups are already known to be necessary by virtue of how we insert them.
-                self.actually_close(range);
-            },
-            Parentheses|CompoundTerm => {
-                // If we have an infix and there is a previous (parent) infix, the parentheses
-                // are necessary so we can be its right child.
-                // Otherwise, they are redundant (infix is processed left to right always).
-                if self.open_expression().infix.is_some() && self.parent_expression().infix.is_some() {
-                    self.actually_close(range);
-                } else {
-                    self.close_unnecessary(range);
-                }
-            },
+        if self.open_expression().boundary == CompoundTerm
+           && !(self.open_expression().infix.is_some() && self.parent_expression().infix.is_some()) {
+            // Unnecessary CompoundTerms, we silently remove.
+            // TODO report error on unnecessary parentheses like (a+b)+c? Would let user know the
+            // grouping is fine as-is, and we have few enough precedences that parens aren't needed for clarity generally.
+            self.open_expressions.pop();
+            return;
         }
-    }
 
-    fn actually_close(&mut self, range: ByteRange) {
         let expression = self.open_expressions.pop().unwrap();
         match expression.boundary {
-            File => {}, // Popping the expression is enough.
-            CompoundTerm|PrecedenceGroup => {
+            Source|CompoundTerm|PrecedenceGroup => {
                 let start = self.token_ranges[expression.open_index].start;
                 let close_index = self.next_index()+1; // Have to add 1 due to the impending insert.
                 let delta = close_index-expression.open_index;
                 self.insert(expression.open_index, Open(expression.boundary, delta), start..start);
                 self.push(Close(expression.boundary, delta), range);
             },
-            Parentheses => {
+            Parentheses|CurlyBraces => {
                 let mut delta = self.next_index()-expression.open_index;
-                // If we're fixing a missing open/close parentheses, we may be creating *empty* parens, which
+                // If we're fixing a missing open/close { or (, we may be creating an *empty* one, which
                 // require a MissingExpression between them.
                 if delta == 1 { self.push(MissingExpression, range.start..range.start); delta = Delta(AstIndex(2)); }
                 if let Open(boundary, ref mut open_delta) = self.tokens[expression.open_index] {
@@ -189,27 +178,14 @@ impl<'p,'c:'p> AstBuilder<'p,'c> {
         }
     }
 
-    fn close_unnecessary(&mut self, range: ByteRange) {
-        if self.open_expression().boundary == Parentheses {
-            self.report_unnecessary_parentheses(&range);
-            self.actually_close(range);
-        } else {
-            self.open_expressions.pop();
-        }
-    }
-
-    fn report_unnecessary_parentheses(&mut self, _range: &ByteRange) {
-        // TODO this is where you would warn!
-    }
-
     fn on_open(&mut self, boundary: ExpressionBoundary, open_range: ByteRange) {
         let open_index = self.next_index();
         self.open_expressions.push(OpenExpression { open_index, boundary, infix: None });
         match boundary {
-            Parentheses => { self.push(boundary.placeholder_open_token(), open_range); },
+            Parentheses|CurlyBraces => { self.push(boundary.placeholder_open_token(), open_range); },
             // CompoundTerm and PrecedenceGroup typically don't end up in the AST, so we don't insert
             // them until we discover we have to.
-            CompoundTerm|PrecedenceGroup|File => {}
+            CompoundTerm|PrecedenceGroup|Source => {}
         };
     }
 

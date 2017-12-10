@@ -5,7 +5,7 @@ use std::ops::Range;
 use ast::{IdentifierIndex,LiteralIndex};
 use ast::expression::Expression;
 use ast::identifiers::*;
-use ast::token::Token;
+use ast::token::{ExpressionBoundary,Token};
 use ast::token::ExpressionBoundary::*;
 use ast::token::Token::*;
 use checker::OperandPosition::*;
@@ -25,11 +25,10 @@ pub(super) fn check<'ch,'c:'ch>(
     compiler: &'ch Compiler<'c>,
     source: SourceIndex,
 ) -> Type {
-    let scope = Scope::with_keywords();
-    let mut checker = Checker { compiler, source, parse_data, scope };
-    let value = checker.check(Expression::from_source(parse_data));
-    if value == Missing { return Nothing; }
-    value
+    let scopes = vec![Scope::with_keywords()];
+    let mut checker = Checker { compiler, source, parse_data, scopes };
+    let root = Expression::from_source(parse_data);
+    checker.check(&root)
 }
 
 #[derive(Debug)]
@@ -44,6 +43,9 @@ impl Scope {
         scope.set(FALSE, Boolean(false));
         scope
     }
+    fn empty() -> Self {
+        Scope { properties: Default::default() }
+    }
     fn get(&self, name: IdentifierIndex) -> Option<&Type> {
         self.properties.get(&name)
     }
@@ -57,7 +59,7 @@ struct Checker<'ch,'c:'ch> {
     compiler: &'ch Compiler<'c>,
     source: SourceIndex,
     parse_data: &'ch ParseData,
-    scope: Scope,
+    scopes: Vec<Scope>,
 }
 
 #[derive(Debug,Copy,Clone,PartialEq)]
@@ -70,8 +72,8 @@ pub enum OperandType {
 
 #[derive(Debug,Copy,Clone,PartialEq)]
 enum OperandPosition {
-    LeftOperand,
-    RightOperand,
+    Left,
+    Right,
     PrefixOperand,
     PostfixOperand,
 }
@@ -92,10 +94,8 @@ impl Display for OperandType {
 impl OperandType {
     fn matches(self, value: &Type) -> bool {
         match (self, value) {
-            (OperandType::Any, _) => true,
-            (OperandType::Number,&Rational(_)) => true,
+            (OperandType::Any, _)|(OperandType::Number,&Rational(_))|(OperandType::Boolean,&Boolean(_)) => true,
             (OperandType::Integer,&Rational(ref value)) if value.is_integer() => true,
-            (OperandType::Boolean,&Boolean(_)) => true,
             (OperandType::Number,_)|(OperandType::Integer,_)|(OperandType::Boolean,_) => false,
         }
     }
@@ -104,19 +104,19 @@ impl OperandType {
 impl OperandPosition {
     fn get(self, expression: &Expression, checker: &Checker) -> Expression {
         match self {
-            LeftOperand|PostfixOperand => expression.left(&checker.parse_data),
-            RightOperand|PrefixOperand => expression.right(&checker.parse_data),
+            Left|PostfixOperand => expression.left(checker.parse_data),
+            Right|PrefixOperand => expression.right(checker.parse_data),
         }
     }
     fn range(self, expression: &Expression, checker: &Checker) -> Range<ByteIndex> {
-        self.get(expression, checker).range(&checker.parse_data)
+        self.get(expression, checker).range(checker.parse_data)
     }
 }
 
 impl<'ch,'c:'ch> Checker<'ch,'c> {
-    fn check(&mut self, expression: Expression) -> Type {
-        let token = expression.token(&self.parse_data);
-        println!("check({})", expression.debug_string(&self.parse_data));
+    fn check(&mut self, expression: &Expression) -> Type {
+        let token = expression.token(self.parse_data);
+        println!("check({})", expression.debug_string(self.parse_data));
 
         match *token {
             IntegerLiteral(literal) => self.check_integer_literal(literal),
@@ -126,12 +126,11 @@ impl<'ch,'c:'ch> Checker<'ch,'c> {
             NewlineSequence => self.check_sequence(expression),
             PrefixOperator(identifier) => self.check_prefix(identifier, expression),
             PostfixOperator(identifier) => self.check_postfix(identifier, expression),
-            Open(Parentheses,_) => self.check_parentheses(expression),
-            Open(..) => self.check_open(expression),
+            Open(boundary,..) => self.check_open(boundary, expression),
             Close(..) => unreachable!(),
             MissingInfix => {
-                self.check_operand(&expression, LeftOperand, OperandType::Any);
-                self.check_operand(&expression, RightOperand, OperandType::Any);
+                self.check_operand(expression, Left, OperandType::Any);
+                self.check_operand(expression, Right, OperandType::Any);
                 Error
             },
             SyntaxErrorTerm(_) => Error,
@@ -145,26 +144,27 @@ impl<'ch,'c:'ch> Checker<'ch,'c> {
         Rational(value)
     }
 
-    fn check_property_reference(&self, identifier: IdentifierIndex, expression: Expression) -> Type {
-        if let Some(value) = self.scope.get(identifier) {
-            value.clone()
-        } else {
-            self.no_such_property_error(expression)
-        }
+    fn check_property_reference(&mut self, identifier: IdentifierIndex, expression: &Expression) -> Type {
+        let error = match self.get(identifier) {
+            Some(&Nothing) => self.property_not_set_error(expression),
+            Some(value) => return value.clone(),
+            None => self.no_such_property_error(expression),
+        };
+        // NOTE: this only sets the error in local scope, suppressing it there.
+        // TODO switch this to a separate hash of property access errors we want
+        // to suppress, so we can merge the blocks and make better guesses as to
+        // which scope the user wanted the error from.
+        self.set(identifier, error.clone());
+        error
     }
 
-    fn check_sequence(&mut self, expression: Expression) -> Type {
-        self.check_operand(&expression, LeftOperand, OperandType::Any);
-        let right = expression.right(&self.parse_data);
-        let result = self.check(right);
-        if result == Missing {
-            Nothing
-        } else {
-            result
-        }
+    fn check_sequence(&mut self, expression: &Expression) -> Type {
+        self.check_operand(expression, Left, OperandType::Any);
+        let right = expression.right(self.parse_data);
+        self.check(&right)
     }
 
-    fn check_infix(&mut self, identifier: IdentifierIndex, expression: Expression) -> Type {
+    fn check_infix(&mut self, identifier: IdentifierIndex, expression: &Expression) -> Type {
         match identifier {
             PLUS  => self.check_numeric_binary(expression, |left, right| left + right),
             DASH  => self.check_numeric_binary(expression, |left, right| left - right),
@@ -183,17 +183,25 @@ impl<'ch,'c:'ch> Checker<'ch,'c> {
         }
     }
 
-    fn check_assignment(&mut self, identifier: IdentifierIndex, expression: Expression) -> Type {
+    fn check_assignment(&mut self, identifier: IdentifierIndex, expression: &Expression) -> Type {
         let value = match identifier {
-            EMPTY_STRING => self.check_operand(&expression, RightOperand, OperandType::Any),
-            _ => self.check_infix(identifier, expression.clone()),
+            EMPTY_STRING => {
+                let left = match *expression.left(self.parse_data).token(self.parse_data) {
+                    MissingExpression => self.missing_operand_error(expression, Left),
+                    _ => Nothing,
+                };
+                let right = self.check_operand(expression, Right, OperandType::Any);
+                if left == Error && right != Error { left } else { right }
+            },
+            _ => self.check_infix(identifier, expression),
         };
-        self.assign_value(expression, LeftOperand, value)
+
+        self.assign_value(expression, Left, value)
     }
 
-    fn check_prefix(&mut self, identifier: IdentifierIndex, expression: Expression) -> Type {
+    fn check_prefix(&mut self, identifier: IdentifierIndex, expression: &Expression) -> Type {
         match identifier {
-            COLON => self.check_declaration(expression),
+            COLON => self.check_expose(expression),
             PLUS => self.check_numeric_unary(expression, PrefixOperand, |operand| operand),
             DASH => self.check_numeric_unary(expression, PrefixOperand, |operand| -operand),
             EXCLAMATION_POINT => self.check_boolean_unary(expression, PrefixOperand, |operand| !operand),
@@ -203,7 +211,7 @@ impl<'ch,'c:'ch> Checker<'ch,'c> {
         }
     }
 
-    fn check_postfix(&mut self, identifier: IdentifierIndex, expression: Expression) -> Type {
+    fn check_postfix(&mut self, identifier: IdentifierIndex, expression: &Expression) -> Type {
         match identifier {
             PLUS_PLUS => self.assign_integer_unary(expression, PostfixOperand, |operand| operand+BigRational::one()),
             DASH_DASH => self.assign_integer_unary(expression, PostfixOperand, |operand| operand-BigRational::one()),
@@ -211,33 +219,47 @@ impl<'ch,'c:'ch> Checker<'ch,'c> {
         }
     }
 
-    fn check_declaration(&mut self, expression: Expression) -> Type {
-        if let Token::PropertyReference(property) = *expression.right(&self.parse_data).token(&self.parse_data) {
+    fn check_expose(&mut self, expression: &Expression) -> Type {
+        let right = expression.right(self.parse_data);
+
+        if let Token::PropertyReference(property) = *right.token(self.parse_data) {
             // TODO nothing and undefined are almost certainly different.
-            self.scope.set(property, Nothing);
-            Nothing
+            if self.get(property) == None {
+                self.set(property, Nothing);
+            }
+            self.check(&right)
         } else {
+            self.check(&right);
             self.unrecognized_operator_error(expression)
         }
     }
 
-    fn check_parentheses(&mut self, expression: Expression) -> Type {
-        let value = self.check_open(expression);
-        if value == Missing {
-            Nothing
-        } else {
-            value
+    fn check_open(&mut self, boundary: ExpressionBoundary, expression: &Expression) -> Type {
+        // Open a scope if we are at the beginning of the source or in curly braces.
+        match boundary {
+            Source|CurlyBraces => self.scopes.push(Scope::empty()),
+            CompoundTerm|Parentheses|PrecedenceGroup => {}
+        }
+
+        let value = self.check(&expression.inner(self.parse_data));
+
+        // Close the scope we just opened.
+        match boundary {
+            Source|CurlyBraces => { self.scopes.pop(); },
+            CompoundTerm|Parentheses|PrecedenceGroup => {},
+        }
+
+        // Empty source, empty curly braces, and empty parentheses all return "nothing"
+        // when the value is missing.
+        match boundary {
+            Source|CurlyBraces|Parentheses if value == Missing => Nothing,
+            _ => value
         }
     }
 
-    fn check_open(&mut self, expression: Expression) -> Type {
-        let inner = expression.inner(&self.parse_data);
-        self.check(inner)
-    }
-
-    fn check_divide(&mut self, expression: Expression) -> Type {
-        let numerator = self.check_operand(&expression, LeftOperand, OperandType::Number);
-        let denominator = self.check_operand(&expression, RightOperand, OperandType::Number);
+    fn check_divide(&mut self, expression: &Expression) -> Type {
+        let numerator = self.check_operand(expression, Left, OperandType::Number);
+        let denominator = self.check_operand(expression, Right, OperandType::Number);
         if let Rational(denominator) = denominator {
             if denominator.is_zero() {
                 self.divide_by_zero_error(expression)
@@ -252,9 +274,9 @@ impl<'ch,'c:'ch> Checker<'ch,'c> {
         }
     }
 
-    fn check_equal_to(&mut self, expression: Expression) -> Type {
-        let left = self.check_operand(&expression, LeftOperand, OperandType::Any);
-        let right = self.check_operand(&expression, RightOperand, OperandType::Any);
+    fn check_equal_to(&mut self, expression: &Expression) -> Type {
+        let left = self.check_operand(expression, Left, OperandType::Any);
+        let right = self.check_operand(expression, Right, OperandType::Any);
         match (left, right) {
             (Rational(left), Rational(right)) => Boolean(left == right),
             (Boolean(left), Boolean(right)) => Boolean(left == right),
@@ -266,19 +288,24 @@ impl<'ch,'c:'ch> Checker<'ch,'c> {
     }
 
     fn check_operand(&mut self, expression: &Expression, position: OperandPosition, expected_type: OperandType) -> Type {
-        let operand = position.get(expression, self);
-        let value = self.check(operand.clone());
+        let operand = &position.get(expression, self);
+        let value = self.check(operand);
         match value {
             Missing => self.missing_operand_error(expression, position),
             Error => Error,
-            _ if !expected_type.matches(&value) => self.bad_type_error(expression, position, expected_type, value),
-            _ => value,
+            _ => {
+                if expected_type.matches(&value) {
+                    value
+                } else {
+                    self.bad_type_error(expression, position, expected_type, value)
+                }
+            },
         }
     }
 
-    fn check_numeric_binary<F: Fn(BigRational,BigRational)->BigRational>(&mut self, expression: Expression, f: F) -> Type {
-        let left = self.check_operand(&expression, LeftOperand, OperandType::Number);
-        let right = self.check_operand(&expression, RightOperand, OperandType::Number);
+    fn check_numeric_binary<F: Fn(BigRational,BigRational)->BigRational>(&mut self, expression: &Expression, f: F) -> Type {
+        let left = self.check_operand(expression, Left, OperandType::Number);
+        let right = self.check_operand(expression, Right, OperandType::Number);
         match (left, right) {
             (Rational(left), Rational(right)) => Rational(f(left, right)),
             (Error,_)|(_,Error) => Error,
@@ -286,9 +313,9 @@ impl<'ch,'c:'ch> Checker<'ch,'c> {
         }
     }
 
-    fn check_numeric_comparison<F: Fn(BigRational,BigRational)->bool>(&mut self, expression: Expression, f: F) -> Type {
-        let left = self.check_operand(&expression, LeftOperand, OperandType::Number);
-        let right = self.check_operand(&expression, RightOperand, OperandType::Number);
+    fn check_numeric_comparison<F: Fn(BigRational,BigRational)->bool>(&mut self, expression: &Expression, f: F) -> Type {
+        let left = self.check_operand(expression, Left, OperandType::Number);
+        let right = self.check_operand(expression, Right, OperandType::Number);
         match (left, right) {
             (Rational(left), Rational(right)) => Boolean(f(left, right)),
             (Error,_)|(_,Error) => Error,
@@ -296,9 +323,9 @@ impl<'ch,'c:'ch> Checker<'ch,'c> {
         }
     }
 
-    fn check_and(&mut self, expression: Expression) -> Type {
-        let left = self.check_operand(&expression, LeftOperand, OperandType::Boolean);
-        let right = self.check_operand(&expression, RightOperand, OperandType::Boolean);
+    fn check_and(&mut self, expression: &Expression) -> Type {
+        let left = self.check_operand(expression, Left, OperandType::Boolean);
+        let right = self.check_operand(expression, Right, OperandType::Boolean);
         match (left, right) {
             (Error, _) | (_, Error) => Error,
             (Boolean(a), Boolean(b)) => Boolean(a && b),
@@ -306,9 +333,9 @@ impl<'ch,'c:'ch> Checker<'ch,'c> {
         }
     }
 
-    fn check_or(&mut self, expression: Expression) -> Type {
-        let left = self.check_operand(&expression, LeftOperand, OperandType::Boolean);
-        let right = self.check_operand(&expression, RightOperand, OperandType::Boolean);
+    fn check_or(&mut self, expression: &Expression) -> Type {
+        let left = self.check_operand(expression, Left, OperandType::Boolean);
+        let right = self.check_operand(expression, Right, OperandType::Boolean);
         match (left, right) {
             (Error, _) | (_, Error) => Error,
             (Boolean(a), Boolean(b)) => Boolean(a || b),
@@ -316,8 +343,8 @@ impl<'ch,'c:'ch> Checker<'ch,'c> {
         }
     }
 
-    fn check_numeric_unary<F: Fn(BigRational)->BigRational>(&mut self, expression: Expression, position: OperandPosition, f: F) -> Type {
-        let operand = self.check_operand(&expression, position, OperandType::Number);
+    fn check_numeric_unary<F: Fn(BigRational)->BigRational>(&mut self, expression: &Expression, position: OperandPosition, f: F) -> Type {
+        let operand = self.check_operand(expression, position, OperandType::Number);
         match operand {
             Rational(operand) => Rational(f(operand)),
             Error => Error,
@@ -325,8 +352,8 @@ impl<'ch,'c:'ch> Checker<'ch,'c> {
         }
     }
 
-    fn check_integer_unary<F: Fn(BigRational)->BigRational>(&mut self, expression: Expression, position: OperandPosition, f: F) -> Type {
-        let operand = self.check_operand(&expression, position, OperandType::Integer);
+    fn check_integer_unary<F: Fn(BigRational)->BigRational>(&mut self, expression: &Expression, position: OperandPosition, f: F) -> Type {
+        let operand = self.check_operand(expression, position, OperandType::Integer);
         match operand {
             Rational(operand) => Rational(f(operand)),
             Error => Error,
@@ -334,8 +361,8 @@ impl<'ch,'c:'ch> Checker<'ch,'c> {
         }
     }
 
-    fn check_boolean_unary<F: Fn(bool)->bool>(&mut self, expression: Expression, position: OperandPosition, f: F) -> Type {
-        let operand = self.check_operand(&expression, position, OperandType::Boolean);
+    fn check_boolean_unary<F: Fn(bool)->bool>(&mut self, expression: &Expression, position: OperandPosition, f: F) -> Type {
+        let operand = self.check_operand(expression, position, OperandType::Boolean);
         match operand {
             Boolean(operand) => Boolean(f(operand)),
             Error => Error,
@@ -343,32 +370,33 @@ impl<'ch,'c:'ch> Checker<'ch,'c> {
         }
     }
 
-    fn assign_integer_unary<F: Fn(BigRational)->BigRational>(&mut self, expression: Expression, position: OperandPosition, f: F) -> Type {
-        let value = self.check_integer_unary(expression.clone(), position, f);
+    fn assign_integer_unary<F: Fn(BigRational)->BigRational>(&mut self, expression: &Expression, position: OperandPosition, f: F) -> Type {
+        let value = self.check_integer_unary(expression, position, f);
         self.assign_value(expression, position, value)
     }
 
-    fn assign_value(&mut self, expression: Expression, target_position: OperandPosition, value: Type) -> Type {
-        let target = target_position.get(&expression, self);
-        match *target.token(&self.parse_data) {
+    fn assign_value(&mut self, expression: &Expression, target_position: OperandPosition, value: Type) -> Type {
+        let target = target_position.get(expression, self);
+        match *target.token(self.parse_data) {
             PrefixOperator(COLON) => {
-                let token = target.right(&self.parse_data).token(&self.parse_data);
+                let token = target.right(self.parse_data).token(self.parse_data);
                 if let PropertyReference(identifier) = *token {
-                    self.scope.set(identifier, value);
+                    self.set(identifier, value);
                     Nothing
                 } else {
-                    self.invalid_target_error(&expression, target_position)
+                    self.invalid_target_error(expression, target_position)
                 }
             },
             PropertyReference(identifier) => {
-                if self.scope.get(identifier).is_none() {
-                    self.no_such_property_error(target);
-                }
-                self.scope.set(identifier, value);
+                self.set(identifier, value);
                 Nothing
             },
-            Token::MissingExpression => self.missing_operand_error(&expression, target_position),
-            _ => self.invalid_target_error(&expression, target_position),
+            // If the left side is missing an expression, THAT error is already reported.
+            Token::MissingExpression => {
+                assert!(value == Error);
+                Error
+            },
+            _ => self.invalid_target_error(expression, target_position),
         }
     }
 
@@ -377,36 +405,40 @@ impl<'ch,'c:'ch> Checker<'ch,'c> {
         Error
     }
 
-    fn divide_by_zero_error(&self, expression: Expression) -> Type {
+    fn divide_by_zero_error(&self, expression: &Expression) -> Type {
         self.report(DivideByZero { source: self.source, divide: self.parse_data.token_range(expression.operator()) })
     }
 
-    fn unrecognized_operator_error(&mut self, expression: Expression) -> Type {
+    fn unrecognized_operator_error(&mut self, expression: &Expression) -> Type {
         let token = expression.token(self.parse_data);
         if token.has_left_operand() {
-            self.check(expression.left(self.parse_data));
+            self.check(&expression.left(self.parse_data));
         }
         if token.has_right_operand() {
-            self.check(expression.right(self.parse_data));
+            self.check(&expression.right(self.parse_data));
         }
         let operator = expression.operator_range(self.parse_data);
         let fixity = token.fixity();
         self.report(UnrecognizedOperator { source: self.source, operator, fixity })
     }
 
-    fn no_such_property_error(&self, operand: Expression) -> Type {
+    fn no_such_property_error(&self, operand: &Expression) -> Type {
         self.report(NoSuchProperty { source: self.source, reference: operand.range(self.parse_data) })
+    }
+
+    fn property_not_set_error(&self, operand: &Expression) -> Type {
+        self.report(PropertyNotSet { source: self.source, reference: operand.range(self.parse_data) })
     }
 
     fn invalid_target_error(&self, expression: &Expression, position: OperandPosition) -> Type {
         let source = self.source;
-        let target = position.range(&expression, self);
+        let target = position.range(expression, self);
         let operator = self.parse_data.token_range(expression.operator());
         match position {
-            LeftOperand => self.report(LeftSideOfAssignmentMustBeIdentifier { source, operator, left: target }),
+            Left => self.report(LeftSideOfAssignmentMustBeIdentifier { source, operator, left: target }),
             PrefixOperand => self.report(RightSideOfIncrementOrDecrementMustBeIdentifier { source, operator, right: target }),
             PostfixOperand => self.report(LeftSideOfIncrementOrDecrementMustBeIdentifier { source, operator, left: target }),
-            RightOperand => unreachable!(),
+            Right => unreachable!(),
         }
     }
 
@@ -414,18 +446,36 @@ impl<'ch,'c:'ch> Checker<'ch,'c> {
         let source = self.source;
         let operator = self.parse_data.token_range(expression.operator());
         match position {
-            LeftOperand|PostfixOperand => self.report(MissingLeftOperand { source, operator }),
-            RightOperand|PrefixOperand => self.report(MissingRightOperand { source, operator }),
+            Left|PostfixOperand => self.report(MissingLeftOperand { source, operator }),
+            Right|PrefixOperand => self.report(MissingRightOperand { source, operator }),
         }
     }
 
     fn bad_type_error(&self, expression: &Expression, position: OperandPosition, expected_type: OperandType, actual_type: Type) -> Type {
         let source = self.source;
-        let operand = position.range(&expression, self);
+        let operand = position.range(expression, self);
         let operator = self.parse_data.token_range(expression.operator());
         match position {
-            LeftOperand|PostfixOperand => self.report(BadTypeLeftOperand { source, operator, operand, expected_type, actual_type }),
-            RightOperand|PrefixOperand => self.report(BadTypeRightOperand { source, operator, operand, expected_type, actual_type }),
+            Left|PostfixOperand => self.report(BadTypeLeftOperand { source, operator, operand, expected_type, actual_type }),
+            Right|PrefixOperand => self.report(BadTypeRightOperand { source, operator, operand, expected_type, actual_type }),
         }
+    }
+
+    fn get(&self, name: IdentifierIndex) -> Option<&Type> {
+        for scope in self.scopes.iter().rev() {
+            if let Some(value) = scope.get(name) {
+                return Some(value);
+            }
+        }
+        None
+    }
+
+    fn set(&mut self, name: IdentifierIndex, value: Type) {
+        for scope in self.scopes.iter_mut().rev() {
+            if scope.get(name).is_some() {
+                return scope.set(name, value);
+            }
+        }
+        self.scopes.last_mut().unwrap().set(name, value);
     }
 }

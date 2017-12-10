@@ -77,29 +77,22 @@ impl Expression {
     pub(crate) fn operator(&self) -> AstIndex {
         match *self {
             Infix{operator,..} => operator,
-            Prefix{start,..} => start,
+            Prefix{start,..}|Group{start,..} => start,
             Postfix{end,..} => end,
-            Group{start,..} => start,
             Term{index} => index,
         }
     }
 
     pub(crate) fn start(&self) -> AstIndex {
         match *self {
-            Infix{start,..} => start,
-            Prefix{start,..} => start,
-            Postfix{start,..} => start,
-            Group{start,..} => start,
+            Infix{start,..}|Prefix{start,..}|Postfix{start,..}|Group{start,..} => start,
             Term{index} => index,
         }
     }
 
     pub(crate) fn end(&self) -> AstIndex {
         match *self {
-            Infix{end,..} => end,
-            Prefix{end,..} => end,
-            Postfix{end,..} => end,
-            Group{end,..} => end,
+            Infix{end,..}|Prefix{end,..}|Postfix{end,..}|Group{end,..} => end,
             Term{index} => index,
         }
     }
