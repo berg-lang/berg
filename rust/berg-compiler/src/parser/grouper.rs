@@ -7,8 +7,11 @@ use ast::token::Token::*;
 use ast::token::ExpressionBoundary::*;
 use indexed_vec::{Delta,IndexedVec};
 
+// Handles nesting and precedence: balances (), {}, and compound terms, and
+// inserts "precedence groups," and removes compound terms and precedence
+// groups where it can.
 #[derive(Debug)]
-pub(super) struct AstBuilder<'p,'c:'p> {
+pub(super) struct Grouper<'p,'c:'p> {
     pub(super) compiler: &'p Compiler<'c>,
     pub(super) source: SourceIndex,
     tokens: IndexedVec<Token,AstIndex>,
@@ -23,9 +26,9 @@ struct OpenExpression {
     boundary: ExpressionBoundary,
 }
 
-impl<'p,'c:'p> AstBuilder<'p,'c> {
+impl<'p,'c:'p> Grouper<'p,'c> {
     pub(super) fn new(compiler: &'p Compiler<'c>, source: SourceIndex) -> Self {
-        AstBuilder {
+        Grouper {
             compiler,
             source,
             tokens: Default::default(),

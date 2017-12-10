@@ -4,7 +4,7 @@ use ast::token::Token::*;
 use compiler::Compiler;
 use compiler::source_data::{ByteIndex,ByteRange,SourceIndex};
 use indexed_vec::IndexedVec;
-use parser::ast_builder::AstBuilder;
+use parser::grouper::Grouper;
 
 // This builds up a valid expression from the incoming sequences, doing two things:
 // 1. Inserting apply, newline sequence, and missing expression as appropriate
@@ -12,7 +12,7 @@ use parser::ast_builder::AstBuilder;
 // 2. Opening and closing terms (series of tokens with no space between operators/operands).
 #[derive(Debug)]
 pub(super) struct Tokenizer<'p,'c:'p> {
-    ast_builder: AstBuilder<'p,'c>,
+    ast_builder: Grouper<'p,'c>,
     pub(super) in_term: bool,
     pub(super) operator: bool,
     newline_start: ByteIndex,
@@ -20,7 +20,7 @@ pub(super) struct Tokenizer<'p,'c:'p> {
 }
 
 impl<'p,'c:'p> Tokenizer<'p,'c> {
-    pub(super) fn new(ast_builder: AstBuilder<'p,'c>) -> Self {
+    pub(super) fn new(ast_builder: Grouper<'p,'c>) -> Self {
         Tokenizer {
             ast_builder,
             in_term: false,
