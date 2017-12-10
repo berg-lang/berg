@@ -1,5 +1,5 @@
 mod ast_builder;
-mod scanner;
+mod sequencer;
 mod tokenizer;
 
 use compiler::Compiler;
@@ -9,7 +9,7 @@ pub(super) fn parse<'c>(compiler: &Compiler<'c>, source: SourceIndex) -> ParseDa
 {
     let ast_builder = ast_builder::AstBuilder::new(compiler, source);
     let tokenizer = tokenizer::Tokenizer::new(ast_builder);
-    let mut sequencer = tokenizer::Sequencer::new(tokenizer);
+    let mut sequencer = sequencer::Sequencer::new(tokenizer);
     sequencer.tokenize();
     sequencer.complete()
 }
