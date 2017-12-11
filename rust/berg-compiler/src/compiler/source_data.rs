@@ -95,7 +95,7 @@ impl ParseData {
         match self.tokens[token] {
             IntegerLiteral(literal)|SyntaxErrorTerm(literal) => self.literal_string(literal),
             
-            PropertyReference(identifier)|
+            FieldReference(identifier)|
             InfixOperator(identifier)|
             InfixAssignment(identifier)|
             PostfixOperator(identifier)|

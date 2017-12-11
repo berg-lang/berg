@@ -303,19 +303,19 @@ Fields
 [X] Parse Error: Identifier Required In Declaration
 [ ] Object Extend On ";" and "\n" (combine / overwrite properties)
 
-Property Reference
+Field Reference
 ------------------
-[X] Property Reference (Identifier)
+[X] Field Reference (Identifier)
 [ ] "nothing"
-[ ] Object.GetProperty(Identifier) -> Object
-[ ] Error: Property not declared
-[ ] Error: Property not declared - check for misspelled, give suggestion
+[ ] Object.GetField(Identifier) -> Object
+[ ] Error: Field not declared
+[ ] Error: Field not declared - check for misspelled, give suggestion
 [ ] Out Of Order Declaration ("[:]A: B; :B: 2")
 [ ] Parse Error: Missing : in front of declaration
 
-Property Assignment
+Field Assignment
 -------------------
-[ ] Property Assignment (=)
+[ ] Field Assignment (=)
 [ ] Parse Error: Missing Operand
 
 Apply
@@ -377,8 +377,8 @@ Child Objects
 
 Child Access
 ------------
-[ ] Property Access (Dot) Operator
-[ ] Parse Error: Identifier Required For Property Access
+[ ] Field Access (Dot) Operator
+[ ] Parse Error: Identifier Required For Field Access
 
 [ ] Nested Block Declarations
 

@@ -110,7 +110,7 @@ impl<'p,'c:'p> Sequencer<'p,'c> {
         let range = start..scanner.index;
         let string = unsafe { str::from_utf8_unchecked(&buffer[&range]) };
         let identifier = self.identifiers.add(string);
-        self.tokenizer.on_term_token(PropertyReference(identifier), range)
+        self.tokenizer.on_term_token(FieldReference(identifier), range)
     }
 
     fn make_identifier(&mut self, slice: &[u8]) -> IdentifierIndex {

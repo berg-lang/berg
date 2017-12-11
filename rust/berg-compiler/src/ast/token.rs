@@ -9,7 +9,7 @@ use std::fmt;
 #[derive(Debug,Copy,Clone,PartialEq)]
 pub enum Token {
     IntegerLiteral(LiteralIndex),
-    PropertyReference(IdentifierIndex),
+    FieldReference(IdentifierIndex),
     SyntaxErrorTerm(LiteralIndex),
     MissingExpression,
 
@@ -28,7 +28,7 @@ pub enum Token {
 #[derive(Debug,Copy,Clone,PartialEq)]
 pub enum TermToken {
     IntegerLiteral(LiteralIndex),
-    PropertyReference(IdentifierIndex),
+    FieldReference(IdentifierIndex),
     SyntaxErrorTerm(LiteralIndex),
     MissingExpression,
 }
@@ -73,7 +73,7 @@ pub enum Fixity {
 impl Token {
     pub fn fixity(self) -> Fixity {
         match self {
-            IntegerLiteral(_)|PropertyReference(_)|SyntaxErrorTerm(_)|MissingExpression => Fixity::Term,
+            IntegerLiteral(_)|FieldReference(_)|SyntaxErrorTerm(_)|MissingExpression => Fixity::Term,
             InfixOperator(_)|InfixAssignment(_)|NewlineSequence|MissingInfix => Fixity::Infix,
             PrefixOperator(_)|Open(..) => Fixity::Prefix,
             PostfixOperator(_)|Close(..) => Fixity::Postfix,
@@ -153,7 +153,7 @@ impl From<TermToken> for Token {
     fn from(token: TermToken) -> Self {
         match token {
             TermToken::IntegerLiteral(literal) => IntegerLiteral(literal),
-            TermToken::PropertyReference(identifier) => PropertyReference(identifier),
+            TermToken::FieldReference(identifier) => FieldReference(identifier),
             TermToken::SyntaxErrorTerm(literal) => SyntaxErrorTerm(literal),
             TermToken::MissingExpression => MissingExpression,
         }
@@ -166,7 +166,7 @@ impl TermToken {
             IntegerLiteral(literal) => Some(TermToken::IntegerLiteral(literal)),
             SyntaxErrorTerm(literal) => Some(TermToken::SyntaxErrorTerm(literal)),
             MissingExpression => Some(TermToken::MissingExpression),
-            PropertyReference(identifier) => Some(TermToken::PropertyReference(identifier)),
+            FieldReference(identifier) => Some(TermToken::FieldReference(identifier)),
             InfixOperator(_)|InfixAssignment(_)|NewlineSequence|MissingInfix|PrefixOperator(_)|Open(..)|PostfixOperator(_)|Close(..) => None,
         }
     }
@@ -189,7 +189,7 @@ impl InfixToken {
             InfixAssignment(identifier) => Some(InfixToken::InfixAssignment(identifier)),
             NewlineSequence => Some(InfixToken::NewlineSequence),
             MissingInfix => Some(InfixToken::MissingInfix),
-            IntegerLiteral(_)|PropertyReference(_)|SyntaxErrorTerm(_)|MissingExpression|PrefixOperator(_)|Open(..)|PostfixOperator(_)|Close(..) => None,
+            IntegerLiteral(_)|FieldReference(_)|SyntaxErrorTerm(_)|MissingExpression|PrefixOperator(_)|Open(..)|PostfixOperator(_)|Close(..) => None,
         }
     }
     pub fn precedence(self) -> Precedence {
@@ -231,7 +231,7 @@ impl PrefixToken {
         match token {
             PrefixOperator(identifier) => Some(PrefixToken::PrefixOperator(identifier)),
             Open(boundary,delta) => Some(PrefixToken::Open(boundary,delta)),
-            IntegerLiteral(_)|PropertyReference(_)|SyntaxErrorTerm(_)|MissingExpression|InfixOperator(_)|InfixAssignment(_)|NewlineSequence|MissingInfix|PostfixOperator(_)|Close(..) => None,
+            IntegerLiteral(_)|FieldReference(_)|SyntaxErrorTerm(_)|MissingExpression|InfixOperator(_)|InfixAssignment(_)|NewlineSequence|MissingInfix|PostfixOperator(_)|Close(..) => None,
         }
     }
 }
@@ -249,7 +249,7 @@ impl PostfixToken {
         match token {
             PostfixOperator(identifier) => Some(PostfixToken::PostfixOperator(identifier)),
             Close(boundary,delta) => Some(PostfixToken::Close(boundary,delta)),
-            IntegerLiteral(_)|PropertyReference(_)|SyntaxErrorTerm(_)|MissingExpression|InfixOperator(_)|InfixAssignment(_)|NewlineSequence|MissingInfix|PrefixOperator(_)|Open(..) => None,
+            IntegerLiteral(_)|FieldReference(_)|SyntaxErrorTerm(_)|MissingExpression|InfixOperator(_)|InfixAssignment(_)|NewlineSequence|MissingInfix|PrefixOperator(_)|Open(..) => None,
         }
     }
 }

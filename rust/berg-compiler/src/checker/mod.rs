@@ -120,7 +120,7 @@ impl<'ch,'c:'ch> Checker<'ch,'c> {
 
         match *token {
             IntegerLiteral(literal) => self.check_integer_literal(literal),
-            PropertyReference(identifier) => self.check_property_reference(identifier, expression),
+            FieldReference(identifier) => self.check_field_reference(identifier, expression),
             InfixOperator(identifier) => self.check_infix(identifier, expression),
             InfixAssignment(identifier) => self.check_assignment(identifier, expression),
             NewlineSequence => self.check_sequence(expression),
@@ -144,14 +144,14 @@ impl<'ch,'c:'ch> Checker<'ch,'c> {
         Rational(value)
     }
 
-    fn check_property_reference(&mut self, identifier: IdentifierIndex, expression: &Expression) -> Type {
+    fn check_field_reference(&mut self, identifier: IdentifierIndex, expression: &Expression) -> Type {
         let error = match self.get(identifier) {
-            Some(&Nothing) => self.property_not_set_error(expression),
+            Some(&Nothing) => self.field_not_set_error(expression),
             Some(value) => return value.clone(),
-            None => self.no_such_property_error(expression),
+            None => self.no_such_field_error(expression),
         };
         // NOTE: this only sets the error in local scope, suppressing it there.
-        // TODO switch this to a separate hash of property access errors we want
+        // TODO switch this to a separate hash of field access errors we want
         // to suppress, so we can merge the blocks and make better guesses as to
         // which scope the user wanted the error from.
         self.set(identifier, error.clone());
@@ -222,10 +222,10 @@ impl<'ch,'c:'ch> Checker<'ch,'c> {
     fn check_expose(&mut self, expression: &Expression) -> Type {
         let right = expression.right(self.parse_data);
 
-        if let Token::PropertyReference(property) = *right.token(self.parse_data) {
+        if let Token::FieldReference(field) = *right.token(self.parse_data) {
             // TODO nothing and undefined are almost certainly different.
-            if self.get(property) == None {
-                self.set(property, Nothing);
+            if self.get(field) == None {
+                self.set(field, Nothing);
             }
             self.check(&right)
         } else {
@@ -380,14 +380,14 @@ impl<'ch,'c:'ch> Checker<'ch,'c> {
         match *target.token(self.parse_data) {
             PrefixOperator(COLON) => {
                 let token = target.right(self.parse_data).token(self.parse_data);
-                if let PropertyReference(identifier) = *token {
+                if let FieldReference(identifier) = *token {
                     self.set(identifier, value);
                     Nothing
                 } else {
                     self.invalid_target_error(expression, target_position)
                 }
             },
-            PropertyReference(identifier) => {
+            FieldReference(identifier) => {
                 self.set(identifier, value);
                 Nothing
             },
@@ -422,12 +422,12 @@ impl<'ch,'c:'ch> Checker<'ch,'c> {
         self.report(UnrecognizedOperator { source: self.source, operator, fixity })
     }
 
-    fn no_such_property_error(&self, operand: &Expression) -> Type {
-        self.report(NoSuchProperty { source: self.source, reference: operand.range(self.parse_data) })
+    fn no_such_field_error(&self, operand: &Expression) -> Type {
+        self.report(NoSuchField { source: self.source, reference: operand.range(self.parse_data) })
     }
 
-    fn property_not_set_error(&self, operand: &Expression) -> Type {
-        self.report(PropertyNotSet { source: self.source, reference: operand.range(self.parse_data) })
+    fn field_not_set_error(&self, operand: &Expression) -> Type {
+        self.report(FieldNotSet { source: self.source, reference: operand.range(self.parse_data) })
     }
 
     fn invalid_target_error(&self, expression: &Expression, position: OperandPosition) -> Type {
