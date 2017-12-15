@@ -2,98 +2,59 @@ use compiler::source_data::ByteIndex;
 use std::ops::Range;
 use compiler::source_data::ParseData;
 use ast::AstIndex;
-use ast::token::Fixity;
-use ast::token::Token;
-use ast::expression::Expression::*;
+use ast::token::{Fixity,Token};
 
-#[derive(Debug,Clone,PartialEq)]
-pub(crate) enum Expression {
-    Infix { start: AstIndex, end: AstIndex, operator: AstIndex },
-    Postfix { start: AstIndex, end: AstIndex },
-    Prefix { start: AstIndex, end: AstIndex },
-    Group { start: AstIndex, end: AstIndex },
-    Term { index: AstIndex },
-}
+#[derive(Debug,Copy,Clone,PartialEq)]
+pub(crate) struct Expression(pub(crate) AstIndex);
 
 impl Expression {
     pub(crate) fn from_source(parse_data: &ParseData) -> Expression {
-        let start = AstIndex(0);
-        let end = parse_data.tokens.len()-1;
-        Self::from_range(parse_data, start, end)
+        Self::find_root(parse_data, parse_data.tokens.len()-1, true)
     }
 
     pub(crate) fn debug_string(&self, parse_data: &ParseData) -> String {
-        format!("{:?} ({:?}..{:?} [{:?}])", parse_data.token_string(self.operator()), self.start().0, self.end().0, self.operator().0)
+        format!("{:?} ({:?}..{:?} [{:?}])", parse_data.token_string(self.operator()), self.start(parse_data).0, self.end(parse_data).0, self.operator().0)
     }
 
-    pub(crate) fn from_range(parse_data: &ParseData, start: AstIndex, end: AstIndex) -> Expression {
-        if start == end { return Term { index: start }; }
-
-        // Skip to the beginning of the last term
-        let mut index = end;
-        let mut has_postfix = false;
-        while index > start && parse_data.tokens[index].fixity() == Fixity::Postfix {
-            match parse_data.tokens[index] {
-                Token::Close(_,delta) => { index -= delta; break; },
-                _ => { index -= 1; has_postfix = true; }
-            }
-        }
-
-        // Skip any prefixes before the last term
-        let mut has_prefix = false;
-        while index > start && parse_data.tokens[index-1].fixity() == Fixity::Prefix {
-            index -= 1;
-            has_prefix = true;
-        }
-
-        // Return infix > postfix > prefix/term
-        if index > start && parse_data.tokens[index-1].fixity() == Fixity::Infix {
-            Infix { start, end, operator: index-1 }
-        } else if has_postfix {
-            Postfix { start, end }
-        } else if has_prefix {
-            Prefix { start, end }
-        } else {
-            assert!(match parse_data.tokens[start] { Token::Open(..,delta) => start+delta == end, _ => false });
-            Group { start, end }
-        }
+    pub(crate) fn range(self, parse_data: &ParseData) -> Range<ByteIndex> {
+        let start = parse_data.token_ranges[self.start(parse_data)].start;
+        let end = parse_data.token_ranges[self.end(parse_data)].end;
+        start..end
     }
 
-    pub(crate) fn range(&self, parse_data: &ParseData) -> Range<ByteIndex> {
-        match *self {
-            Infix{start,end,..}|Prefix{start,end}|Postfix{start,end}|Group{start,end} => {
-                let start = parse_data.token_ranges[start].start;
-                let end = parse_data.token_ranges[end].end;
-                start..end
-            },
-            Term{index} => parse_data.token_ranges[index].clone(),
-        }
-    }
-
-    pub(crate) fn operator_range(&self, parse_data: &ParseData) -> Range<ByteIndex> {
+    pub(crate) fn operator_range(self, parse_data: &ParseData) -> Range<ByteIndex> {
         parse_data.token_ranges[self.operator()].clone()
     }
 
-    pub(crate) fn operator(&self) -> AstIndex {
-        match *self {
-            Infix{operator,..} => operator,
-            Prefix{start,..}|Group{start,..} => start,
-            Postfix{end,..} => end,
-            Term{index} => index,
+    pub(crate) fn operator(self) -> AstIndex {
+        self.0
+    }
+
+    pub(crate) fn start(self, parse_data: &ParseData) -> AstIndex {
+        let token = self.token(parse_data);
+        match *token {
+            Token::Close(_,delta) => self.operator()-delta,
+            _ => {
+                let mut left = self;
+                while left.token(parse_data).has_left_operand() {
+                    left = left.left(parse_data);
+                }
+                left.operator()
+            }
         }
     }
 
-    pub(crate) fn start(&self) -> AstIndex {
-        match *self {
-            Infix{start,..}|Prefix{start,..}|Postfix{start,..}|Group{start,..} => start,
-            Term{index} => index,
-        }
-    }
-
-    pub(crate) fn end(&self) -> AstIndex {
-        match *self {
-            Infix{end,..}|Prefix{end,..}|Postfix{end,..}|Group{end,..} => end,
-            Term{index} => index,
+    pub(crate) fn end(self, parse_data: &ParseData) -> AstIndex {
+        let token = self.token(parse_data);
+        match *token {
+            Token::Open(_,delta) => self.operator()+delta,
+            _ => {
+                let mut right = self;
+                while right.token(parse_data).has_right_operand() {
+                    right = right.right(parse_data);
+                }
+                right.operator()
+            }
         }
     }
 
@@ -102,25 +63,63 @@ impl Expression {
     }
 
     pub(crate) fn left(&self, parse_data: &ParseData) -> Expression {
-        match *self {
-            Infix{start,operator,..} => Expression::from_range(parse_data,start,operator-1),
-            Postfix{start,end} => Expression::from_range(parse_data,start,end-1),
-            _ => unreachable!(),
-        }
+        Self::find_root(parse_data, self.operator()-1, self.token(parse_data).fixity() == Fixity::Infix)
     }
 
     pub(crate) fn right(&self, parse_data: &ParseData) -> Expression {
-        match *self {
-            Infix{operator,end,..} => Expression::from_range(parse_data,operator+1,end),
-            Prefix{start,end} => Expression::from_range(parse_data,start+1,end),
-            _ => unreachable!(),
+        let mut right = self.operator()+1;
+        if let Token::Open(_,delta) = parse_data.tokens[right] {
+            right += delta;
         }
+        // If it's infix, check for postfixes before we go further.
+        if parse_data.tokens[self.operator()].fixity() == Fixity::Infix {
+            while let Some(token) = parse_data.tokens.get(right + 1) {
+                if token.fixity() == Fixity::Postfix {
+                    match *token {
+                        Token::Close(..) => break,
+                        _ => { right += 1; }
+                    }
+                } else {
+                    break;
+                }
+            }
+        }
+        Expression(right)
     }
 
     pub(crate) fn inner(&self, parse_data: &ParseData) -> Expression {
-        match *self {
-            Group{start,end} => Expression::from_range(parse_data,start+1,end-1),
-            _ => unreachable!(),
+        Self::find_root(parse_data, self.operator()-1, true)
+    }
+
+    fn find_root(parse_data: &ParseData, end: AstIndex, allow_infix_children: bool) -> Expression {
+        // Pass any postfixes
+        let mut index = end;
+        let mut has_postfix = false;
+        while parse_data.tokens[index].fixity() == Fixity::Postfix {
+            match parse_data.tokens[index] {
+                Token::Close(_,delta) => { index -= delta; break; },
+                _ => { index -= 1; has_postfix = true; },
+            }
+        }
+        // Pass any prefixes and infixes (but not open groups--that's going too far up a level)
+        while index > 0 {
+            match parse_data.tokens[index-1].fixity() {
+                Fixity::Infix if allow_infix_children => { index -= 1; break; },
+                Fixity::Prefix => match parse_data.tokens[index-1] {
+                    Token::Open(..) => break,
+                    _ => { index -= 1; },
+                },
+                Fixity::Postfix|Fixity::Term|Fixity::Infix => break,
+            }
+        }
+        // If there's a postfix, and no infix on the left, return the postfix.
+        if has_postfix && parse_data.tokens[index].fixity() != Fixity::Infix {
+            return Expression(end);
+        }
+        // Otherwise return the infix or the left side of the term (index).
+        match parse_data.tokens[index] {
+            Token::Open(_,delta) => Expression(index+delta),
+            _ => Expression(index),
         }
     }
 }

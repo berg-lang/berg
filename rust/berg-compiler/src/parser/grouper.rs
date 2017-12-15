@@ -1,11 +1,11 @@
 use compiler::Compiler;
 use compile_errors;
 use compiler::source_data::{ByteIndex,ByteRange,SourceIndex};
-use ast::AstIndex;
+use ast::{AstIndex,Tokens,TokenRanges};
 use ast::token::{ExpressionBoundary,Fixity,InfixToken,Token};
 use ast::token::Token::*;
 use ast::token::ExpressionBoundary::*;
-use indexed_vec::{Delta,IndexedVec};
+use indexed_vec::Delta;
 
 // Handles nesting and precedence: balances (), {}, and compound terms, and
 // inserts "precedence groups," and removes compound terms and precedence
@@ -14,8 +14,8 @@ use indexed_vec::{Delta,IndexedVec};
 pub(super) struct Grouper<'p,'c:'p> {
     pub(super) compiler: &'p Compiler<'c>,
     pub(super) source: SourceIndex,
-    tokens: IndexedVec<Token,AstIndex>,
-    token_ranges: IndexedVec<ByteRange,AstIndex>,
+    tokens: Tokens,
+    token_ranges: TokenRanges,
     open_expressions: Vec<OpenExpression>,
 }
 
@@ -37,7 +37,7 @@ impl<'p,'c:'p> Grouper<'p,'c> {
         }
     }
 
-    pub(super) fn complete(self) -> (IndexedVec<Token,AstIndex>, IndexedVec<ByteRange,AstIndex>) {
+    pub(super) fn complete(self) -> (Tokens,TokenRanges) {
         assert!(self.open_expressions.is_empty());
         (self.tokens, self.token_ranges)
     }

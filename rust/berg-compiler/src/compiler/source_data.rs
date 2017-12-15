@@ -1,15 +1,14 @@
+use ast::{AstIndex,IdentifierIndex,LiteralIndex,Tokens,TokenRanges};
 use ast::identifiers::*;
-use indexed_vec::IndexedSlice;
-use std::fmt::*;
 use ast::intern_pool::StringPool;
-use ast::{AstIndex,IdentifierIndex,LiteralIndex};
 use ast::token::Token;
 use ast::token::Token::*;
 use checker::checker_type::Type;
-use compiler::source_spec::SourceSpec;
 use compiler::line_column::{LineColumn,LineColumnRange};
-use indexed_vec::IndexedVec;
+use compiler::source_spec::SourceSpec;
+use indexed_vec::IndexedSlice;
 use std::ffi::OsStr;
+use std::fmt::*;
 use std::ops::Range;
 use std::u32;
 
@@ -33,8 +32,8 @@ pub struct ParseData {
     pub(crate) char_data: CharData,
     pub(crate) identifiers: StringPool<IdentifierIndex>,
     pub(crate) literals: StringPool<LiteralIndex>,
-    pub(crate) tokens: IndexedVec<Token,AstIndex>,
-    pub(crate) token_ranges: IndexedVec<ByteRange,AstIndex>,
+    pub(crate) tokens: Tokens,
+    pub(crate) token_ranges: TokenRanges,
 }
 
 #[derive(Debug)]

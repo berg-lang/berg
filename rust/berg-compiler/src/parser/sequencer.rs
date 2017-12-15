@@ -83,11 +83,10 @@ impl<'p,'c:'p> Sequencer<'p,'c> {
     pub(super) fn complete(self) -> ParseData {
         let (tokens, token_ranges) = self.tokenizer.complete();
         ParseData {
+            tokens, token_ranges,
             char_data: self.char_data,
             identifiers: self.identifiers.strings,
             literals: self.literals,
-            tokens: tokens,
-            token_ranges: token_ranges,
         }
     }
 

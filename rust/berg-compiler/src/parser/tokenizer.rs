@@ -1,9 +1,8 @@
-use ast::AstIndex;
+use ast::{Tokens,TokenRanges};
 use ast::token::{ExpressionBoundary,Token};
 use ast::token::Token::*;
 use compiler::Compiler;
 use compiler::source_data::{ByteIndex,ByteRange,SourceIndex};
-use indexed_vec::IndexedVec;
 use parser::grouper::Grouper;
 
 // This builds up a valid expression from the incoming sequences, doing two things:
@@ -111,7 +110,7 @@ impl<'p,'c:'p> Tokenizer<'p,'c> {
     }
 
 
-    pub(super) fn complete(self) -> (IndexedVec<Token,AstIndex>,IndexedVec<ByteRange,AstIndex>) {
+    pub(super) fn complete(self) -> (Tokens,TokenRanges) {
         self.ast_builder.complete()
     }
 
