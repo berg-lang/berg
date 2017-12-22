@@ -1,126 +1,50 @@
 pub extern crate berg_compiler;
 pub use compiler_test::berg_compiler::*;
-pub use compiler_test::berg_compiler::compile_errors::*;
+pub use compiler_test::berg_compiler::compile_errors::CompileErrorCode::*;
 
-use std::ops::Range;
 
 macro_rules! compiler_tests {
     ($($name:ident: $source:tt => $($rule:ident($($arg:tt)*))+,)+) => {
-        use compiler_test::*;
+        use compiler_test::berg_compiler::test::expect;
         $(
             #[test]
             fn $name() {
                 println!("\nSOURCE\n======\n{:?}\n======\n", $source);
                 let source = compiler_tests!(@source $source);
-                let mut test = CompilerTest::new(source.as_bytes());
+                let mut test = expect(source);
                 $( compiler_tests!(@rule test $rule $($arg)*); )+
+                test.run();
             }
         )+
     };
-    (@source [$($e:tt)*]) => { &[$($e)*] };
+    (@source ($($e:tt)*)) => { $($e)* };
     (@source $source:tt) => { $source };
     (@rule $test:ident error $error:ident@$at:tt) => {
-        compiler_tests!(@rule $test errors $error@$at)
+        $test = $test.and_error(compiler_test::berg_compiler::compile_errors::CompileErrorCode::$error, compiler_tests!(@at $at));
     };
     (@rule $test:ident errors $($error:ident@$at:tt),+) => {
-        $test.assert_errors(vec![ $(
-            ($error::CODE, compiler_tests!(@at $at))
-        ),+ ]);
+        $(compiler_tests!(@rule $test error $error@$at));+
     };
-    (@rule $test:ident type error) => {
-        $test.assert_type(Type::Error);
+    (@rule $test:ident warning $error:ident@$at:tt) => {
+        $test = $test.and_warn(compiler_test::berg_compiler::compile_errors::CompileErrorCode::$error, compiler_tests!(@at $at));
     };
-    (@rule $test:ident type nothing) => {
-        $test.assert_type(Type::Nothing);
+    (@rule $test:ident warnings $($error:ident@$at:tt),+) => {
+        $(compiler_tests!(@rule $test warning $error@$at));+
     };
-    (@rule $test:ident type undefined) => {
-        $test.assert_type_matches(|t| match *t { Type::Undefined{..} => true, _ => false, });
+    (@rule $test:ident value error) => {
+        $test = $test.to_yield(compiler_test::berg_compiler::Value::Nothing);
     };
-    (@rule $test:ident type $($type:tt)*) => {
-        $test.assert_type($($type)*);
+    (@rule $test:ident value nothing) => {
+        $test = $test.to_yield(compiler_test::berg_compiler::Value::Nothing);
+    };
+    (@rule $test:ident value undefined) => {
+        $test = $test.to_yield(compiler_test::berg_compiler::Value::Nothing);
+    };
+    (@rule $test:ident value $($value:tt)*) => {
+        $test = $test.to_yield($($value)*);
     };
     (@at [$loc:tt (zero width)]) => { $loc..$loc };
     (@at [$start:tt-$end:tt]) => { $start..$end+1 };
-    (@at $loc:tt) => { $loc..$loc+1 };
+    (@at $loc:tt) => { $loc };
 }
 
-pub struct CompilerTest<'t> {
-    compiler: Compiler<'t>,
-}
-impl<'t> CompilerTest<'t> {
-    pub(crate) fn new(source: &'t [u8]) -> CompilerTest<'t> {
-        let out: Vec<u8> = vec![];
-        let err: Vec<u8> = vec![];
-        let mut compiler = Compiler::new(None, None, Box::new(out), Box::new(err));
-        compiler.add_memory_source("[test expr]", source);
-        compiler.with_sources(|sources| assert_eq!(sources.len(), 1));
-        CompilerTest { compiler }
-    }
-
-    #[allow(dead_code)]
-    pub(crate) fn assert_type<T: Into<Type>>(&mut self, expected: T) {
-        let expected = expected.into();
-        self.compiler.with_source(SourceIndex(0), |source| assert_eq!(expected, *source.checked_type()))
-    }
-
-    #[allow(dead_code)]
-    pub(crate) fn assert_type_matches<Matcher: Fn(&Type)->bool>(&mut self, matcher: Matcher) {
-        self.compiler.with_source(SourceIndex(0), |source| assert!(matcher(source.checked_type())))
-    }
-
-    #[allow(dead_code)]
-    pub(crate) fn assert_errors<Err: Into<ExpectedCompileError>>(&mut self, mut expected: Vec<Err>) {
-        let mut expected: Vec<ExpectedCompileError> = expected.drain(..).map(|error| error.into()).collect();
-        let actual = self.compiler.errors.read().unwrap();
-        let actual_count = actual.iter().filter_map(|actual_error| {
-            let mut found = false;
-            expected.retain(|expected_error| {
-                if !found && expected_error.matches(&self.compiler, actual_error) {
-                    found = true;
-                    false
-                } else {
-                    true
-                }
-            });
-            if found {
-                None
-            } else {
-                Some(&actual)
-            }
-        }).count();
-        assert!(actual_count == 0, "Unexpected compiler errors!\nExpected: {:?}\nActual: {:?}", expected, actual);
-        assert!(expected.len() == 0, "Expected errors not produced!\nExpected: {:?}\nActual: {:?}", expected, actual);
-    }
-}
-
-pub trait AsBytes {
-    fn as_bytes<'t>(&'t self) -> &'t [u8];
-}
-impl AsBytes for str {
-    fn as_bytes<'t>(&'t self) -> &'t [u8] { self.as_bytes() }
-}
-impl AsBytes for [u8] {
-    fn as_bytes<'t>(&'t self) -> &'t [u8] { self }
-}
-
-#[allow(dead_code)]
-#[derive(Debug,Clone)]
-pub struct ExpectedCompileError {
-    code: u32,
-    range: ByteRange,
-}
-impl ExpectedCompileError {
-    fn matches<'t>(&self, compiler: &Compiler, error: &Box<CompileError+'t>) -> bool {
-        let message = error.message(compiler);
-        match message.location {
-            CompileErrorLocation::Generic|CompileErrorLocation::SourceOnly{..} => false,
-            CompileErrorLocation::SourceRange{range,..} => self.code == error.code() && self.range == range
-        }
-    }
-}
-impl From<(u32, Range<usize>)> for ExpectedCompileError {
-    fn from((code, range): (u32, Range<usize>)) -> ExpectedCompileError {
-        let range = ByteIndex::from(range.start)..ByteIndex::from(range.end);
-        ExpectedCompileError { code, range }
-    }
-}

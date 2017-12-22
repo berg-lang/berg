@@ -4,13 +4,14 @@ use ast::precedence::Precedence;
 use ast::token::ExpressionBoundary::*;
 use ast::token::Token::*;
 use std::fmt;
+use source::compile_errors::CompileErrorCode;
 
 // ExpressionType, String, LeftChild, RightChild
 #[derive(Debug,Copy,Clone,PartialEq)]
 pub enum Token {
     IntegerLiteral(LiteralIndex),
-    FieldReference(IdentifierIndex),
-    SyntaxErrorTerm(LiteralIndex),
+    VariableReference(IdentifierIndex),
+    ErrorTerm(CompileErrorCode),
     MissingExpression,
 
     InfixOperator(IdentifierIndex),
@@ -19,17 +20,17 @@ pub enum Token {
     MissingInfix,
 
     PrefixOperator(IdentifierIndex),
-    Open(ExpressionBoundary,AstDelta),
+    Open { delta: AstDelta, boundary: ExpressionBoundary, error: ExpressionBoundaryError },
 
     PostfixOperator(IdentifierIndex),
-    Close(ExpressionBoundary,AstDelta),
+    Close { delta: AstDelta, boundary: ExpressionBoundary, error: ExpressionBoundaryError }
 }
 
 #[derive(Debug,Copy,Clone,PartialEq)]
 pub enum TermToken {
     IntegerLiteral(LiteralIndex),
-    FieldReference(IdentifierIndex),
-    SyntaxErrorTerm(LiteralIndex),
+    VariableReference(IdentifierIndex),
+    ErrorTerm(CompileErrorCode),
     MissingExpression,
 }
 
@@ -43,13 +44,13 @@ pub enum InfixToken {
 
 #[derive(Debug,Copy,Clone,PartialEq)]
 pub enum PrefixToken {
-    Open(ExpressionBoundary,AstDelta),
+    Open { delta: AstDelta, boundary: ExpressionBoundary, error: ExpressionBoundaryError },
     PrefixOperator(IdentifierIndex),
 }
 
 #[derive(Debug,Copy,Clone,PartialEq)]
 pub enum PostfixToken {
-    Close(ExpressionBoundary,AstDelta),
+    Close { delta: AstDelta, boundary: ExpressionBoundary, error: ExpressionBoundaryError },
     PostfixOperator(IdentifierIndex),
 }
 
@@ -70,13 +71,21 @@ pub enum Fixity {
     Postfix,
 }
 
+#[derive(Debug,Copy,Clone,PartialEq)]
+pub enum ExpressionBoundaryError {
+    CloseWithoutOpen,
+    OpenWithoutClose,
+    OpenError, // Error opening or reading the source file
+    None
+}
+
 impl Token {
     pub fn fixity(self) -> Fixity {
         match self {
-            IntegerLiteral(_)|FieldReference(_)|SyntaxErrorTerm(_)|MissingExpression => Fixity::Term,
+            IntegerLiteral(_)|VariableReference(_)|ErrorTerm(_)|MissingExpression => Fixity::Term,
             InfixOperator(_)|InfixAssignment(_)|NewlineSequence|MissingInfix => Fixity::Infix,
-            PrefixOperator(_)|Open(..) => Fixity::Prefix,
-            PostfixOperator(_)|Close(..) => Fixity::Postfix,
+            PrefixOperator(_)|Open{..} => Fixity::Prefix,
+            PostfixOperator(_)|Close{..} => Fixity::Postfix,
         }
     }
     pub fn to_term(self) -> Option<TermToken> { TermToken::try_from(self) }
@@ -89,11 +98,11 @@ impl Token {
 }
 
 impl ExpressionBoundary {
-    pub(crate) fn placeholder_open_token(self) -> Token {
-        Open(self, Default::default())
+    pub(crate) fn placeholder_open_token(self, error: ExpressionBoundaryError) -> Token {
+        Open { boundary: self, delta: Default::default(), error }
     }
-    pub(crate) fn placeholder_close_token(self) -> Token {
-        Close(self, Default::default())
+    pub(crate) fn placeholder_close_token(self, error: ExpressionBoundaryError) -> Token {
+        Close { boundary: self, delta: Default::default(), error }
     }
     pub(crate) fn open_string(self) -> &'static str {
         match self {
@@ -153,8 +162,8 @@ impl From<TermToken> for Token {
     fn from(token: TermToken) -> Self {
         match token {
             TermToken::IntegerLiteral(literal) => IntegerLiteral(literal),
-            TermToken::FieldReference(identifier) => FieldReference(identifier),
-            TermToken::SyntaxErrorTerm(literal) => SyntaxErrorTerm(literal),
+            TermToken::VariableReference(identifier) => VariableReference(identifier),
+            TermToken::ErrorTerm(code) => ErrorTerm(code),
             TermToken::MissingExpression => MissingExpression,
         }
     }
@@ -164,10 +173,10 @@ impl TermToken {
     pub fn try_from(token: Token) -> Option<Self> {
         match token {
             IntegerLiteral(literal) => Some(TermToken::IntegerLiteral(literal)),
-            SyntaxErrorTerm(literal) => Some(TermToken::SyntaxErrorTerm(literal)),
+            ErrorTerm(code) => Some(TermToken::ErrorTerm(code)),
             MissingExpression => Some(TermToken::MissingExpression),
-            FieldReference(identifier) => Some(TermToken::FieldReference(identifier)),
-            InfixOperator(_)|InfixAssignment(_)|NewlineSequence|MissingInfix|PrefixOperator(_)|Open(..)|PostfixOperator(_)|Close(..) => None,
+            VariableReference(identifier) => Some(TermToken::VariableReference(identifier)),
+            InfixOperator(_)|InfixAssignment(_)|NewlineSequence|MissingInfix|PrefixOperator(_)|Open{..}|PostfixOperator(_)|Close{..} => None,
         }
     }
 }
@@ -189,7 +198,7 @@ impl InfixToken {
             InfixAssignment(identifier) => Some(InfixToken::InfixAssignment(identifier)),
             NewlineSequence => Some(InfixToken::NewlineSequence),
             MissingInfix => Some(InfixToken::MissingInfix),
-            IntegerLiteral(_)|FieldReference(_)|SyntaxErrorTerm(_)|MissingExpression|PrefixOperator(_)|Open(..)|PostfixOperator(_)|Close(..) => None,
+            IntegerLiteral(_)|VariableReference(_)|ErrorTerm(_)|MissingExpression|PrefixOperator(_)|Open{..}|PostfixOperator(_)|Close{..} => None,
         }
     }
     pub fn precedence(self) -> Precedence {
@@ -222,7 +231,7 @@ impl From<PrefixToken> for Token {
     fn from(token: PrefixToken) -> Self {
         match token {
             PrefixToken::PrefixOperator(identifier) => PrefixOperator(identifier),
-            PrefixToken::Open(boundary,delta) => Open(boundary,delta),
+            PrefixToken::Open{boundary,delta,error} => Open{boundary,delta,error},
         }
     }
 }
@@ -230,8 +239,8 @@ impl PrefixToken {
     pub fn try_from(token: Token) -> Option<Self> {
         match token {
             PrefixOperator(identifier) => Some(PrefixToken::PrefixOperator(identifier)),
-            Open(boundary,delta) => Some(PrefixToken::Open(boundary,delta)),
-            IntegerLiteral(_)|FieldReference(_)|SyntaxErrorTerm(_)|MissingExpression|InfixOperator(_)|InfixAssignment(_)|NewlineSequence|MissingInfix|PostfixOperator(_)|Close(..) => None,
+            Open{boundary,delta,error} => Some(PrefixToken::Open{boundary,delta,error}),
+            IntegerLiteral(_)|VariableReference(_)|ErrorTerm(_)|MissingExpression|InfixOperator(_)|InfixAssignment(_)|NewlineSequence|MissingInfix|PostfixOperator(_)|Close{..} => None,
         }
     }
 }
@@ -240,7 +249,7 @@ impl From<PostfixToken> for Token {
     fn from(token: PostfixToken) -> Self {
         match token {
             PostfixToken::PostfixOperator(identifier) => PostfixOperator(identifier),
-            PostfixToken::Close(boundary,delta) => Close(boundary,delta),
+            PostfixToken::Close{boundary,delta,error} => Close{boundary,delta,error},
         }
     }
 }
@@ -248,8 +257,8 @@ impl PostfixToken {
     pub fn try_from(token: Token) -> Option<Self> {
         match token {
             PostfixOperator(identifier) => Some(PostfixToken::PostfixOperator(identifier)),
-            Close(boundary,delta) => Some(PostfixToken::Close(boundary,delta)),
-            IntegerLiteral(_)|FieldReference(_)|SyntaxErrorTerm(_)|MissingExpression|InfixOperator(_)|InfixAssignment(_)|NewlineSequence|MissingInfix|PrefixOperator(_)|Open(..) => None,
+            Close{boundary,delta,error} => Some(PostfixToken::Close{boundary,delta,error}),
+            IntegerLiteral(_)|VariableReference(_)|ErrorTerm(_)|MissingExpression|InfixOperator(_)|InfixAssignment(_)|NewlineSequence|MissingInfix|PrefixOperator(_)|Open{..} => None,
         }
     }
 }

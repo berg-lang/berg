@@ -1,9 +1,8 @@
-use compiler::source_data::ByteSlice;
-use compiler::source_data::ByteIndex;
+use source::parse_result::{ByteIndex,ByteSlice};
 use std::ops::Index;
 use fnv::FnvHashMap;
-use indexed_vec::IndexedVec;
-use indexed_vec::IndexType;
+use util::indexed_vec::IndexedVec;
+use util::indexed_vec::IndexType;
 use std::str;
 
 const DEFAULT_CAPACITY: usize = 1024;

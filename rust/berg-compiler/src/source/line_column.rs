@@ -1,5 +1,5 @@
-use indexed_vec::Delta;
-use compiler::source_data::ByteIndex;
+use util::indexed_vec::Delta;
+use source::parse_result::ByteIndex;
 use std::cmp::Ordering;
 use std::fmt::{Display,Formatter,Result};
 

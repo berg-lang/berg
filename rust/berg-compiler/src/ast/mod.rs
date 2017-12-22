@@ -4,11 +4,9 @@ pub(crate) mod intern_pool;
 pub(crate) mod precedence;
 pub(crate) mod token;
 
-
 use ast::token::Token;
-use compiler::source_data::ByteRange;
-use indexed_vec::IndexedVec;
-use indexed_vec;
+use source::parse_result::ByteRange;
+use util::indexed_vec::IndexedVec;
 use std::u32;
 
 index_type! {
@@ -21,4 +19,4 @@ pub(crate) type Tokens = IndexedVec<Token,AstIndex>;
 pub(crate) type TokenRanges = IndexedVec<ByteRange,AstIndex>;
 
 // So we can signify that something is meant to be a *difference* between indices.
-pub type AstDelta = indexed_vec::Delta<AstIndex>;
+pub type AstDelta = Delta<AstIndex>;

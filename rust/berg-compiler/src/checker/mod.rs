@@ -1,6 +1,9 @@
 pub mod checker_type;
 
-use compiler::source_data::ByteIndex;
+use ast::expression::OperandPosition;
+use ast::expression::OperandType;
+use ast::expression::OperandPosition::*;
+use source::ByteIndex;
 use std::ops::Range;
 use ast::{IdentifierIndex,LiteralIndex};
 use ast::expression::Expression;
@@ -8,12 +11,11 @@ use ast::identifiers::*;
 use ast::token::{ExpressionBoundary,Token};
 use ast::token::ExpressionBoundary::*;
 use ast::token::Token::*;
-use checker::OperandPosition::*;
 use checker::checker_type::Type;
 use checker::checker_type::Type::*;
 use compiler::Compiler;
-use compiler::source_data::{ParseData,SourceIndex};
-use compiler::compile_errors::*;
+use source::{ParseResult,SourceIndex};
+use source::compile_errors::*;
 use fnv::FnvHashMap;
 use num::{BigRational,One,Zero};
 use std::fmt;
@@ -21,13 +23,13 @@ use std::fmt::{Formatter,Display};
 use std::str::FromStr;
 
 pub(super) fn check<'ch,'c:'ch>(
-    parse_data: &'ch ParseData,
-    compiler: &'ch Compiler<'c>,
+    parse_result: &'ch ParseResult,
+    compiler: &'ch Compiler,
     source: SourceIndex,
 ) -> Type {
     let scopes = vec![Scope::with_keywords()];
-    let mut checker = Checker { compiler, source, parse_data, scopes };
-    let root = Expression::from_source(parse_data);
+    let mut checker = Checker { compiler, source, parse_result, scopes };
+    let root = Expression::from_source(parse_result);
     checker.check(root)
 }
 
@@ -56,90 +58,39 @@ impl Scope {
 
 #[derive(Debug)]
 struct Checker<'ch,'c:'ch> {
-    compiler: &'ch Compiler<'c>,
+    compiler: &'ch Compiler,
     source: SourceIndex,
-    parse_data: &'ch ParseData,
+    parse_result: &'ch ParseResult,
     scopes: Vec<Scope>,
-}
-
-#[derive(Debug,Copy,Clone,PartialEq)]
-pub enum OperandType {
-    Any,
-    Number,
-    Boolean,
-    Integer,
-}
-
-#[derive(Debug,Copy,Clone,PartialEq)]
-enum OperandPosition {
-    Left,
-    Right,
-    PrefixOperand,
-    PostfixOperand,
-}
-
-impl Display for OperandType {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        use checker::OperandType::*;
-        let string = match *self {
-            Any => "any",
-            Number => "number",
-            Boolean => "boolean",
-            Integer => "integer",
-        };
-        write!(f, "{}", string)
-    }
-}
-
-impl OperandType {
-    fn matches(self, value: &Type) -> bool {
-        match (self, value) {
-            (OperandType::Any, _)|(OperandType::Number,&Rational(_))|(OperandType::Boolean,&Boolean(_)) => true,
-            (OperandType::Integer,&Rational(ref value)) if value.is_integer() => true,
-            (OperandType::Number,_)|(OperandType::Integer,_)|(OperandType::Boolean,_) => false,
-        }
-    }
-}
-
-impl OperandPosition {
-    fn get(self, expression: Expression, checker: &Checker) -> Expression {
-        match self {
-            Left|PostfixOperand => expression.left(checker.parse_data),
-            Right|PrefixOperand => expression.right(checker.parse_data),
-        }
-    }
-    fn range(self, expression: Expression, checker: &Checker) -> Range<ByteIndex> {
-        self.get(expression, checker).range(checker.parse_data)
-    }
 }
 
 impl<'ch,'c:'ch> Checker<'ch,'c> {
     fn check(&mut self, expression: Expression) -> Type {
-        let token = expression.token(self.parse_data);
-        println!("check({})", expression.debug_string(self.parse_data));
+        let token = expression.token(self.parse_result);
+        println!("check({})", expression.debug_string(self.parse_result));
 
         match *token {
             IntegerLiteral(literal) => self.check_integer_literal(literal),
-            FieldReference(identifier) => self.check_field_reference(identifier, expression),
+            VariableReference(identifier) => self.check_field_reference(identifier, expression),
             InfixOperator(identifier) => self.check_infix(identifier, expression),
             InfixAssignment(identifier) => self.check_assignment(identifier, expression),
             NewlineSequence => self.check_sequence(expression),
             PrefixOperator(identifier) => self.check_prefix(identifier, expression),
             PostfixOperator(identifier) => self.check_postfix(identifier, expression),
-            Open(..) => unreachable!(),
+            Open{..} => unreachable!(),
             Close(boundary,..) => self.check_group(boundary, expression),
             MissingInfix => {
                 self.check_operand(expression, Left, OperandType::Any);
                 self.check_operand(expression, Right, OperandType::Any);
                 Error
             },
-            SyntaxErrorTerm(_) => Error,
+            ErrorTerm(_) => Error,
             MissingExpression => Missing,
         }
     }
 
     fn check_integer_literal(&self, literal: LiteralIndex) -> Type {
-        let string = self.parse_data.literal_string(literal);
+        let string = self.parse_result.literal_string(literal);
         let value = BigRational::from_str(string).unwrap();
         Rational(value)
     }
@@ -160,7 +111,7 @@ impl<'ch,'c:'ch> Checker<'ch,'c> {
 
     fn check_sequence(&mut self, expression: Expression) -> Type {
         self.check_operand(expression, Left, OperandType::Any);
-        let right = expression.right(self.parse_data);
+        let right = expression.right(self.parse_result);
         self.check(right)
     }
 
@@ -186,7 +137,7 @@ impl<'ch,'c:'ch> Checker<'ch,'c> {
     fn check_assignment(&mut self, identifier: IdentifierIndex, expression: Expression) -> Type {
         let value = match identifier {
             EMPTY_STRING => {
-                let left = match *expression.left(self.parse_data).token(self.parse_data) {
+                let left = match *expression.left(self.parse_result).token(self.parse_result) {
                     MissingExpression => self.missing_operand_error(expression, Left),
                     _ => Nothing,
                 };
@@ -220,9 +171,9 @@ impl<'ch,'c:'ch> Checker<'ch,'c> {
     }
 
     fn check_expose(&mut self, expression: Expression) -> Type {
-        let right = expression.right(self.parse_data);
+        let right = expression.right(self.parse_result);
 
-        if let Token::FieldReference(field) = *right.token(self.parse_data) {
+        if let Token::VariableReference(field) = *right.token(self.parse_result) {
             // TODO nothing and undefined are almost certainly different.
             if self.get(field) == None {
                 self.set(field, Nothing);
@@ -241,7 +192,7 @@ impl<'ch,'c:'ch> Checker<'ch,'c> {
             CompoundTerm|Parentheses|PrecedenceGroup => {}
         }
 
-        let value = self.check(expression.inner(self.parse_data));
+        let value = self.check(expression.inner(self.parse_result));
 
         // Close the scope we just opened.
         match boundary {
@@ -378,17 +329,17 @@ impl<'ch,'c:'ch> Checker<'ch,'c> {
 
     fn assign_value(&mut self, expression: Expression, target_position: OperandPosition, value: Type) -> Type {
         let target = target_position.get(expression, self);
-        match *target.token(self.parse_data) {
+        match *target.token(self.parse_result) {
             PrefixOperator(COLON) => {
-                let token = target.right(self.parse_data).token(self.parse_data);
-                if let FieldReference(identifier) = *token {
+                let token = target.right(self.parse_result).token(self.parse_result);
+                if let VariableReference(identifier) = *token {
                     self.set(identifier, value);
                     Nothing
                 } else {
                     self.invalid_target_error(expression, target_position)
                 }
             },
-            FieldReference(identifier) => {
+            VariableReference(identifier) => {
                 self.set(identifier, value);
                 Nothing
             },
@@ -407,34 +358,34 @@ impl<'ch,'c:'ch> Checker<'ch,'c> {
     }
 
     fn divide_by_zero_error(&self, expression: Expression) -> Type {
-        self.report(DivideByZero { source: self.source, divide: self.parse_data.token_range(expression.operator()) })
+        self.report(DivideByZero { source: self.source, divide: self.parse_result.token_range(expression.operator()) })
     }
 
     fn unrecognized_operator_error(&mut self, expression: Expression) -> Type {
-        let token = expression.token(self.parse_data);
+        let token = expression.token(self.parse_result);
         if token.has_left_operand() {
-            self.check(expression.left(self.parse_data));
+            self.check(expression.left(self.parse_result));
         }
         if token.has_right_operand() {
-            self.check(expression.right(self.parse_data));
+            self.check(expression.right(self.parse_result));
         }
-        let operator = expression.operator_range(self.parse_data);
+        let operator = expression.operator_range(self.parse_result);
         let fixity = token.fixity();
         self.report(UnrecognizedOperator { source: self.source, operator, fixity })
     }
 
     fn no_such_field_error(&self, operand: Expression) -> Type {
-        self.report(NoSuchField { source: self.source, reference: operand.range(self.parse_data) })
+        self.report(NoSuchField { source: self.source, reference: operand.range(self.parse_result) })
     }
 
     fn field_not_set_error(&self, operand: Expression) -> Type {
-        self.report(FieldNotSet { source: self.source, reference: operand.range(self.parse_data) })
+        self.report(FieldNotSet { source: self.source, reference: operand.range(self.parse_result) })
     }
 
     fn invalid_target_error(&self, expression: Expression, position: OperandPosition) -> Type {
         let source = self.source;
         let target = position.range(expression, self);
-        let operator = self.parse_data.token_range(expression.operator());
+        let operator = self.parse_result.token_range(expression.operator());
         match position {
             Left => self.report(LeftSideOfAssignmentMustBeIdentifier { source, operator, left: target }),
             PrefixOperand => self.report(RightSideOfIncrementOrDecrementMustBeIdentifier { source, operator, right: target }),
@@ -445,21 +396,15 @@ impl<'ch,'c:'ch> Checker<'ch,'c> {
 
     fn missing_operand_error(&self, expression: Expression, position: OperandPosition) -> Type {
         let source = self.source;
-        let operator = self.parse_data.token_range(expression.operator());
-        match position {
-            Left|PostfixOperand => self.report(MissingLeftOperand { source, operator }),
-            Right|PrefixOperand => self.report(MissingRightOperand { source, operator }),
-        }
+        let operator = self.parse_result.token_range(expression.operator());
+        self.report(MissingOperand { source, operator, position })
     }
 
     fn bad_type_error(&self, expression: Expression, position: OperandPosition, expected_type: OperandType, actual_type: Type) -> Type {
         let source = self.source;
         let operand = position.range(expression, self);
-        let operator = self.parse_data.token_range(expression.operator());
-        match position {
-            Left|PostfixOperand => self.report(BadTypeLeftOperand { source, operator, operand, expected_type, actual_type }),
-            Right|PrefixOperand => self.report(BadTypeRightOperand { source, operator, operand, expected_type, actual_type }),
-        }
+        let operator = self.parse_result.token_range(expression.operator());
+        self.report(BadType { source, operator, operand, expected_type, actual_type, position })
     }
 
     fn get(&self, name: IdentifierIndex) -> Option<&Type> {

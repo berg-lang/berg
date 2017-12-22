@@ -1,3 +1,7 @@
+use std::borrow::Cow;
+use std::ops::RangeFrom;
+use std::slice::IterMut;
+use std::slice::Iter;
 use std::cmp::Ordering;
 use std::borrow::{Borrow,BorrowMut};
 use std::fmt;
@@ -5,7 +9,7 @@ use std::ops::{Add,AddAssign,Deref,DerefMut,Index,IndexMut,Range,Sub,SubAssign};
 use std::marker::PhantomData;
 use std::mem;
 
-// index_type and indexed_vec work together to let you use a custom type
+// index_type and util::indexed_vec work together to let you use a custom type
 // (like TokenIndex) to index the vector, and disallow any other type (like usize
 // or SourceIndex) from accessing it, so that you can be sure you are accessing
 // the thing you think you are!
@@ -16,7 +20,7 @@ use std::mem;
 #[macro_export]
 macro_rules! index_type {
     ($(pub struct $name:ident(pub $($type:tt)*) <= $max:expr;)*) => {
-        use indexed_vec::{Delta,IndexType};
+        use util::indexed_vec::{Delta,IndexType};
         use std::fmt;
         use std::ops::{Add,AddAssign,Sub,SubAssign};
         use std::cmp::Ordering;
@@ -97,6 +101,9 @@ pub struct IndexedSlice<Elem, Index: IndexType> {
 impl<Elem, Index: IndexType> IndexedSlice<Elem, Index> {
     pub fn len(&self) -> Index { self.slice.len().into() }
     pub fn get(&self, index: Index) -> Option<&Elem> { self.slice.get(index.into()) }
+    pub fn iter(&self) -> Iter<Elem> { self.slice.iter() }
+    pub fn iter_mut(&mut self) -> IterMut<Elem> { self.slice.iter_mut() }
+    pub fn is_empty(&self) -> bool { self.slice.is_empty() }
     pub fn from_slice(slice: &[Elem]) -> &Self { unsafe { mem::transmute(slice) } }
     pub fn from_mut_slice(slice: &mut [Elem]) -> &mut Self { unsafe { mem::transmute(slice) } }
     pub fn first(&self) -> Option<&Elem> { self.slice.first() }
@@ -122,12 +129,45 @@ impl<Elem, I: IndexType> Index<Range<I>> for IndexedSlice<Elem,I> {
         &self.slice[range.start.into()..range.end.into()]
     }
 }
+impl<Elem, I: IndexType> Index<RangeFrom<I>> for IndexedSlice<Elem,I> {
+    type Output = [Elem];
+    fn index(&self, range: RangeFrom<I>) -> &[Elem] {
+        &self.slice[range.start.into()..]
+    }
+}
+impl<Elem, I: IndexType> IndexMut<Range<I>> for IndexedSlice<Elem,I> {
+    fn index_mut(&mut self, range: Range<I>) -> &mut [Elem] {
+        &mut self.slice[range.start.into()..range.end.into()]
+    }
+}
+impl<Elem, I: IndexType> IndexMut<RangeFrom<I>> for IndexedSlice<Elem,I> {
+    fn index_mut(&mut self, range: RangeFrom<I>) -> &mut [Elem] {
+        &mut self.slice[range.start.into()..]
+    }
+}
 impl<'a, Elem, I: IndexType> Index<&'a Range<I>> for IndexedSlice<Elem,I> {
     type Output = [Elem];
     fn index<'s>(&'s self, range: &'a Range<I>) -> &'s [Elem] {
         &self.slice[range.start.into()..range.end.into()]
     }
 }
+impl<'a, Elem, I: IndexType> Index<&'a RangeFrom<I>> for IndexedSlice<Elem,I> {
+    type Output = [Elem];
+    fn index<'s>(&'s self, range: &'a RangeFrom<I>) -> &'s [Elem] {
+        &self.slice[range.start.into()..]
+    }
+}
+impl<'a, Elem, I: IndexType> IndexMut<&'a Range<I>> for IndexedSlice<Elem,I> {
+    fn index_mut(&mut self, range: &'a Range<I>) -> &mut [Elem] {
+        &mut self.slice[range.start.into()..range.end.into()]
+    }
+}
+impl<'a, Elem, I: IndexType> IndexMut<&'a RangeFrom<I>> for IndexedSlice<Elem,I> {
+    fn index_mut(&mut self, range: &'a RangeFrom<I>) -> &mut [Elem] {
+        &mut self.slice[range.start.into()..]
+    }
+}
+
 impl<Elem: Clone, I: IndexType> ToOwned for IndexedSlice<Elem,I> {
     type Owned = IndexedVec<Elem,I>;
     fn to_owned(&self) -> Self::Owned { (&self.slice).to_vec().into() }
@@ -143,6 +183,8 @@ pub struct IndexedVec<Elem, I: IndexType> {
 }
 impl<Elem, I: IndexType> IndexedVec<Elem,I> {
     pub fn push(&mut self, value: Elem) -> I { self.inner.push(value); self.len()-1 }
+    pub fn pop(&mut self) -> Option<Elem> { self.inner.pop() }
+    pub fn truncate(&mut self, new_end: I) { self.inner.truncate(new_end.into()) }
     pub fn insert(&mut self, index: I, value: Elem) { self.inner.insert(index.into(), value) }
     pub fn as_raw_vec(&self) -> &Vec<Elem> { &self.inner }
 }
@@ -164,4 +206,11 @@ impl<Elem, I: IndexType> DerefMut for IndexedVec<Elem,I> {
 }
 impl<Elem, I: IndexType> From<Vec<Elem>> for IndexedVec<Elem,I> {
     fn from(vec: Vec<Elem>) -> Self { IndexedVec { inner: vec, marker: PhantomData } }
+}
+
+pub fn to_indexed_cow<Elem: Clone, I: IndexType>(from: Cow<[Elem]>) -> Cow<IndexedSlice<Elem,I>> {
+    match from {
+        Cow::Borrowed(slice) => Cow::Borrowed(IndexedSlice::from_slice(slice)),
+        Cow::Owned(vec) => Cow::Owned(IndexedVec::from(vec))
+    }
 }

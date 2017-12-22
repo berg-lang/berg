@@ -1,17 +1,13 @@
-#[macro_use]
-mod compile_error_macros;
-
-pub mod compile_errors;
-pub(crate) mod line_column;
-pub(crate) mod source_spec;
-pub(crate) mod source_data;
-
-use checker;
-use compiler::compile_errors::{CompileError,CompileErrorLocation};
-use compiler::source_data::{SourceData,SourceIndex};
-use compiler::source_spec::SourceSpec;
-use indexed_vec::IndexedVec;
-use parser;
+use std::cell::RefCell;
+use std::rc::Rc;
+use std::sync::RwLockWriteGuard;
+use std::sync::RwLockReadGuard;
+use source::compile_errors;
+use source::compile_errors::CompileError;
+use source::{Source,SourceIndex};
+use source::source_spec::SourceSpec;
+use util::indexed_vec::IndexedVec;
+use interpreter::value::Value;
 use std::default::Default;
 use std::env;
 use std::fmt::*;
@@ -19,23 +15,29 @@ use std::io;
 use std::io::Write;
 use std::path::PathBuf;
 use std::sync::RwLock;
+use std::u32;
+use std::result;
+use interpreter;
 
-pub struct Compiler<'c> {
-    root: Option<PathBuf>,
-    root_error: RwLock<Option<io::Error>>,
-    out: Box<Write>,
-    err: Box<Write>,
-    sources: RwLock<IndexedVec<SourceData<'c>, SourceIndex>>,
-    pub errors: RwLock<Vec<Box<CompileError+'c>>>,
+index_type! {
+    pub struct GenericErrorIndex(pub u32) <= u32::MAX;
 }
 
-impl<'c> Debug for Compiler<'c> {
+type Sources = IndexedVec<Rc<RefCell<Source>>, SourceIndex>;
+
+pub struct Compiler {
+    root: result::Result<PathBuf,String>,
+    out: Box<Write>,
+    err: Box<Write>,
+    sources: RwLock<Sources>,
+    generic_errors: RwLock<IndexedVec<Box<CompileError>,GenericErrorIndex>>,
+}
+
+impl Debug for Compiler {
     fn fmt(&self, f: &mut Formatter) -> Result {
         f.debug_struct("Foo")
             .field("root", &self.root)
-            .field("root_error", &self.root_error)
             .field("sources", &self.sources)
-            .field("errors", &self.errors)
             .finish()
     }
 }
@@ -44,142 +46,92 @@ impl<'c> Debug for Compiler<'c> {
 // Implementation
 //
 
-impl<'c> Compiler<'c> {
+impl Compiler {
     pub fn from_env() -> Self {
-        let mut root = None;
-        let mut root_error = None;
-        match env::current_dir() {
-            Ok(path) => root = Some(path),
-            Err(error) => root_error = Some(error),
-        }
+        let root = match env::current_dir() {
+            Ok(path) => Ok(path),
+            Err(error) => Err(error.to_string())
+        };
         let out = Box::new(io::stdout());
         let err = Box::new(io::stderr());
-        Self::new(root, root_error, out, err)
+        Self::new(root, out, err)
     }
 
-    pub fn new(root: Option<PathBuf>, root_error: Option<io::Error>, out: Box<Write>, err: Box<Write>) -> Self {
-        let root_error = RwLock::new(root_error);
+    pub fn new(root: result::Result<PathBuf,String>, out: Box<Write>, err: Box<Write>) -> Self {
         let sources = RwLock::default();
-        let errors = RwLock::default();
-        Compiler { root, root_error, out, err, sources, errors }
+        let generic_errors = RwLock::default();
+        Compiler { root, out, err, sources, generic_errors }
     }
 
-    pub fn add_file_source<P: Into<PathBuf>>(&mut self, path: P) {
+    pub fn add_file_source<P: Into<PathBuf>>(&mut self, path: P) -> Value {
         let source = SourceSpec::file(path.into());
         self.add_source(source)
     }
 
-    pub fn add_memory_source<'s: 'c>(
-        &mut self,
-        name: &'s str,
-        contents: &'s [u8],
-    ) {
-        let source = SourceSpec::memory(name, contents);
+    pub fn add_memory_source<T: Into<Vec<u8>>>(&mut self, name: String, contents: T) -> Value {
+        let source = SourceSpec::memory(name, contents.into());
         self.add_source(source)
     }
 
-    pub fn with_sources<T, F: FnOnce(&IndexedVec<SourceData<'c>, SourceIndex>) -> T>(&self, f: F) -> T {
-        let sources = self.sources.read().unwrap();
-        f(&sources)
+    pub fn sources(&self) -> RwLockReadGuard<Sources> {
+        self.sources.read().unwrap()
     }
 
-    pub fn with_errors<T, F: FnOnce(&Vec<Box<CompileError+'c>>) -> T>(&self, f: F) -> T {
-        let errors = self.errors.read().unwrap();
-        f(&errors)
+    pub fn sources_mut(&self) -> RwLockWriteGuard<Sources> {
+        self.sources.write().unwrap()
     }
 
-    pub(crate) fn report<T: CompileError+'c>(&self, error: T) {
-        self.with_errors_mut(|errors| errors.push(Box::new(error)))
+    pub fn source(&self, index: SourceIndex) -> Rc<RefCell<Source>> {
+        let sources = self.sources();
+        Rc::clone(&sources[index])
     }
 
-    pub fn with_source<T, F: FnOnce(&SourceData<'c>) -> T>(&self, index: SourceIndex, f: F) -> T {
-        self.with_sources(|sources| f(&sources[index]))
+    pub fn generic_errors(&self) -> RwLockReadGuard<IndexedVec<Box<CompileError>,GenericErrorIndex>> {
+        self.generic_errors.read().unwrap()
     }
 
-    pub(crate) fn with_source_mut<T, F: FnOnce(&mut SourceData<'c>) -> T>(
-        &self,
-        index: SourceIndex,
-        f: F,
-    ) -> T {
-        let mut sources = self.sources.write().unwrap();
-        f(&mut sources[index])
+    pub fn generic_errors_mut(&self) -> RwLockWriteGuard<IndexedVec<Box<CompileError>,GenericErrorIndex>> {
+        self.generic_errors.write().unwrap()
     }
 
-    pub(crate) fn with_errors_mut<T, F: FnOnce(&mut Vec<Box<CompileError+'c>>) -> T>(
-        &self,
-        f: F,
-    ) -> T {
-        let mut errors = self.errors.write().unwrap();
-        f(&mut errors)
+    fn report_generic_error<E: CompileError+'static+Clone>(&self, error: E) -> Value {
+        let mut errors = self.generic_errors.write().unwrap();
+        let result = error.clone();
+        errors.push(Box::new(error));
+        result.into()
     }
 
-    fn add_source<'s: 'c>(&self, source_spec: SourceSpec<'s>) {
+    fn add_source(&self, source_spec: SourceSpec) -> Value {
         let index = {
-            let mut sources = self.sources.write().unwrap();
-            if sources.len() + 1 > SourceIndex::MAX {
-                self.report(compile_errors::TooManySources { num_sources: usize::from(sources.len()) + 1 });
+            let mut sources = self.sources_mut();
+            let next_index = sources.len();
+            if usize::from(next_index) >= SourceIndex::MAX.into() {
+                return self.report_generic_error(compile_errors::TooManySources { num_sources: usize::from(next_index) });
             }
-            sources.push(SourceData::new(source_spec));
-            sources.len() - 1
+            sources.push(Rc::new(RefCell::new(Source::new(source_spec, next_index))))
         };
-
-        self.with_source(index, |source| println!("{}", source.name().to_string_lossy()));
-
-        let parse_data = parser::parse(self, index);
-
-        println!("--------------------");
-        println!("PARSE RESULT:");
-        print!("{}", parse_data);
-
-        let checked_type = checker::check(&parse_data, self, index);
-
-        println!("--------------------");
-        println!("CHECK RESULT:");
-        println!("{:?}", checked_type);
-
-        let errors = self.errors.read().unwrap();
-        if !errors.is_empty() {
-            println!();
-            println!("ERRORS:");
-            for error in errors.iter() {
-                let message = error.message(self);
-                match message.location {
-                    CompileErrorLocation::Generic|CompileErrorLocation::SourceOnly{..} => println!("{}", message.message),
-                    CompileErrorLocation::SourceRange{range,..} => {
-                        let range = parse_data.char_data().range(&range);
-                        println!("{}: {}", range, message.message)
-                    },
-                }
-            }
-        }
-
-        self.with_source_mut(index, |source| {
-            source.parse_data = Some(parse_data);
-            source.checked_type = Some(checked_type);
-        });
+        let source = self.source(index);
+        assert!(source.borrow().index == index);
+        println!("{}", source.borrow().name().to_string_lossy());
+        let value = source.borrow().value.clone();
+        value.into()
     }
 
-    fn maybe_report_path_error(&self, path: &PathBuf, source: SourceIndex) {
-        // Only report the "bad root directory" error once.
-        let mut root_error = self.root_error.write().unwrap();
-        if let Some(ref io_error) = *root_error {
-            self.report(compile_errors::IoCurrentDirectoryError { source, path: path.clone(), io_error_string: io_error.to_string() });
-        } else {
-            return;
+    pub fn run(&self, source_block: Value) -> Value {
+        match source_block {
+            Value::Block(source_block) => interpreter::run(self, &source_block),
+            _ => unreachable!(),
         }
-        *root_error = None;
     }
 
-    pub(crate) fn absolute_path(&self, path: &PathBuf, source: SourceIndex) -> Option<PathBuf> {
+    pub(crate) fn absolute_path(&self, path: &PathBuf) -> result::Result<PathBuf,String> {
         if path.is_relative() {
-            if let Some(ref root) = self.root {
-                Some(root.join(path))
-            } else {
-                self.maybe_report_path_error(path, source);
-                None
+            match self.root {
+                Ok(ref root) => Ok(root.join(path)),
+                Err(ref error) => Err(error.clone()),
             }
         } else {
-            None
+            Ok(path.clone())
         }
     }
 }

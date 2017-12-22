@@ -1,7 +1,7 @@
 use ast::IdentifierIndex;
 use ast::intern_pool::*;
 
-pub(crate) const ALL_IDENTIFIERS: [(IdentifierIndex,&str);26] = [
+pub(crate) const ALL_IDENTIFIERS: [(IdentifierIndex,&str);32] = [
     (NOT_AN_IDENTIFIER,"<not an identifier>"),
     (EMPTY_STRING,""),
     (STAR,"*"),
@@ -28,7 +28,14 @@ pub(crate) const ALL_IDENTIFIERS: [(IdentifierIndex,&str);26] = [
     (COLON,":"),
     (TRUE,"true"),
     (FALSE,"false"),
+    (FIELDS,"Fields"),
+    (OPERATORS,"Operators"),
+    (PREFIX_OPERATORS,"PrefixOperators"),
+    (SUFFIX_OPERATORS,"SuffixOperators"),
+    (CALL,"Call"),
+    (NOTHING,"nothing"),
 ];
+
 pub(crate) const NOT_AN_IDENTIFIER: IdentifierIndex = IdentifierIndex(0);
 pub(crate) const EMPTY_STRING: IdentifierIndex = IdentifierIndex(1);
 pub(crate) const STAR: IdentifierIndex = IdentifierIndex(2);
@@ -55,6 +62,12 @@ pub(crate) const DASH_DASH: IdentifierIndex = IdentifierIndex(22);
 pub(crate) const COLON: IdentifierIndex = IdentifierIndex(23);
 pub(crate) const TRUE: IdentifierIndex = IdentifierIndex(24);
 pub(crate) const FALSE: IdentifierIndex = IdentifierIndex(25);
+pub(crate) const FIELDS: IdentifierIndex = IdentifierIndex(26);
+pub(crate) const OPERATORS: IdentifierIndex = IdentifierIndex(27);
+pub(crate) const PREFIX_OPERATORS: IdentifierIndex = IdentifierIndex(28);
+pub(crate) const SUFFIX_OPERATORS: IdentifierIndex = IdentifierIndex(29);
+pub(crate) const CALL: IdentifierIndex = IdentifierIndex(30);
+pub(crate) const NOTHING: IdentifierIndex = IdentifierIndex(31);
 
 pub(crate) fn intern_all() -> InternPool<IdentifierIndex> {
     let mut identifiers = InternPool::default();

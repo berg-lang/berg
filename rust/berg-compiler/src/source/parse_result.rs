@@ -1,39 +1,41 @@
-use ast::{AstIndex,IdentifierIndex,LiteralIndex,Tokens,TokenRanges};
-use ast::identifiers::*;
-use ast::intern_pool::StringPool;
+use interpreter::value::Value;
+use ast::intern_pool::InternPool;
+use source::line_column::LineColumnRange;
+use source::line_column::LineColumn;
+use std::fmt::Formatter;
+use std::fmt::Display;
+use util::indexed_vec::IndexedSlice;
+use std::ops::Range;
 use ast::token::Token;
 use ast::token::Token::*;
-use checker::checker_type::Type;
-use compiler::line_column::{LineColumn,LineColumnRange};
-use compiler::source_spec::SourceSpec;
-use indexed_vec::IndexedSlice;
-use std::ffi::OsStr;
-use std::fmt::*;
-use std::ops::Range;
+use ast::identifiers::*;
+use ast::AstIndex;
+use ast::TokenRanges;
+use ast::Tokens;
+use ast::LiteralIndex;
+use ast::intern_pool::StringPool;
+use ast::IdentifierIndex;
+use ast::identifiers;
+use source::SourceIndex;
+use std;
 use std::u32;
 
 index_type! {
-    pub struct SourceIndex(pub u32) <= u32::MAX;
     pub struct ByteIndex(pub u32) <= u32::MAX;
 }
-
 pub type ByteSlice = IndexedSlice<u8,ByteIndex>;
 pub type ByteRange = Range<ByteIndex>;
 
 #[derive(Debug)]
-pub struct SourceData<'s> {
-    source_spec: SourceSpec<'s>,
-    pub(crate) parse_data: Option<ParseData>,
-    pub(crate) checked_type: Option<Type>,
-}
-
-#[derive(Debug)]
-pub struct ParseData {
+pub struct ParseResult {
+    pub(crate) index: SourceIndex,
     pub(crate) char_data: CharData,
-    pub(crate) identifiers: StringPool<IdentifierIndex>,
+    pub(crate) identifiers: InternPool<IdentifierIndex>, // NOTE: if needed we can save space by removing or clearing the StringPool after making this readonly.
     pub(crate) literals: StringPool<LiteralIndex>,
     pub(crate) tokens: Tokens,
     pub(crate) token_ranges: TokenRanges,
+    pub(crate) open_error: Option<Value>,
+    pub(crate) is_parsed: bool,
 }
 
 #[derive(Debug)]
@@ -50,39 +52,20 @@ pub struct CharData {
     pub(crate) line_starts: Vec<ByteIndex>,
 }
 
-impl<'s> SourceData<'s> {
-    pub(crate) fn new(source_spec: SourceSpec<'s>) -> Self {
-        SourceData {
-            source_spec,
-            parse_data: None,
-            checked_type: None,
+impl ParseResult {
+    pub(crate) fn new(index: SourceIndex) -> Self {
+        ParseResult {
+            index,
+            identifiers: identifiers::intern_all(),
+            is_parsed: false,
+
+            char_data: Default::default(),
+            literals: Default::default(),
+            tokens: Default::default(),
+            token_ranges: Default::default(),
+            open_error: None,
         }
     }
-
-    pub(crate) fn source_spec(&self) -> &SourceSpec<'s> {
-        &self.source_spec
-    }
-    pub fn name(&self) -> &OsStr {
-        self.source_spec.name()
-    }
-    pub fn is_parsed(&self) -> bool {
-        self.parse_data.is_some()
-    }
-    pub fn is_checked(&self) -> bool {
-        self.checked_type.is_some()
-    }
-    pub fn checked_type(&self) -> &Type {
-        match self.checked_type {
-            Some(ref checked_type) => checked_type,
-            None => unreachable!(),
-        }
-    }
-    pub fn parse_data(&self) -> Option<&ParseData> {
-        self.parse_data.as_ref()
-    }
-}
-
-impl ParseData {
     pub(crate) fn char_data(&self) -> &CharData {
         &self.char_data
     }
@@ -92,9 +75,10 @@ impl ParseData {
     pub(crate) fn token_string(&self, token: AstIndex) -> &str {
         use ast::token::ExpressionBoundary::*;
         match self.tokens[token] {
-            IntegerLiteral(literal)|SyntaxErrorTerm(literal) => self.literal_string(literal),
+            IntegerLiteral(literal) => self.literal_string(literal),
+            ErrorTerm(_) => "error",
             
-            FieldReference(identifier)|
+            VariableReference(identifier)|
             InfixOperator(identifier)|
             InfixAssignment(identifier)|
             PostfixOperator(identifier)|
@@ -102,11 +86,11 @@ impl ParseData {
                 self.identifier_string(identifier),
 
             NewlineSequence => "\\n",
-            Close(Parentheses,_) => self.identifier_string(CLOSE_PAREN),
-            Close(CurlyBraces,_) => self.identifier_string(CLOSE_CURLY),
-            Open(Parentheses,_) => self.identifier_string(OPEN_PAREN),
-            Open(CurlyBraces,_) => self.identifier_string(OPEN_CURLY),
-            Open(CompoundTerm,_)|Close(CompoundTerm,_)|Open(PrecedenceGroup,_)|Close(PrecedenceGroup,_)|Open(Source,_)|Close(Source,_)|MissingExpression|MissingInfix => "",
+            Close{boundary:Parentheses,..} => self.identifier_string(CLOSE_PAREN),
+            Close{boundary:CurlyBraces,..} => self.identifier_string(CLOSE_CURLY),
+            Open{boundary:Parentheses,..} => self.identifier_string(OPEN_PAREN),
+            Open{boundary:CurlyBraces,..} => self.identifier_string(OPEN_CURLY),
+            Open{boundary:CompoundTerm,..}|Close{boundary:CompoundTerm,..}|Open{boundary:PrecedenceGroup,..}|Close{boundary:PrecedenceGroup,..}|Open{boundary:Source,..}|Close{boundary:Source,..}|MissingExpression|MissingInfix => "",
         }
     }
     pub(crate) fn token_range(&self, token: AstIndex) -> ByteRange {
@@ -118,10 +102,28 @@ impl ParseData {
     pub(crate) fn literal_string(&self, index: LiteralIndex) -> &str {
         &self.literals[index]
     }
+    pub(crate) fn report_open_error(&mut self, error: Value) {
+        assert!(self.open_error.is_none());
+        self.open_error = Some(error);
+    }
+
+    pub(crate) fn push_token(&mut self, token: Token, range: ByteRange) -> AstIndex {
+        println!("TOKEN {:?} at {}", token, self.next_index());
+        self.tokens.push(token);
+        self.token_ranges.push(range)
+    }
+
+    pub(crate) fn insert_token(&mut self, index: AstIndex, token: Token, range: ByteRange) {
+        println!("INSERT TOKEN {:?} at {}", token, index);
+        self.tokens.insert(index, token);
+        self.token_ranges.insert(index, range);
+    }
+
+    pub(crate) fn next_index(&self) -> AstIndex { self.tokens.len() }
 }
 
-impl Display for ParseData {
-    fn fmt(&self, f: &mut Formatter) -> Result {
+impl Display for ParseResult {
+    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
         writeln!(f, "Tokens:")?;
         let mut index = AstIndex(0);
         while index < self.tokens.len() {

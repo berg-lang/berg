@@ -1,12 +1,10 @@
-use ast::{IdentifierIndex,LiteralIndex};
-use ast::intern_pool::{StringPool,InternPool,Pool};
-use ast::identifiers;
+use source::compile_errors::CompileErrorCode;
+use ast::IdentifierIndex;
 use ast::token::Token::*;
 use ast::token::ExpressionBoundary::*;
-use compiler::Compiler;
-use compiler::source_data::{ByteIndex,ByteSlice,CharData,ParseData,SourceIndex};
-use compiler::compile_errors;
-use indexed_vec::Delta;
+use ast::intern_pool::Pool;
+use source::parse_result::{ByteIndex,ByteSlice,ParseResult};
+use util::indexed_vec::Delta;
 use parser::sequencer::ByteType::*;
 use parser::sequencer::CharType::*;
 use parser::tokenizer::Tokenizer;
@@ -15,51 +13,41 @@ use std::str;
 // Chunks up the source into sequences: space, newlines, operators, etc.
 // Passes these to the Tokenizer to handle expression and whitespace rules.
 #[derive(Debug)]
-pub(super) struct Sequencer<'p,'c:'p> {
-    tokenizer: Tokenizer<'p,'c>,
-    char_data: CharData,
-    identifiers: InternPool<IdentifierIndex>,
-    literals: StringPool<LiteralIndex>,
+pub(super) struct Sequencer {
+    tokenizer: Tokenizer,
 }
 
-impl<'p,'c:'p> Sequencer<'p,'c> {
-    pub(super) fn new(tokenizer: Tokenizer<'p,'c>) -> Self {
+impl Sequencer {
+    pub(super) fn new() -> Self {
         Sequencer {
-            tokenizer,
-            char_data: Default::default(),
-            identifiers: identifiers::intern_all(),
-            literals: Default::default(),
+            tokenizer: Tokenizer::new()
         }
     }
 
-    pub(super) fn tokenize(&mut self) {
-        let buffer = self.compiler().with_source(self.source(), |source_data| {
-            let source_spec = source_data.source_spec();
-            source_spec.open(self.compiler(), self.source())
-        });
+    pub(super) fn parse(&mut self, buffer: &ByteSlice, parse_result: &mut ParseResult) {
         let mut scanner = Scanner::default();
         let mut start = scanner.index;
 
-        self.tokenizer.on_source_start(start);
+        self.tokenizer.on_source_start(start, parse_result);
 
         loop {
-            let char_type = scanner.next(&buffer);
+            let char_type = scanner.next(buffer);
             println!("CHAR TYPE #{:?}", char_type);
 
             match char_type {
-                Digit       => self.integer(&buffer, start, &mut scanner),
-                Identifier  => self.identifier(&buffer, start, &mut scanner),
-                Operator    => self.operator(&buffer, start, &mut scanner),
-                Separator   => self.separator(&buffer, start, &mut scanner),
-                Colon       => self.colon(&buffer, start, &mut scanner),
-                OpenParen   => self.tokenizer.on_open(Parentheses, start..scanner.index),
-                CloseParen  => self.tokenizer.on_close(Parentheses, start..scanner.index),
-                OpenCurly   => self.tokenizer.on_open(CurlyBraces, start..scanner.index),
-                CloseCurly  => self.tokenizer.on_close(CurlyBraces, start..scanner.index),
-                Newline     => self.newline(&buffer, start, &scanner),
-                Space       => self.space(&buffer, start, &mut scanner),
-                Unsupported => self.unsupported(&buffer, start, &mut scanner),
-                InvalidUtf8 => self.invalid_utf8(&buffer, start, &mut scanner),
+                Digit       => self.integer(buffer, start, &mut scanner, parse_result),
+                Identifier  => self.identifier(buffer, start, &mut scanner, parse_result),
+                Operator    => self.operator(buffer, start, &mut scanner, parse_result),
+                Separator   => self.separator(buffer, start, &mut scanner, parse_result),
+                Colon       => self.colon(buffer, start, &mut scanner, parse_result),
+                OpenParen   => self.tokenizer.on_open(Parentheses, start..scanner.index, parse_result),
+                CloseParen  => self.tokenizer.on_close(Parentheses, start..scanner.index, parse_result),
+                OpenCurly   => self.tokenizer.on_open(CurlyBraces, start..scanner.index, parse_result),
+                CloseCurly  => self.tokenizer.on_close(CurlyBraces, start..scanner.index, parse_result),
+                Newline     => self.newline(buffer, start, &scanner, parse_result),
+                Space       => self.space(buffer, start, &mut scanner, parse_result),
+                Unsupported => self.unsupported(buffer, start, &mut scanner, parse_result),
+                InvalidUtf8 => self.invalid_utf8(buffer, start, &mut scanner, parse_result),
                 Eof         => break,
             };
          
@@ -69,55 +57,39 @@ impl<'p,'c:'p> Sequencer<'p,'c> {
         assert!(start == scanner.index);
         assert!(scanner.index == buffer.len()); 
 
-        self.tokenizer.on_source_end(scanner.index)
+        self.tokenizer.on_source_end(scanner.index, parse_result)
     }
 
-    fn compiler(&self) -> &Compiler<'c> {
-        self.tokenizer.compiler()
+    fn syntax_error(&mut self, error: CompileErrorCode, start: ByteIndex, scanner: &Scanner, parse_result: &mut ParseResult) {
+        let range = start..scanner.index;
+        self.tokenizer.on_term_token(ErrorTerm(error), range, parse_result);
     }
 
-    fn source(&self) -> SourceIndex {
-        self.tokenizer.source()
-    }
-
-    pub(super) fn complete(self) -> ParseData {
-        let (tokens, token_ranges) = self.tokenizer.complete();
-        ParseData {
-            tokens, token_ranges,
-            char_data: self.char_data,
-            identifiers: self.identifiers.strings,
-            literals: self.literals,
-        }
-    }
-
-    fn integer(&mut self, buffer: &ByteSlice, start: ByteIndex, scanner: &mut Scanner) {
+    fn integer(&mut self, buffer: &ByteSlice, start: ByteIndex, scanner: &mut Scanner, parse_result: &mut ParseResult) {
         scanner.next_while(Digit, buffer);
-        let token_type = if scanner.next_while_identifier(buffer) {
-            self.compiler().report(compile_errors::IdentifierStartsWithNumber { source: self.source(), identifier: start..scanner.index });
-            SyntaxErrorTerm
-        } else {
-            IntegerLiteral
-        };
+        if scanner.next_while_identifier(buffer) {
+            return self.syntax_error(CompileErrorCode::IdentifierStartsWithNumber, start, scanner, parse_result);
+        }
         let range = start..scanner.index;
         let string = unsafe { str::from_utf8_unchecked(&buffer[&range]) };
-        let literal = self.literals.add(string);
-        self.tokenizer.on_term_token(token_type(literal), range)
+        let literal = parse_result.literals.add(string);
+        self.tokenizer.on_term_token(IntegerLiteral(literal), range, parse_result)
     }
 
-    fn identifier(&mut self, buffer: &ByteSlice, start: ByteIndex, scanner: &mut Scanner) {
+    fn identifier(&mut self, buffer: &ByteSlice, start: ByteIndex, scanner: &mut Scanner, parse_result: &mut ParseResult) {
         scanner.next_while_identifier(buffer);
         let range = start..scanner.index;
         let string = unsafe { str::from_utf8_unchecked(&buffer[&range]) };
-        let identifier = self.identifiers.add(string);
-        self.tokenizer.on_term_token(FieldReference(identifier), range)
+        let identifier = parse_result.identifiers.add(string);
+        self.tokenizer.on_term_token(VariableReference(identifier), range, parse_result)
     }
 
-    fn make_identifier(&mut self, slice: &[u8]) -> IdentifierIndex {
+    fn make_identifier(&mut self, slice: &[u8], parse_result: &mut ParseResult) -> IdentifierIndex {
         let string = unsafe { str::from_utf8_unchecked(slice) };
-        self.identifiers.add(string)
+        parse_result.identifiers.add(string)
     }
 
-    fn operator(&mut self, buffer: &ByteSlice, start: ByteIndex, scanner: &mut Scanner) {
+    fn operator(&mut self, buffer: &ByteSlice, start: ByteIndex, scanner: &mut Scanner, parse_result: &mut ParseResult) {
         scanner.next_while(CharType::Operator, buffer);
 
         let term_is_about_to_end = {
@@ -128,30 +100,30 @@ impl<'p,'c:'p> Sequencer<'p,'c> {
 
         let range = start..scanner.index;
         if self.tokenizer.in_term && term_is_about_to_end {
-            let identifier = self.make_identifier(&buffer[&range]);
-            self.tokenizer.on_term_token(PostfixOperator(identifier), range);
+            let identifier = self.make_identifier(&buffer[&range], parse_result);
+            self.tokenizer.on_term_token(PostfixOperator(identifier), range, parse_result);
         } else if !self.tokenizer.in_term && !term_is_about_to_end {
-            let identifier = self.make_identifier(&buffer[&range]);
-            self.tokenizer.on_term_token(PrefixOperator(identifier), range);
+            let identifier = self.make_identifier(&buffer[&range], parse_result);
+            self.tokenizer.on_term_token(PrefixOperator(identifier), range, parse_result);
         } else {
             let token = if Self::is_assignment_operator(&buffer[&range]) {
-                InfixAssignment(self.make_identifier(&buffer[start..scanner.index-1]))
+                InfixAssignment(self.make_identifier(&buffer[start..scanner.index-1], parse_result))
             } else {
-                InfixOperator(self.make_identifier(&buffer[&range]))
+                InfixOperator(self.make_identifier(&buffer[&range], parse_result))
             };
             // If the infix operator is like a+b, it's inside the term. If it's
             // like a + b, it's outside (like a separator).
             if self.tokenizer.in_term {
-                self.tokenizer.on_term_token(token, range);
+                self.tokenizer.on_term_token(token, range, parse_result);
             } else {
-                self.tokenizer.on_separator(token, range);
+                self.tokenizer.on_separator(token, range, parse_result);
             }
         }
     }
 
-    fn separator(&mut self, buffer: &ByteSlice, start: ByteIndex, scanner: &mut Scanner) {
-        let string = self.make_identifier(&buffer[start..scanner.index]);
-        self.tokenizer.on_separator(InfixOperator(string), start..scanner.index)
+    fn separator(&mut self, buffer: &ByteSlice, start: ByteIndex, scanner: &mut Scanner, parse_result: &mut ParseResult) {
+        let string = self.make_identifier(&buffer[start..scanner.index], parse_result);
+        self.tokenizer.on_separator(InfixOperator(string), start..scanner.index, parse_result)
     }
 
     // Colon is, sadly, just a little ... special.
@@ -160,13 +132,13 @@ impl<'p,'c:'p> Sequencer<'p,'c> {
     // Else, we are separator. ("a:b", a:-b", "a: b", "a:")
     // See where the "operator" function calculates whether the term is about to end for the other
     // relevant silliness to ensure "a+:b" means "(a) + (:b)".
-    fn colon(&mut self, buffer: &ByteSlice, start: ByteIndex, scanner: &mut Scanner) {
+    fn colon(&mut self, buffer: &ByteSlice, start: ByteIndex, scanner: &mut Scanner, parse_result: &mut ParseResult) {
         let range = start..scanner.index;
-        let identifier = self.make_identifier(&buffer[&range]);
+        let identifier = self.make_identifier(&buffer[&range], parse_result);
         if (!self.tokenizer.in_term || self.tokenizer.operator) && scanner.peek(buffer).is_right_term_operand() {
-            self.tokenizer.on_term_token(PrefixOperator(identifier), range);
+            self.tokenizer.on_term_token(PrefixOperator(identifier), range, parse_result);
         } else {
-            self.tokenizer.on_separator(InfixOperator(identifier), range);
+            self.tokenizer.on_separator(InfixOperator(identifier), range, parse_result);
         }
     }
 
@@ -181,26 +153,24 @@ impl<'p,'c:'p> Sequencer<'p,'c> {
         match prev_ch { b'!'|b'>'|b'<' => false, _ => true }
     }
 
-    fn newline(&mut self, _: &ByteSlice, start: ByteIndex, scanner: &Scanner) {
-        self.char_data.append_line(scanner.index);
-        self.tokenizer.on_newline(start, ((scanner.index - start).0).0 as u8)
+    fn newline(&mut self, _: &ByteSlice, start: ByteIndex, scanner: &Scanner, parse_result: &mut ParseResult) {
+        parse_result.char_data.append_line(scanner.index);
+        self.tokenizer.on_newline(start, ((scanner.index - start).0).0 as u8, parse_result)
     }
 
-    fn space(&mut self, buffer: &ByteSlice, start: ByteIndex, scanner: &mut Scanner) {
+    fn space(&mut self, buffer: &ByteSlice, start: ByteIndex, scanner: &mut Scanner, parse_result: &mut ParseResult) {
         scanner.next_while(Space, buffer);
-        self.tokenizer.on_space(start)
+        self.tokenizer.on_space(start, parse_result)
     }
 
-    fn unsupported(&mut self, buffer: &ByteSlice, start: ByteIndex, scanner: &mut Scanner) {
+    fn unsupported(&mut self, buffer: &ByteSlice, start: ByteIndex, scanner: &mut Scanner, parse_result: &mut ParseResult) {
         scanner.next_while(Unsupported, buffer);
-        self.compiler().report(compile_errors::UnsupportedCharacters { source: self.source(), characters: start..scanner.index });
-        self.tokenizer.on_space(start)
+        self.syntax_error(CompileErrorCode::UnsupportedCharacters, start, scanner, parse_result)
     }
  
-    fn invalid_utf8(&mut self, buffer: &ByteSlice, start: ByteIndex, scanner: &mut Scanner) {
+    fn invalid_utf8(&mut self, buffer: &ByteSlice, start: ByteIndex, scanner: &mut Scanner, parse_result: &mut ParseResult) {
         scanner.next_while(InvalidUtf8, buffer);
-        self.compiler().report(compile_errors::InvalidUtf8 { source: self.source(), bytes: start..scanner.index });
-        self.tokenizer.on_space(start)
+        self.syntax_error(CompileErrorCode::InvalidUtf8, start, scanner, parse_result)
     }
 }
 
