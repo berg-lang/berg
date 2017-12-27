@@ -9,7 +9,7 @@ use source::compile_errors::CompileErrorCode;
 use interpreter::value::Errors;
 use compiler::Compiler;
 use std::ops::Range;
-use util::display_arg::DisplayContext;
+use util::display_context::DisplayContext;
 use std::fmt;
 use std::mem;
 

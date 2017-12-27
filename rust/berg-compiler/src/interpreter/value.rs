@@ -1,5 +1,5 @@
 use std::cell::Ref;
-use util::display_arg::DisplayContext;
+use util::display_context::DisplayContext;
 use compiler::Compiler;
 use interpreter::evaluator::BlockState;
 use std::rc::Rc;

@@ -3,7 +3,7 @@ use ast::expression::SourceToken;
 use ast::AstIndex;
 use ast::expression::SourceExpression;
 use ast::expression::Expression;
-use util::display_arg::DisplayContext;
+use util::display_context::DisplayContext;
 use std::fmt::Formatter;
 use interpreter::value::Value;
 use ast::token::Fixity;

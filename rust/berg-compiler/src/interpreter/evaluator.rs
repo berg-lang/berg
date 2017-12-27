@@ -22,7 +22,7 @@ use ast::expression::OperandPosition::*;
 use ast::identifiers::*;
 use std::u32;
 use compile_errors::*;
-use util::display_arg::DisplayContext;
+use util::display_context::DisplayContext;
 
 index_type! {
     pub struct CallStackIndex(pub u32) <= u32::MAX;
