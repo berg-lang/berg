@@ -81,7 +81,7 @@ impl Sequencer {
         let range = start..scanner.index;
         let string = unsafe { str::from_utf8_unchecked(&buffer[&range]) };
         let identifier = parse_result.identifiers.add(string);
-        self.tokenizer.on_term_token(VariableReference(identifier), range, parse_result)
+        self.tokenizer.on_term_token(RawIdentifier(identifier), range, parse_result)
     }
 
     fn make_identifier(&mut self, slice: &[u8], parse_result: &mut ParseResult) -> IdentifierIndex {

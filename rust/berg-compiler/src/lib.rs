@@ -5,7 +5,7 @@ extern crate num;
 extern crate fnv;
 
 #[macro_use]
-pub(crate) mod util;
+pub mod util;
 mod ast;
 mod compiler;
 mod interpreter;

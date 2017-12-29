@@ -1,3 +1,6 @@
+use ast::Variable;
+use ast::VariableIndex;
+use util::indexed_vec::IndexedVec;
 use interpreter::value::Value;
 use ast::intern_pool::InternPool;
 use source::line_column::LineColumnRange;
@@ -19,6 +22,7 @@ use ast::identifiers;
 use source::SourceIndex;
 use std;
 use std::u32;
+use ast;
 
 index_type! {
     pub struct ByteIndex(pub u32) <= u32::MAX;
@@ -34,6 +38,7 @@ pub struct ParseResult {
     pub(crate) literals: StringPool<LiteralIndex>,
     pub(crate) tokens: Tokens,
     pub(crate) token_ranges: TokenRanges,
+    pub(crate) variables: IndexedVec<Variable,VariableIndex>,
     pub(crate) open_error: Option<Value>,
     pub(crate) is_parsed: bool,
 }
@@ -63,8 +68,12 @@ impl ParseResult {
             literals: Default::default(),
             tokens: Default::default(),
             token_ranges: Default::default(),
+            variables: Self::root_variables(),
             open_error: None,
         }
+    }
+    fn root_variables() -> IndexedVec<Variable,VariableIndex> {
+        ast::root_variables().iter().map(|variable| Variable { name: variable.0 }).collect()
     }
     pub(crate) fn char_data(&self) -> &CharData {
         &self.char_data
@@ -78,7 +87,10 @@ impl ParseResult {
             IntegerLiteral(literal) => self.literal_string(literal),
             ErrorTerm(_) => "error",
             
-            VariableReference(identifier)|
+            VariableReference(variable) =>
+                self.identifier_string(self.variables[variable].name),
+
+            RawIdentifier(identifier)|
             InfixOperator(identifier)|
             InfixAssignment(identifier)|
             PostfixOperator(identifier)|
@@ -119,7 +131,7 @@ impl ParseResult {
         self.token_ranges.insert(index, range);
     }
 
-    pub(crate) fn next_index(&self) -> AstIndex { self.tokens.len() }
+    pub(crate) fn next_index(&self) -> AstIndex { self.tokens.next_index() }
 }
 
 impl Display for ParseResult {

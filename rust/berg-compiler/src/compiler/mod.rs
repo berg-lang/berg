@@ -15,13 +15,8 @@ use std::io;
 use std::io::Write;
 use std::path::PathBuf;
 use std::sync::RwLock;
-use std::u32;
 use std::result;
 use interpreter;
-
-index_type! {
-    pub struct GenericErrorIndex(pub u32) <= u32::MAX;
-}
 
 type Sources = IndexedVec<Rc<RefCell<Source>>, SourceIndex>;
 
@@ -30,7 +25,7 @@ pub struct Compiler {
     out: Box<Write>,
     err: Box<Write>,
     sources: RwLock<Sources>,
-    generic_errors: RwLock<IndexedVec<Box<CompileError>,GenericErrorIndex>>,
+    generic_errors: RwLock<Vec<Box<CompileError>>>,
 }
 
 impl Debug for Compiler {
@@ -86,11 +81,11 @@ impl Compiler {
         Rc::clone(&sources[index])
     }
 
-    pub fn generic_errors(&self) -> RwLockReadGuard<IndexedVec<Box<CompileError>,GenericErrorIndex>> {
+    pub fn generic_errors(&self) -> RwLockReadGuard<Vec<Box<CompileError>>> {
         self.generic_errors.read().unwrap()
     }
 
-    pub fn generic_errors_mut(&self) -> RwLockWriteGuard<IndexedVec<Box<CompileError>,GenericErrorIndex>> {
+    pub fn generic_errors_mut(&self) -> RwLockWriteGuard<Vec<Box<CompileError>>> {
         self.generic_errors.write().unwrap()
     }
 
@@ -104,7 +99,7 @@ impl Compiler {
     fn add_source(&self, source_spec: SourceSpec) -> Value {
         let index = {
             let mut sources = self.sources_mut();
-            let next_index = sources.len();
+            let next_index = sources.next_index();
             if usize::from(next_index) >= SourceIndex::MAX.into() {
                 return self.report_generic_error(compile_errors::TooManySources { num_sources: usize::from(next_index) });
             }

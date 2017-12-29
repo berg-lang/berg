@@ -39,7 +39,7 @@ impl<Ind: IndexType> InternPool<Ind> {
         let indices = FnvHashMap::with_capacity_and_hasher(initial_capacity, Default::default());
         InternPool { strings, indices }
     }
-    pub(crate) fn len(&self) -> Ind {
+    pub(crate) fn len(&self) -> usize {
         self.strings.len()
     }
 }
@@ -50,7 +50,7 @@ impl<Ind: IndexType> Index<Ind> for InternPool<Ind> {
 }
 
 impl<Ind: IndexType> StringPool<Ind> {
-    pub(crate) fn len(&self) -> Ind { self.0.len() }
+    pub(crate) fn len(&self) -> usize { self.0.len() }
     pub(crate) fn with_capacity(initial_capacity: usize) -> Self { StringPool(Vec::with_capacity(initial_capacity).into()) }
 }
 
@@ -73,8 +73,6 @@ impl<Ind: IndexType> Pool<Ind> for InternPool<Ind> {
 
 impl<Ind: IndexType> Pool<Ind> for StringPool<Ind> {
     fn add(&mut self, string: &str) -> Ind {
-        let index = self.len();
-        self.0.push(string.to_string());
-        index
+        self.0.push(string.to_string())
     }
 }

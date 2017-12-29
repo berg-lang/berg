@@ -233,10 +233,10 @@ compiler_tests! {
     assign_and_self_ref:      "a &&= a; a" => errors(NoSuchField@0),
     assign_or_self_ref:       "a ||= a; a" => errors(NoSuchField@0),
 
-    assign_plus_declaration_self_ref:     ":a += a; a" => errors(FieldNotSet@1,BadType@[3-4]),
-    assign_minus_declaration_self_ref:    ":a -= a; a" => errors(FieldNotSet@1,BadType@[3-4]),
-    assign_multiply_declaration_self_ref: ":a *= a; a" => errors(FieldNotSet@1,BadType@[3-4]),
-    assign_divide_declaration_self_ref:   ":a /= a; a" => errors(FieldNotSet@1,BadType@[3-4]),
+    assign_plus_declaration_self_ref:     ":a += a; a" => errors(FieldNotSet@1,FieldNotSet@1),
+    assign_minus_declaration_self_ref:    ":a -= a; a" => errors(FieldNotSet@1,FieldNotSet@1),
+    assign_multiply_declaration_self_ref: ":a *= a; a" => errors(FieldNotSet@1,FieldNotSet@1),
+    assign_divide_declaration_self_ref:   ":a /= a; a" => errors(FieldNotSet@1,FieldNotSet@1),
     assign_and_declaration_self_ref:      ":a &&= a; a" => errors(FieldNotSet@1),
     assign_or_declaration_self_ref:       ":a ||= a; a" => errors(FieldNotSet@1),
 

@@ -7,5 +7,6 @@ pub(crate) mod evaluator;
 pub mod value;
 
 pub(crate) fn run(compiler: &Compiler, source_block: &Block) -> Value {
-    ExpressionEvaluator::run(compiler, source_block)
+    let mut evaluator = ExpressionEvaluator::new(compiler);
+    evaluator.evaluate_block(source_block)
 }

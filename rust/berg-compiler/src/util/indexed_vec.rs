@@ -5,6 +5,7 @@ use std::slice::Iter;
 use std::cmp::Ordering;
 use std::borrow::{Borrow,BorrowMut};
 use std::fmt;
+use std::iter::*;
 use std::ops::{Add,AddAssign,Deref,DerefMut,Index,IndexMut,Range,Sub,SubAssign};
 use std::marker::PhantomData;
 use std::mem;
@@ -90,19 +91,181 @@ pub trait IndexType: Copy+Clone+fmt::Display+
 {
 }
 
+pub struct IndexedIter<Inner:Iterator,Idx:IndexType>(Inner,PhantomData<Idx>);
+pub struct EnumerateIndex<Inner:Iterator,Idx:IndexType>(Inner,Idx,PhantomData<Idx>);
+
+impl<Inner:Iterator,Idx:IndexType> From<Inner> for IndexedIter<Inner,Idx> {
+    fn from(inner: Inner) -> Self { IndexedIter(inner,PhantomData) }
+}
+
+impl<Inner:Iterator,Idx:IndexType> IndexedIter<Inner,Idx> {
+    // Functions where the indices just don't matter
+    #[allow(should_implement_trait)]
+    pub fn next(&mut self) -> Option<Inner::Item> { self.0.next() }
+    pub fn size_hint(&self) -> (usize, Option<usize>) { self.0.size_hint() }
+    pub fn count(self) -> usize { self.0.count() }
+    pub fn last(self) -> Option<Inner::Item> { self.0.last() }
+    pub fn nth(&mut self, n: usize) -> Option<Inner::Item> { self.0.nth(n) }
+    pub fn by_ref(&mut self) -> &mut Self { self }
+    pub fn for_each<F>(self, f: F) where F: FnMut(Inner::Item) -> () { self.0.for_each(f) }
+    pub fn find<P>(&mut self, predicate: P) -> Option<Inner::Item> where P: FnMut(&Inner::Item) -> bool { self.0.find(predicate) }
+    pub fn fold<B, F>(self, init: B, f: F) -> B where F: FnMut(B, Inner::Item) -> B { self.0.fold(init, f) }
+    pub fn all<F>(&mut self, f: F) -> bool where F: FnMut(Inner::Item) -> bool { self.0.all(f) }
+    pub fn any<F>(&mut self, f: F) -> bool where F: FnMut(Inner::Item) -> bool { self.0.any(f) }
+    pub fn max(self) -> Option<Inner::Item> where Inner::Item: Ord { self.0.max() }
+    pub fn min(self) -> Option<Inner::Item> where Inner::Item: Ord { self.0.min() }
+    pub fn max_by_key<B, F>(self, f: F) -> Option<Inner::Item> where B: Ord, F: FnMut(&Inner::Item) -> B { self.0.max_by_key(f) }
+    pub fn max_by<F>(self, compare: F) -> Option<Inner::Item> where F: FnMut(&Inner::Item, &Inner::Item) -> Ordering { self.0.max_by(compare) }
+    pub fn min_by_key<B, F>(self, f: F) -> Option<Inner::Item> where B: Ord, F: FnMut(&Inner::Item) -> B { self.0.min_by_key(f) }
+    pub fn min_by<F>(self, compare: F) -> Option<Inner::Item> where F: FnMut(&Inner::Item, &Inner::Item) -> Ordering { self.0.min_by(compare) }
+    pub fn sum<S>(self) -> S where S: Sum<Inner::Item> { self.0.sum() }
+    pub fn product<P>(self) -> P where P: Product<Inner::Item> { self.0.product() }
+    pub fn cmp<I>(self, other: I) -> Ordering where I: IntoIterator<Item = Inner::Item>, Inner::Item: Ord { self.0.cmp(other) }
+    pub fn partial_cmp<I>(self, other: I) -> Option<Ordering> where I: IntoIterator, Inner::Item: PartialOrd<<I as IntoIterator>::Item> { self.0.partial_cmp(other) }
+    pub fn eq<I>(self, other: I) -> bool where I: IntoIterator, Inner::Item: PartialEq<<I as IntoIterator>::Item> { self.0.eq(other) }
+    pub fn ne<I>(self, other: I) -> bool where I: IntoIterator, Inner::Item: PartialEq<<I as IntoIterator>::Item> { self.0.ne(other) }
+    pub fn lt<I>(self, other: I) -> bool where I: IntoIterator, Inner::Item: PartialOrd<<I as IntoIterator>::Item> { self.0.lt(other) }
+    pub fn le<I>(self, other: I) -> bool where I: IntoIterator, Inner::Item: PartialOrd<<I as IntoIterator>::Item> { self.0.le(other) }
+    pub fn gt<I>(self, other: I) -> bool where I: IntoIterator, Inner::Item: PartialOrd<<I as IntoIterator>::Item> { self.0.gt(other) }
+    pub fn ge<I>(self, other: I) -> bool where I: IntoIterator, Inner::Item: PartialOrd<<I as IntoIterator>::Item> { self.0.ge(other) }
+
+    // Functions where indices are no longer valid:
+    pub fn partition<B, F>(self, f: F) -> (B, B) where B: Default + Extend<Inner::Item>, F: FnMut(&Inner::Item) -> bool { self.0.partition(f) }
+    pub fn chain<U>(self, other: U) -> Chain<Inner, <U as IntoIterator>::IntoIter> where U: IntoIterator<Item = Inner::Item> { self.0.chain(other) }
+    pub fn filter<P>(self, predicate: P) -> Filter<Inner, P> where P: FnMut(&Inner::Item) -> bool { self.0.filter(predicate) }
+    pub fn filter_map<B, F>(self, f: F) -> FilterMap<Inner, F> where F: FnMut(Inner::Item) -> Option<B> { self.0.filter_map(f) }
+    pub fn skip_while<P>(self, predicate: P) -> SkipWhile<Inner, P> where P: FnMut(&Inner::Item) -> bool { self.0.skip_while(predicate) }
+    pub fn skip(self, n: usize) -> Skip<Inner> { self.0.skip(n) }
+    pub fn flat_map<U, F>(self, f: F) -> FlatMap<Inner, U, F> where F: FnMut(Inner::Item) -> U, U: IntoIterator { self.0.flat_map(f) }
+    pub fn rev(self) -> Rev<Inner> where Inner: DoubleEndedIterator { self.0.rev() }
+    pub fn cycle(self) -> Cycle<Inner> where Inner: Clone { self.0.cycle() }
+
+    // Functions that yield usize (and that we want to return Idx)--the whole point of this:
+    pub fn enumerate(self) -> IndexedIter<EnumerateIndex<Inner,Idx>,Idx> { EnumerateIndex(self.0,0.into(),PhantomData).into() }
+    pub fn position<P>(&mut self, predicate: P) -> Option<Idx> where P: FnMut(Inner::Item) -> bool { self.0.position(predicate).map(|i| i.into()) }
+    pub fn rposition<P>(&mut self, predicate: P) -> Option<Idx> where P: FnMut(Inner::Item) -> bool, Self: ExactSizeIterator + DoubleEndedIterator, Inner: ExactSizeIterator + DoubleEndedIterator { self.0.rposition(predicate).map(|i| i.into())  }
+
+    // Functions we want to keep the index for (make it still possible to get valid indices):
+    pub fn zip<U>(self, other: U) -> IndexedIter<Zip<Inner, <U as IntoIterator>::IntoIter>,Idx> where U: IntoIterator { self.0.zip(other).into() }
+    pub fn map<B, F>(self, f: F) -> IndexedIter<Map<Inner, F>,Idx> where F: FnMut(Inner::Item) -> B { self.0.map(f).into() }
+    pub fn take_while<P>(self, predicate: P) -> IndexedIter<TakeWhile<Inner, P>,Idx> where P: FnMut(&Inner::Item) -> bool { self.0.take_while(predicate).into() }
+    pub fn take(self, n: usize) -> IndexedIter<Take<Inner>,Idx> { self.0.take(n).into() }
+    pub fn scan<St, B, F>(self, initial_state: St, f: F) -> IndexedIter<Scan<Inner, St, F>,Idx> where F: FnMut(&mut St, Inner::Item) -> Option<B> { self.0.scan(initial_state, f).into() }
+    pub fn fuse(self) -> IndexedIter<Fuse<Inner>,Idx> { self.0.fuse().into() }
+    pub fn inspect<F>(self, f: F) -> IndexedIter<Inspect<Inner, F>,Idx> where F: FnMut(&Inner::Item) -> () { self.0.inspect(f).into() }
+    pub fn cloned<'a, T>(self) -> IndexedIter<Cloned<Inner>,Idx> where Inner:Iterator<Item=&'a T>, T: 'a + Clone { self.0.cloned().into() }
+
+    // Functions we would've liked to keep the index for, but we don't feel like implementing right now:
+    pub fn peekable(self) -> Peekable<Inner> { self.0.peekable() }
+    pub fn unzip<A, B, FromA, FromB>(self) -> (FromA, FromB) where FromA: Default + Extend<A>, FromB: Default + Extend<B>, Inner: Iterator<Item = (A, B)> { self.0.unzip() }
+    pub fn collect<B>(self) -> B where B: FromIterator<Inner::Item>, { self.0.collect() }
+}
+
+impl<Inner:Iterator,Idx:IndexType> Iterator for IndexedIter<Inner,Idx> {
+    type Item = Inner::Item;
+    // Functions where the indices just don't matter
+    #[allow(should_implement_trait)]
+    fn next(&mut self) -> Option<Inner::Item> { self.0.next() }
+    fn size_hint(&self) -> (usize, Option<usize>) { self.0.size_hint() }
+    fn count(self) -> usize { self.0.count() }
+    fn last(self) -> Option<Inner::Item> { self.0.last() }
+    fn nth(&mut self, n: usize) -> Option<Inner::Item> { self.0.nth(n) }
+    fn by_ref(&mut self) -> &mut Self { self }
+    fn for_each<F>(self, f: F) where F: FnMut(Inner::Item) -> () { self.0.for_each(f) }
+    fn find<P>(&mut self, predicate: P) -> Option<Inner::Item> where P: FnMut(&Inner::Item) -> bool { self.0.find(predicate) }
+    fn fold<B, F>(self, init: B, f: F) -> B where F: FnMut(B, Inner::Item) -> B { self.0.fold(init, f) }
+    fn all<F>(&mut self, f: F) -> bool where F: FnMut(Inner::Item) -> bool { self.0.all(f) }
+    fn any<F>(&mut self, f: F) -> bool where F: FnMut(Inner::Item) -> bool { self.0.any(f) }
+    fn max(self) -> Option<Inner::Item> where Inner::Item: Ord { self.0.max() }
+    fn min(self) -> Option<Inner::Item> where Inner::Item: Ord { self.0.min() }
+    fn max_by_key<B, F>(self, f: F) -> Option<Inner::Item> where B: Ord, F: FnMut(&Inner::Item) -> B { self.0.max_by_key(f) }
+    fn max_by<F>(self, compare: F) -> Option<Inner::Item> where F: FnMut(&Inner::Item, &Inner::Item) -> Ordering { self.0.max_by(compare) }
+    fn min_by_key<B, F>(self, f: F) -> Option<Inner::Item> where B: Ord, F: FnMut(&Inner::Item) -> B { self.0.min_by_key(f) }
+    fn min_by<F>(self, compare: F) -> Option<Inner::Item> where F: FnMut(&Inner::Item, &Inner::Item) -> Ordering { self.0.min_by(compare) }
+    fn sum<S>(self) -> S where S: Sum<Inner::Item> { self.0.sum() }
+    fn product<P>(self) -> P where P: Product<Inner::Item> { self.0.product() }
+    fn cmp<I>(self, other: I) -> Ordering where I: IntoIterator<Item = Inner::Item>, Inner::Item: Ord { self.0.cmp(other) }
+    fn partial_cmp<I>(self, other: I) -> Option<Ordering> where I: IntoIterator, Inner::Item: PartialOrd<<I as IntoIterator>::Item> { self.0.partial_cmp(other) }
+    fn eq<I>(self, other: I) -> bool where I: IntoIterator, Inner::Item: PartialEq<<I as IntoIterator>::Item> { self.0.eq(other) }
+    fn ne<I>(self, other: I) -> bool where I: IntoIterator, Inner::Item: PartialEq<<I as IntoIterator>::Item> { self.0.ne(other) }
+    fn lt<I>(self, other: I) -> bool where I: IntoIterator, Inner::Item: PartialOrd<<I as IntoIterator>::Item> { self.0.lt(other) }
+    fn le<I>(self, other: I) -> bool where I: IntoIterator, Inner::Item: PartialOrd<<I as IntoIterator>::Item> { self.0.le(other) }
+    fn gt<I>(self, other: I) -> bool where I: IntoIterator, Inner::Item: PartialOrd<<I as IntoIterator>::Item> { self.0.gt(other) }
+    fn ge<I>(self, other: I) -> bool where I: IntoIterator, Inner::Item: PartialOrd<<I as IntoIterator>::Item> { self.0.ge(other) }
+
+    // Functions where indices are no longer valid:
+    fn partition<B, F>(self, f: F) -> (B, B) where B: Default + Extend<Inner::Item>, F: FnMut(&Inner::Item) -> bool { self.0.partition(f) }
+    // fn chain<U>(self, other: U) -> Chain<Inner, <U as IntoIterator>::IntoIter> where U: IntoIterator<Item = Inner::Item> { self.0.chain(other) }
+    // fn filter<P>(self, predicate: P) -> Filter<Inner, P> where P: FnMut(&Inner::Item) -> bool { self.0.filter(predicate) }
+    // fn filter_map<B, F>(self, f: F) -> FilterMap<Inner, F> where F: FnMut(Inner::Item) -> Option<B> { self.0.filter_map(f) }
+    // fn skip_while<P>(self, predicate: P) -> SkipWhile<Inner, P> where P: FnMut(&Inner::Item) -> bool { self.0.skip_while(predicate) }
+    // fn skip(self, n: usize) -> Skip<Inner> { self.0.skip(n) }
+    // fn flat_map<U, F>(self, f: F) -> FlatMap<Inner, U, F> where F: FnMut(Inner::Item) -> U, U: IntoIterator { self.0.flat_map(f) }
+    // fn rev(self) -> Rev<Inner> where Inner: DoubleEndedIterator { self.0.rev() }
+    // fn cycle(self) -> Cycle<Inner> where Inner: Clone { self.0.cycle() }
+
+    // Functions that yield usize (and that we want to return Idx)--the whole point of this:
+    // fn enumerate(self) -> Enumerate<Self> { }
+    fn position<P>(&mut self, predicate: P) -> Option<usize> where P: FnMut(Inner::Item) -> bool { self.0.position(predicate) }
+
+    // Functions we want to keep the index for (make it still possible to get valid indices):
+    // fn zip<U>(self, other: U) -> Zip<Self, <U as IntoIterator>::IntoIter> where U: IntoIterator { self.0.zip(other) }
+    // fn map<B, F>(self, f: F) -> Map<Self, F> where F: FnMut(Self::Item) -> B { self.0.map(f) }
+    // fn take_while<P>(self, predicate: P) -> TakeWhile<Self, P> where P: FnMut(&Self::Item) -> bool { self.0.take_while(predicate) }
+    // fn take(self, n: usize) -> Take<Self>,Idx> { self.0.take(n) }
+    // fn scan<St, B, F>(self, initial_state: St, f: F) -> Scan<Inner, St, F> where F: FnMut(&mut St, Inner::Item) -> Option<B> { self.0.scan(initial_state, f).into() }
+    // fn fuse(self) -> Fuse<Inner> { self.0.fuse().into() }
+    // fn inspect<F>(self, f: F) -> Inspect<Inner, F> where F: FnMut(&Inner::Item) -> () { self.0.inspect(f).into() }
+    // fn cloned<'a, T>(self) -> Cloned<Inner> where Inner:Iterator<Item=&'a T>, T: 'a + Clone { self.0.cloned().into() }
+
+    // Functions we would've liked to keep the index for, but we don't feel like implementing right now:
+    // fn peekable(self) -> Peekable<Self> { self.0.peekable() }
+    // fn unzip<A, B, FromA, FromB>(self) -> (FromA, FromB) where FromA: Default + Extend<A>, FromB: Default + Extend<B>, Inner: Iterator<Item = (A, B)> { self.0.unzip() }
+    // fn collect<B>(self) -> B where B: FromIterator<Inner::Item>, { self.0.collect() }
+    // fn rposition<P>(&mut self, predicate: P) -> Option<usize> where P: FnMut(Self::Item) -> bool, Self: ExactSizeIterator + DoubleEndedIterator { IndexedIter::rposition(self, predicate) }
+}
+
+impl<Inner:DoubleEndedIterator,Idx:IndexType> DoubleEndedIterator for IndexedIter<Inner,Idx> {
+    fn next_back(&mut self) -> Option<Self::Item> { self.0.next_back() }
+    // unstable features
+    // fn rfold<B, F>(self, accum: B, f: F) -> B where F: FnMut(B, Self::Item) -> B { self.0.rfold(accum, f) }
+    // fn rfind<P>(&mut self, predicate: P) -> Option<Self::Item> where P: FnMut(&Self::Item) -> bool { self.0.rfind(predicate) }
+}
+
+impl<Inner:ExactSizeIterator,Idx:IndexType> ExactSizeIterator for IndexedIter<Inner,Idx> {
+    fn len(&self) -> usize { self.0.len() }
+    // unstable features
+    // fn is_empty(&self) -> bool { self.0.is_empty() }
+}
+
+impl<Inner:Iterator,Idx:IndexType> Iterator for EnumerateIndex<Inner,Idx> {
+    type Item = (Idx, Inner::Item);
+    fn next(&mut self) -> Option<Self::Item> {
+        self.0.next().map(|a| {
+            let ret = (self.1, a);
+            self.1 += 1;
+            ret
+        })
+    }
+}
+
 ///
 /// A Slice with a specific index type (so you don't accidentally use one slice's index on another Vec
 /// and can use non-usized indexes).
 ///
-pub struct IndexedSlice<Elem, Index: IndexType> {
-    marker: PhantomData<Index>,
+pub struct IndexedSlice<Elem, Idx: IndexType> {
+    marker: PhantomData<Idx>,
     slice: [Elem],
 }
-impl<Elem, Index: IndexType> IndexedSlice<Elem, Index> {
-    pub fn len(&self) -> Index { self.slice.len().into() }
-    pub fn get(&self, index: Index) -> Option<&Elem> { self.slice.get(index.into()) }
-    pub fn iter(&self) -> Iter<Elem> { self.slice.iter() }
-    pub fn iter_mut(&mut self) -> IterMut<Elem> { self.slice.iter_mut() }
+
+impl<Elem,Idx:IndexType> IndexedSlice<Elem,Idx> {
+    pub fn len(&self) -> usize { self.slice.len() }
+    pub fn next_index(&self) -> Idx { self.slice.len().into() }
+    pub fn first_index(&self) -> Idx { 0.into() }
+    pub fn last_index(&self) -> Idx { (self.slice.len()-1).into() }
+    pub fn get(&self, index: Idx) -> Option<&Elem> { let index: usize = index.into(); self.slice.get(index) }
+    pub fn iter(&self) -> IndexedIter<Iter<Elem>,Idx> { self.slice.iter().into() }
+    pub fn iter_mut(&mut self) -> IndexedIter<IterMut<Elem>,Idx> { self.slice.iter_mut().into() }
     pub fn is_empty(&self) -> bool { self.slice.is_empty() }
     pub fn from_slice(slice: &[Elem]) -> &Self { unsafe { mem::transmute(slice) } }
     pub fn from_mut_slice(slice: &mut [Elem]) -> &mut Self { unsafe { mem::transmute(slice) } }
@@ -112,101 +275,53 @@ impl<Elem, Index: IndexType> IndexedSlice<Elem, Index> {
     pub fn as_raw_slice(&self) -> &[Elem] { &self.slice }
 }
 
-impl<Elem, I: IndexType> Index<I> for IndexedSlice<Elem,I> {
-    type Output = Elem;
-    fn index(&self, index: I) -> &Elem {
-        &self.slice[index.into()]
-    }
-}
-impl<Elem, I: IndexType> IndexMut<I> for IndexedSlice<Elem,I> {
-    fn index_mut(&mut self, index: I) -> &mut Elem {
-        &mut self.slice[index.into()]
-    }
-}
-impl<Elem, I: IndexType> Index<Range<I>> for IndexedSlice<Elem,I> {
-    type Output = [Elem];
-    fn index(&self, range: Range<I>) -> &[Elem] {
-        &self.slice[range.start.into()..range.end.into()]
-    }
-}
-impl<Elem, I: IndexType> Index<RangeFrom<I>> for IndexedSlice<Elem,I> {
-    type Output = [Elem];
-    fn index(&self, range: RangeFrom<I>) -> &[Elem] {
-        &self.slice[range.start.into()..]
-    }
-}
-impl<Elem, I: IndexType> IndexMut<Range<I>> for IndexedSlice<Elem,I> {
-    fn index_mut(&mut self, range: Range<I>) -> &mut [Elem] {
-        &mut self.slice[range.start.into()..range.end.into()]
-    }
-}
-impl<Elem, I: IndexType> IndexMut<RangeFrom<I>> for IndexedSlice<Elem,I> {
-    fn index_mut(&mut self, range: RangeFrom<I>) -> &mut [Elem] {
-        &mut self.slice[range.start.into()..]
-    }
-}
-impl<'a, Elem, I: IndexType> Index<&'a Range<I>> for IndexedSlice<Elem,I> {
-    type Output = [Elem];
-    fn index<'s>(&'s self, range: &'a Range<I>) -> &'s [Elem] {
-        &self.slice[range.start.into()..range.end.into()]
-    }
-}
-impl<'a, Elem, I: IndexType> Index<&'a RangeFrom<I>> for IndexedSlice<Elem,I> {
-    type Output = [Elem];
-    fn index<'s>(&'s self, range: &'a RangeFrom<I>) -> &'s [Elem] {
-        &self.slice[range.start.into()..]
-    }
-}
-impl<'a, Elem, I: IndexType> IndexMut<&'a Range<I>> for IndexedSlice<Elem,I> {
-    fn index_mut(&mut self, range: &'a Range<I>) -> &mut [Elem] {
-        &mut self.slice[range.start.into()..range.end.into()]
-    }
-}
-impl<'a, Elem, I: IndexType> IndexMut<&'a RangeFrom<I>> for IndexedSlice<Elem,I> {
-    fn index_mut(&mut self, range: &'a RangeFrom<I>) -> &mut [Elem] {
-        &mut self.slice[range.start.into()..]
-    }
-}
+impl<Elem,Idx:IndexType> Index<Idx> for IndexedSlice<Elem,Idx> { type Output = Elem; fn index(&self, index: Idx) -> &Elem { let index: usize = index.into(); &self.slice[index] } }
+impl<Elem,Idx:IndexType> Index<Range<Idx>> for IndexedSlice<Elem,Idx> { type Output = [Elem]; fn index(&self, range: Range<Idx>) -> &[Elem] { &self.slice[range.start.into()..range.end.into()] } }
+impl<Elem,Idx:IndexType> Index<RangeFrom<Idx>> for IndexedSlice<Elem,Idx> { type Output = [Elem]; fn index(&self, range: RangeFrom<Idx>) -> &[Elem] { &self.slice[range.start.into()..] } }
+impl<'a,Elem,Idx:IndexType> Index<&'a Range<Idx>> for IndexedSlice<Elem,Idx> { type Output = [Elem]; fn index<'s>(&'s self, range: &'a Range<Idx>) -> &'s [Elem] { &self.slice[range.start.into()..range.end.into()] } }
+impl<'a,Elem,Idx:IndexType> Index<&'a RangeFrom<Idx>> for IndexedSlice<Elem,Idx> { type Output = [Elem]; fn index<'s>(&'s self, range: &'a RangeFrom<Idx>) -> &'s [Elem] { &self.slice[range.start.into()..] } }
 
-impl<Elem: Clone, I: IndexType> ToOwned for IndexedSlice<Elem,I> {
-    type Owned = IndexedVec<Elem,I>;
-    fn to_owned(&self) -> Self::Owned { (&self.slice).to_vec().into() }
-}
+impl<Elem,Idx:IndexType> IndexMut<Idx> for IndexedSlice<Elem,Idx> { fn index_mut(&mut self, index: Idx) -> &mut Elem { let index: usize = index.into(); &mut self.slice[index] } }
+impl<Elem,Idx:IndexType> IndexMut<Range<Idx>> for IndexedSlice<Elem,Idx> { fn index_mut(&mut self, range: Range<Idx>) -> &mut [Elem] { &mut self.slice[range.start.into()..range.end.into()] } }
+impl<Elem,Idx:IndexType> IndexMut<RangeFrom<Idx>> for IndexedSlice<Elem,Idx> { fn index_mut(&mut self, range: RangeFrom<Idx>) -> &mut [Elem] { &mut self.slice[range.start.into()..] } }
+impl<'a,Elem,Idx:IndexType> IndexMut<&'a Range<Idx>> for IndexedSlice<Elem,Idx> { fn index_mut<'s>(&'s mut self, range: &'a Range<Idx>) -> &'s mut [Elem] { &mut self.slice[range.start.into()..range.end.into()] } }
+impl<'a,Elem,Idx:IndexType> IndexMut<&'a RangeFrom<Idx>> for IndexedSlice<Elem,Idx> { fn index_mut<'s>(&'s mut self, range: &'a RangeFrom<Idx>) -> &'s mut [Elem] { &mut self.slice[range.start.into()..] } }
+
+impl<Elem: Clone,Idx:IndexType> ToOwned for IndexedSlice<Elem,Idx> { type Owned = IndexedVec<Elem,Idx>; fn to_owned(&self) -> Self::Owned { (&self.slice).to_vec().into() } }
 
 ///
 /// A Vec with a specific index type (so you don't accidentally use one Vec's index on another Vec).
 ///
 #[derive(Debug, Clone)]
-pub struct IndexedVec<Elem, I: IndexType> {
-    inner: Vec<Elem>,
-    marker: PhantomData<I>,
+pub struct IndexedVec<Elem, Idx: IndexType>(Vec<Elem>, PhantomData<Idx>);
+impl<Elem,Idx:IndexType> IndexedVec<Elem,Idx> {
+    pub fn push(&mut self, value: Elem) -> Idx { let index = self.next_index(); self.0.push(value); index }
+    pub fn pop(&mut self) -> Option<Elem> { self.0.pop() }
+    pub fn truncate(&mut self, new_end: Idx) { self.0.truncate(new_end.into()) }
+    pub fn insert(&mut self, index: Idx, value: Elem) { self.0.insert(index.into(), value) }
+    pub fn as_raw_vec(&self) -> &Vec<Elem> { &self.0 }
 }
-impl<Elem, I: IndexType> IndexedVec<Elem,I> {
-    pub fn push(&mut self, value: Elem) -> I { self.inner.push(value); self.len()-1 }
-    pub fn pop(&mut self) -> Option<Elem> { self.inner.pop() }
-    pub fn truncate(&mut self, new_end: I) { self.inner.truncate(new_end.into()) }
-    pub fn insert(&mut self, index: I, value: Elem) { self.inner.insert(index.into(), value) }
-    pub fn as_raw_vec(&self) -> &Vec<Elem> { &self.inner }
-}
-impl<Elem, I: IndexType> Default for IndexedVec<Elem,I> {
-    fn default() -> Self { Vec::default().into() }
-}
-impl<Elem, I: IndexType> Borrow<IndexedSlice<Elem,I>> for IndexedVec<Elem,I> {
-    fn borrow(&self) -> &IndexedSlice<Elem,I> { self }
-}
-impl<Elem, I: IndexType> BorrowMut<IndexedSlice<Elem,I>> for IndexedVec<Elem,I> {
-    fn borrow_mut(&mut self) -> &mut IndexedSlice<Elem,I> { self }
-}
-impl<Elem, I: IndexType> Deref for IndexedVec<Elem,I> {
-    type Target = IndexedSlice<Elem, I>;
-    fn deref(&self) -> &Self::Target { IndexedSlice::from_slice(self.inner.as_slice()) }
-}
-impl<Elem, I: IndexType> DerefMut for IndexedVec<Elem,I> {
-    fn deref_mut(&mut self) -> &mut IndexedSlice<Elem, I> { IndexedSlice::from_mut_slice(self.inner.as_mut_slice()) }
-}
-impl<Elem, I: IndexType> From<Vec<Elem>> for IndexedVec<Elem,I> {
-    fn from(vec: Vec<Elem>) -> Self { IndexedVec { inner: vec, marker: PhantomData } }
-}
+impl<Elem,Idx:IndexType> Default for IndexedVec<Elem,Idx> { fn default() -> Self { Vec::default().into() } }
+impl<Elem,Idx:IndexType> Borrow<IndexedSlice<Elem,Idx>> for IndexedVec<Elem,Idx> { fn borrow(&self) -> &IndexedSlice<Elem,Idx> { self } }
+impl<Elem,Idx:IndexType> BorrowMut<IndexedSlice<Elem,Idx>> for IndexedVec<Elem,Idx> { fn borrow_mut(&mut self) -> &mut IndexedSlice<Elem,Idx> { self } }
+impl<Elem,Idx:IndexType> Deref for IndexedVec<Elem,Idx> { type Target = IndexedSlice<Elem,Idx>; fn deref(&self) -> &Self::Target { IndexedSlice::from_slice(self.0.as_slice()) } }
+impl<Elem,Idx:IndexType> DerefMut for IndexedVec<Elem,Idx> { fn deref_mut(&mut self) -> &mut IndexedSlice<Elem,Idx> { IndexedSlice::from_mut_slice(self.0.as_mut_slice()) } }
+impl<Elem,Idx:IndexType> From<Vec<Elem>> for IndexedVec<Elem,Idx> { fn from(vec: Vec<Elem>) -> Self { IndexedVec(vec,PhantomData) } }
+impl<Elem,Idx:IndexType> FromIterator<Elem> for IndexedVec<Elem,Idx> { fn from_iter<T: IntoIterator<Item = Elem>>(iter: T) -> Self { Vec::from_iter(iter).into() } }
+// impl<'a,Elem,Idx:IndexType> IntoIterator for &'a IndexedVec<Elem,Idx> {
+//     type Item = &'a Elem;
+//     type IntoIter = IndexedIter<Iter<'a, Elem>,Idx>;
+//     fn into_iter(mut self) -> Self::IntoIter {
+//         self.0.into_iterator()
+//     }
+// }
+// impl<'a,Elem,Idx:IndexType> IntoIterator for &'a mut IndexedVec<Elem,Idx> {
+//     type Item = &'a mut Elem;
+//     type IntoIter = IndexedIter<IterMut<'a, Elem>,Idx>;
+//     fn into_iter(self) -> Self::IntoIter {
+//         self.0.into_iterator()
+//     }
+// }
 
 pub fn to_indexed_cow<Elem: Clone, I: IndexType>(from: Cow<[Elem]>) -> Cow<IndexedSlice<Elem,I>> {
     match from {

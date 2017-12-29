@@ -84,7 +84,7 @@ impl Display for OperandPosition {
 
 impl Expression {
     pub(crate) fn from_source(parse_result: &ParseResult) -> Self {
-        Self::find_root(parse_result, parse_result.tokens.len()-1, true)
+        Self::find_root(parse_result, parse_result.tokens.last_index(), true)
     }
 
     pub(crate) fn range(self, parse_result: &ParseResult) -> ByteRange {
@@ -216,6 +216,9 @@ impl Expression {
 }
 
 impl<'e> SourceExpression<'e> {
+    pub(crate) fn from_source(parse_result: &'e ParseResult) -> Self {
+        SourceExpression { parse_result, expression: Expression::from_source(parse_result) }
+    }
     pub(crate) fn range(self) -> ByteRange {
         self.expression.range(self.parse_result)
     }
