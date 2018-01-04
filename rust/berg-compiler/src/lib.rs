@@ -1,8 +1,8 @@
 #![cfg_attr(feature = "clippy", feature(plugin))]
 #![cfg_attr(feature = "clippy", plugin(clippy))]
 
-extern crate num;
 extern crate fnv;
+extern crate num;
 
 #[macro_use]
 pub mod util;

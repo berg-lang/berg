@@ -11,7 +11,7 @@ use ast::expression::Expression;
 use std::fmt;
 use std::fmt::Formatter;
 
-#[derive(Debug,Clone,PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Value {
     Block(Block),
     Boolean(bool),
@@ -32,9 +32,13 @@ impl<'c> DisplayContext<&'c Compiler> for Value {
     }
 }
 
-#[derive(Debug,Clone)]
+#[derive(Debug, Clone)]
 pub struct Block(pub(crate) Rc<RefCell<BlockState>>);
-impl From<Block> for Value { fn from(from: Block) -> Value { Value::Block(from) } }
+impl From<Block> for Value {
+    fn from(from: Block) -> Value {
+        Value::Block(from)
+    }
+}
 
 impl PartialEq<Block> for Block {
     fn eq(&self, other: &Block) -> bool {
@@ -47,7 +51,10 @@ impl Block {
         Block(Rc::new(RefCell::new(state)))
     }
     pub(crate) fn create_child(&self, expression: Expression) -> Self {
-        Self::new(BlockState::NotStarted { parent_scope: self.clone(), expression })
+        Self::new(BlockState::NotStarted {
+            parent_scope: self.clone(),
+            expression,
+        })
     }
     pub(crate) fn state(&self) -> Ref<BlockState> {
         self.0.borrow()
@@ -57,23 +64,45 @@ impl Block {
     }
 }
 
-impl From<bool> for Value { fn from(from: bool) -> Value { Value::Boolean(from) } }
-impl From<BigRational> for Value { fn from(from: BigRational) -> Value { Value::Rational(from) } }
-impl From<i64> for Value { fn from(value: i64) -> Value { BigInt::from(value).into() } }
-impl From<BigInt> for Value { fn from(value: BigInt) -> Value { BigRational::from(value).into() } }
+impl From<bool> for Value {
+    fn from(from: bool) -> Value {
+        Value::Boolean(from)
+    }
+}
+impl From<BigRational> for Value {
+    fn from(from: BigRational) -> Value {
+        Value::Rational(from)
+    }
+}
+impl From<i64> for Value {
+    fn from(value: i64) -> Value {
+        BigInt::from(value).into()
+    }
+}
+impl From<BigInt> for Value {
+    fn from(value: BigInt) -> Value {
+        BigRational::from(value).into()
+    }
+}
 
 impl From<Box<CompileError>> for Value {
     fn from(error: Box<CompileError>) -> Value {
-        Errors { errors: vec![ error ], value: Box::new(Value::Nothing) }.into()
+        Errors {
+            errors: vec![error],
+            value: Box::new(Value::Nothing),
+        }.into()
     }
 }
-impl<E: CompileError+'static> From<E> for Value {
+impl<E: CompileError + 'static> From<E> for Value {
     fn from(error: E) -> Value {
-        Errors { errors: vec![ Box::new(error) ], value: Box::new(Value::Nothing) }.into()
+        Errors {
+            errors: vec![Box::new(error)],
+            value: Box::new(Value::Nothing),
+        }.into()
     }
 }
 
-#[derive(Debug,Clone,PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Errors {
     pub errors: Vec<Box<CompileError>>,
     pub value: Box<Value>,
@@ -89,21 +118,32 @@ impl<'c> DisplayContext<&'c Compiler> for Errors {
     }
 }
 
-impl From<Errors> for Value { fn from(from: Errors) -> Value { Value::Errors(from) } }
+impl From<Errors> for Value {
+    fn from(from: Errors) -> Value {
+        Value::Errors(from)
+    }
+}
 
 impl Value {
     pub(crate) fn include_errors(self, from: Value) -> Value {
         // If both have errors, transfer the value and errors from the right into the left, and return that.
-        if let Value::Errors(Errors { errors: from_errors, .. }) = from {
+        if let Value::Errors(Errors {
+            errors: from_errors,
+            ..
+        }) = from
+        {
             if let Value::Errors(Errors { mut errors, value }) = self {
                 Value::Errors(Errors {
-                    errors: { errors.extend(from_errors); errors },
-                    value: value
+                    errors: {
+                        errors.extend(from_errors);
+                        errors
+                    },
+                    value: value,
                 })
             } else {
                 Value::Errors(Errors {
                     errors: from_errors,
-                    value: Box::new(self)
+                    value: Box::new(self),
                 })
             }
         } else {

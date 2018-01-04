@@ -18,8 +18,8 @@ index_type! {
     pub struct VariableIndex(pub u32) <= u32::MAX;
 }
 
-pub(crate) type Tokens = IndexedVec<Token,AstIndex>;
-pub(crate) type TokenRanges = IndexedVec<ByteRange,AstIndex>;
+pub(crate) type Tokens = IndexedVec<Token, AstIndex>;
+pub(crate) type TokenRanges = IndexedVec<ByteRange, AstIndex>;
 
 // So we can signify that something is meant to be a *difference* between indices.
 pub type AstDelta = Delta<AstIndex>;
@@ -29,9 +29,6 @@ pub struct Variable {
     pub(crate) name: IdentifierIndex,
 }
 
-pub(crate) fn root_variables() -> IndexedVec<(IdentifierIndex,Value),VariableIndex> {
-    vec![
-        (TRUE, true.into()),
-        (FALSE, false.into()),
-    ].into()
+pub(crate) fn root_variables() -> IndexedVec<(IdentifierIndex, Value), VariableIndex> {
+    vec![(TRUE, true.into()), (FALSE, false.into())].into()
 }

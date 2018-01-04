@@ -70,65 +70,82 @@ impl<'c> DisplayContext<&'c Compiler> for CompileError {
     fn fmt(&self, f: &mut Formatter, compiler: &&'c Compiler) -> fmt::Result {
         let message = self.message(compiler);
         match message.location {
-            CompileErrorLocation::Generic|CompileErrorLocation::SourceOnly(_) => write!(f, "{}", message.message),
-            CompileErrorLocation::SourceRange(range) => {
-                write!(f, "{}: {}", range.line_column_range(compiler), message.message)
-            },
+            CompileErrorLocation::Generic | CompileErrorLocation::SourceOnly(_) => {
+                write!(f, "{}", message.message)
+            }
+            CompileErrorLocation::SourceRange(range) => write!(
+                f,
+                "{}: {}",
+                range.line_column_range(compiler),
+                message.message
+            ),
         }
     }
 }
 
-#[derive(Debug,Clone,PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct CompileErrorMessage {
     pub location: CompileErrorLocation,
     pub message: String,
 }
 
-#[derive(Debug,Clone,PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum CompileErrorLocation {
     Generic,
     SourceOnly(SourceIndex),
-    SourceRange(SourceRange)
+    SourceRange(SourceRange),
 }
 
-#[derive(Debug,Clone,PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum SourceRange {
-    Token { source: SourceIndex, index: AstIndex },
-    Expression { source: SourceIndex, expression: Expression },
+    Token {
+        source: SourceIndex,
+        index: AstIndex,
+    },
+    Expression {
+        source: SourceIndex,
+        expression: Expression,
+    },
 }
 
 impl SourceRange {
-    fn with<T,F: Fn(SourceExpression)->T>(&self, compiler: &Compiler, f: F) -> T {
+    fn with<T, F: Fn(SourceExpression) -> T>(&self, compiler: &Compiler, f: F) -> T {
         match *self {
-            SourceRange::Expression{source,expression} => {
+            SourceRange::Expression { source, expression } => {
                 let source = compiler.source(source);
                 let borrowed = source.borrow();
                 let parse_result = borrowed.parse_result();
-                f(SourceExpression { parse_result: &parse_result, expression })
-            },
+                f(SourceExpression {
+                    parse_result: &parse_result,
+                    expression,
+                })
+            }
             _ => unreachable!(),
         }
     }
-    fn with_token<T,F: Fn(SourceToken)->T>(&self, compiler: &Compiler, f: F) -> T {
+    fn with_token<T, F: Fn(SourceToken) -> T>(&self, compiler: &Compiler, f: F) -> T {
         match *self {
-            SourceRange::Token{source,index} => {
+            SourceRange::Token { source, index } => {
                 let source = compiler.source(source);
                 let borrowed = source.borrow();
                 let parse_result = borrowed.parse_result();
-                f(SourceToken { parse_result: &parse_result, index })
-            },
+                f(SourceToken {
+                    parse_result: &parse_result,
+                    index,
+                })
+            }
             _ => unreachable!(),
         }
     }
     fn source(&self) -> SourceIndex {
         match *self {
-            SourceRange::Token{source,..}|SourceRange::Expression{source,..} => source,
+            SourceRange::Token { source, .. } | SourceRange::Expression { source, .. } => source,
         }
     }
     pub fn range(&self, compiler: &Compiler) -> ByteRange {
         match *self {
-            SourceRange::Token{..} => self.with_token(compiler, |token| token.range()),
-            SourceRange::Expression{..} => self.with(compiler, |expression| expression.range()),
+            SourceRange::Token { .. } => self.with_token(compiler, |token| token.range()),
+            SourceRange::Expression { .. } => self.with(compiler, |expression| expression.range()),
         }
     }
     fn as_string(&self, compiler: &Compiler) -> String {
@@ -137,20 +154,30 @@ impl SourceRange {
     }
     fn line_column_range(&self, compiler: &Compiler) -> LineColumnRange {
         match *self {
-            SourceRange::Token{..} => self.with_token(compiler, |token| { token.line_column_range() }),
-            SourceRange::Expression{..} => self.with(compiler, |expression| { expression.line_column_range() }),
+            SourceRange::Token { .. } => {
+                self.with_token(compiler, |token| token.line_column_range())
+            }
+            SourceRange::Expression { .. } => {
+                self.with(compiler, |expression| expression.line_column_range())
+            }
         }
     }
 }
 
 impl<'e> From<SourceExpression<'e>> for SourceRange {
     fn from(expression: SourceExpression<'e>) -> Self {
-        SourceRange::Expression { source: expression.parse_result.index, expression: expression.expression }
+        SourceRange::Expression {
+            source: expression.parse_result.index,
+            expression: expression.expression,
+        }
     }
 }
 impl<'e> From<SourceToken<'e>> for SourceRange {
     fn from(token: SourceToken<'e>) -> Self {
-        SourceRange::Token { source: token.parse_result.index, index: token.index }
+        SourceRange::Token {
+            source: token.parse_result.index,
+            index: token.index,
+        }
     }
 }
 
@@ -200,5 +227,7 @@ pub fn source_string(compiler: &Compiler, index: SourceIndex, range: &ByteRange)
             return string.to_string();
         }
     }
-    String::from("ERROR: source may have changed since compiling, source range is no longer valid UTF-8")
+    String::from(
+        "ERROR: source may have changed since compiling, source range is no longer valid UTF-8",
+    )
 }

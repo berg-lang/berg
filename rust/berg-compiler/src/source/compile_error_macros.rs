@@ -2,7 +2,7 @@
 macro_rules! compile_errors {
     ($(pub struct $name:ident $fields:tt ($code:expr) = $location_type:ident($($location:tt)*):$message_type:ident($($message:tt)*);)*) => {
         $(compile_errors! { @single pub struct $name $fields ($code) = $location_type($($location)*):$message_type($($message)*); })*
-        
+
         #[derive(Debug,Copy,Clone,PartialEq)]
         pub enum CompileErrorCode {
             $($name,)*
@@ -56,4 +56,3 @@ macro_rules! compile_errors {
     (@message string($message:tt), $self:ident, $compiler:ident, $fields:tt) => ($message.to_string());
     (@message format($message:tt), $self:ident, $compiler:ident, { $(pub $field:tt: $field_type:ty),* }) => (format!($message, $($field = $self.$field.disp($compiler)),*));
 }
-

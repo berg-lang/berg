@@ -1,39 +1,39 @@
 use ast::IdentifierIndex;
 use ast::intern_pool::*;
 
-pub(crate) const ALL_IDENTIFIERS: [(IdentifierIndex,&str);32] = [
-    (NOT_AN_IDENTIFIER,"<not an identifier>"),
-    (EMPTY_STRING,""),
-    (STAR,"*"),
-    (SLASH,"/"),
-    (PLUS,"+"),
-    (DASH,"-"),
-    (OPEN_PAREN,"("),
-    (CLOSE_PAREN,")"),
-    (OPEN_CURLY,"{"),
-    (CLOSE_CURLY,"}"),
+pub(crate) const ALL_IDENTIFIERS: [(IdentifierIndex, &str); 32] = [
+    (NOT_AN_IDENTIFIER, "<not an identifier>"),
+    (EMPTY_STRING, ""),
+    (STAR, "*"),
+    (SLASH, "/"),
+    (PLUS, "+"),
+    (DASH, "-"),
+    (OPEN_PAREN, "("),
+    (CLOSE_PAREN, ")"),
+    (OPEN_CURLY, "{"),
+    (CLOSE_CURLY, "}"),
     (SEMICOLON, ";"),
-    (AND_AND,"&&"),
-    (OR_OR,"||"),
-    (EXCLAMATION_POINT,"!"),
-    (DOUBLE_EXCLAMATION_POINT,"!!"),
-    (EQUAL_TO,"=="),
-    (NOT_EQUAL_TO,"!="),
-    (GREATER_THAN,">"),
-    (LESS_THAN,"<"),
-    (GREATER_EQUAL,">="),
-    (LESS_EQUAL,"<="),
-    (PLUS_PLUS,"++"),
-    (DASH_DASH,"--"),
-    (COLON,":"),
-    (TRUE,"true"),
-    (FALSE,"false"),
-    (FIELDS,"Fields"),
-    (OPERATORS,"Operators"),
-    (PREFIX_OPERATORS,"PrefixOperators"),
-    (SUFFIX_OPERATORS,"SuffixOperators"),
-    (CALL,"Call"),
-    (NOTHING,"nothing"),
+    (AND_AND, "&&"),
+    (OR_OR, "||"),
+    (EXCLAMATION_POINT, "!"),
+    (DOUBLE_EXCLAMATION_POINT, "!!"),
+    (EQUAL_TO, "=="),
+    (NOT_EQUAL_TO, "!="),
+    (GREATER_THAN, ">"),
+    (LESS_THAN, "<"),
+    (GREATER_EQUAL, ">="),
+    (LESS_EQUAL, "<="),
+    (PLUS_PLUS, "++"),
+    (DASH_DASH, "--"),
+    (COLON, ":"),
+    (TRUE, "true"),
+    (FALSE, "false"),
+    (FIELDS, "Fields"),
+    (OPERATORS, "Operators"),
+    (PREFIX_OPERATORS, "PrefixOperators"),
+    (SUFFIX_OPERATORS, "SuffixOperators"),
+    (CALL, "Call"),
+    (NOTHING, "nothing"),
 ];
 
 pub(crate) const NOT_AN_IDENTIFIER: IdentifierIndex = IdentifierIndex(0);
@@ -72,7 +72,7 @@ pub(crate) const NOTHING: IdentifierIndex = IdentifierIndex(31);
 pub(crate) fn intern_all() -> InternPool<IdentifierIndex> {
     let mut identifiers = InternPool::default();
     for operator in &ALL_IDENTIFIERS {
-        let (operator,string) = *operator;
+        let (operator, string) = *operator;
         let actual_identifier = identifiers.add(string);
         assert_eq!(actual_identifier, operator);
     }

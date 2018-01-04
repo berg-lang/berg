@@ -2,7 +2,6 @@ pub extern crate berg_compiler;
 pub use compiler_test::berg_compiler::*;
 pub use compiler_test::berg_compiler::compile_errors::CompileErrorCode::*;
 
-
 macro_rules! compiler_tests {
     ($($name:ident: $source:tt => $($rule:ident($($arg:tt)*))+,)+) => {
         use compiler_test::berg_compiler::test::expect;
@@ -47,4 +46,3 @@ macro_rules! compiler_tests {
     (@at [$start:tt-$end:tt]) => { $start..$end+1 };
     (@at $loc:tt) => { $loc };
 }
-

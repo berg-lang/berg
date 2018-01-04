@@ -41,7 +41,11 @@ impl Source {
         }
     }
 
-    pub(crate) fn open(&self, compiler: &Compiler, parse_result: &mut ParseResult) -> Cow<ByteSlice> {
+    pub(crate) fn open(
+        &self,
+        compiler: &Compiler,
+        parse_result: &mut ParseResult,
+    ) -> Cow<ByteSlice> {
         self.source_spec.open(compiler, parse_result)
     }
 

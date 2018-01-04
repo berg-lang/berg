@@ -27,7 +27,7 @@ use ast;
 index_type! {
     pub struct ByteIndex(pub u32) <= u32::MAX;
 }
-pub type ByteSlice = IndexedSlice<u8,ByteIndex>;
+pub type ByteSlice = IndexedSlice<u8, ByteIndex>;
 pub type ByteRange = Range<ByteIndex>;
 
 #[derive(Debug)]
@@ -38,7 +38,7 @@ pub struct ParseResult {
     pub(crate) literals: StringPool<LiteralIndex>,
     pub(crate) tokens: Tokens,
     pub(crate) token_ranges: TokenRanges,
-    pub(crate) variables: IndexedVec<Variable,VariableIndex>,
+    pub(crate) variables: IndexedVec<Variable, VariableIndex>,
     pub(crate) open_error: Option<Value>,
     pub(crate) is_parsed: bool,
 }
@@ -72,8 +72,11 @@ impl ParseResult {
             open_error: None,
         }
     }
-    fn root_variables() -> IndexedVec<Variable,VariableIndex> {
-        ast::root_variables().iter().map(|variable| Variable { name: variable.0 }).collect()
+    fn root_variables() -> IndexedVec<Variable, VariableIndex> {
+        ast::root_variables()
+            .iter()
+            .map(|variable| Variable { name: variable.0 })
+            .collect()
     }
     pub(crate) fn char_data(&self) -> &CharData {
         &self.char_data
@@ -86,23 +89,56 @@ impl ParseResult {
         match self.tokens[token] {
             IntegerLiteral(literal) => self.literal_string(literal),
             ErrorTerm(_) => "error",
-            
-            VariableReference(variable) =>
-                self.identifier_string(self.variables[variable].name),
 
-            RawIdentifier(identifier)|
-            InfixOperator(identifier)|
-            InfixAssignment(identifier)|
-            PostfixOperator(identifier)|
-            PrefixOperator(identifier) =>
-                self.identifier_string(identifier),
+            VariableReference(variable) => self.identifier_string(self.variables[variable].name),
+
+            RawIdentifier(identifier)
+            | InfixOperator(identifier)
+            | InfixAssignment(identifier)
+            | PostfixOperator(identifier)
+            | PrefixOperator(identifier) => self.identifier_string(identifier),
 
             NewlineSequence => "\\n",
-            Close{boundary:Parentheses,..} => self.identifier_string(CLOSE_PAREN),
-            Close{boundary:CurlyBraces,..} => self.identifier_string(CLOSE_CURLY),
-            Open{boundary:Parentheses,..} => self.identifier_string(OPEN_PAREN),
-            Open{boundary:CurlyBraces,..} => self.identifier_string(OPEN_CURLY),
-            Open{boundary:CompoundTerm,..}|Close{boundary:CompoundTerm,..}|Open{boundary:PrecedenceGroup,..}|Close{boundary:PrecedenceGroup,..}|Open{boundary:Source,..}|Close{boundary:Source,..}|MissingExpression|MissingInfix => "",
+            Close {
+                boundary: Parentheses,
+                ..
+            } => self.identifier_string(CLOSE_PAREN),
+            Close {
+                boundary: CurlyBraces,
+                ..
+            } => self.identifier_string(CLOSE_CURLY),
+            Open {
+                boundary: Parentheses,
+                ..
+            } => self.identifier_string(OPEN_PAREN),
+            Open {
+                boundary: CurlyBraces,
+                ..
+            } => self.identifier_string(OPEN_CURLY),
+            Open {
+                boundary: CompoundTerm,
+                ..
+            }
+            | Close {
+                boundary: CompoundTerm,
+                ..
+            }
+            | Open {
+                boundary: PrecedenceGroup,
+                ..
+            }
+            | Close {
+                boundary: PrecedenceGroup,
+                ..
+            }
+            | Open {
+                boundary: Source, ..
+            }
+            | Close {
+                boundary: Source, ..
+            }
+            | MissingExpression
+            | MissingInfix => "",
         }
     }
     pub(crate) fn token_range(&self, token: AstIndex) -> ByteRange {
@@ -131,7 +167,9 @@ impl ParseResult {
         self.token_ranges.insert(index, range);
     }
 
-    pub(crate) fn next_index(&self) -> AstIndex { self.tokens.next_index() }
+    pub(crate) fn next_index(&self) -> AstIndex {
+        self.tokens.next_index()
+    }
 }
 
 impl Display for ParseResult {
@@ -140,7 +178,13 @@ impl Display for ParseResult {
         let mut index = AstIndex(0);
         while index < self.tokens.len() {
             let range = self.char_data().range(&self.token_range(index));
-            writeln!(f, "[{}] {} {:?}", range, self.token_string(index), self.token(index))?;
+            writeln!(
+                f,
+                "[{}] {} {:?}",
+                range,
+                self.token_string(index),
+                self.token(index)
+            )?;
             index += 1;
         }
         Ok(())
@@ -148,7 +192,12 @@ impl Display for ParseResult {
 }
 
 impl Default for CharData {
-    fn default() -> Self { CharData { byte_length: ByteIndex::from(0), line_starts: vec![ByteIndex::from(0)] } }
+    fn default() -> Self {
+        CharData {
+            byte_length: ByteIndex::from(0),
+            line_starts: vec![ByteIndex::from(0)],
+        }
+    }
 }
 
 impl CharData {
