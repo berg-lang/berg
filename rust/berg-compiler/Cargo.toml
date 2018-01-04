@@ -8,5 +8,5 @@ num = "0.1"
 fnv = "1"
 clippy = {version = "*", optional = true}
 
-[features]
-default = ["clippy"]
+[dev-dependencies]
+clippy = {version = "*"}

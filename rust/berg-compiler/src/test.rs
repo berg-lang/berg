@@ -28,7 +28,7 @@ impl ExpectBerg {
     pub fn new<T: Into<Vec<u8>>>(source: T) -> Self {
         ExpectBerg { source: source.into(), expected_value: Value::Nothing, expected_errors: vec![], expected_warnings: vec![] }
     }
-    #[allow(wrong_self_convention)]
+    #[cfg_attr(feature="clippy", allow(wrong_self_convention))]
     pub fn to_yield<V: Into<Value>>(mut self, value: V) -> Self {
         assert!(self.expected_value == Value::Nothing); // Can only set it once
         self.expected_value = value.into();
@@ -37,7 +37,7 @@ impl ExpectBerg {
     pub fn and_yield<V: Into<Value>>(self, value: V) -> Self {
         self.to_yield(value)
     }
-    #[allow(wrong_self_convention)]
+    #[cfg_attr(feature="clippy", allow(wrong_self_convention))]
     pub fn to_error<L: Into<ExpectedLocation>>(mut self, code: CompileErrorCode, location: L) -> Self {
         self.expected_errors.push(ExpectedError { code, location: location.into() });
         self
@@ -45,7 +45,7 @@ impl ExpectBerg {
     pub fn and_error<L: Into<ExpectedLocation>>(self, code: CompileErrorCode, location: L) -> Self {
         self.to_error(code, location)
     }
-    #[allow(wrong_self_convention)]
+    #[cfg_attr(feature="clippy", allow(wrong_self_convention))]
     pub fn to_warn<L: Into<ExpectedLocation>>(mut self, code: CompileErrorCode, location: L) -> Self {
         self.expected_warnings.push(ExpectedError { code, location: location.into() });
         self

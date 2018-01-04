@@ -100,7 +100,7 @@ impl<Inner:Iterator,Idx:IndexType> From<Inner> for IndexedIter<Inner,Idx> {
 
 impl<Inner:Iterator,Idx:IndexType> IndexedIter<Inner,Idx> {
     // Functions where the indices just don't matter
-    #[allow(should_implement_trait)]
+    #[cfg_attr(feature="clippy", allow(should_implement_trait))]
     pub fn next(&mut self) -> Option<Inner::Item> { self.0.next() }
     pub fn size_hint(&self) -> (usize, Option<usize>) { self.0.size_hint() }
     pub fn count(self) -> usize { self.0.count() }
@@ -164,7 +164,6 @@ impl<Inner:Iterator,Idx:IndexType> IndexedIter<Inner,Idx> {
 impl<Inner:Iterator,Idx:IndexType> Iterator for IndexedIter<Inner,Idx> {
     type Item = Inner::Item;
     // Functions where the indices just don't matter
-    #[allow(should_implement_trait)]
     fn next(&mut self) -> Option<Inner::Item> { self.0.next() }
     fn size_hint(&self) -> (usize, Option<usize>) { self.0.size_hint() }
     fn count(self) -> usize { self.0.count() }
