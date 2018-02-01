@@ -1,4 +1,3 @@
-use source::parse_result::{ByteIndex, ByteSlice};
 use std::ops::Index;
 use fnv::FnvHashMap;
 use util::indexed_vec::IndexedVec;
@@ -21,9 +20,9 @@ pub trait Pool<Ind: IndexType> {
     fn add(&mut self, string: &str) -> Ind;
     unsafe fn add_utf8_unchecked(
         &mut self,
-        buffer: &ByteSlice,
-        start: ByteIndex,
-        end: ByteIndex,
+        buffer: &[u8],
+        start: usize,
+        end: usize,
     ) -> Ind {
         let string = str::from_utf8_unchecked(&buffer[start..end]);
         self.add(string)

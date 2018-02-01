@@ -1,203 +1,128 @@
-use source::parse_result::ByteIndex;
-use source::parse_result::ByteRange;
-use source::compile_errors::CompileError;
-use interpreter::value::Value;
-use source::compile_errors::CompileErrorLocation;
-use std::fmt::Formatter;
-use std::fmt::Display;
-use source::compile_errors::CompileErrorCode;
-use interpreter::value::Errors;
-use compiler::Compiler;
-use std::ops::Range;
-use util::display_context::DisplayContext;
+use eval::RootRef;
+use parser::SourceRef;
 use std::fmt;
-use std::mem;
+use std::io;
+use std::ops::Range;
+use util::try_from::TryFrom;
+use util::type_name::TypeName;
+use value::{BergErrorStack, BergVal, ErrorCode};
 
-pub fn expect<T: Into<Vec<u8>>>(source: T) -> ExpectBerg {
-    ExpectBerg::new(source)
+pub fn expect<T: AsRef<[u8]> + ?Sized>(source: &T) -> ExpectBerg {
+    ExpectBerg(source.as_ref())
 }
 
-pub struct ExpectBerg {
-    source: Vec<u8>,
-    expected_value: Value,
-    expected_errors: Vec<ExpectedError>,
-    expected_warnings: Vec<ExpectedError>,
+pub fn expect_bytes(source: &[u8]) -> ExpectBerg {
+    ExpectBerg(source)
 }
 
-impl ExpectBerg {
-    pub fn new<T: Into<Vec<u8>>>(source: T) -> Self {
-        ExpectBerg {
-            source: source.into(),
-            expected_value: Value::Nothing,
-            expected_errors: vec![],
-            expected_warnings: vec![],
-        }
-    }
-    #[cfg_attr(feature = "clippy", allow(wrong_self_convention))]
-    pub fn to_yield<V: Into<Value>>(mut self, value: V) -> Self {
-        assert!(self.expected_value == Value::Nothing); // Can only set it once
-        self.expected_value = value.into();
-        self
-    }
-    pub fn and_yield<V: Into<Value>>(self, value: V) -> Self {
-        self.to_yield(value)
-    }
-    #[cfg_attr(feature = "clippy", allow(wrong_self_convention))]
-    pub fn to_error<L: Into<ExpectedLocation>>(
-        mut self,
-        code: CompileErrorCode,
-        location: L,
-    ) -> Self {
-        self.expected_errors.push(ExpectedError {
-            code,
-            location: location.into(),
-        });
-        self
-    }
-    pub fn and_error<L: Into<ExpectedLocation>>(self, code: CompileErrorCode, location: L) -> Self {
-        self.to_error(code, location)
-    }
-    #[cfg_attr(feature = "clippy", allow(wrong_self_convention))]
-    pub fn to_warn<L: Into<ExpectedLocation>>(
-        mut self,
-        code: CompileErrorCode,
-        location: L,
-    ) -> Self {
-        self.expected_warnings.push(ExpectedError {
-            code,
-            location: location.into(),
-        });
-        self
-    }
-    pub fn and_warn<L: Into<ExpectedLocation>>(self, code: CompileErrorCode, location: L) -> Self {
-        self.to_warn(code, location)
-    }
+pub fn test_source<'a, Bytes: Into<&'a [u8]>>(source: Bytes) -> SourceRef<'a> {
+    SourceRef::memory("test.rs", source.into(), test_root())
+}
 
-    pub fn run(mut self) {
-        // Steal "source"
-        let mut source: Vec<u8> = vec![];
-        mem::swap(&mut self.source, &mut source);
-        let out: Vec<u8> = vec![];
-        let err: Vec<u8> = vec![];
-        let mut compiler = Compiler::new(
-            Err("ERROR: no relative path--this error should be impossible to trigger".into()),
-            Box::new(out),
-            Box::new(err),
-        );
-        let source = compiler.add_memory_source("[test expr]".into(), source);
-        let value = compiler.run(source);
-        println!("RESULT: {}\n", value.disp(&compiler));
-        match value {
-            Value::Errors(Errors { errors, value }) => self.test_result(&value, errors, &compiler),
-            value => self.test_result(&value, vec![], &compiler),
-        }
+pub fn test_root() -> RootRef {
+    // Steal "source"
+    let out: Vec<u8> = vec![];
+    let err: Vec<u8> = vec![];
+    let root_path = Err(io::Error::new(
+        io::ErrorKind::Other,
+        "SYSTEM ERROR: no relative path--this error should be impossible to trigger",
+    ));
+    RootRef::new(root_path, Box::new(out), Box::new(err))
+}
+
+pub struct ExpectBerg<'a>(pub &'a [u8]);
+
+impl<'a> fmt::Display for ExpectBerg<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "test '{}'", String::from_utf8_lossy(self.0))
     }
-    fn test_result(
-        mut self,
-        value: &Value,
-        mut errors: Vec<Box<CompileError>>,
-        compiler: &Compiler,
+}
+
+impl<'a> ExpectBerg<'a> {
+    #[cfg_attr(feature = "clippy", allow(needless_pass_by_value, wrong_self_convention))]
+    pub fn to_yield<
+        V: TypeName
+            + TryFrom<BergVal<'a>, Error = BergVal<'a>>
+            + PartialEq<V>
+            + fmt::Display
+            + fmt::Debug,
+    >(
+        self,
+        expected_value: V,
     ) {
-        let mut messages = vec![];
-
-        // Compare values
-        if self.expected_value != *value {
-            messages.push(format!(
-                "Incorrect value! Expected {}, got {}",
-                self.expected_value.disp(compiler),
-                value.disp(compiler)
-            ));
-        }
-
-        // Compare errors
-        while let Some(error) = errors.pop() {
-            match self.expected_errors
-                .iter()
-                .position(|expected_error| expected_error.matches(error.as_ref(), compiler))
-            {
-                Some(index) => {
-                    self.expected_errors.remove(index);
-                }
-                None => messages.push(format!(
-                    "Unexpected error produced: {}",
-                    error.disp(compiler)
-                )),
-            }
-        }
-        while let Some(expected_error) = self.expected_errors.pop() {
-            messages.push(format!("Expected error not produced: {}", expected_error));
-        }
-
+        let source = test_source(self.0);
+        let result = source.complete();
         assert!(
-            messages.is_empty(),
-            format!(
-                "{}",
-                messages
-                    .iter()
-                    .fold(String::new(), |prev, message| prev + message + "\n")
-            )
+            result.is_ok(),
+            "Unexpected error {} in {}: expected {}",
+            result.unwrap_err(),
+            self,
+            expected_value
+        );
+        let value = result.unwrap().downcast::<V>();
+        assert!(
+            value.is_ok(),
+            "Result of {} is the wrong type! Expected {}, got {}",
+            self,
+            expected_value,
+            value.unwrap_err()
+        );
+        let value = value.unwrap();
+        assert_eq!(
+            expected_value, value,
+            "Wrong result from {}! Expected {}, got {}",
+            self, expected_value, value
+        );
+    }
+    #[cfg_attr(feature = "clippy", allow(wrong_self_convention))]
+    pub fn to_error(self, code: ErrorCode, range: Range<usize>) {
+        let source = test_source(self.0);
+        let result = source.complete();
+        assert!(
+            result.is_err(),
+            "No error produced by {}: expected {}, got value {}",
+            self,
+            error_string(code, range),
+            result.as_ref().unwrap()
+        );
+        let value = BergErrorStack::try_from(result.unwrap_err());
+        assert!(
+            value.is_ok(),
+            "Result of {} is an error, but of an unexpected type! Expected {}, got {}",
+            self,
+            error_string(code, range),
+            value.as_ref().unwrap_err()
+        );
+        let error = value.unwrap();
+        assert_eq!(
+            code,
+            error.code(),
+            "Wrong error code from {}! Expected {}, got {} at {}",
+            self,
+            error_string(code, range),
+            error.code(),
+            error.location().range()
+        );
+        let expected_range = Range {
+            start: range.start.into(),
+            end: range.end.into(),
+        };
+        assert_eq!(
+            expected_range,
+            *error.location().byte_range(),
+            "Wrong error range from {}! Expected {}, got {} at {}",
+            self,
+            error_string(code, range),
+            error.code(),
+            error.location().range()
         );
     }
 }
 
-pub struct ExpectedError {
-    pub code: CompileErrorCode,
-    pub location: ExpectedLocation,
-}
-
-impl ExpectedError {
-    pub fn matches(&self, error: &CompileError, compiler: &Compiler) -> bool {
-        self.code == error.code()
-            && self.location
-                .matches(compiler, &error.message(compiler).location)
-    }
-}
-
-impl Display for ExpectedError {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "{} at {}", self.code.to_string(), self.location)
-    }
-}
-
-pub struct ExpectedLocation(pub ByteRange);
-
-impl From<ByteRange> for ExpectedLocation {
-    fn from(range: ByteRange) -> Self {
-        ExpectedLocation(range)
-    }
-}
-impl From<Range<u32>> for ExpectedLocation {
-    fn from(range: Range<u32>) -> Self {
-        ByteRange {
-            start: ByteIndex(range.start),
-            end: ByteIndex(range.end),
-        }.into()
-    }
-}
-impl From<u32> for ExpectedLocation {
-    fn from(loc: u32) -> Self {
-        (loc..(loc + 1)).into()
-    }
-}
-
-impl ExpectedLocation {
-    pub fn matches(&self, compiler: &Compiler, location: &CompileErrorLocation) -> bool {
-        match *location {
-            CompileErrorLocation::SourceRange(ref range) => {
-                let range = range.range(compiler);
-                range.start == self.0.start && range.end == self.0.end
-            }
-            _ => false,
-        }
-    }
-}
-
-impl Display for ExpectedLocation {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        if self.0.end - self.0.start == 1 {
-            write!(f, "{}", self.0.start)
-        } else {
-            write!(f, "{}..{}", self.0.start, self.0.end)
-        }
+fn error_string(code: ErrorCode, range: Range<usize>) -> String {
+    match range.end - range.start {
+        0 => format!("{} at {} (zero width)", code, range.start + 1),
+        1 => format!("{} at {}", code, range.start),
+        _ => format!("{} at {}-{}", code, range.start, range.end - 1),
     }
 }

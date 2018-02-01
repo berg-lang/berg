@@ -1,4 +1,4 @@
-use ast::precedence::Precedence::*;
+use syntax::precedence::Precedence::*;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum Precedence {

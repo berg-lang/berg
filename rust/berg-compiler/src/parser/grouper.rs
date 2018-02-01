@@ -1,113 +1,77 @@
-use ast::IdentifierIndex;
-use source::parse_result::{ByteIndex, ByteRange, ParseResult};
-use ast::{AstIndex, Variable, VariableIndex};
-use ast::token::{ExpressionBoundary, ExpressionBoundaryError, Fixity, InfixToken, Token};
-use ast::token::Token::*;
-use ast::token::ExpressionBoundary::*;
-use ast::identifiers::*;
-use ast;
+use syntax::AstData;
+use syntax::{AstIndex, ExpressionBoundary, ExpressionBoundaryError, Fixity};
+use syntax::ExpressionBoundary::*;
+use parser::{ByteIndex, ByteRange, SourceRef};
+use parser::binder::Binder;
+use syntax::{InfixToken, Token};
+use syntax::Token::*;
 
 // Handles nesting and precedence: balances (), {}, and compound terms, and
 // inserts "precedence groups," and removes compound terms and precedence
 // groups where it can.
 #[derive(Debug)]
-pub(super) struct Grouper {
+pub struct Grouper<'a> {
+    binder: Binder<'a>,
     open_expressions: Vec<OpenExpression>,
-    scope: Vec<VariableIndex>,
-    first_local_variable: usize,
 }
 
 #[derive(Debug)]
 struct OpenExpression {
     infix: Option<(InfixToken, AstIndex)>,
-    first_variable: usize,
     open_index: AstIndex,
     boundary: ExpressionBoundary,
 }
 
-impl Grouper {
-    pub(super) fn new() -> Self {
-        let scope = ast::root_variables()
-            .iter()
-            .enumerate()
-            .map(|(index, _)| index)
-            .collect();
+impl<'a> Grouper<'a> {
+    pub fn new(source: SourceRef<'a>) -> Self {
         Grouper {
+            binder: Binder::new(source),
             open_expressions: Default::default(),
-            scope,
-            first_local_variable: 0,
         }
     }
 
-    pub(super) fn variable_index(
-        &mut self,
-        name: IdentifierIndex,
-        parse_result: &mut ParseResult,
-    ) -> VariableIndex {
-        // TODO fix parent references (:a = a + 1) so they work appropriately.
-        let first_variable = match parse_result.tokens.last() {
-            Some(&PrefixOperator(COLON)) => self.first_local_variable,
-            _ => 0,
-        };
-        if let Some(variable) = self.scope[first_variable..]
-            .iter()
-            .rev()
-            .find(|variable| parse_result.variables[**variable].name == name)
-        {
-            return *variable;
-        }
-        // We couldn't find it (or we exposed a new field). Declare it in local scope.
-        let index = parse_result.variables.push(Variable { name });
-        self.scope.push(index);
-        index
+    pub fn ast(&self) -> &AstData<'a> {
+        &self.binder.ast
+    }
+    pub fn ast_mut(&mut self) -> &mut AstData<'a> {
+        &mut self.binder.ast
     }
 
-    pub(super) fn on_token(
-        &mut self,
-        token: Token,
-        range: ByteRange,
-        parse_result: &mut ParseResult,
-    ) {
+    pub fn on_token(&mut self, token: Token, range: ByteRange) {
         match token {
             // Push the newly opened group onto open_expressions
             Open {
                 boundary, error, ..
-            } => self.on_open(boundary, error, range, parse_result),
+            } => self.on_open(boundary, error, range),
             // Delay the close token so that we can see the next infix.
             Close {
                 boundary, error, ..
-            } => self.on_close(boundary, error, range, parse_result),
+            } => self.on_close(boundary, error, range),
 
             // Infix tokens may have left->right or right->left precedence.
             InfixOperator(_) | InfixAssignment(_) | NewlineSequence | MissingInfix => {
                 // Open or close PrecedenceGroups as necessary based on this infix.
                 let infix = token.to_infix().unwrap();
-                self.handle_precedence(infix, range.start, parse_result);
+                self.handle_precedence(infix, range.start);
 
                 // Add the infix.
-                let infix_index = parse_result.push_token(token, range);
+                let infix_index = self.push_token(token, range);
                 // Set this as the last infix for future precedence checking
                 self.open_expressions.last_mut().unwrap().infix = Some((infix, infix_index));
             }
 
-            RawIdentifier(identifier) => {
-                let token = VariableReference(self.variable_index(identifier, parse_result));
-                self.on_token(token, range, parse_result)
-            }
-
             _ => {
                 assert!(token.fixity() != Fixity::Infix);
-                parse_result.push_token(token, range);
+                self.push_token(token, range);
             }
         }
     }
 
-    fn handle_precedence(
-        &mut self,
-        next_infix: InfixToken,
-        next_infix_start: ByteIndex,
-        parse_result: &mut ParseResult,
-    ) {
+    pub fn on_source_end(self) -> AstData<'a> {
+        self.binder.on_source_end()
+    }
+
+    fn handle_precedence(&mut self, next_infix: InfixToken, next_infix_start: ByteIndex) {
         if let Some((infix, index)) = self.open_expression().infix {
             // The normal order of things is that infixes run left to right.
             // If the next infix binds *tighter* than current, wrap it in a
@@ -123,7 +87,6 @@ impl Grouper {
                     open_index,
                     boundary,
                     infix: None,
-                    first_variable: self.scope.len(),
                 });
             } else {
                 // If the current expression is precedence, and its *parent* doesn't
@@ -137,7 +100,6 @@ impl Grouper {
                         } else {
                             self.close(
                                 next_infix_start..next_infix_start,
-                                parse_result,
                                 ExpressionBoundaryError::None,
                             );
                         }
@@ -160,7 +122,6 @@ impl Grouper {
         boundary: ExpressionBoundary,
         error: ExpressionBoundaryError,
         range: ByteRange,
-        parse_result: &mut ParseResult,
     ) {
         // Close lesser subexpressions: File > Parentheses > CompoundTerm > PrecedenceGroup
         loop {
@@ -172,53 +133,35 @@ impl Grouper {
                     match open_boundary {
                         Source | Parentheses | CurlyBraces => self.close(
                             range.start..range.start,
-                            parse_result,
                             ExpressionBoundaryError::OpenWithoutClose,
                         ),
-                        CompoundTerm | PrecedenceGroup => self.close(
-                            range.start..range.start,
-                            parse_result,
-                            ExpressionBoundaryError::None,
-                        ),
+                        CompoundTerm | PrecedenceGroup => {
+                            self.close(range.start..range.start, ExpressionBoundaryError::None)
+                        }
+                        Root => unreachable!(),
                     }
                 }
                 Equal => {
-                    self.close(range, parse_result, error);
+                    self.close(range, error);
                     break;
                 }
                 Less => {
                     match boundary {
                         Source | Parentheses | CurlyBraces => {
+                            let error = ExpressionBoundaryError::CloseWithoutOpen;
                             // Insert a fake open token to match the close token
                             let open_index = {
                                 let parent = self.open_expression();
                                 match parent.boundary {
                                     CompoundTerm | PrecedenceGroup => parent.open_index,
                                     Source | Parentheses | CurlyBraces => parent.open_index + 1,
+                                    Root => unreachable!(),
                                 }
                             };
-                            let start = parse_result.token_ranges[open_index].start;
-                            let open_token = boundary
-                                .placeholder_open_token(ExpressionBoundaryError::CloseWithoutOpen);
-                            println!(
-                                "Inserting fake {:?}: open_index = {}, start={}",
-                                open_token, open_index, start
-                            );
-                            parse_result.insert_token(open_index, open_token, start..start);
-                            self.open_expressions.push(OpenExpression {
-                                open_index,
-                                boundary,
-                                infix: None,
-                                first_variable: self.scope.len(),
-                            });
-
-                            self.close(
-                                range,
-                                parse_result,
-                                ExpressionBoundaryError::CloseWithoutOpen,
-                            );
+                            self.insert_token_pair(open_index, boundary, error, range);
                         }
                         CompoundTerm | PrecedenceGroup => {}
+                        Root => unreachable!(),
                     }
                     break;
                 }
@@ -226,17 +169,12 @@ impl Grouper {
         }
     }
 
-    fn close(
-        &mut self,
-        range: ByteRange,
-        parse_result: &mut ParseResult,
-        error: ExpressionBoundaryError,
-    ) {
+    fn close(&mut self, range: ByteRange, error: ExpressionBoundaryError) {
         let expression = self.open_expressions.pop().unwrap();
         println!(
             "close({:?}) at {}: open index = {}",
             expression.boundary,
-            parse_result.next_index(),
+            self.ast().next_index(),
             expression.open_index
         );
         if expression.boundary == CompoundTerm
@@ -250,21 +188,7 @@ impl Grouper {
 
         match expression.boundary {
             CompoundTerm | PrecedenceGroup => {
-                let start = parse_result.token_ranges[expression.open_index].start;
-                let close_index = parse_result.next_index() + 1; // Have to add 1 due to the impending insert.
-                let delta = close_index - expression.open_index;
-                let open_token = Open {
-                    boundary: expression.boundary,
-                    delta,
-                    error,
-                };
-                let close_token = Close {
-                    boundary: expression.boundary,
-                    delta,
-                    error,
-                };
-                parse_result.insert_token(expression.open_index, open_token, start..start);
-                parse_result.push_token(close_token, range);
+                self.insert_token_pair(expression.open_index, expression.boundary, error, range);
             }
             Source | Parentheses | CurlyBraces => {
                 // If we're fixing a missing open/close { or (, we may be creating an *empty* one, which
@@ -272,36 +196,116 @@ impl Grouper {
                 // TODO the comments are probably right we need to deal with missing open as well here.
                 // Think it through and implement (or change the comment).
                 if error == ExpressionBoundaryError::OpenWithoutClose {
-                    parse_result.push_token(MissingExpression, range.start..range.start);
+                    self.push_token(MissingExpression, range.start..range.start);
                 }
 
-                let mut delta = parse_result.next_index() - expression.open_index;
-                if let Open {
+                self.push_close_token(&expression, error, range);
+            }
+            Root => unreachable!(),
+        }
+    }
+
+    fn push_open_expression(
+        &mut self,
+        open_index: AstIndex,
+        boundary: ExpressionBoundary,
+        infix: Option<(InfixToken, AstIndex)>,
+    ) {
+        let open_expression = OpenExpression {
+            open_index,
+            boundary,
+            infix,
+        };
+        self.open_expressions.push(open_expression);
+    }
+
+    fn insert_token(&mut self, index: AstIndex, token: Token, range: ByteRange) {
+        self.binder.insert_token(index, token, range)
+    }
+
+    fn push_token(&mut self, token: Token, range: ByteRange) -> AstIndex {
+        self.binder.push_token(token, range)
+    }
+
+    fn push_open_token(
+        &mut self,
+        boundary: ExpressionBoundary,
+        error: ExpressionBoundaryError,
+        open_range: ByteRange,
+    ) -> AstIndex {
+        let open_token = boundary.placeholder_open_token(error);
+        self.push_token(open_token, open_range)
+    }
+
+    fn push_close_token(
+        &mut self,
+        expression: &OpenExpression,
+        error: ExpressionBoundaryError,
+        close_range: ByteRange,
+    ) -> AstIndex {
+        let close_index = self.ast().next_index();
+        let delta = close_index - expression.open_index;
+
+        // Update open index
+        {
+            let ast = self.ast_mut();
+            match ast.tokens[expression.open_index] {
+                Open {
                     boundary,
                     delta: ref mut open_delta,
                     error: ref mut open_error,
-                } = parse_result.tokens[expression.open_index]
-                {
+                } => {
                     assert_eq!(boundary, expression.boundary);
                     *open_delta = delta;
                     *open_error = error;
-                } else {
-                    unreachable!()
                 }
-                let close_token = Close {
-                    boundary: expression.boundary,
-                    delta,
-                    error,
-                };
-                parse_result.push_token(close_token, range);
+                OpenBlock {
+                    index,
+                    delta: ref mut open_delta,
+                    error: ref mut open_error,
+                } => {
+                    assert_eq!(ast.blocks[index].boundary, expression.boundary);
+                    *open_delta = delta;
+                    *open_error = error;
+                }
+                _ => unreachable!(),
             }
         }
 
-        // If this is Source or CurlyBraces, we are closing a block and need to clear out any variables in scope.
-        match expression.boundary {
-            Source | CurlyBraces => self.scope.truncate(expression.first_variable),
-            CompoundTerm | PrecedenceGroup | Parentheses => {}
-        }
+        let close_token = Close {
+            boundary: expression.boundary,
+            delta,
+            error,
+        };
+        let index = self.push_token(close_token, close_range);
+        assert_eq!(close_index, index);
+        index
+    }
+
+    fn insert_token_pair(
+        &mut self,
+        open_index: AstIndex,
+        boundary: ExpressionBoundary,
+        error: ExpressionBoundaryError,
+        close_range: ByteRange,
+    ) -> AstIndex {
+        let open_start = self.ast().token_ranges[open_index].start;
+        let close_index = self.ast().next_index() + 1; // Have to add 1 due to the impending insert.
+        let delta = close_index - open_index;
+        let open_token = Open {
+            boundary,
+            delta,
+            error,
+        };
+        let close_token = Close {
+            boundary,
+            delta,
+            error,
+        };
+        self.insert_token(open_index, open_token, open_start..open_start);
+        let index = self.push_token(close_token, close_range);
+        assert_eq!(index, close_index);
+        index
     }
 
     fn on_open(
@@ -309,23 +313,15 @@ impl Grouper {
         boundary: ExpressionBoundary,
         error: ExpressionBoundaryError,
         open_range: ByteRange,
-        parse_result: &mut ParseResult,
     ) {
-        let open_index = parse_result.next_index();
+        let open_index = self.ast().next_index();
         println!("OPEN {:?}: {}", boundary, open_index);
-        self.open_expressions.push(OpenExpression {
-            open_index,
-            boundary,
-            infix: None,
-            first_variable: self.scope.len(),
-        });
-        match boundary {
-            Source | Parentheses | CurlyBraces => {
-                parse_result.push_token(boundary.placeholder_open_token(error), open_range);
-            }
-            // CompoundTerm and PrecedenceGroup typically don't end up in the AST, so we don't insert
-            // them until we discover we have to.
-            CompoundTerm | PrecedenceGroup => {}
-        };
+        self.push_open_expression(open_index, boundary, None);
+        if match boundary {
+            Source | CurlyBraces | Parentheses => true,
+            _ => false,
+        } {
+            self.push_open_token(boundary, error, open_range);
+        }
     }
 }

@@ -1,6 +1,7 @@
+#![recursion_limit = "512"]
 #[macro_use]
 pub mod compiler_test;
-use compiler_test::berg_compiler::BigRational;
+use compiler_test::*;
 
 compiler_tests! {
     add0_0: "0+0" => value(0),
@@ -34,8 +35,8 @@ compiler_tests! {
     div15_7: "15/7" => value(BigRational::new(15.into(), 7.into())),
     div45_3_7: "45/3/7" => value(BigRational::new(15.into(), 7.into())),
 
-    div0_0: "0/0" => error(DivideByZero@1),
-    div1_0: "1/0" => error(DivideByZero@1),
+    div0_0: "0/0" => error(DivideByZero@2),
+    div1_0: "1/0" => error(DivideByZero@2),
 
     muladd2_3_4: "2*3+4" => value(10),
     muladd2_3_4_neg: "-2*3+4" => value(-2),

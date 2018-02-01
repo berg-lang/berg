@@ -16,7 +16,7 @@ Berg 0.1 is the syntax and structure of Berg. It is a full version of the Berg l
     [X] Operators
     [X] Parentheses
 3. Objects
-    [X] Variables
+    [X] Fields
     [ ] Blocks
     [ ] Fields
     [ ] Extension
@@ -68,7 +68,7 @@ Invalid UTF-8
 -------------
 [X] Error: Invalid UTF-8
 [X] Error: Unsupported Character
-[X] Error: Source Not Found
+[X] Error: SourceRef Not Found
 [X] Error: I/O open error
 [X] Error: I/O read error
 [X] Error: I/O directory join error for relative path
@@ -83,7 +83,7 @@ Round 2: Expressions
 
 Runtime
 -------
-[X] TypeChecker: Type, Number, IntegerLiteral.Value() -> Number
+[X] TypeChecker: Type, Number, IntegerLiteral.StackValue() -> Number
 [X] TypeRuntime { Run(Type) -> Print Result }
 [X] Integer tests
 
@@ -137,25 +137,25 @@ Space
 [X] Compound Term Grouping
 [X] Newlines; Record Line / Column Data
 
-Round 5: Scope
+Round 5: ScopeRef
 ==============
 
 Statements
 ----------
 [X] Statement Separator ";"
 [X] Trailing Semicolon Acceptable
-[X] Final Expression In Block is Return Value
+[X] Final Expression In BlockRef is Return StackValue
 [X] Newline Statement Separation
 [X] Newline Statement Continuation
 
-Variables
+Fields
 ---------
-*Variables* are accessible in the scope they were first defined and nowhere else.
-[X] Variable Assignment (a = b)
-[X] Variable Reassignment (a = b)
-[X] Variable Reference (a)
-[X] Error: No Such Variable
-[ ] Error: Unused Variable Definition
+*Fields* are accessible in the scope they were first defined and nowhere else.
+[X] Field Assignment (a = b)
+[X] Field Reassignment (a = b)
+[X] Field Reference (a)
+[X] Error: No Such Field
+[ ] Error: Unused Field Definition
 [ ] Error: Reference Before Definition
 
 Round 6: Blocks
@@ -167,14 +167,14 @@ Blocks
 [ ] Error: ) where expected }
 [ ] Error: } where expected )
 
-Block Scope
+BlockRef ScopeRef
 -----------
-[ ] Variables in parent block are accessible and assignable
-[ ] Variables declared *after* block, in parent scope, are inaccessible
-[ ] Variables declared in sibling scopes are inaccessible to each other
-[ ] Variables declared in child scope are inaccessible to parents
+[ ] Fields in parent block are accessible and assignable
+[ ] Fields declared *after* block, in parent scope, are inaccessible
+[ ] Fields declared in sibling scopes are inaccessible to each other
+[ ] Fields declared in child scope are inaccessible to parents
 
-Block Laziness
+BlockRef Laziness
 --------------
 [ ] "output" function so we can test evaluation
 [ ] Unused blocks do not evaluate
@@ -190,11 +190,11 @@ Round 7: Objects
 
 Fields
 ------
-*Fields* are variables that have been made public, and are thus accessible outside their scope.
+*Fields* are fields that have been made public, and are thus accessible outside their scope.
 [X] Expose field value (:a = b)
 [X] Field usable in expression
-[ ] "Unused variable error" does not apply to field
-[ ] "Unused variable error" does not apply to field
+[ ] "Unused field error" does not apply to field
+[ ] "Unused field error" does not apply to field
 
 Field Access
 ------------
@@ -296,7 +296,7 @@ Fields
 [ ] Field Definition (=)
 [ ] Field Modification (+=, ++, etc.)
 [X] Field Declaration
-[X] "Missing" Value
+[X] "Missing" StackValue
 [ ] Parse Error: Identifier Too Large
 [X] Parse Error: Identifier Starts With Number
 [ ] Parse Error: Identifier Must Be Immediately After ":"
@@ -320,7 +320,7 @@ Field Assignment
 
 Apply
 -----
-[ ] Apply Operator (Extend With Block) "F <+ A: 1" or "F <+ { A: 1; B: 2 }"
+[ ] Apply Operator (Extend With BlockRef) "F <+ A: 1" or "F <+ { A: 1; B: 2 }"
 [ ] Because of multiple reasons! Figure out error dedup strategies here ...
 
 Functions
@@ -341,7 +341,7 @@ Function Calls
 
 Indented Function Calls
 -----------------------
-[ ] Child Block Function Arguments
+[ ] Child BlockRef Function Arguments
 [ ] Parse Error: Inconsistent Indent Characters (space vs. tab)
 [ ] Parse Error: Multiple Undent
 
@@ -351,7 +351,7 @@ Conditionals
 Booleans
 --------
 [ ] "true", "false"
-[ ] Value::True, Value::False
+[ ] StackValue::True, StackValue::False
 [ ] Error: Appropriate Operator Errors
 
 If/Else
@@ -380,7 +380,7 @@ Child Access
 [ ] Field Access (Dot) Operator
 [ ] Parse Error: Identifier Required For Field Access
 
-[ ] Nested Block Declarations
+[ ] Nested BlockRef Declarations
 
 Includes
 --------

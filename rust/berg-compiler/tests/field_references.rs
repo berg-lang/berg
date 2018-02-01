@@ -1,5 +1,6 @@
 #[macro_use]
 pub mod compiler_test;
+use compiler_test::*;
 
 compiler_tests! {
     no_such_field: "blah" => error(NoSuchField@[0-3]),

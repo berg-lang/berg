@@ -1,5 +1,6 @@
 #[macro_use]
 pub mod compiler_test;
+use compiler_test::*;
 
 compiler_tests! {
     left_space_1: " 1" => value(1),
@@ -10,7 +11,7 @@ compiler_tests! {
     right_double_space_1: "1  " => value(1),
     both_double_space_1: "  1  " => value(1),
 
-    paren_space_all_over: " ( ( ) ) " => value(nothing),
+    paren_space_all_over: " ( ( ) ) " => value(Nothing),
 
     addmul_paren_space_precedence: "1+(2 * 3)" => value(7),
     addmul_paren_space_precedence_2: "(1+2) * 3" => value(9),

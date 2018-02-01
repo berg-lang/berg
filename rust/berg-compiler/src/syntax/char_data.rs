@@ -1,7 +1,22 @@
+use parser::ByteRange;
 use util::indexed_vec::Delta;
-use source::parse_result::ByteIndex;
+use parser::ByteIndex;
 use std::cmp::Ordering;
 use std::fmt::{Display, Formatter, Result};
+
+#[derive(Debug)]
+pub struct CharData {
+    // size in bytes
+    // byte_size: usize,
+    // Size in Unicode codepoints
+    pub(crate) byte_length: ByteIndex,
+    // checksum
+    // time retrieved
+    // time modified
+    // system retrieved on
+    // Start indices of each line
+    pub(crate) line_starts: Vec<ByteIndex>,
+}
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct LineColumn {
@@ -14,6 +29,46 @@ pub struct LineColumn {
 pub struct LineColumnRange {
     pub start: LineColumn,
     pub end: Option<LineColumn>,
+}
+
+impl Default for CharData {
+    fn default() -> Self {
+        CharData {
+            byte_length: ByteIndex::from(0),
+            line_starts: vec![ByteIndex::from(0)],
+        }
+    }
+}
+
+impl CharData {
+    pub(crate) fn append_line(&mut self, line_start: ByteIndex) {
+        self.line_starts.push(line_start);
+    }
+    pub(crate) fn location(&self, index: ByteIndex) -> LineColumn {
+        // TODO binary search to make it faster. But, meh.
+        let mut line = self.line_starts.len();
+        while self.line_starts[line - 1] > index {
+            line -= 1
+        }
+
+        let column = index + 1 - self.line_starts[line - 1];
+        let line = line as u32;
+        LineColumn { line, column }
+    }
+
+    pub(crate) fn range(&self, range: &ByteRange) -> LineColumnRange {
+        let start = self.location(range.start);
+        if range.start == range.end {
+            LineColumnRange { start, end: None }
+        } else {
+            let end = Some(self.location(range.end - 1));
+            LineColumnRange { start, end }
+        }
+    }
+
+    // pub(crate) fn byte_length(&self) -> ByteIndex {
+    //     self.byte_length
+    // }
 }
 
 impl LineColumn {

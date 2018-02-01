@@ -1,7 +1,6 @@
 #[macro_use]
 pub mod compiler_test;
-use compiler_test::berg_compiler::BigRational;
-use std::str::FromStr;
+use compiler_test::*;
 
 compiler_tests! {
     zero: "0" => value(0),

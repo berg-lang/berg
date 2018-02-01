@@ -1,5 +1,7 @@
+#![recursion_limit = "256"]
 #[macro_use]
 pub mod compiler_test;
+use compiler_test::*;
 
 compiler_tests! {
     // booleans
@@ -37,8 +39,8 @@ compiler_tests! {
     not_equal_nothing_nothing: "()!=()" => value(false),
 
     // errors
-    equal_error_error: "1/0==1/0" => errors(DivideByZero@1,DivideByZero@6),
-    not_equal_error_error: "1/0!=1/0" => errors(DivideByZero@1,DivideByZero@6),
+    equal_error_error: "1/0==1/0" => error(DivideByZero@2),
+    not_equal_error_error: "1/0!=1/0" => error(DivideByZero@2),
 
     // nothing/boolean
     equal_nothing_true: "()==true" => value(false),
@@ -61,24 +63,24 @@ compiler_tests! {
     not_equal_1_nothing: "1!=()" => value(true),
 
     // error/boolean
-    equal_error_true: "1/0==true" => error(DivideByZero@1),
-    equal_error_false: "1/0==false" => error(DivideByZero@1),
-    equal_true_error: "true==1/0" => error(DivideByZero@7),
-    equal_false_error: "false==1/0" => error(DivideByZero@8),
-    not_equal_error_true: "1/0!=true" => error(DivideByZero@1),
-    not_equal_error_false: "1/0!=false" => error(DivideByZero@1),
-    not_equal_true_error: "true!=1/0" => error(DivideByZero@7),
-    not_equal_false_error: "false!=1/0" => error(DivideByZero@8),
+    equal_error_true: "1/0==true" => error(DivideByZero@2),
+    equal_error_false: "1/0==false" => error(DivideByZero@2),
+    equal_true_error: "true==1/0" => error(DivideByZero@8),
+    equal_false_error: "false==1/0" => error(DivideByZero@9),
+    not_equal_error_true: "1/0!=true" => error(DivideByZero@2),
+    not_equal_error_false: "1/0!=false" => error(DivideByZero@2),
+    not_equal_true_error: "true!=1/0" => error(DivideByZero@8),
+    not_equal_false_error: "false!=1/0" => error(DivideByZero@9),
 
     // error/number
-    equal_error_0: "1/0==0" => error(DivideByZero@1),
-    equal_error_1: "1/0==1" => error(DivideByZero@1),
-    equal_0_error: "0==1/0" => error(DivideByZero@4),
-    equal_1_error: "1==1/0" => error(DivideByZero@4),
-    not_equal_error_0: "1/0!=0" => error(DivideByZero@1),
-    not_equal_error_1: "1/0!=1" => error(DivideByZero@1),
-    not_equal_0_error: "0!=1/0" => error(DivideByZero@4),
-    not_equal_1_error: "1!=1/0" => error(DivideByZero@4),
+    equal_error_0: "1/0==0" => error(DivideByZero@2),
+    equal_error_1: "1/0==1" => error(DivideByZero@2),
+    equal_0_error: "0==1/0" => error(DivideByZero@5),
+    equal_1_error: "1==1/0" => error(DivideByZero@5),
+    not_equal_error_0: "1/0!=0" => error(DivideByZero@2),
+    not_equal_error_1: "1/0!=1" => error(DivideByZero@2),
+    not_equal_0_error: "0!=1/0" => error(DivideByZero@5),
+    not_equal_1_error: "1!=1/0" => error(DivideByZero@5),
 
     // number/boolean
     equal_true_1: "true==1" => value(false),

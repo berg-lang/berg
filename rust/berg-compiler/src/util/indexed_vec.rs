@@ -1,14 +1,11 @@
-use std::borrow::Cow;
-use std::ops::RangeFrom;
-use std::slice::IterMut;
-use std::slice::Iter;
+use std::borrow::{Borrow, BorrowMut, Cow};
 use std::cmp::Ordering;
-use std::borrow::{Borrow, BorrowMut};
 use std::fmt;
 use std::iter::*;
-use std::ops::{Add, AddAssign, Deref, DerefMut, Index, IndexMut, Range, Sub, SubAssign};
 use std::marker::PhantomData;
 use std::mem;
+use std::ops::{Add, AddAssign, Deref, DerefMut, Index, IndexMut, Range, RangeFrom, Sub, SubAssign};
+use std::slice::{Iter, IterMut};
 
 // index_type and util::indexed_vec work together to let you use a custom type
 // (like TokenIndex) to index the vector, and disallow any other type (like usize
@@ -16,7 +13,7 @@ use std::mem;
 // the thing you think you are!
 //
 // Think of index_type (TokenIndex/SourceIndex/ByteIndex) as your number and
-// the IndexedVec as Vec<Token>/Vec<Source>, and you will be good.
+// the IndexedVec as Vec<Token>/Vec<SourceRef>, and you will be good.
 
 #[macro_export]
 macro_rules! index_type {
@@ -103,6 +100,15 @@ impl<T: IndexType> PartialOrd<usize> for Delta<T> {
     }
 }
 
+impl<T: IndexType> Add<usize> for Delta<T> { type Output = Self; fn add(self, value: usize) -> Self { Delta(self.0 + value) } }
+impl<T: IndexType> Add for Delta<T> { type Output = Self; fn add(self, value: Self) -> Self { Delta(self.0 + value) } }
+impl<T: IndexType> Sub<usize> for Delta<T> { type Output = Self; fn sub(self, value: usize) -> Self { Delta(self.0 - value) } }
+impl<T: IndexType> Sub for Delta<T> { type Output = Self; fn sub(self, value: Self) -> Self { Delta(self.0 - value) } }
+impl<T: IndexType> AddAssign<usize> for Delta<T> { fn add_assign(&mut self, value: usize) { *self = *self + value } }
+impl<T: IndexType> AddAssign for Delta<T> { fn add_assign(&mut self, value: Self) { *self = *self + value } }
+impl<T: IndexType> SubAssign<usize> for Delta<T> { fn sub_assign(&mut self, value: usize) { *self = *self - value } }
+impl<T: IndexType> SubAssign for Delta<T> { fn sub_assign(&mut self, value: Self) { *self = *self - value } }
+
 pub trait IndexType
     : Copy
     + Clone
@@ -113,10 +119,15 @@ pub trait IndexType
     + PartialEq
     + PartialOrd<usize>
     + PartialEq<usize>
+    + Sub<Self, Output = Delta<Self>>
     + AddAssign<usize>
     + SubAssign<usize>
+    + AddAssign<Delta<Self>>
+    + SubAssign<Delta<Self>>
     + Add<usize, Output = Self>
-    + Sub<usize, Output = Self> {
+    + Sub<usize, Output = Self>
+    + Add<Delta<Self>, Output = Self>
+    + Sub<Delta<Self>, Output = Self> {
 }
 
 pub struct IndexedIter<Inner: Iterator, Idx: IndexType>(Inner, PhantomData<Idx>);
@@ -658,6 +669,7 @@ impl<Inner: Iterator, Idx: IndexType> Iterator for EnumerateIndex<Inner, Idx> {
 /// A Slice with a specific index type (so you don't accidentally use one slice's index on another Vec
 /// and can use non-usized indexes).
 ///
+#[derive(Debug)]
 pub struct IndexedSlice<Elem, Idx: IndexType> {
     marker: PhantomData<Idx>,
     slice: [Elem],
