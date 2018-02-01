@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use syntax::OperandPosition::*;
 use syntax::char_data::CharData;
 use value::BergError;
@@ -154,7 +155,7 @@ impl<'a> AstRef<'a> {
     pub fn token(&self, index: AstIndex) -> &Token {
         &self.0.tokens[index]
     }
-    pub fn token_string(&self, index: AstIndex) -> &str {
+    pub fn token_string(&self, index: AstIndex) -> Cow<str> {
         self.0.tokens[index].to_string(self)
     }
     pub fn token_range(&self, index: AstIndex) -> ByteRange {
@@ -185,13 +186,11 @@ impl<'a> fmt::Debug for AstRef<'a> {
 
 impl<'a> AstData<'a> {
     pub fn push_token(&mut self, token: Token, range: ByteRange) -> AstIndex {
-        println!("TOKEN {:?} at {}", token, self.next_index());
         self.tokens.push(token);
         self.token_ranges.push(range)
     }
 
     pub fn insert_token(&mut self, index: AstIndex, token: Token, range: ByteRange) {
-        println!("INSERT TOKEN {:?} at {}", token, index);
         self.tokens.insert(index, token);
         self.token_ranges.insert(index, range);
     }

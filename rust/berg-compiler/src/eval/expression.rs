@@ -33,7 +33,7 @@ impl fmt::Debug for Expression {
 
 impl Expression {
     pub fn evaluate<'a>(self, scope: &mut ScopeRef<'a>, ast: &AstRef<'a>) -> BergResult<'a> {
-        println!("\nEvaluate:\n{}", ExpressionTreeFormatter(self, ast, 0));
+        println!("Evaluate {} ...", ExpressionFormatter(self, ast));
         use syntax::ExpressionBoundaryError::*;
         use syntax::Token::*;
         let result = match *self.token(ast) {
@@ -97,7 +97,6 @@ impl Expression {
             OpenBlock { error: None, .. } => self.close_over(scope).ok(),
             Close { .. } | CloseBlock { .. } | RawIdentifier(_) | ErrorTerm(_) => unreachable!(),
         };
-        println!("OK.");
         println!("Result of {}: {:?}", ExpressionFormatter(self, ast), result);
         result
     }
@@ -157,7 +156,8 @@ impl Expression {
             position: OperandPosition::Right,
             expression: self.right_expression(ast),
         };
-        self.result(left_value.infix(SEMICOLON, scope, right, ast), ast)
+        let result = left_value.infix(SEMICOLON, scope, right, ast);
+        self.result(result, ast)
     }
 
     fn evaluate_infix<'a>(
@@ -244,8 +244,8 @@ impl Expression {
     }
 
     pub(crate) fn range(self, ast: &AstRef) -> ByteRange {
-        let start = ast.token_ranges()[self.start(ast)].start;
-        let end = ast.token_ranges()[self.end(ast)].end;
+        let start = ast.token_ranges()[self.first_index(ast)].start;
+        let end = ast.token_ranges()[self.last_index(ast)].end;
         start..end
     }
 
@@ -253,7 +253,7 @@ impl Expression {
         self.0
     }
 
-    pub(crate) fn start(self, ast: &AstRef) -> AstIndex {
+    pub(crate) fn first_index(self, ast: &AstRef) -> AstIndex {
         let token = self.token(ast);
         match *token {
             Token::Close { delta, .. } | Token::CloseBlock { delta, .. } => self.operator() - delta,
@@ -267,10 +267,10 @@ impl Expression {
         }
     }
 
-    pub(crate) fn end(self, ast: &AstRef) -> AstIndex {
+    pub(crate) fn last_index(self, ast: &AstRef) -> AstIndex {
         let token = self.token(ast);
         match *token {
-            Token::Open { delta, .. } | Token::CloseBlock { delta, .. } => self.operator() + delta,
+            Token::Open { delta, .. } | Token::OpenBlock { delta, .. } => self.operator() + delta,
             _ => {
                 let mut right = self;
                 while right.token(ast).has_right_operand() {
@@ -429,15 +429,15 @@ impl Expression {
 
     pub(crate) fn parent(&self, ast: &AstRef) -> Self {
         // Grab the next and previous expression.
-        let start = self.start(ast);
-        let end = self.end(ast);
-        let next = Expression(end + 1);
-        if start == 0 {
+        let first_index = self.first_index(ast);
+        let last_index = self.last_index(ast);
+        let next = Expression(last_index + 1);
+        if first_index == 0 {
             assert!(next.0 <= ast.tokens().last_index());
-            return Expression(end + 1);
+            return Expression(last_index + 1);
         }
-        let prev = Expression(start - 1);
-        if end >= ast.tokens().last_index() {
+        let prev = Expression(first_index - 1);
+        if last_index >= ast.tokens().last_index() {
             return prev;
         }
 
@@ -536,18 +536,6 @@ impl Operand {
 pub(crate) struct ExpressionFormatter<'p, 'a: 'p>(pub(crate) Expression, pub(crate) &'p AstRef<'a>);
 
 impl<'p, 'a: 'p> ExpressionFormatter<'p, 'a> {
-    fn left(&self) -> Self {
-        let ExpressionFormatter(ref expression, ast) = *self;
-        ExpressionFormatter(expression.left_expression(ast), ast)
-    }
-    fn right(&self) -> Self {
-        let ExpressionFormatter(ref expression, ast) = *self;
-        ExpressionFormatter(expression.right_expression(ast), ast)
-    }
-    fn inner(&self) -> Self {
-        let ExpressionFormatter(ref expression, ast) = *self;
-        ExpressionFormatter(expression.inner_expression(ast), ast)
-    }
     fn boundary_strings(&self) -> (&str, &str) {
         let ExpressionFormatter(ref expression, ast) = *self;
         let boundary = match *Expression(expression.open_operator(ast)).token(ast) {
@@ -570,15 +558,39 @@ impl<'p, 'a: 'p> fmt::Display for ExpressionFormatter<'p, 'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let ExpressionFormatter(ref expression, ast) = *self;
         let token = expression.token(ast);
+        let string = token.to_string(ast);
         match token.fixity() {
-            Fixity::Infix => write!(f, "{}{}{}", self.left(), token.to_string(ast), self.right()),
-            Fixity::Prefix => write!(f, " {}{}", token.to_string(ast), self.right()),
-            Fixity::Postfix => write!(f, "{}{} ", self.left(), token.to_string(ast)),
-            Fixity::Term => write!(f, " {} ", token.to_string(ast)),
+            Fixity::Infix => {
+                let left = ExpressionFormatter(expression.left_expression(ast), ast);
+                let right = ExpressionFormatter(expression.right_expression(ast), ast);
+                match *token {
+                    Token::InfixOperator(SEMICOLON) => write!(f, "{}{} {}", left, string, right),
+                    Token::NewlineSequence => write!(f, "{}\\n {}", left, right),
+                    _ => write!(f, "{} {} {}", left, string, right),
+                }
+            },
+            Fixity::Prefix => {
+                let right = ExpressionFormatter(expression.right_expression(ast), ast);
+                if ast.tokens()[expression.operator() - 1].has_left_operand() {
+                    write!(f, " {}{}", string, right)
+                } else {
+                    write!(f, "{}{}", string, right)
+                }
+            },
+            Fixity::Postfix => {
+                let left = ExpressionFormatter(expression.left_expression(ast), ast);
+                if ast.tokens()[expression.operator() + 1].has_right_operand() {
+                    write!(f, " {}{}", left, string)
+                } else {
+                    write!(f, "{}{}", left, string)
+                }
+            },
+            Fixity::Term => write!(f, "{}", token.to_string(ast)),
             Fixity::Open | Fixity::Close => {
                 let (open, close) = self.boundary_strings();
-                write!(f, " {}{}{} ", open, self.inner(), close)
-            }
+                let inner = ExpressionFormatter(expression.inner_expression(ast), ast);
+                write!(f, "{}{}{}", open, inner, close)
+            },
         }
     }
 }
@@ -605,7 +617,7 @@ impl<'p, 'a: 'p> ExpressionTreeFormatter<'p, 'a> {
     fn fmt_self(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let ExpressionTreeFormatter(expression, ast, level) = *self;
         let token = expression.token(ast);
-        write!(f, "{}", "  ".repeat(level))?;
+        write!(f, "{:level$}", "  ", level=level)?;
         match token.fixity() {
             Fixity::Open | Fixity::Close => write!(
                 f,
@@ -686,7 +698,7 @@ impl<'a> BergValue<'a> for BlockClosure<'a> {
     fn ok<E>(self) -> Result<BergVal<'a>, E> {
         Ok(self.into())
     }
-
+    
     fn infix(
         self,
         operator: IdentifierIndex,

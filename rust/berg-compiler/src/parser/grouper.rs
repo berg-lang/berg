@@ -171,12 +171,6 @@ impl<'a> Grouper<'a> {
 
     fn close(&mut self, range: ByteRange, error: ExpressionBoundaryError) {
         let expression = self.open_expressions.pop().unwrap();
-        println!(
-            "close({:?}) at {}: open index = {}",
-            expression.boundary,
-            self.ast().next_index(),
-            expression.open_index
-        );
         if expression.boundary == CompoundTerm
             && !(expression.infix.is_some() && self.open_expression().infix.is_some())
         {
@@ -315,7 +309,6 @@ impl<'a> Grouper<'a> {
         open_range: ByteRange,
     ) {
         let open_index = self.ast().next_index();
-        println!("OPEN {:?}: {}", boundary, open_index);
         self.push_open_expression(open_index, boundary, None);
         if match boundary {
             Source | CurlyBraces | Parentheses => true,

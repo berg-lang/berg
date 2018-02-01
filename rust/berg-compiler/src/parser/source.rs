@@ -1,3 +1,4 @@
+use eval::ExpressionTreeFormatter;
 use syntax::AstData;
 use std::rc::Rc;
 use syntax::AstRef;
@@ -54,19 +55,16 @@ impl<'a> SourceRef<'a> {
         Sequencer::parse(self)
     }
     pub fn evaluate(self) -> BergResult<'a> {
+        println!("");
         let ast = self.parse();
+        println!("Parsed:");
+        print!("{}", ExpressionTreeFormatter(ast.expression(), &ast, 1));
         let mut scope = ScopeRef::AstRef(ast.clone());
         let expression = ast.expression();
         expression.evaluate(&mut scope, &ast)
     }
     pub fn complete(self) -> BergResult<'a> {
-        let value = self.evaluate()?;
-        println!("----------");
-        println!("value {:?}", value);
-        let result = value.complete();
-        println!("-----------");
-        println!("result {:?}", result);
-        result
+        self.evaluate()?.complete()
     }
     pub fn name(&'a self) -> Cow<'a, str> {
         match *self.0 {

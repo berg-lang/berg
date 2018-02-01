@@ -270,13 +270,15 @@ impl<'a> fmt::Display for BergErrorStack<'a> {
                 expression.close_token(ast).to_string(ast),
                 expression.boundary(ast).open_string()
             ),
-            UnsupportedOperator(ref value, fixity, identifier) => write!(
-                f,
-                "Unsupported {} operator {} on value {:?}",
-                fixity,
-                ast.identifier_string(identifier),
-                value
-            ),
+            UnsupportedOperator(ref value, fixity, identifier) => {
+                write!(
+                    f,
+                    "Unsupported {} operator {} on value ",
+                    fixity,
+                    ast.identifier_string(identifier)
+                )?;
+                value.fmt_debug_shallow(f)
+            },
             DivideByZero => write!(
                 f,
                 "Division by zero is illegal. Perhaps you meant a different number on the right hand side of the '{}'?",
@@ -320,22 +322,20 @@ impl<'a> fmt::Display for BergErrorStack<'a> {
                 position = expression.operand_position(ast),
                 operand = expression.to_string(ast),
             ),
-            BadOperandType(position,ref actual_value,expected_type) => write!(
-                f,
-                "The value of '{operand}' is {actual_value:?}, but {position} '{operator}' must be an {expected_type}!",
-                operand = position.get(expression, ast).to_string(ast),
-                actual_value = actual_value,
-                position = position,
-                operator = expression.token(ast).to_string(ast),
-                expected_type = expected_type
-            ),
-            BadType(ref actual_value,expected_type) => write!(
-                f,
-                "The value of '{operand}' is {actual_value:?}, but we expected {expected_type}!",
-                operand = expression.to_string(ast),
-                actual_value = actual_value,
-                expected_type = expected_type
-            ),
+            BadOperandType(position,ref actual_value,expected_type) => {
+                write!(f, "The value of '{}' is ", position.get(expression, ast).to_string(ast))?;
+                actual_value.fmt_debug_shallow(f)?;
+                write!(f, ", but {position} '{operator}' must be an {expected_type}!",
+                    position = position,
+                    operator = expression.token(ast).to_string(ast),
+                    expected_type = expected_type
+                )
+            },
+            BadType(ref actual_value,expected_type) => {
+                write!(f, "The value of '{}' is ", expression.to_string(ast))?;
+                actual_value.fmt_debug_shallow(f)?;
+                write!(f, ", but we expected {}!", expected_type)
+            },
         }
     }
 }

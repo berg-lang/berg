@@ -39,8 +39,6 @@ impl<'a> Sequencer<'a> {
 
         loop {
             let char_type = scanner.next(buffer);
-            println!("CHAR TYPE #{:?}", char_type);
-
             match char_type {
                 Digit => self.integer(buffer, start, &mut scanner),
                 Identifier => self.identifier(buffer, start, &mut scanner),

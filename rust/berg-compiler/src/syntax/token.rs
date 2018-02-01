@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use syntax::AstRef;
 use syntax::BlockIndex;
 use syntax::{AstDelta, ExpressionBoundary, ExpressionBoundaryError, FieldIndex, Fixity, IdentifierIndex, LiteralIndex};
@@ -127,41 +128,42 @@ impl Token {
     pub fn has_right_operand(self) -> bool {
         self.fixity().has_right_operand()
     }
-    pub fn to_string<'p, 'a: 'p>(&'p self, ast: &'p AstRef<'a>) -> &'p str {
+    pub fn to_string<'p, 'a: 'p>(&'p self, ast: &'p AstRef<'a>) -> Cow<'p, str> {
         match *self {
-            IntegerLiteral(literal) => ast.literal_string(literal),
-            ErrorTerm(_) => "error",
+            IntegerLiteral(literal) => ast.literal_string(literal).into(),
+            ErrorTerm(_) => "error".into(),
 
-            FieldReference(field) => ast.identifier_string(ast.fields()[field].name),
+            FieldReference(field) => ast.identifier_string(ast.fields()[field].name).into(),
 
             RawIdentifier(identifier)
             | InfixOperator(identifier)
-            | InfixAssignment(identifier)
             | PostfixOperator(identifier)
-            | PrefixOperator(identifier) => ast.identifier_string(identifier),
+            | PrefixOperator(identifier) => ast.identifier_string(identifier).into(),
 
-            NewlineSequence => "\\n",
+            InfixAssignment(identifier) => format!("{}=", ast.identifier_string(identifier)).into(),
+
+            NewlineSequence => "\\n".into(),
             Open { boundary, .. } => match boundary {
-                Parentheses => ast.identifier_string(OPEN_PAREN),
-                CurlyBraces => ast.identifier_string(OPEN_CURLY),
-                CompoundTerm | PrecedenceGroup | Source | Root => "",
+                Parentheses => ast.identifier_string(OPEN_PAREN).into(),
+                CurlyBraces => ast.identifier_string(OPEN_CURLY).into(),
+                CompoundTerm | PrecedenceGroup | Source | Root => "".into(),
             },
             OpenBlock { index, .. } => match ast.blocks()[index].boundary {
-                Parentheses => ast.identifier_string(OPEN_PAREN),
-                CurlyBraces => ast.identifier_string(OPEN_CURLY),
-                CompoundTerm | PrecedenceGroup | Source | Root => "",
+                Parentheses => ast.identifier_string(OPEN_PAREN).into(),
+                CurlyBraces => ast.identifier_string(OPEN_CURLY).into(),
+                CompoundTerm | PrecedenceGroup | Source | Root => "".into(),
             }
             Close { boundary, .. } => match boundary {
-                Parentheses => ast.identifier_string(CLOSE_PAREN),
-                CurlyBraces => ast.identifier_string(CLOSE_CURLY),
-                CompoundTerm | PrecedenceGroup | Source | Root => "",
+                Parentheses => ast.identifier_string(CLOSE_PAREN).into(),
+                CurlyBraces => ast.identifier_string(CLOSE_CURLY).into(),
+                CompoundTerm | PrecedenceGroup | Source | Root => "".into(),
             },
             CloseBlock { index, .. } => match ast.blocks()[index].boundary {
-                Parentheses => ast.identifier_string(CLOSE_PAREN),
-                CurlyBraces => ast.identifier_string(CLOSE_CURLY),
-                CompoundTerm | PrecedenceGroup | Source | Root => "",
+                Parentheses => ast.identifier_string(CLOSE_PAREN).into(),
+                CurlyBraces => ast.identifier_string(CLOSE_CURLY).into(),
+                CompoundTerm | PrecedenceGroup | Source | Root => "".into(),
             },
-            MissingExpression | MissingInfix => "",
+            MissingExpression | MissingInfix => "".into(),
         }
     }
 }

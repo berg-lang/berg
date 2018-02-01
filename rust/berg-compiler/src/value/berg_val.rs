@@ -32,7 +32,7 @@ impl<'a> BergVal<'a> {
             BergVal::BigRational(ref value) => write!(f, "{}", value),
             BergVal::Nothing => write!(f, "{}", Nothing),
             BergVal::BlockClosure(ref value) => write!(f, "{}", value),
-            BergVal::BergErrorStack(ref value) => write!(f, "{:?}", value),
+            BergVal::BergErrorStack(ref value) => write!(f, "{}", value),
         }
     }
 
@@ -95,15 +95,8 @@ impl<'a> BergVal<'a> {
 
 impl<'a> fmt::Debug for BergVal<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        use value::BergVal::*;
         write!(f, "BergVal(")?;
-        match *self {
-            Boolean(ref value) => value.fmt(f)?,
-            BigRational(ref value) => value.fmt(f)?,
-            Nothing => value::Nothing.fmt(f)?,
-            BlockClosure(ref value) => value.fmt(f)?,
-            BergErrorStack(ref value) => value.fmt(f)?,
-        }
+        self.fmt_debug_shallow(f)?;
         write!(f, ")")
     }
 }

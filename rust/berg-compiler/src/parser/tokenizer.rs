@@ -46,7 +46,6 @@ impl<'a> Tokenizer<'a> {
 
     // The start of source emits the "open source" token.
     pub fn on_source_start(&mut self, start: ByteIndex) {
-        println!("on_source_start(in_term: {})", self.in_term);
         let mut open_token = ExpressionBoundary::Source.placeholder_open_token(self.source_error());
         if self.ast().file_open_error.is_some() {
             if let OpenBlock { ref mut error, .. } = open_token {
@@ -60,7 +59,6 @@ impl<'a> Tokenizer<'a> {
 
     // The end of the source closes any open terms, just like space. Also emits "close source."
     pub fn on_source_end(mut self, end: ByteIndex) -> AstData<'a> {
-        println!("on_source_end(in_term: {})", self.in_term);
         let close_token = ExpressionBoundary::Source.placeholder_close_token(self.source_error());
         self.close_term(end);
         self.emit_token(close_token, end..end);
@@ -69,7 +67,6 @@ impl<'a> Tokenizer<'a> {
 
     // +, foo, 123. If a term hasn't started, this will start it.
     pub fn on_term_token(&mut self, token: Token, range: ByteRange) {
-        println!("on_term_token(in_term: {}): {:?}", self.in_term, token);
         assert!(range.start < range.end);
         self.open_term(range.start);
         self.emit_token(token, range);
@@ -77,7 +74,6 @@ impl<'a> Tokenizer<'a> {
 
     // Space after a term closes it.
     pub fn on_space(&mut self, start: ByteIndex) {
-        println!("on_space(in_term: {})", self.in_term);
         self.close_term(start)
     }
 
@@ -85,7 +81,6 @@ impl<'a> Tokenizer<'a> {
     // expression, we may be about to create a newline sequence. Save the first newline until we know
     // whether the next real line is an operator (continuation) or a new expression.
     pub fn on_newline(&mut self, start: ByteIndex, length: u8) {
-        println!("on_newline(in_term: {})", self.in_term);
         self.close_term(start);
         if !self.operator && self.newline_length == 0 {
             self.newline_start = start;
@@ -96,7 +91,6 @@ impl<'a> Tokenizer<'a> {
     // ( or {. If the ( is after a space, opens a new term. But once we're in the ( a new term will
     // be started.
     pub fn on_open(&mut self, boundary: ExpressionBoundary, range: ByteRange) {
-        println!("on_open(in_term: {}): {:?}", self.in_term, boundary);
         assert!(range.start < range.end);
         let token = boundary.placeholder_open_token(ExpressionBoundaryError::None);
         self.open_term(range.start);
@@ -117,7 +111,6 @@ impl<'a> Tokenizer<'a> {
     // ; or :. If the : is in a term, it closes it. Afterwards, we are looking to start a new term,
     // so it's still closed.
     pub fn on_separator(&mut self, token: Token, range: ByteRange) {
-        println!("on_separator(in_term: {}): {:?}", self.in_term, token);
         assert!(range.start < range.end);
         self.close_term(range.start);
         self.emit_token(token, range);

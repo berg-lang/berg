@@ -157,7 +157,7 @@ impl<'a> Binder<'a> {
             // Insert the block right after the open block.
             let index = open_scope.index + 1;
             let ast_block = AstBlock {
-                parent: open_scope.index - index,
+                parent: index - open_scope.index,
                 scope_start: self.ast.fields.next_index(),
                 boundary,
             };
