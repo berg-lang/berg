@@ -35,15 +35,15 @@ impl<'a> BergValue<'a> for bool {
     }
 }
 
-impl<'a> From<bool> for BergVal<'a> {
+impl<'a> From<bool> for BergVal {
     fn from(value: bool) -> Self {
         BergVal::Boolean(value)
     }
 }
 
-impl<'a> TryFrom<BergVal<'a>> for bool {
-    type Error = BergVal<'a>;
-    fn try_from(from: BergVal<'a>) -> Result<Self, Self::Error> {
+impl<'a> TryFrom<BergVal> for bool {
+    type Error = BergVal;
+    fn try_from(from: BergVal) -> Result<Self, Self::Error> {
         match from {
             BergVal::Boolean(value) => Ok(value),
             _ => Err(from),

@@ -2,11 +2,10 @@ use syntax::{AstRef, FieldIndex, Fixity, IdentifierIndex, LineColumnRange, Opera
 use eval::Expression;
 use parser::ByteRange;
 use std::fmt;
-use util::try_from::TryFrom;
 use value::*;
 
 #[derive(Debug, Clone)]
-pub enum BergError<'a> {
+pub enum BergError {
     // File open errors
     SourceNotFound,
     IoOpenError,
@@ -22,19 +21,19 @@ pub enum BergError<'a> {
     AssignmentTargetMustBeIdentifier,
     OpenWithoutClose,
     CloseWithoutOpen,
-    UnsupportedOperator(Box<BergVal<'a>>, Fixity, IdentifierIndex),
+    UnsupportedOperator(Box<BergVal>, Fixity, IdentifierIndex),
     DivideByZero,
     NoSuchField(FieldIndex),
     FieldNotSet(FieldIndex),
     CircularDependency,
-    BadType(Box<BergVal<'a>>, &'static str),
-    BadOperandType(OperandPosition, Box<BergVal<'a>>, &'static str),
+    BadType(Box<BergVal>, &'static str),
+    BadOperandType(OperandPosition, Box<BergVal>, &'static str),
     ImmutableField(FieldIndex),
 }
 
 #[derive(Debug, Clone)]
 pub struct BergErrorStack<'a> {
-    pub error: BergError<'a>,
+    pub error: BergError,
     pub stack: Vec<(AstRef<'a>, Expression)>,
 }
 
@@ -89,40 +88,16 @@ impl<'a> ErrorLocation<'a> {
     }
 }
 
-impl<'a> TypeName for BergErrorStack<'a> {
-    const TYPE_NAME: &'static str = "error";
-}
-
-impl<'a> BergValue<'a> for BergErrorStack<'a> {
-    fn unwind_error(mut self, ast: AstRef<'a>, expression: Expression) -> BergVal<'a> {
-        self.stack.push((ast, expression));
-        self.into()
-    }
-}
-
-impl<'a> From<BergError<'a>> for BergVal<'a> {
-    fn from(from: BergError<'a>) -> Self {
-        BergVal::BergErrorStack(BergErrorStack::empty(from))
-    }
-}
-
-impl<'a> From<BergErrorStack<'a>> for BergVal<'a> {
-    fn from(from: BergErrorStack<'a>) -> Self {
-        BergVal::BergErrorStack(from)
-    }
-}
-
-impl<'a> TryFrom<BergVal<'a>> for BergErrorStack<'a> {
-    type Error = BergVal<'a>;
-    fn try_from(from: BergVal<'a>) -> Result<Self, Self::Error> {
-        match from {
-            BergVal::BergErrorStack(value) => Ok(value),
-            _ => Err(from),
-        }
-    }
-}
-
 impl<'a> BergErrorStack<'a> {
+    pub fn new(error: BergError) -> Self {
+        BergErrorStack { error, stack: Default::default() }
+    }
+
+    pub fn push_frame(mut self, ast: &AstRef<'a>, expression: Expression) -> Self {
+        self.stack.push((ast.clone(), expression));
+        self
+    }
+
     pub fn code(&self) -> ErrorCode {
         self.error.code()
     }
@@ -270,15 +245,13 @@ impl<'a> fmt::Display for BergErrorStack<'a> {
                 expression.close_token(ast).to_string(ast),
                 expression.boundary(ast).open_string()
             ),
-            UnsupportedOperator(ref value, fixity, identifier) => {
-                write!(
-                    f,
-                    "Unsupported {} operator {} on value ",
-                    fixity,
-                    ast.identifier_string(identifier)
-                )?;
-                value.fmt_debug_shallow(f)
-            },
+            UnsupportedOperator(ref value, fixity, identifier) => write!(
+                f,
+                "Unsupported {} operator {} on value {}",
+                fixity,
+                ast.identifier_string(identifier),
+                value
+            ),
             DivideByZero => write!(
                 f,
                 "Division by zero is illegal. Perhaps you meant a different number on the right hand side of the '{}'?",
@@ -322,27 +295,28 @@ impl<'a> fmt::Display for BergErrorStack<'a> {
                 position = expression.operand_position(ast),
                 operand = expression.to_string(ast),
             ),
-            BadOperandType(position,ref actual_value,expected_type) => {
-                write!(f, "The value of '{}' is ", position.get(expression, ast).to_string(ast))?;
-                actual_value.fmt_debug_shallow(f)?;
-                write!(f, ", but {position} '{operator}' must be an {expected_type}!",
-                    position = position,
-                    operator = expression.token(ast).to_string(ast),
-                    expected_type = expected_type
-                )
-            },
-            BadType(ref actual_value,expected_type) => {
-                write!(f, "The value of '{}' is ", expression.to_string(ast))?;
-                actual_value.fmt_debug_shallow(f)?;
-                write!(f, ", but we expected {}!", expected_type)
-            },
+            BadOperandType(position,ref actual_value,expected_type) => 
+            write!(f, "The value of '{operand}' is {actual_value}, but {position} '{operator}' must be an {expected_type}!",
+                operand = position.get(expression, ast).to_string(ast),
+                actual_value = actual_value,
+                position = position,
+                operator = expression.token(ast).to_string(ast),
+                expected_type = expected_type
+            ),
+            BadType(ref actual_value,expected_type) => write!(
+                f,
+                "The value of '{}' is {}, but we expected {}!",
+                expression.to_string(ast),
+                actual_value,
+                expected_type
+            ),
         }
     }
 }
 
-impl<'a> BergError<'a> {
+impl<'a> BergError {
     pub fn err<T>(self) -> BergResult<'a, T> {
-        Err(self.into())
+        Err(BergErrorStack::new(self))
     }
 
     pub fn code(&self) -> ErrorCode {
@@ -372,15 +346,6 @@ impl<'a> BergError<'a> {
             CircularDependency => ErrorCode::CircularDependency,
             ImmutableField(..) => ErrorCode::ImmutableField,
             BadOperandType(..) | BadType(..) => ErrorCode::BadType,
-        }
-    }
-}
-
-impl<'a> BergErrorStack<'a> {
-    fn empty(error: BergError<'a>) -> Self {
-        BergErrorStack {
-            error,
-            stack: Default::default(),
         }
     }
 }

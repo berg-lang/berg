@@ -63,9 +63,6 @@ impl<'a> SourceRef<'a> {
         let expression = ast.expression();
         expression.evaluate(&mut scope, &ast)
     }
-    pub fn complete(self) -> BergResult<'a> {
-        self.evaluate()?.complete()
-    }
     pub fn name(&'a self) -> Cow<'a, str> {
         match *self.0 {
             SourceData::File(ref path, ..) => path.to_string_lossy(),

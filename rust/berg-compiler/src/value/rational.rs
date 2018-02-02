@@ -63,21 +63,21 @@ impl<'a> BergValue<'a> for BigRational {
     }
 }
 
-impl<'a> From<BigInt> for BergVal<'a> {
+impl<'a> From<BigInt> for BergVal {
     fn from(from: BigInt) -> Self {
         from.into()
     }
 }
 
-impl<'a> From<BigRational> for BergVal<'a> {
+impl<'a> From<BigRational> for BergVal {
     fn from(from: BigRational) -> Self {
         BergVal::BigRational(from)
     }
 }
 
-impl<'a> TryFrom<BergVal<'a>> for BigRational {
-    type Error = BergVal<'a>;
-    fn try_from(from: BergVal<'a>) -> Result<Self, Self::Error> {
+impl<'a> TryFrom<BergVal> for BigRational {
+    type Error = BergVal;
+    fn try_from(from: BergVal) -> Result<Self, Self::Error> {
         match from {
             BergVal::BigRational(value) => Ok(value),
             _ => Err(from),
@@ -91,15 +91,15 @@ macro_rules! impl_berg_val_for_primitive_num {
             impl TypeName for $type {
                 const TYPE_NAME: &'static str = stringify!($type);
             }
-            impl<'a> From<$type> for BergVal<'a> {
+            impl<'a> From<$type> for BergVal {
                 fn from(from: $type) -> Self {
                     BigInt::from(from).into()
                 }
             }
 
-            impl<'a> TryFrom<BergVal<'a>> for $type {
-                type Error = BergVal<'a>;
-                fn try_from(from: BergVal<'a>) -> Result<Self, Self::Error> {
+            impl<'a> TryFrom<BergVal> for $type {
+                type Error = BergVal;
+                fn try_from(from: BergVal) -> Result<Self, Self::Error> {
                     match from {
                         BergVal::BigRational(ref value) if value.is_integer() => if let Some(value) = value.to_integer().$to() {
                             return Ok(value)

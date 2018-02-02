@@ -1,4 +1,4 @@
-use syntax::{FieldIndex, IdentifierIndex};
+use eval::BergEval;
 use std;
 use std::env;
 use std::fmt;
@@ -7,6 +7,7 @@ use std::io::Write;
 use std::path::PathBuf;
 use std::rc::Rc;
 use syntax::identifiers;
+use syntax::{FieldIndex, IdentifierIndex};
 use util::intern_pool::InternPool;
 use value::{BergError, BergResult, BergVal};
 
@@ -64,18 +65,18 @@ impl RootRef {
         root_fields::NAMES.iter()
     }
 
-    pub fn field<'a>(&self, index: FieldIndex) -> BergResult<'a> {
+    pub fn field<'a>(&self, index: FieldIndex) -> BergResult<'a, BergEval<'a>> {
         use eval::root_fields::*;
         match index {
             // Can't figure out another way to downgrade the static lifetime :(
-            TRUE => Ok(BergVal::Boolean(true)),
-            FALSE => Ok(BergVal::Boolean(false)),
+            TRUE => Ok(BergVal::Boolean(true).into()),
+            FALSE => Ok(BergVal::Boolean(false).into()),
             _ => unreachable!(),
         }
     }
 
     #[cfg_attr(feature = "clippy", allow(needless_pass_by_value))]
-    pub fn set_field<'a>(&self, index: FieldIndex, _value: BergResult<'a>) -> BergResult<'a, ()> {
+    pub fn set_field<'a>(&self, index: FieldIndex, _value: BergResult<'a, BergEval<'a>>) -> BergResult<'a, ()> {
         BergError::ImmutableField(index).err()
     }
 

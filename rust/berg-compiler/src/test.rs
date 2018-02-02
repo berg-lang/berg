@@ -42,7 +42,7 @@ impl<'a> ExpectBerg<'a> {
     #[cfg_attr(feature = "clippy", allow(needless_pass_by_value, wrong_self_convention))]
     pub fn to_yield<
         V: TypeName
-            + TryFrom<BergVal<'a>, Error = BergVal<'a>>
+            + TryFrom<BergVal, Error = BergVal>
             + PartialEq<V>
             + fmt::Display
             + fmt::Debug,
@@ -51,7 +51,7 @@ impl<'a> ExpectBerg<'a> {
         expected_value: V,
     ) {
         let source = test_source(self.0);
-        let result = source.complete();
+        let result = source.evaluate();
         assert!(
             result.is_ok(),
             "Unexpected error {} in {}: expected {}",
@@ -77,7 +77,7 @@ impl<'a> ExpectBerg<'a> {
     #[cfg_attr(feature = "clippy", allow(wrong_self_convention))]
     pub fn to_error(self, code: ErrorCode, range: Range<usize>) {
         let source = test_source(self.0);
-        let result = source.complete();
+        let result = source.evaluate();
         assert!(
             result.is_err(),
             "No error produced by {}: expected {}, got value {}",

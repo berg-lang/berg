@@ -1,3 +1,4 @@
+use eval::berg_eval::BergEval;
 use eval::ScopeRef;
 use num::BigRational;
 use parser::{ByteRange, ByteSlice};
@@ -33,6 +34,9 @@ impl fmt::Debug for Expression {
 
 impl Expression {
     pub fn evaluate<'a>(self, scope: &mut ScopeRef<'a>, ast: &AstRef<'a>) -> BergResult<'a> {
+        self.evaluate_local(scope, ast)?.evaluate()
+    }
+    pub fn evaluate_local<'a>(self, scope: &mut ScopeRef<'a>, ast: &AstRef<'a>) -> BergResult<'a, BergEval<'a>> {
         println!("Evaluate {} ...", ExpressionFormatter(self, ast));
         use syntax::ExpressionBoundaryError::*;
         use syntax::Token::*;
@@ -40,13 +44,7 @@ impl Expression {
             IntegerLiteral(literal) => Ok(BigRational::from_str(ast.literal_string(literal))
                 .unwrap()
                 .into()),
-            FieldReference(field) => self.result(
-                match scope.field(field, ast) {
-                    Ok(result) => result.clone(),
-                    Err(error) => Err(error),
-                },
-                ast,
-            ),
+            FieldReference(field) => scope.field(field, ast).and_then(|v| v.clone()).or_else(|err| Err(err.push_frame(ast, self))),
             ErrorTerm(ErrorCode::IdentifierStartsWithNumber) => {
                 self.err(BergError::IdentifierStartsWithNumber, ast)
             }
@@ -54,7 +52,7 @@ impl Expression {
                 self.err(BergError::UnsupportedCharacters, ast)
             }
             ErrorTerm(ErrorCode::InvalidUtf8) => self.err(BergError::InvalidUtf8, ast),
-            MissingExpression => Ok(BergVal::Nothing),
+            MissingExpression => Ok(BergVal::Nothing.into()),
 
             InfixOperator(SEMICOLON) => self.evaluate_semicolon(scope, ast),
             InfixOperator(operator) => self.evaluate_infix(operator, scope, ast),
@@ -93,28 +91,23 @@ impl Expression {
                 error: CloseWithoutOpen,
                 ..
             } => self.err(BergError::CloseWithoutOpen, ast),
-            Open { error: None, .. } => self.inner_expression(ast).evaluate(scope, ast),
-            OpenBlock { error: None, .. } => self.close_over(scope).ok(),
+            Open { error: None, .. } => self.inner_expression(ast).evaluate_local(scope, ast),
+            OpenBlock { error: None, .. } => BlockClosure(self, scope.clone()).ok(),
             Close { .. } | CloseBlock { .. } | RawIdentifier(_) | ErrorTerm(_) => unreachable!(),
         };
         println!("Result of {}: {:?}", ExpressionFormatter(self, ast), result);
         result
     }
 
-    fn close_over<'a>(self, scope: &mut ScopeRef<'a>) -> BlockClosure<'a> {
-        BlockClosure(self, scope.clone())
-    }
-
-    fn result<'a, T>(self, result: BergResult<'a, T>, ast: &AstRef<'a>) -> BergResult<'a, T> {
+    fn result<'a>(self, result: BergResult<'a>, ast: &AstRef<'a>) -> BergResult<'a, BergEval<'a>> {
         match result {
-            Ok(value) => Ok(value),
-            Err(error) => Err(error.unwind_error(ast.clone(), self)),
+            Ok(value) => Ok(value.into()),
+            Err(error) => Err(error.push_frame(ast, self)),
         }
     }
 
-    fn err<'a, T>(self, error: BergError<'a>, ast: &AstRef<'a>) -> BergResult<'a, T> {
-        let error: BergVal<'a> = error.into();
-        Err(error.unwind_error(ast.clone(), self))
+    fn err<'a, T>(self, error: BergError, ast: &AstRef<'a>) -> BergResult<'a, T> {
+        Err(BergErrorStack::new(error).push_frame(ast, self))
     }
 
     fn assignment_target<'a>(
@@ -136,8 +129,8 @@ impl Expression {
         }
     }
 
-    fn evaluate_semicolon<'a>(self, scope: &mut ScopeRef<'a>, ast: &AstRef<'a>) -> BergResult<'a> {
-        let left = self.left_operand(ast)?.expression;
+    fn evaluate_semicolon<'a>(self, scope: &mut ScopeRef<'a>, ast: &AstRef<'a>) -> BergResult<'a, BergEval<'a>> {
+        let left = self.left_operand(ast)?;
         let left_value = left.evaluate(scope, ast)?;
 
         // If the left hand side is a semicolon with a missing expression between,
@@ -165,7 +158,7 @@ impl Expression {
         operator: IdentifierIndex,
         scope: &mut ScopeRef<'a>,
         ast: &AstRef<'a>,
-    ) -> BergResult<'a> {
+    ) -> BergResult<'a, BergEval<'a>> {
         let left = self.left_operand(ast)?.expression;
         let right = self.right_operand(ast)?;
         let left = left.evaluate(scope, ast)?;
@@ -177,17 +170,15 @@ impl Expression {
         operator: IdentifierIndex,
         scope: &mut ScopeRef<'a>,
         ast: &AstRef<'a>,
-    ) -> BergResult<'a> {
+    ) -> BergResult<'a, BergEval<'a>> {
         let left = self.left_operand(ast)?;
         let name = self.assignment_target(left, ast)?;
         let value = match operator {
-            EMPTY_STRING => self.right_operand(ast)?.evaluate(scope, ast),
+            EMPTY_STRING => self.right_operand(ast)?.evaluate_local(scope, ast),
             _ => self.evaluate_infix(operator, scope, ast),
         };
-        match scope.set_field(name, value, ast) {
-            Ok(()) => Ok(BergVal::Nothing),
-            Err(error) => self.result(Err(error), ast),
-        }
+        let result = scope.set_field(name, value, ast).and_then(|_| BergVal::Nothing.ok());
+        self.result(result, ast)
     }
 
     fn evaluate_prefix<'a>(
@@ -195,7 +186,7 @@ impl Expression {
         operator: IdentifierIndex,
         scope: &mut ScopeRef<'a>,
         ast: &AstRef<'a>,
-    ) -> BergResult<'a> {
+    ) -> BergResult<'a, BergEval<'a>> {
         let right = self.prefix_operand(ast)?.evaluate(scope, ast)?;
         self.result(right.prefix(operator, scope), ast)
     }
@@ -205,7 +196,7 @@ impl Expression {
         operator: IdentifierIndex,
         scope: &mut ScopeRef<'a>,
         ast: &AstRef<'a>,
-    ) -> BergResult<'a> {
+    ) -> BergResult<'a, BergEval<'a>> {
         let left = self.postfix_operand(ast)?.evaluate(scope, ast)?;
         self.result(left.postfix(operator, scope), ast)
     }
@@ -215,12 +206,12 @@ impl Expression {
         operator: IdentifierIndex,
         scope: &mut ScopeRef<'a>,
         ast: &AstRef<'a>,
-    ) -> BergResult<'a> {
+    ) -> BergResult<'a, BergEval<'a>> {
         let operand = self.prefix_operand(ast)?;
         let name = self.assignment_target(operand, ast)?;
-        let value = operand.evaluate(scope, ast)?.prefix(operator, scope);
-        self.result(scope.set_field(name, value, ast), ast)?;
-        Ok(BergVal::Nothing)
+        let value = operand.evaluate(scope, ast).and_then(|v| v.prefix(operator, scope)).and_then(|v| v.ok());
+        let result = scope.set_field(name, value, ast).and_then(|_| BergVal::Nothing.ok());
+        self.result(result, ast)
     }
 
     fn evaluate_postfix_assign<'a>(
@@ -228,19 +219,19 @@ impl Expression {
         operator: IdentifierIndex,
         scope: &mut ScopeRef<'a>,
         ast: &AstRef<'a>,
-    ) -> BergResult<'a> {
+    ) -> BergResult<'a, BergEval<'a>> {
         let operand = self.postfix_operand(ast)?;
         let name = self.assignment_target(operand, ast)?;
-        let value = operand.evaluate(scope, ast)?.postfix(operator, scope);
-        self.result(scope.set_field(name, value, ast), ast)?;
-        Ok(BergVal::Nothing)
+        let value = operand.evaluate(scope, ast).and_then(|v| v.postfix(operator, scope)).and_then(|v| v.ok());
+        let result = scope.set_field(name, value, ast).and_then(|_| BergVal::Nothing.ok());
+        self.result(result, ast)
     }
 
-    fn evaluate_declare<'a>(self, scope: &mut ScopeRef<'a>, ast: &AstRef<'a>) -> BergResult<'a> {
+    fn evaluate_declare<'a>(self, scope: &mut ScopeRef<'a>, ast: &AstRef<'a>) -> BergResult<'a, BergEval<'a>> {
         let operand = self.prefix_operand(ast)?;
         let name = self.assignment_target(operand, ast)?;
-        self.result(scope.declare_field(name, ast), ast)?;
-        operand.evaluate(scope, ast)
+        let result = scope.declare_field(name, ast).and_then(|_| operand.evaluate_local(scope, ast));
+        result.or_else(|err| Err(err.push_frame(ast, self)))
     }
 
     pub(crate) fn range(self, ast: &AstRef) -> ByteRange {
@@ -486,28 +477,27 @@ impl Expression {
 }
 
 impl Operand {
+    pub fn evaluate_local<'a>(self, scope: &mut ScopeRef<'a>, ast: &AstRef<'a>) -> BergResult<'a, BergEval<'a>> {
+        self.expression.evaluate_local(scope, ast)
+    }
     pub fn evaluate<'a>(self, scope: &mut ScopeRef<'a>, ast: &AstRef<'a>) -> BergResult<'a> {
         self.expression.evaluate(scope, ast)
     }
-    pub fn evaluate_to<'a, T: TypeName + TryFrom<BergVal<'a>, Error = BergVal<'a>>>(
+    pub fn evaluate_to<'a, T: TypeName + TryFrom<BergVal, Error = BergVal>>(
         self,
         scope: &mut ScopeRef<'a>,
         ast: &AstRef<'a>,
     ) -> BergResult<'a, T> {
-        let result = self.expression.evaluate(scope, ast);
-        match result?.downcast::<T>() {
+        match self.expression.evaluate(scope, ast)?.downcast::<T>() {
             // Mark the result type with the operand position for happy error messages
-            Err(BergVal::BergErrorStack(BergErrorStack {
-                error: BergError::BadType(value, expected_type),
-                stack,
-            })) => {
+            Err(BergErrorStack { error: BergError::BadType(value, expected_type), stack }) => {
                 let error = BergError::BadOperandType(self.position, value, expected_type);
                 Err(BergErrorStack { error, stack }.into())
             }
             result => result,
         }
     }
-    pub fn err<'a, T>(&self, error: BergError<'a>, ast: &AstRef<'a>) -> BergResult<'a, T> {
+    pub fn err<'a, T>(&self, error: BergError, ast: &AstRef<'a>) -> BergResult<'a, T> {
         self.expression.err(error, ast)
     }
     pub fn left_operand<'a>(&self, ast: &AstRef<'a>) -> BergResult<'a, Operand> {
@@ -527,6 +517,9 @@ impl Operand {
     }
     pub fn token<'p>(&self, ast: &'p AstRef) -> &'p Token {
         self.expression.token(ast)
+    }
+    pub fn operator(&self) -> AstIndex {
+        self.expression.operator()
     }
     pub fn to_string<'a>(&self, ast: &'a AstRef) -> Cow<'a, str> {
         self.expression.to_string(ast)
@@ -668,67 +661,38 @@ impl<'a> fmt::Display for BlockClosure<'a> {
 }
 
 impl<'a> BlockClosure<'a> {
-    fn evaluate(mut self) -> BergResult<'a> {
+    pub fn evaluate(mut self) -> BergResult<'a> {
         let BlockClosure(expression, ref mut scope) = self;
         let ast = scope.ast();
         let mut child_block = match *expression.token(&ast) {
             Token::OpenBlock { index, .. } => scope.create_child_block(index),
             _ => unreachable!(),
         };
-        expression
+        let value = expression
             .inner_expression(&ast)
-            .evaluate(&mut child_block, &ast)
-    }
-}
-
-impl<'a> TypeName for BlockClosure<'a> {
-    const TYPE_NAME: &'static str = "BlockClosure";
-}
-
-impl<'a> BergValue<'a> for BlockClosure<'a> {
-    fn complete(self) -> BergResult<'a> {
-        self.evaluate()?.complete()
+            .evaluate_local(&mut child_block, &ast)?;
+        match value {
+            BergEval::BergVal(value) => Ok(value),
+            BergEval::BlockClosure(closure) => closure.evaluate(),
+        }
     }
 
-    #[allow(unused_variables)]
-    fn unwind_error(self, ast: AstRef<'a>, expression: Expression) -> BergVal<'a> {
-        self.into()
-    }
-
-    fn ok<E>(self) -> Result<BergVal<'a>, E> {
+    pub fn ok<E>(self) -> Result<BergEval<'a>, E> {
         Ok(self.into())
     }
-    
-    fn infix(
-        self,
-        operator: IdentifierIndex,
-        scope: &mut ScopeRef<'a>,
-        right: Operand,
-        ast: &AstRef<'a>,
-    ) -> BergResult<'a> {
-        self.evaluate()?.infix(operator, scope, right, ast)
-    }
-
-    fn postfix(self, operator: IdentifierIndex, scope: &mut ScopeRef<'a>) -> BergResult<'a> {
-        self.evaluate()?.postfix(operator, scope)
-    }
-
-    fn prefix(self, operator: IdentifierIndex, scope: &mut ScopeRef<'a>) -> BergResult<'a> {
-        self.evaluate()?.prefix(operator, scope)
-    }
 }
 
-impl<'a> From<BlockClosure<'a>> for BergVal<'a> {
+impl<'a> From<BlockClosure<'a>> for BergEval<'a> {
     fn from(from: BlockClosure<'a>) -> Self {
-        BergVal::BlockClosure(from)
+        BergEval::BlockClosure(from)
     }
 }
 
-impl<'a> TryFrom<BergVal<'a>> for BlockClosure<'a> {
-    type Error = BergVal<'a>;
-    fn try_from(from: BergVal<'a>) -> Result<Self, Self::Error> {
+impl<'a> TryFrom<BergEval<'a>> for BlockClosure<'a> {
+    type Error = BergEval<'a>;
+    fn try_from(from: BergEval<'a>) -> Result<Self, Self::Error> {
         match from {
-            BergVal::BlockClosure(closure) => Ok(closure),
+            BergEval::BlockClosure(closure) => Ok(closure),
             _ => Err(from),
         }
     }

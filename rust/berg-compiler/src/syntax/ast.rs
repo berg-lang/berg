@@ -87,7 +87,7 @@ pub struct AstData<'a> {
     pub token_ranges: TokenRanges,
     pub blocks: IndexedVec<AstBlock, BlockIndex>,
     pub fields: IndexedVec<Field, FieldIndex>,
-    pub file_open_error: Option<(BergError<'a>, io::Error)>,
+    pub file_open_error: Option<(BergError, io::Error)>,
 }
 
 impl<'a> AstData<'a> {
@@ -167,7 +167,7 @@ impl<'a> AstRef<'a> {
     pub fn literal_string(&self, index: LiteralIndex) -> &str {
         &self.0.literals[index]
     }
-    pub fn open_error(&self) -> &BergError<'a> {
+    pub fn open_error(&self) -> &BergError {
         &self.0.file_open_error.as_ref().unwrap().0
     }
     pub fn open_io_error(&self) -> &io::Error {

@@ -1,3 +1,4 @@
+use eval::BergEval;
 use syntax::{AstRef, BlockIndex, FieldIndex};
 use eval::BlockRef;
 use std::fmt;
@@ -16,7 +17,7 @@ impl<'a> ScopeRef<'a> {
             ScopeRef::AstRef(_) => ScopeRef::BlockRef(BlockRef::new(index, self.clone())),
         }
     }
-    pub fn field(&self, index: FieldIndex, ast: &AstRef) -> BergResult<'a, BergResult<'a>> {
+    pub fn field(&self, index: FieldIndex, ast: &AstRef) -> BergResult<'a, BergResult<'a, BergEval<'a>>> {
         match *self {
             ScopeRef::BlockRef(ref block) => block.field(index, ast),
             ScopeRef::AstRef(ref ast) => Ok(ast.source().root().field(index)),
@@ -31,7 +32,7 @@ impl<'a> ScopeRef<'a> {
     pub fn set_field(
         &mut self,
         index: FieldIndex,
-        value: BergResult<'a>,
+        value: BergResult<'a, BergEval<'a>>,
         ast: &AstRef,
     ) -> BergResult<'a, ()> {
         match *self {

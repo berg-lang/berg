@@ -10,25 +10,16 @@ pub use value::berg_val::BergVal;
 pub use value::nothing::Nothing;
 
 use syntax::{AstRef, Fixity, IdentifierIndex};
-use eval::{Expression, Operand, ScopeRef};
+use eval::{Operand, ScopeRef};
 use std::fmt;
 use util::type_name::TypeName;
 
 ///
 /// A value that can participate in Berg expressions.
 ///
-pub trait BergValue<'a>: fmt::Debug + Into<BergVal<'a>> + Sized {
-    fn complete(self) -> BergResult<'a> {
-        self.ok()
-    }
-
-    #[allow(unused_variables)]
-    fn unwind_error(self, ast: AstRef<'a>, expression: Expression) -> BergVal<'a> {
-        self.into()
-    }
-
-    fn ok<E>(self) -> Result<BergVal<'a>, E> {
-        Ok(self.into())
+pub trait BergValue<'a>: fmt::Debug + Into<BergVal> + Sized {
+    fn ok<V: From<Self>, E>(self) -> Result<V, E> {
+        Ok(V::from(self))
     }
 
     fn infix(
@@ -91,4 +82,4 @@ pub fn default_prefix<'a, T: BergValue<'a>>(
     }
 }
 
-pub type BergResult<'a, V = BergVal<'a>, E = BergVal<'a>> = Result<V, E>;
+pub type BergResult<'a, V = BergVal, E = BergErrorStack<'a>> = Result<V, E>;

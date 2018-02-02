@@ -26,15 +26,15 @@ impl fmt::Display for Nothing {
     }
 }
 
-impl<'a> From<Nothing> for BergVal<'a> {
+impl<'a> From<Nothing> for BergVal {
     fn from(_value: Nothing) -> Self {
         BergVal::Nothing
     }
 }
 
-impl<'a> TryFrom<BergVal<'a>> for Nothing {
-    type Error = BergVal<'a>;
-    fn try_from(from: BergVal<'a>) -> Result<Self, Self::Error> {
+impl<'a> TryFrom<BergVal> for Nothing {
+    type Error = BergVal;
+    fn try_from(from: BergVal) -> Result<Self, Self::Error> {
         match from {
             BergVal::Nothing => Ok(Nothing),
             _ => Err(from),

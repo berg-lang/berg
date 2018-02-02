@@ -1,6 +1,6 @@
 // Evaluates a given source expression.
 use syntax::{AstRef, BlockIndex, FieldIndex};
-use eval::ScopeRef;
+use eval::{BergEval, ScopeRef};
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::fmt;
@@ -11,7 +11,7 @@ pub struct BlockRef<'a>(Rc<RefCell<BlockData<'a>>>);
 
 pub struct BlockData<'a> {
     index: BlockIndex,
-    fields: Vec<Option<BergResult<'a>>>,
+    fields: Vec<Option<BergResult<'a, BergEval<'a>>>>,
     parent: ScopeRef<'a>,
 }
 
@@ -28,7 +28,7 @@ impl<'a> BlockRef<'a> {
         Self::new(index, ScopeRef::BlockRef(self.clone()))
     }
 
-    pub fn field(&self, index: FieldIndex, ast: &AstRef) -> BergResult<'a, BergResult<'a>> {
+    pub fn field(&self, index: FieldIndex, ast: &AstRef) -> BergResult<'a, BergResult<'a, BergEval<'a>>> {
         let scope_start = ast.blocks()[self.0.borrow().index].scope_start;
         if index >= scope_start {
             let scope_index: usize = (index - scope_start).into();
@@ -57,7 +57,7 @@ impl<'a> BlockRef<'a> {
     pub fn set_field(
         &mut self,
         index: FieldIndex,
-        value: BergResult<'a>,
+        value: BergResult<'a, BergEval<'a>>,
         ast: &AstRef,
     ) -> BergResult<'a, ()> {
         let scope_start = ast.blocks()[self.0.borrow().index].scope_start;
@@ -90,12 +90,8 @@ impl<'a> fmt::Debug for BlockRef<'a> {
             write!(f, "{}: ", &ast.identifiers()[name])?;
             match *field {
                 None => write!(f, "None")?,
-                Some(Err(ref error)) => {
-                    write!(f, "Err(")?;
-                    error.fmt_debug_shallow(f)?;
-                    write!(f, ")")?;
-                }
-                Some(Ok(ref value)) => value.fmt_debug_shallow(f)?,
+                Some(Err(ref error)) => write!(f, "Err({})", error)?,
+                Some(Ok(ref value)) => write!(f, "{}", value)?,
             }
         }
         write!(f, "}}, parent: {:?} }}", block.parent)
