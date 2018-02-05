@@ -115,17 +115,20 @@ impl<'a> Binder<'a> {
     }
 
     fn push_field_reference(&mut self, name: IdentifierIndex, range: ByteRange) -> AstIndex {
-        let is_local = match self.ast.tokens.last() {
+        let is_declaration = match self.ast.tokens.last() {
             Some(&PrefixOperator(COLON)) => true,
             _ => false,
         };
-        let field = self.find_field(name, is_local)
-            .unwrap_or_else(|| self.create_field(name));
+        let field = self.find_field(name, is_declaration)
+            .unwrap_or_else(|| self.create_field(name, is_declaration));
+        if is_declaration {
+            self.ast.fields[field].is_public = true;
+        }
         self.ast.push_token(FieldReference(field), range)
     }
 
-    fn find_field(&mut self, name: IdentifierIndex, is_local: bool) -> Option<FieldIndex> {
-        let mut scope = if is_local {
+    fn find_field(&mut self, name: IdentifierIndex, is_declaration: bool) -> Option<FieldIndex> {
+        let mut scope = if is_declaration {
             self.scope[self.open_scope().scope_start..].iter().rev()
         } else {
             self.scope[0..].iter().rev()
@@ -133,9 +136,9 @@ impl<'a> Binder<'a> {
         scope.find(|v| self.ast.fields[**v].name == name).cloned()
     }
 
-    fn create_field(&mut self, name: IdentifierIndex) -> FieldIndex {
+    fn create_field(&mut self, name: IdentifierIndex, is_public: bool) -> FieldIndex {
         // We couldn't find it (or we exposed a new field). Declare it in local scope.
-        let index = self.ast.fields.push(Field { name });
+        let index = self.ast.fields.push(Field { name, is_public });
         self.scope.push(index);
         index
     }
@@ -154,11 +157,14 @@ impl<'a> Binder<'a> {
             let open_scope = self.open_scope();
             assert_eq!(open_scope.open_index, open_index - 1);
 
-            // Insert the block right after the open block.
+            let open_block = &self.ast.blocks[open_scope.index];
+
+            // This block includes all fields up to this point from the parent block, so its start is the same as the parent block's.
             let index = open_scope.index + 1;
             let ast_block = AstBlock {
                 parent: index - open_scope.index,
-                scope_start: self.ast.fields.next_index(),
+                scope_start: open_block.scope_start,
+                scope_count: Delta(FieldIndex(0)),
                 boundary,
             };
             (index, ast_block)
@@ -204,6 +210,7 @@ impl<'a> Binder<'a> {
             boundary,
             parent,
             scope_start: self.ast.fields.next_index(),
+            scope_count: Delta(FieldIndex(0)),
         });
 
         // Push the scope.
@@ -221,6 +228,11 @@ impl<'a> Binder<'a> {
     fn push_close_scope(&mut self) -> BlockIndex {
         // Pop the scope.
         let open_scope = self.open_scopes.pop().unwrap();
+        // Set the range of fields in scope for this block and its children.
+        {
+            let block = &mut self.ast.blocks[open_scope.index];
+            block.scope_count = FieldIndex(self.ast.fields.len() as u32) - block.scope_start;
+        }
         self.scope.truncate(open_scope.scope_start);
         open_scope.index
     }

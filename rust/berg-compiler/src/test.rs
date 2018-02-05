@@ -1,3 +1,4 @@
+use error::{Error, ErrorCode};
 use eval::RootRef;
 use parser::SourceRef;
 use std::fmt;
@@ -5,7 +6,7 @@ use std::io;
 use std::ops::Range;
 use util::try_from::TryFrom;
 use util::type_name::TypeName;
-use value::{BergErrorStack, BergVal, ErrorCode};
+use value::BergVal;
 
 pub fn expect<T: AsRef<[u8]> + ?Sized>(source: &T) -> ExpectBerg {
     ExpectBerg(source.as_ref())
@@ -42,7 +43,7 @@ impl<'a> ExpectBerg<'a> {
     #[cfg_attr(feature = "clippy", allow(needless_pass_by_value, wrong_self_convention))]
     pub fn to_yield<
         V: TypeName
-            + TryFrom<BergVal, Error = BergVal>
+            + TryFrom<BergVal<'a>, Error = BergVal<'a>>
             + PartialEq<V>
             + fmt::Display
             + fmt::Debug,
@@ -51,7 +52,7 @@ impl<'a> ExpectBerg<'a> {
         expected_value: V,
     ) {
         let source = test_source(self.0);
-        let result = source.evaluate();
+        let result = source.evaluate_to::<V>();
         assert!(
             result.is_ok(),
             "Unexpected error {} in {}: expected {}",
@@ -59,15 +60,7 @@ impl<'a> ExpectBerg<'a> {
             self,
             expected_value
         );
-        let value = result.unwrap().downcast::<V>();
-        assert!(
-            value.is_ok(),
-            "Result of {} is the wrong type! Expected {}, got {}",
-            self,
-            expected_value,
-            value.unwrap_err()
-        );
-        let value = value.unwrap();
+        let value = result.unwrap();
         assert_eq!(
             expected_value, value,
             "Wrong result from {}! Expected {}, got {}",
@@ -77,7 +70,7 @@ impl<'a> ExpectBerg<'a> {
     #[cfg_attr(feature = "clippy", allow(wrong_self_convention))]
     pub fn to_error(self, code: ErrorCode, range: Range<usize>) {
         let source = test_source(self.0);
-        let result = source.evaluate();
+        let result = source.evaluate();        
         assert!(
             result.is_err(),
             "No error produced by {}: expected {}, got value {}",
@@ -85,7 +78,7 @@ impl<'a> ExpectBerg<'a> {
             error_string(code, range),
             result.as_ref().unwrap()
         );
-        let value = BergErrorStack::try_from(result.unwrap_err());
+        let value = Error::try_from(result.unwrap_err());
         assert!(
             value.is_ok(),
             "Result of {} is an error, but of an unexpected type! Expected {}, got {}",

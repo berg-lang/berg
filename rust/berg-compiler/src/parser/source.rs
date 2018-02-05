@@ -1,19 +1,19 @@
-use eval::ExpressionTreeFormatter;
-use syntax::AstData;
-use std::rc::Rc;
-use syntax::AstRef;
-use eval::{RootRef, ScopeRef};
+use eval::{ExpressionTreeFormatter, RootRef, ScopeRef};
+use error::{BergError, BergResult, EvalResult, TakeError};
 use parser::sequencer::Sequencer;
 use std::borrow::Cow;
-use std::fmt::*;
 use std::fs::File;
 use std::io;
 use std::io::Read;
 use std::path::Path;
 use std::ops::Range;
+use std::rc::Rc;
 use std::u32;
+use syntax::{AstData, AstRef};
 use util::indexed_vec::{to_indexed_cow, IndexedSlice};
-use value::{BergError, BergResult};
+use util::try_from::TryFrom;
+use util::type_name::TypeName;
+use value::{BergVal, BergValue};
 
 index_type! {
     pub struct ByteIndex(pub u32) <= u32::MAX;
@@ -55,13 +55,22 @@ impl<'a> SourceRef<'a> {
         Sequencer::parse(self)
     }
     pub fn evaluate(self) -> BergResult<'a> {
+        let (value, mut scope, _) = self.evaluate_local()?;
+        value.evaluate(&mut scope)
+    }
+    pub fn evaluate_to<T: TypeName + TryFrom<BergVal<'a>, Error = BergVal<'a>>>(self) -> BergResult<'a, T> {
+        let (value, mut scope, ast) = self.evaluate_local()?;
+        value.evaluate(&mut scope)?.downcast::<T>().take_error(&ast, ast.expression())
+    }
+    fn evaluate_local(self) -> BergResult<'a, (BergVal<'a>, ScopeRef<'a>, AstRef<'a>)> {
         println!("");
         let ast = self.parse();
         println!("Parsed:");
         print!("{}", ExpressionTreeFormatter(ast.expression(), &ast, 1));
         let mut scope = ScopeRef::AstRef(ast.clone());
         let expression = ast.expression();
-        expression.evaluate(&mut scope, &ast)
+        let value = expression.evaluate_local(&mut scope, &ast)?;
+        Ok((value, scope, ast))
     }
     pub fn name(&'a self) -> Cow<'a, str> {
         match *self.0 {
@@ -69,7 +78,7 @@ impl<'a> SourceRef<'a> {
             SourceData::Memory(name, ..) => name.into(),
         }
     }
-    pub fn absolute_path<'p>(&'p self) -> BergResult<'a, Cow<'p, Path>>
+    pub fn absolute_path<'p>(&'p self) -> EvalResult<'a, Cow<'p, Path>>
     where
         'a: 'p,
     {
@@ -150,7 +159,7 @@ fn open_file<'a>(path: &Path, ast: &mut Option<&mut AstData<'a>>) -> Cow<'static
 fn absolute_path<'p, 'a: 'p>(
     path: &'p Cow<'a, Path>,
     root: &RootRef,
-) -> BergResult<'a, Cow<'p, Path>> {
+) -> EvalResult<'a, Cow<'p, Path>> {
     if path.is_relative() {
         match *root.root_path() {
             Ok(ref root_path) => Ok(Cow::Owned(root_path.join(path))),
@@ -179,8 +188,8 @@ fn open_memory_and_report<'a>(
     to_indexed_cow(Cow::Borrowed(buffer))
 }
 
-impl<'a> Display for SourceRef<'a> {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+impl<'a> fmt::Display for SourceRef<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self.name())
     }
 }

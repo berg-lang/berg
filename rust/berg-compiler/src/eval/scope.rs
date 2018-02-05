@@ -1,8 +1,7 @@
-use eval::BergEval;
-use syntax::{AstRef, BlockIndex, FieldIndex};
+use error::{BergResult, EvalResult};
 use eval::BlockRef;
 use std::fmt;
-use value::BergResult;
+use syntax::{AstRef, BlockIndex, FieldIndex, IdentifierIndex};
 
 #[derive(Clone)]
 pub enum ScopeRef<'a> {
@@ -17,13 +16,19 @@ impl<'a> ScopeRef<'a> {
             ScopeRef::AstRef(_) => ScopeRef::BlockRef(BlockRef::new(index, self.clone())),
         }
     }
-    pub fn field(&self, index: FieldIndex, ast: &AstRef) -> BergResult<'a, BergResult<'a, BergEval<'a>>> {
+    pub fn field(&self, index: FieldIndex, ast: &AstRef) -> EvalResult<'a> {
         match *self {
             ScopeRef::BlockRef(ref block) => block.field(index, ast),
-            ScopeRef::AstRef(ref ast) => Ok(ast.source().root().field(index)),
+            ScopeRef::AstRef(ref ast) => ast.source().root().field(index),
         }
     }
-    pub fn declare_field(&mut self, index: FieldIndex, ast: &AstRef) -> BergResult<'a, ()> {
+    pub fn public_field_by_name(&self, name: IdentifierIndex, ast: &AstRef<'a>) -> EvalResult<'a> {
+        match *self {
+            ScopeRef::BlockRef(ref block) => block.public_field_by_name(name, ast),
+            ScopeRef::AstRef(ref ast) => ast.source().root().public_field_by_name(name),
+        }
+    }
+    pub fn declare_field(&mut self, index: FieldIndex, ast: &AstRef) -> EvalResult<'a, ()> {
         match *self {
             ScopeRef::BlockRef(ref mut block) => block.declare_field(index, ast),
             ScopeRef::AstRef(_) => ast.source().root().declare_field(index),
@@ -32,9 +37,9 @@ impl<'a> ScopeRef<'a> {
     pub fn set_field(
         &mut self,
         index: FieldIndex,
-        value: BergResult<'a, BergEval<'a>>,
+        value: BergResult<'a>,
         ast: &AstRef,
-    ) -> BergResult<'a, ()> {
+    ) -> EvalResult<'a, ()> {
         match *self {
             ScopeRef::BlockRef(ref mut block) => block.set_field(index, value, ast),
             ScopeRef::AstRef(ref ast) => ast.source().root().set_field(index, value),

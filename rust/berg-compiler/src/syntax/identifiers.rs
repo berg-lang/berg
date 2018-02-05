@@ -1,7 +1,7 @@
 use syntax::IdentifierIndex;
 use util::intern_pool::*;
 
-const ALL_IDENTIFIERS: [(IdentifierIndex, &str); 33] = [
+const ALL_IDENTIFIERS: [(IdentifierIndex, &str); LEN] = [
     (NOT_AN_IDENTIFIER, "<not an identifier>"),
     (EMPTY_STRING, ""),
     (STAR, "*"),
@@ -35,6 +35,7 @@ const ALL_IDENTIFIERS: [(IdentifierIndex, &str); 33] = [
     (CALL, "Call"),
     (NEWLINE, "\n"),
     (NOTHING, "nothing"),
+    (DOT, "."),
 ];
 
 pub const NOT_AN_IDENTIFIER: IdentifierIndex = IdentifierIndex(0);
@@ -70,7 +71,8 @@ pub const SUFFIX_OPERATORS: IdentifierIndex = IdentifierIndex(29);
 pub const CALL: IdentifierIndex = IdentifierIndex(30);
 pub const NEWLINE: IdentifierIndex = IdentifierIndex(31);
 pub const NOTHING: IdentifierIndex = IdentifierIndex(32);
-pub const MAX: IdentifierIndex = IdentifierIndex(32);
+pub const DOT: IdentifierIndex = IdentifierIndex(33);
+pub const LEN: usize = 34;
 
 pub(crate) fn intern_all() -> InternPool<IdentifierIndex> {
     let mut identifiers = InternPool::default();

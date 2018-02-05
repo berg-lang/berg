@@ -1,13 +1,13 @@
+use error::ErrorCode;
 use std::borrow::Cow;
 use syntax::AstRef;
 use syntax::BlockIndex;
-use syntax::{AstDelta, ExpressionBoundary, ExpressionBoundaryError, FieldIndex, Fixity, IdentifierIndex, LiteralIndex};
+use syntax::{AstDelta, FieldIndex, IdentifierIndex, LiteralIndex};
 use syntax::ExpressionBoundary::*;
 use syntax::Precedence;
 use syntax::token::Token::*;
 use syntax::identifiers::*;
 use std::fmt;
-use value::ErrorCode;
 
 // ExpressionType, String, LeftChild, RightChild
 #[derive(Debug, Copy, Clone, PartialEq)]
@@ -46,6 +46,34 @@ pub enum Token {
         index: BlockIndex,
         error: ExpressionBoundaryError,
     },
+}
+
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub enum ExpressionBoundaryError {
+    CloseWithoutOpen,
+    OpenWithoutClose,
+    OpenError, // BergError opening or reading the source file
+    None,
+}
+
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub enum Fixity {
+    Term,
+    Infix,
+    Prefix,
+    Postfix,
+    Open,
+    Close,
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, PartialOrd)]
+pub enum ExpressionBoundary {
+    PrecedenceGroup,
+    CompoundTerm,
+    Parentheses,
+    CurlyBraces,
+    Source,
+    Root,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq)]

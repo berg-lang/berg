@@ -1,4 +1,4 @@
-use eval::BergEval;
+use error::{BergError, BergResult, EvalResult};
 use std;
 use std::env;
 use std::fmt;
@@ -9,7 +9,7 @@ use std::rc::Rc;
 use syntax::identifiers;
 use syntax::{FieldIndex, IdentifierIndex};
 use util::intern_pool::InternPool;
-use value::{BergError, BergResult, BergVal};
+use value::BergValue;
 
 pub struct RootRef(Rc<RootData>);
 
@@ -65,22 +65,32 @@ impl RootRef {
         root_fields::NAMES.iter()
     }
 
-    pub fn field<'a>(&self, index: FieldIndex) -> BergResult<'a, BergEval<'a>> {
+    fn field_index<'a>(&self, name: IdentifierIndex) -> EvalResult<'a, FieldIndex> {
+        match self.field_names().enumerate().find(|&(_, n)| name == *n) {
+            Some((index, _)) => Ok(FieldIndex(index as u32)),
+            None => BergError::NoSuchPublicFieldOnRoot(name).err(),
+        }
+    }
+
+    pub fn public_field_by_name<'a>(&self, name: IdentifierIndex) -> EvalResult<'a> {
+        self.field(self.field_index(name)?)
+    }
+
+    pub fn field<'a>(&self, index: FieldIndex) -> EvalResult<'a> {
         use eval::root_fields::*;
         match index {
-            // Can't figure out another way to downgrade the static lifetime :(
-            TRUE => Ok(BergVal::Boolean(true).into()),
-            FALSE => Ok(BergVal::Boolean(false).into()),
+            TRUE => true.ok(),
+            FALSE => false.ok(),
             _ => unreachable!(),
         }
     }
 
     #[cfg_attr(feature = "clippy", allow(needless_pass_by_value))]
-    pub fn set_field<'a>(&self, index: FieldIndex, _value: BergResult<'a, BergEval<'a>>) -> BergResult<'a, ()> {
-        BergError::ImmutableField(index).err()
+    pub fn set_field<'a>(&self, index: FieldIndex, _value: BergResult<'a>) -> EvalResult<'a, ()> {
+        BergError::ImmutableFieldOnRoot(index).err()
     }
 
-    pub fn declare_field<'a>(&self, _index: FieldIndex) -> BergResult<'a, ()> {
+    pub fn declare_field<'a>(&self, _index: FieldIndex) -> EvalResult<'a, ()> {
         // This should not be possible to do. We can fill in an error here when we find a testcase that triggers it.
         unreachable!()
     }

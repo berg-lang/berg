@@ -1,11 +1,38 @@
+mod result;
+
+pub use error::result::{BergResult, EvalResult, TakeError, UnwindFrame};
+pub use error::EvalError::Raw;
+
 use syntax::{AstRef, FieldIndex, Fixity, IdentifierIndex, LineColumnRange, OperandPosition};
-use eval::Expression;
+use eval::{BlockRef,Expression};
 use parser::ByteRange;
 use std::fmt;
 use value::*;
 
 #[derive(Debug, Clone)]
-pub enum BergError {
+pub struct Error<'a> {
+    pub error: BergError<'a>,
+    pub stack: Vec<(AstRef<'a>, Expression)>,
+}
+
+///
+/// This is the error type that is sent throughout the code.
+/// 
+/// A *Stacked* value means the error has already been attached to at least one
+/// stack trace.
+/// 
+#[derive(Debug, Clone)]
+pub enum EvalError<'a> {
+    /// A *Raw* value means we've thrown an error from native code and don't yet
+    /// know what error triggered it so that a real error can be displayed.
+    Raw(BergError<'a>),
+    /// A *Error* value means the error has at least one stack frame attached
+    /// and is able to fully display itself.
+    Error(Error<'a>),
+}
+
+#[derive(Debug, Clone)]
+pub enum BergError<'a> {
     // File open errors
     SourceNotFound,
     IoOpenError,
@@ -21,20 +48,17 @@ pub enum BergError {
     AssignmentTargetMustBeIdentifier,
     OpenWithoutClose,
     CloseWithoutOpen,
-    UnsupportedOperator(Box<BergVal>, Fixity, IdentifierIndex),
+    UnsupportedOperator(Box<BergVal<'a>>, Fixity, IdentifierIndex),
     DivideByZero,
     NoSuchField(FieldIndex),
     FieldNotSet(FieldIndex),
     CircularDependency,
-    BadType(Box<BergVal>, &'static str),
-    BadOperandType(OperandPosition, Box<BergVal>, &'static str),
-    ImmutableField(FieldIndex),
-}
-
-#[derive(Debug, Clone)]
-pub struct BergErrorStack<'a> {
-    pub error: BergError,
-    pub stack: Vec<(AstRef<'a>, Expression)>,
+    BadType(Box<BergVal<'a>>, &'static str),
+    BadOperandType(OperandPosition, Box<BergVal<'a>>, &'static str),
+    PrivateField(BlockRef<'a>, IdentifierIndex),
+    NoSuchPublicField(BlockRef<'a>, IdentifierIndex),
+    NoSuchPublicFieldOnRoot(IdentifierIndex),
+    ImmutableFieldOnRoot(FieldIndex),
 }
 
 #[derive(Debug, Copy, Clone, PartialEq)]
@@ -62,8 +86,10 @@ pub enum ErrorCode {
     DivideByZero,
     BadType,
     NoSuchField,
+    NoSuchPublicField,
     FieldNotSet,
     CircularDependency,
+    PrivateField,
     ImmutableField,
 }
 
@@ -71,6 +97,18 @@ pub enum ErrorLocation<'a> {
     Generic,
     SourceOnly(AstRef<'a>),
     SourceRange(AstRef<'a>, ByteRange),
+}
+
+impl<'a> From<BergError<'a>> for EvalError<'a> {
+    fn from(error: BergError<'a>) -> Self {
+        EvalError::Raw(error)
+    }
+}
+
+impl<'a> From<Error<'a>> for EvalError<'a> {
+    fn from(error: Error<'a>) -> Self {
+        EvalError::Error(error)
+    }
 }
 
 impl<'a> ErrorLocation<'a> {
@@ -88,9 +126,9 @@ impl<'a> ErrorLocation<'a> {
     }
 }
 
-impl<'a> BergErrorStack<'a> {
-    pub fn new(error: BergError) -> Self {
-        BergErrorStack { error, stack: Default::default() }
+impl<'a> Error<'a> {
+    pub fn new(error: BergError<'a>, ast: &AstRef<'a>, expression: Expression) -> Self {
+        Error { error, stack: Default::default() }.push_frame(ast, expression)
     }
 
     pub fn push_frame(mut self, ast: &AstRef<'a>, expression: Expression) -> Self {
@@ -103,8 +141,8 @@ impl<'a> BergErrorStack<'a> {
     }
 
     pub fn location(&self) -> ErrorLocation<'a> {
-        use value::BergError::*;
-        use value::ErrorLocation::*;
+        use error::BergError::*;
+        use error::ErrorLocation::*;
         let ast = self.ast();
         match self.error {
             // File open errors
@@ -142,9 +180,12 @@ impl<'a> BergErrorStack<'a> {
             | IdentifierStartsWithNumber
             | AssignmentTargetMustBeIdentifier
             | NoSuchField(..)
+            | NoSuchPublicField(..)
+            | NoSuchPublicFieldOnRoot(..)
             | FieldNotSet(..)
             | CircularDependency
-            | ImmutableField(..)
+            | ImmutableFieldOnRoot(..)
+            | PrivateField(..)
             | BadType(..) => ErrorLocation::SourceRange(ast.clone(), self.expression().range(ast)),
         }
     }
@@ -164,7 +205,7 @@ impl<'a> BergErrorStack<'a> {
 
 impl fmt::Display for ErrorCode {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        use value::ErrorCode::*;
+        use error::ErrorCode::*;
         let string = match *self {
             SourceNotFound => "SourceNotFound",
             IoOpenError => "IoOpenError",
@@ -182,17 +223,19 @@ impl fmt::Display for ErrorCode {
             DivideByZero => "DivideByZero",
             BadType => "BadType",
             NoSuchField => "NoSuchField",
+            NoSuchPublicField => "NoSuchPublicField",
             FieldNotSet => "FieldNotSet",
             CircularDependency => "CircularDependency",
+            PrivateField => "PrivateField",
             ImmutableField => "ImmutableField",
         };
         write!(f, "{}", string)
     }
 }
 
-impl<'a> fmt::Display for BergErrorStack<'a> {
+impl<'a> fmt::Display for Error<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        use value::BergError::*;
+        use error::BergError::*;
         let expression = self.expression();
         let ast = self.ast();
         match self.error {
@@ -267,7 +310,26 @@ impl<'a> fmt::Display for BergErrorStack<'a> {
                 "Field '{}' was declared, but never set to a value!",
                 ast.field_name(field_index)
             ),
-            ImmutableField(field_index) => write!(
+            NoSuchPublicField(ref value, name) => write!(
+                f,
+                "No field '{}' exists on '{}'! Perhaps it's a misspelling?",
+                &ast.identifiers()[name],
+                value
+            ),
+            NoSuchPublicFieldOnRoot(name) => write!(
+                f,
+                "No field '{}' exists on the root! Also, how did you manage to do '.' on the root?",
+                &ast.identifiers()[name]
+            ),
+            PrivateField(ref value, name) => write!(
+                f,
+                "Field '{}' on '{}' is private and cannot be accessed with '.'! Perhaps you meant to declare the field with ':{}' instead of '{}'?",
+                &ast.identifiers()[name],
+                value,
+                &ast.identifiers()[name],
+                &ast.identifiers()[name]
+            ),
+            ImmutableFieldOnRoot(field_index) => write!(
                 f,
                 "'{}' cannot be modified!",
                 ast.field_name(field_index)
@@ -314,13 +376,17 @@ impl<'a> fmt::Display for BergErrorStack<'a> {
     }
 }
 
-impl<'a> BergError {
-    pub fn err<T>(self) -> BergResult<'a, T> {
-        Err(BergErrorStack::new(self))
+impl<'a> BergError<'a> {
+    pub fn push_frame(self, ast: &AstRef<'a>, expression: Expression) -> Error<'a> {
+        Error::new(self, ast, expression)
+    }
+
+    pub fn err<T>(self) -> Result<T, EvalError<'a>> {
+        Err(EvalError::Raw(self))
     }
 
     pub fn code(&self) -> ErrorCode {
-        use value::BergError::*;
+        use error::BergError::*;
         match *self {
             // File open errors
             SourceNotFound => ErrorCode::SourceNotFound,
@@ -342,9 +408,12 @@ impl<'a> BergError {
             UnsupportedOperator(..) => ErrorCode::UnsupportedOperator,
             DivideByZero => ErrorCode::DivideByZero,
             NoSuchField(..) => ErrorCode::NoSuchField,
+            NoSuchPublicField(..) => ErrorCode::NoSuchPublicField,
+            NoSuchPublicFieldOnRoot(..) => ErrorCode::NoSuchPublicField,
+            PrivateField(..) => ErrorCode::PrivateField,
             FieldNotSet(..) => ErrorCode::FieldNotSet,
             CircularDependency => ErrorCode::CircularDependency,
-            ImmutableField(..) => ErrorCode::ImmutableField,
+            ImmutableFieldOnRoot(..) => ErrorCode::ImmutableField,
             BadOperandType(..) | BadType(..) => ErrorCode::BadType,
         }
     }

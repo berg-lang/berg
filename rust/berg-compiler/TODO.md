@@ -8,7 +8,7 @@ Berg 0.1 is the syntax and structure of Berg. It is a full version of the Berg l
 1. Base
     [X] UTF-8
     [X] I/O
-    [X] Error Reporting
+    [X] BergError Reporting
     [X] Tests
     [X] Command Line
 2. Expressions
@@ -35,10 +35,10 @@ BERG 0.2: HEAR NO EVIL
 Berg 0.2 completes the control flow features: effects, and host interaction (FFI).
 
 2. Errors
-    [ ] Error Objects
-    [ ] Error Codes With Properties (MissingOperand, Side=Left/Right/Both)
-    [ ] Error Localization
-    [ ] Error Propagation
+    [ ] BergError Objects
+    [ ] BergError Codes With Properties (MissingOperand, Side=Left/Right/Both)
+    [ ] BergError Localization
+    [ ] BergError Propagation
 3. Effects
     [ ] I/O
     [ ]
@@ -61,17 +61,17 @@ Round 1: Integers
 Integer
 -------
 [X] Integer literal
-[X] Error: Integer starts with zero
+[X] BergError: Integer starts with zero
 
 
 Invalid UTF-8
 -------------
-[X] Error: Invalid UTF-8
-[X] Error: Unsupported Character
-[X] Error: SourceRef Not Found
-[X] Error: I/O open error
-[X] Error: I/O read error
-[X] Error: I/O directory join error for relative path
+[X] BergError: Invalid UTF-8
+[X] BergError: Unsupported Character
+[X] BergError: SourceRef Not Found
+[X] BergError: I/O open error
+[X] BergError: I/O read error
+[X] BergError: I/O directory join error for relative path
 
 Tools
 -----
@@ -93,8 +93,8 @@ Math
 [X] Multiply/Divide Operators
 [X] Precedence
 [X] Negative/Positive Operators
-[X] Error: Divide By Zero
-[X] Error: Unrecognized Operator
+[X] BergError: Divide By Zero
+[X] BergError: Unrecognized Operator
 
 Round 3: Boolean Logic
 ======================
@@ -102,7 +102,7 @@ Round 3: Boolean Logic
 Boolean
 -------
 [X] true, false
-[X] Error: cannot use true/false in math operator
+[X] BergError: cannot use true/false in math operator
 
 Boolean Operators
 ----------------- 
@@ -113,7 +113,7 @@ Comparison Operators
 --------------------
 [X] ==, !=
 [X] >, <, <=, >=
-[X] Error: Non-number in comparison operator
+[X] BergError: Non-number in comparison operator
 
 Round 4: Expression Syntax
 ==========================
@@ -121,15 +121,15 @@ Round 4: Expression Syntax
 Parens
 ------
 [X] Expression Operator "(", ")"
-[X] Parse Error: Unclosed Paren
-[X] Parse Error: Unopened Paren
+[X] Parse BergError: Unclosed Paren
+[X] Parse BergError: Unopened Paren
 
 Nothing
 -------
 [X] Type::Nothing
 [X] Empty source file -> nothing
 [X] Empty parentheses -> nothing
-[X] Error: cannot apply operator [/*+-] to "nothing" (either left or right side or both)
+[X] BergError: cannot apply operator [/*+-] to "nothing" (either left or right side or both)
 
 Space
 -----
@@ -154,9 +154,9 @@ Fields
 [X] Field Assignment (a = b)
 [X] Field Reassignment (a = b)
 [X] Field Reference (a)
-[X] Error: No Such Field
-[ ] Error: Unused Field Definition
-[ ] Error: Reference Before Definition
+[X] BergError: No Such Field
+[ ] BergError: Unused Field Definition
+[ ] BergError: Reference Before Definition
 
 Round 6: Blocks
 ===============
@@ -164,8 +164,8 @@ Round 6: Blocks
 Blocks
 ------
 [ ] {} creates a new block
-[ ] Error: ) where expected }
-[ ] Error: } where expected )
+[ ] BergError: ) where expected }
+[ ] BergError: } where expected )
 
 BlockRef ScopeRef
 -----------
@@ -199,9 +199,9 @@ Fields
 Field Access
 ------------
 [ ] Field access (a.b)
-[ ] Error: no such field
-[ ] Error: field not accessible in scope
-[ ] Error: field not 
+[ ] BergError: no such field
+[ ] BergError: field not accessible in scope
+[ ] BergError: field not 
 
 Self
 ----
@@ -240,17 +240,17 @@ Define and run functions
 Round 6: Compilation
 ====================
 
-Round 5: Error Propagation
+Round 5: BergError Propagation
 ==========================
 
-Error Properties
+BergError Properties
 ----------------
-[ ] Error is Berg object
+[ ] BergError is Berg object
 [ ] Errors have arbitrary number of properties
 
-Error Trail
+BergError Trail
 -----------
-[ ] Error given opportunity to pick up source or other information at each use
+[ ] BergError given opportunity to pick up source or other information at each use
 
 Round 5: Modules
 ================
@@ -277,14 +277,14 @@ Round 11: 0.1 Release
 
 Space
 -----
-[ ] Parse Error: Line Too Long (4K characters)
+[ ] Parse BergError: Line Too Long (4K characters)
 [ ] Single-Line Comment
 [ ] Errors: Invalid UTF-8, Comment Too Long. Denormalized OK. Unsupported Characters OK.
 
 Visual Studio Code Extension
 ----------------------------
 [ ] Syntax highlighting
-[ ] Error reporting
+[ ] BergError reporting
 
 Command Line
 ------------
@@ -297,10 +297,10 @@ Fields
 [ ] Field Modification (+=, ++, etc.)
 [X] Field Declaration
 [X] "Missing" StackValue
-[ ] Parse Error: Identifier Too Large
-[X] Parse Error: Identifier Starts With Number
-[ ] Parse Error: Identifier Must Be Immediately After ":"
-[X] Parse Error: Identifier Required In Declaration
+[ ] Parse BergError: Identifier Too Large
+[X] Parse BergError: Identifier Starts With Number
+[ ] Parse BergError: Identifier Must Be Immediately After ":"
+[X] Parse BergError: Identifier Required In Declaration
 [ ] Object Extend On ";" and "\n" (combine / overwrite properties)
 
 Field Reference
@@ -308,15 +308,15 @@ Field Reference
 [X] Field Reference (Identifier)
 [ ] "nothing"
 [ ] Object.GetField(Identifier) -> Object
-[ ] Error: Field not declared
-[ ] Error: Field not declared - check for misspelled, give suggestion
+[ ] BergError: Field not declared
+[ ] BergError: Field not declared - check for misspelled, give suggestion
 [ ] Out Of Order Declaration ("[:]A: B; :B: 2")
-[ ] Parse Error: Missing : in front of declaration
+[ ] Parse BergError: Missing : in front of declaration
 
 Field Assignment
 -------------------
 [ ] Field Assignment (=)
-[ ] Parse Error: Missing Operand
+[ ] Parse BergError: Missing Operand
 
 Apply
 -----
@@ -342,8 +342,8 @@ Function Calls
 Indented Function Calls
 -----------------------
 [ ] Child BlockRef Function Arguments
-[ ] Parse Error: Inconsistent Indent Characters (space vs. tab)
-[ ] Parse Error: Multiple Undent
+[ ] Parse BergError: Inconsistent Indent Characters (space vs. tab)
+[ ] Parse BergError: Multiple Undent
 
 Conditionals
 ============
@@ -352,7 +352,7 @@ Booleans
 --------
 [ ] "true", "false"
 [ ] StackValue::True, StackValue::False
-[ ] Error: Appropriate Operator Errors
+[ ] BergError: Appropriate Operator Errors
 
 If/Else
 -------
@@ -370,15 +370,15 @@ Structure
 Child Objects
 -------------
 [ ] Object Operator "{", "}"
-[ ] Parse Error: Unclosed Curly Brace
-[ ] Parse Error: Unopened Curly Brace
+[ ] Parse BergError: Unclosed Curly Brace
+[ ] Parse BergError: Unopened Curly Brace
 
 [ ] Empty "{}" -> Nothing
 
 Child Access
 ------------
 [ ] Field Access (Dot) Operator
-[ ] Parse Error: Identifier Required For Field Access
+[ ] Parse BergError: Identifier Required For Field Access
 
 [ ] Nested BlockRef Declarations
 
@@ -413,11 +413,11 @@ CONTEXT
 STRING
 ------
 [ ] Raw String
-[ ] Parse Error: Unclosed String
-[ ] Parse Error: Invalid UTF-8 In String
+[ ] Parse BergError: Unclosed String
+[ ] Parse BergError: Invalid UTF-8 In String
 
 [ ] Hex Byte
-[ ] Parse Error: Invalid UTF-8 Across Escape Sequence And String (probably same error)
+[ ] Parse BergError: Invalid UTF-8 Across Escape Sequence And String (probably same error)
 
 [ ] Hex Byte Sequence
 
@@ -426,15 +426,15 @@ STRING
 INTERPOLATED STRING
 -------------------
 [ ] Interpolation
-[ ] Unclosed Interpolation Error
+[ ] Unclosed Interpolation BergError
 
 UNICODE IDENTIFIERS
 -------------------
 [ ] Unicode Identifiers (XID)
 
-[ ] Incomplete Grapheme Error
+[ ] Incomplete Grapheme BergError
 
-[ ] Denormalized Identifier Error
+[ ] Denormalized Identifier BergError
 
 UNICODE STRING ESCAPES
 ----------------------
@@ -455,8 +455,8 @@ EXPLICIT FLOW
 [ ] Statement Sequence Extend "Operator"
 
 [ ] Curly Brace Operator
-[ ] Better Unclosed Parenthesis Error
-[ ] Better Unclosed Paren Error
+[ ] Better Unclosed Parenthesis BergError
+[ ] Better Unclosed Paren BergError
 
 ARRAYS
 ------
@@ -472,10 +472,10 @@ HEX/OCT/BIN
 [ ] Hexadecimal Number
 [ ] Octal Number
 [ ] Binary Number
-[ ] Parse Error: Number Starts With Zero
-[ ] Parse Error: Hexadecimal With Uppercase X
-[ ] Parse Error: Octal With Uppercase O
-[ ] Parse Error: Binary With Uppercase B
+[ ] Parse BergError: Number Starts With Zero
+[ ] Parse BergError: Hexadecimal With Uppercase X
+[ ] Parse BergError: Octal With Uppercase O
+[ ] Parse BergError: Binary With Uppercase B
 
 FLOAT
 -----
@@ -483,10 +483,10 @@ FLOAT
 
 [ ] Exponent Operator
 [ ] Exponent Sign Operator
-[ ] Missing Exponent Error
+[ ] Missing Exponent BergError
 
 IMAGINARY
 ---------
 [ ] Imaginary Operator
-[ ] Imaginary With Uppercase I Error
+[ ] Imaginary With Uppercase I BergError
 

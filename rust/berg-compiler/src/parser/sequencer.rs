@@ -1,14 +1,14 @@
-use syntax::{AstData, AstRef, IdentifierIndex};
-use syntax::ExpressionBoundary::*;
+use error::ErrorCode;
 use parser::{ByteIndex, ByteSlice, SourceRef};
 use parser::sequencer::ByteType::*;
 use parser::sequencer::CharType::*;
 use parser::tokenizer::Tokenizer;
 use std::str;
+use syntax::{AstData, AstRef, IdentifierIndex};
+use syntax::ExpressionBoundary::*;
 use syntax::Token::*;
 use util::indexed_vec::Delta;
 use util::intern_pool::Pool;
-use value::ErrorCode;
 
 // Chunks up the source into sequences: space, newlines, operators, etc.
 // Passes these to the Tokenizer to handle expression and whitespace rules.
@@ -402,7 +402,7 @@ impl ByteType {
 
     fn from_byte(byte: u8) -> ByteType {
         match byte {
-            b'+' | b'-' | b'*' | b'/' | b'=' | b'>' | b'<' | b'&' | b'|' | b'!' => Char(Operator),
+            b'+' | b'-' | b'*' | b'/' | b'=' | b'>' | b'<' | b'&' | b'|' | b'!' | b'.' => Char(Operator),
             b'0'...b'9' => Char(Digit),
             b'a'...b'z' | b'A'...b'Z' | b'_' => Char(Identifier),
             b'(' => Char(OpenParen),

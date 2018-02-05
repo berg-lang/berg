@@ -4,18 +4,21 @@
 extern crate fnv;
 extern crate num;
 
-use parser::SourceRef;
+pub use error::{BergResult, Error, ErrorCode};
+pub use value::{BergVal, Nothing};
+
 use eval::RootRef;
-use value::BergResult;
+use parser::SourceRef;
 use std::path::Path;
 use std::borrow::Cow;
 
 #[macro_use]
 pub(crate) mod util;
 pub(crate) mod eval;
+pub(crate) mod error;
 pub(crate) mod parser;
-pub mod syntax;
-pub mod value;
+pub(crate) mod syntax;
+pub(crate) mod value;
 pub mod test;
 
 pub fn evaluate_file<'a, P: Into<Cow<'a, Path>>>(path: P) -> BergResult<'a> {

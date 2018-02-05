@@ -1,23 +1,20 @@
-use std::borrow::Cow;
-use syntax::OperandPosition::*;
-use syntax::char_data::CharData;
-use value::BergError;
+use error::BergError;
 use eval::{Expression, RootRef};
 use parser::{ByteRange, SourceRef};
-use std;
-use std::fmt::{Display, Formatter, Result};
+use std::borrow::Cow;
 use std::{io, u32};
 use std::rc::Rc;
+use syntax::{AstBlock, BlockIndex, Field, FieldIndex};
+use syntax::char_data::CharData;
 use syntax::Token;
+use syntax::OperandPosition::*;
 use util::indexed_vec::IndexedVec;
 use util::intern_pool::{InternPool, StringPool};
 
 index_type! {
     pub struct AstIndex(pub u32) <= u32::MAX;
-    pub struct BlockIndex(pub u32) <= u32::MAX;
     pub struct IdentifierIndex(pub u32) <= u32::MAX;
     pub struct LiteralIndex(pub u32) <= u32::MAX;
-    pub struct FieldIndex(pub u32) <= u32::MAX;
 }
 
 pub type Tokens = IndexedVec<Token, AstIndex>;
@@ -26,52 +23,12 @@ pub type TokenRanges = IndexedVec<ByteRange, AstIndex>;
 // So we can signify that something is meant to be a *difference* between indices.
 pub type AstDelta = Delta<AstIndex>;
 
-#[derive(Clone, Debug)]
-pub struct Field {
-    pub name: IdentifierIndex,
-}
-
-#[derive(Debug, Copy, Clone, PartialEq)]
-pub enum ExpressionBoundaryError {
-    CloseWithoutOpen,
-    OpenWithoutClose,
-    OpenError, // Error opening or reading the source file
-    None,
-}
-
-#[derive(Debug, Copy, Clone, PartialEq)]
-pub enum Fixity {
-    Term,
-    Infix,
-    Prefix,
-    Postfix,
-    Open,
-    Close,
-}
-
-#[derive(Debug, Copy, Clone, PartialEq, PartialOrd)]
-pub enum ExpressionBoundary {
-    PrecedenceGroup,
-    CompoundTerm,
-    Parentheses,
-    CurlyBraces,
-    Source,
-    Root,
-}
-
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub enum OperandPosition {
     Left,
     Right,
     PrefixOperand,
     PostfixOperand,
-}
-
-#[derive(Debug)]
-pub struct AstBlock {
-    pub boundary: ExpressionBoundary,
-    pub parent: Delta<BlockIndex>,
-    pub scope_start: FieldIndex,
 }
 
 #[derive(Clone)]
@@ -87,7 +44,7 @@ pub struct AstData<'a> {
     pub token_ranges: TokenRanges,
     pub blocks: IndexedVec<AstBlock, BlockIndex>,
     pub fields: IndexedVec<Field, FieldIndex>,
-    pub file_open_error: Option<(BergError, io::Error)>,
+    pub file_open_error: Option<(BergError<'a>, io::Error)>,
 }
 
 impl<'a> AstData<'a> {
@@ -96,7 +53,7 @@ impl<'a> AstData<'a> {
         let fields = source
             .root()
             .field_names()
-            .map(|name| Field { name: *name })
+            .map(|name| Field { name: *name, is_public: false })
             .collect();
         AstData {
             source,
@@ -167,7 +124,7 @@ impl<'a> AstRef<'a> {
     pub fn literal_string(&self, index: LiteralIndex) -> &str {
         &self.0.literals[index]
     }
-    pub fn open_error(&self) -> &BergError {
+    pub fn open_error(&self) -> &BergError<'a> {
         &self.0.file_open_error.as_ref().unwrap().0
     }
     pub fn open_io_error(&self) -> &io::Error {
@@ -200,8 +157,8 @@ impl<'a> AstData<'a> {
     }
 }
 
-impl<'a> Display for AstRef<'a> {
-    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
+impl<'a> fmt::Display for AstRef<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         writeln!(f, "Tokens:")?;
         let mut index = AstIndex(0);
         while index < self.tokens().len() {
@@ -228,8 +185,8 @@ impl OperandPosition {
     }
 }
 
-impl Display for OperandPosition {
-    fn fmt(&self, f: &mut Formatter) -> Result {
+impl fmt::Display for OperandPosition {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let string = match *self {
             Left | PostfixOperand => "left side",
             Right | PrefixOperand => "right side",

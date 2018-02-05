@@ -1,3 +1,4 @@
+use error::EvalResult;
 use syntax::identifiers::*;
 use util::try_from::TryFrom;
 use value::*;
@@ -14,7 +15,7 @@ impl<'a> BergValue<'a> for bool {
         scope: &mut ScopeRef<'a>,
         right: Operand,
         ast: &AstRef<'a>,
-    ) -> BergResult<'a> {
+    ) -> EvalResult<'a> {
         match operator {
             AND_AND => (self && right.evaluate_to(scope, ast)?).ok(),
             OR_OR => (self || right.evaluate_to(scope, ast)?).ok(),
@@ -26,7 +27,7 @@ impl<'a> BergValue<'a> for bool {
         }
     }
 
-    fn prefix(self, operator: IdentifierIndex, scope: &mut ScopeRef<'a>) -> BergResult<'a> {
+    fn prefix(self, operator: IdentifierIndex, scope: &mut ScopeRef<'a>) -> EvalResult<'a> {
         match operator {
             EXCLAMATION_POINT => (!self).ok(),
             DOUBLE_EXCLAMATION_POINT => (!!self).ok(),
@@ -35,15 +36,15 @@ impl<'a> BergValue<'a> for bool {
     }
 }
 
-impl<'a> From<bool> for BergVal {
+impl<'a> From<bool> for BergVal<'a> {
     fn from(value: bool) -> Self {
         BergVal::Boolean(value)
     }
 }
 
-impl<'a> TryFrom<BergVal> for bool {
-    type Error = BergVal;
-    fn try_from(from: BergVal) -> Result<Self, Self::Error> {
+impl<'a> TryFrom<BergVal<'a>> for bool {
+    type Error = BergVal<'a>;
+    fn try_from(from: BergVal<'a>) -> Result<Self, Self::Error> {
         match from {
             BergVal::Boolean(value) => Ok(value),
             _ => Err(from),
