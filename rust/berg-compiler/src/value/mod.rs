@@ -46,12 +46,12 @@ pub fn default_infix<'a, T: BergValue<'a>>(
     right: Operand,
     ast: &AstRef<'a>,
 ) -> EvalResult<'a> {
-    use syntax::identifiers::{EQUAL_TO, EXCLAMATION_POINT, NEWLINE, NOT_EQUAL_TO, SEMICOLON};
+    use syntax::identifiers::{DOT, EQUAL_TO, EXCLAMATION_POINT, NEWLINE, NOT_EQUAL_TO, SEMICOLON};
     match operator {
         SEMICOLON | NEWLINE => Ok(right.evaluate_local(scope, ast)?),
         EQUAL_TO => false.ok(),
-        NOT_EQUAL_TO => left.infix(EQUAL_TO, scope, right, ast)?
-            .prefix(EXCLAMATION_POINT, scope),
+        NOT_EQUAL_TO => left.infix(EQUAL_TO, scope, right, ast)?.prefix(EXCLAMATION_POINT, scope),
+        DOT => BergError::NoSuchPublicFieldOnValue(Box::new(left.into()), right.evaluate_to::<IdentifierIndex>(scope, ast)?).err(),
         _ => BergError::UnsupportedOperator(Box::new(left.into()), Fixity::Infix, operator).err(),
     }
 }

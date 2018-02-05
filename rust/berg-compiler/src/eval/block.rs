@@ -108,6 +108,7 @@ impl<'a> fmt::Display for BlockRef<'a> {
         write!(f, " }}")
     }
 }
+
 impl<'a> fmt::Debug for BlockRef<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "BlockRef {{ fields: {{ ")?;

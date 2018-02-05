@@ -57,6 +57,7 @@ pub enum BergError<'a> {
     BadOperandType(OperandPosition, Box<BergVal<'a>>, &'static str),
     PrivateField(BlockRef<'a>, IdentifierIndex),
     NoSuchPublicField(BlockRef<'a>, IdentifierIndex),
+    NoSuchPublicFieldOnValue(Box<BergVal<'a>>, IdentifierIndex),
     NoSuchPublicFieldOnRoot(IdentifierIndex),
     ImmutableFieldOnRoot(FieldIndex),
 }
@@ -181,6 +182,7 @@ impl<'a> Error<'a> {
             | AssignmentTargetMustBeIdentifier
             | NoSuchField(..)
             | NoSuchPublicField(..)
+            | NoSuchPublicFieldOnValue(..)
             | NoSuchPublicFieldOnRoot(..)
             | FieldNotSet(..)
             | CircularDependency
@@ -310,7 +312,13 @@ impl<'a> fmt::Display for Error<'a> {
                 "Field '{}' was declared, but never set to a value!",
                 ast.field_name(field_index)
             ),
-            NoSuchPublicField(ref value, name) => write!(
+            NoSuchPublicField(ref block, name) => write!(
+                f,
+                "No field '{}' exists on '{}'! Perhaps it's a misspelling?",
+                &ast.identifiers()[name],
+                block
+            ),
+            NoSuchPublicFieldOnValue(ref value, name) => write!(
                 f,
                 "No field '{}' exists on '{}'! Perhaps it's a misspelling?",
                 &ast.identifiers()[name],
@@ -409,6 +417,7 @@ impl<'a> BergError<'a> {
             DivideByZero => ErrorCode::DivideByZero,
             NoSuchField(..) => ErrorCode::NoSuchField,
             NoSuchPublicField(..) => ErrorCode::NoSuchPublicField,
+            NoSuchPublicFieldOnValue(..) => ErrorCode::NoSuchPublicField,
             NoSuchPublicFieldOnRoot(..) => ErrorCode::NoSuchPublicField,
             PrivateField(..) => ErrorCode::PrivateField,
             FieldNotSet(..) => ErrorCode::FieldNotSet,

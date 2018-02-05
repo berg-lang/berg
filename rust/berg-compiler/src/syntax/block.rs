@@ -51,6 +51,7 @@ impl AstBlock {
                     return Err(FieldError::PrivateField(name))
                 };
             }
+            field_index += 1;
         }
 
         Err(FieldError::NoSuchPublicField(name))

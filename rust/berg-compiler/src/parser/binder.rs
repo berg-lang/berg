@@ -60,7 +60,10 @@ impl<'a> Binder<'a> {
 
     pub fn push_token(&mut self, token: Token, range: ByteRange) -> AstIndex {
         match token {
-            RawIdentifier(name) => self.push_field_reference(name, range),
+            // Unless it's preceded by a ., raw identifier is always a local field access or declaration, so bind it and translate it.
+            RawIdentifier(name) if match self.ast.tokens.last() { Some(&InfixOperator(DOT)) => false, _ => true } => {
+                self.push_field_reference(name, range)
+            },
             Open {
                 boundary,
                 error,
@@ -94,6 +97,7 @@ impl<'a> Binder<'a> {
                 };
                 self.ast.push_token(token, range)
             }
+            // We are the one who generates these tokens; no one before us should be doing so.
             FieldReference(_) | OpenBlock { .. } | CloseBlock { .. } => unreachable!(),
             _ => self.ast.push_token(token, range),
         }

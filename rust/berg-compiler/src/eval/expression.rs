@@ -85,7 +85,8 @@ impl Expression {
             } => BergError::CloseWithoutOpen.take_error(ast, self),
             Open { error: None, .. } => self.inner_expression(ast).evaluate_local(scope, ast),
             OpenBlock { error: None, .. } => Ok(Closure(self, scope.clone()).into()),
-            Close { .. } | CloseBlock { .. } | RawIdentifier(_) | ErrorTerm(_) => unreachable!(),
+            RawIdentifier(name) => Ok(name.into()),
+            Close { .. } | CloseBlock { .. } | ErrorTerm(_) => unreachable!(),
         };
         println!("Result of {}: {:?}", ExpressionFormatter(self, ast), result);
         result
