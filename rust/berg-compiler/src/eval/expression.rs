@@ -12,7 +12,7 @@ use syntax::OperandPosition::*;
 use syntax::identifiers::{CALL, COLON, DASH_DASH, EMPTY_STRING, NEWLINE, PLUS_PLUS, SEMICOLON};
 use util::try_from::TryFrom;
 use util::type_name::TypeName;
-use value::{BergVal, BergValue, Closure};
+use value::{BergVal, BergValue};
 
 #[derive(Copy, Clone, PartialEq)]
 pub struct Expression(pub AstIndex);
@@ -84,7 +84,7 @@ impl Expression {
                 ..
             } => BergError::CloseWithoutOpen.take_error(ast, self),
             Open { error: None, .. } => self.inner_expression(ast).evaluate_local(scope, ast),
-            OpenBlock { error: None, .. } => Ok(Closure(self, scope.clone()).into()),
+            OpenBlock { error: None, index, .. } => Ok(scope.create_child_block(self.inner_expression(ast), index).into()),
             RawIdentifier(name) => Ok(name.into()),
             Close { .. } | CloseBlock { .. } | ErrorTerm(_) => unreachable!(),
         };

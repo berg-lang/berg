@@ -1,5 +1,5 @@
 use error::{BergResult, EvalResult};
-use eval::BlockRef;
+use eval::{BlockRef, Expression};
 use std::fmt;
 use syntax::{AstRef, BlockIndex, FieldIndex, IdentifierIndex};
 
@@ -10,10 +10,10 @@ pub enum ScopeRef<'a> {
 }
 
 impl<'a> ScopeRef<'a> {
-    pub fn create_child_block(&mut self, index: BlockIndex) -> Self {
+    pub fn create_child_block(&mut self, expression: Expression, index: BlockIndex) -> BlockRef<'a> {
         match *self {
-            ScopeRef::BlockRef(ref block) => ScopeRef::BlockRef(block.create_child_block(index)),
-            ScopeRef::AstRef(_) => ScopeRef::BlockRef(BlockRef::new(index, self.clone())),
+            ScopeRef::BlockRef(ref block) => block.create_child_block(expression, index),
+            ScopeRef::AstRef(_) => BlockRef::new(expression, index, self.clone()),
         }
     }
     pub fn field(&self, index: FieldIndex, ast: &AstRef) -> EvalResult<'a> {
@@ -22,9 +22,9 @@ impl<'a> ScopeRef<'a> {
             ScopeRef::AstRef(ref ast) => ast.source().root().field(index),
         }
     }
-    pub fn public_field_by_name(&self, name: IdentifierIndex, ast: &AstRef<'a>) -> EvalResult<'a> {
+    pub fn public_field_by_name(&self, name: IdentifierIndex) -> EvalResult<'a> {
         match *self {
-            ScopeRef::BlockRef(ref block) => block.public_field_by_name(name, ast),
+            ScopeRef::BlockRef(ref block) => block.public_field_by_name(name),
             ScopeRef::AstRef(ref ast) => ast.source().root().public_field_by_name(name),
         }
     }

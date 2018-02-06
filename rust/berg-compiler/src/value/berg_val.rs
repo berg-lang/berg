@@ -1,4 +1,5 @@
 use error::{BergError, EvalResult};
+use eval::BlockRef;
 use util::try_from::TryFrom;
 use util::type_name::TypeName;
 use num::BigRational;
@@ -13,7 +14,7 @@ pub enum BergVal<'a> {
     Boolean(bool),
     BigRational(BigRational),
     Identifier(IdentifierIndex),
-    Closure(Closure<'a>),
+    BlockRef(BlockRef<'a>),
     Nothing,
 }
 
@@ -38,7 +39,7 @@ impl<'a> BergValue<'a> for BergVal<'a> {
             BergVal::Boolean(value) => value.infix(operator, scope, right, ast),
             BergVal::BigRational(value) => value.infix(operator, scope, right, ast),
             BergVal::Identifier(value) => value.infix(operator, scope, right, ast),
-            BergVal::Closure(value) => value.infix(operator, scope, right, ast),
+            BergVal::BlockRef(value) => value.infix(operator, scope, right, ast),
             BergVal::Nothing => Nothing.infix(operator, scope, right, ast),
         }
     }
@@ -48,7 +49,7 @@ impl<'a> BergValue<'a> for BergVal<'a> {
             BergVal::Boolean(value) => value.postfix(operator, scope),
             BergVal::BigRational(value) => value.postfix(operator, scope),
             BergVal::Identifier(value) => value.postfix(operator, scope),
-            BergVal::Closure(value) => value.postfix(operator, scope),
+            BergVal::BlockRef(value) => value.postfix(operator, scope),
             BergVal::Nothing => Nothing.postfix(operator, scope),
         }
     }
@@ -58,7 +59,7 @@ impl<'a> BergValue<'a> for BergVal<'a> {
             BergVal::Boolean(value) => value.prefix(operator, scope),
             BergVal::BigRational(value) => value.prefix(operator, scope),
             BergVal::Identifier(value) => value.prefix(operator, scope),
-            BergVal::Closure(value) => value.prefix(operator, scope),
+            BergVal::BlockRef(value) => value.prefix(operator, scope),
             BergVal::Nothing => Nothing.prefix(operator, scope),
         }
     }
@@ -68,7 +69,7 @@ impl<'a> BergValue<'a> for BergVal<'a> {
             BergVal::Boolean(value) => value.evaluate(scope),
             BergVal::BigRational(value) => value.evaluate(scope),
             BergVal::Identifier(value) => value.evaluate(scope),
-            BergVal::Closure(value) => value.evaluate(scope),
+            BergVal::BlockRef(value) => value.evaluate(scope),
             BergVal::Nothing => Nothing.evaluate(scope),
         }
     }
@@ -81,7 +82,7 @@ impl<'a> fmt::Debug for BergVal<'a> {
             BergVal::Boolean(value) => write!(f, "{}", value)?,
             BergVal::BigRational(ref value) => write!(f, "{}", value)?,
             BergVal::Identifier(value) => write!(f, "{}", value)?,
-            BergVal::Closure(ref value) => write!(f, "{}", value)?,
+            BergVal::BlockRef(ref value) => write!(f, "{}", value)?,
             BergVal::Nothing => write!(f, "{}", Nothing)?,
         }
         write!(f, ")")
@@ -95,7 +96,7 @@ impl<'a> fmt::Display for BergVal<'a> {
             Boolean(ref value) => value.fmt(f),
             BigRational(ref value) => value.fmt(f),
             BergVal::Identifier(ref value) => value.fmt(f),
-            BergVal::Closure(ref value) => value.fmt(f),
+            BergVal::BlockRef(ref value) => value.fmt(f),
             Nothing => value::Nothing.fmt(f),
         }
     }

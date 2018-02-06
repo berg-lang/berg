@@ -1,18 +1,17 @@
 mod berg_val;
 mod boolean;
-mod closure;
 mod identifier;
 mod nothing;
 mod rational;
 
 pub use value::berg_val::BergVal;
-pub use value::closure::Closure;
 pub use value::nothing::Nothing;
 
 use error::{BergResult, EvalResult, BergError};
 use eval::{Operand, ScopeRef};
 use std::fmt;
 use syntax::{AstRef, Fixity, IdentifierIndex};
+use util::try_from::TryFrom;
 use util::type_name::TypeName;
 
 ///
@@ -36,6 +35,12 @@ pub trait BergValue<'a>: Sized+Into<BergVal<'a>> {
     #[allow(unused_variables)]
     fn evaluate(self, scope: &mut ScopeRef<'a>) -> BergResult<'a> {
         self.ok()
+    }
+    fn evaluate_to<T: TypeName + TryFrom<BergVal<'a>, Error = BergVal<'a>>>(
+        self,
+        scope: &mut ScopeRef<'a>
+    ) -> EvalResult<'a, T> {
+        self.evaluate(scope)?.downcast::<T>()
     }
 }
 

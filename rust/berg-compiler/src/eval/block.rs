@@ -1,31 +1,67 @@
 // Evaluates a given source expression.
-use error::{BergError, EvalError, BergResult, Raw, EvalResult};
-use eval::ScopeRef;
+use util::try_from::TryFrom;
+use error::{BergError, BergResult, EvalError, EvalResult, Raw, TakeError};
+use eval::{Expression, Operand, ScopeRef};
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::fmt;
 use syntax::{AstRef, BlockIndex, FieldIndex, IdentifierIndex};
+use value::{BergVal, BergValue};
 
 #[derive(Clone)]
 pub struct BlockRef<'a>(Rc<RefCell<BlockData<'a>>>);
 
 pub struct BlockData<'a> {
+    expression: Expression,
+    state: BlockState<'a>,
     index: BlockIndex,
     fields: Vec<EvalResult<'a>>,
     parent: ScopeRef<'a>,
 }
 
+#[derive(Debug)]
+enum BlockState<'a> {
+    Ready,
+    Running,
+    Complete(Box<BergResult<'a>>),
+}
+
 impl<'a> BlockRef<'a> {
-    pub fn new(index: BlockIndex, parent: ScopeRef<'a>) -> Self {
+    pub fn new(expression: Expression, index: BlockIndex, parent: ScopeRef<'a>) -> Self {
         BlockRef(Rc::new(RefCell::new(BlockData {
+            expression,
             index,
+            state: BlockState::Ready,
             fields: Default::default(),
             parent,
         })))
     }
 
-    pub fn create_child_block(&self, index: BlockIndex) -> Self {
-        Self::new(index, ScopeRef::BlockRef(self.clone()))
+    pub fn create_child_block(&self, expression: Expression, index: BlockIndex) -> Self {
+        Self::new(expression, index, ScopeRef::BlockRef(self.clone()))
+    }
+
+    pub fn evaluate_local(&self) -> BergResult<'a> {
+        let ast = self.ast();
+        let expression = {
+            let mut block = self.0.borrow_mut();
+            match block.state {
+                BlockState::Running => return BergError::CircularDependency.take_error(&ast, block.expression),
+                BlockState::Complete(ref result) => return result.as_ref().clone(),
+                BlockState::Ready => {},
+            }
+            block.state = BlockState::Running;
+            block.expression
+        };
+        let mut scope = ScopeRef::BlockRef(self.clone());
+        let result = expression.evaluate_local(&mut scope, &ast);
+        let mut block = self.0.borrow_mut();
+        block.state = BlockState::Complete(Box::new(result));
+        if let BlockState::Complete(ref result) = block.state {
+            result.as_ref().clone()
+        } else {
+            unreachable!()
+        }
     }
 
     pub fn field(&self, index: FieldIndex, ast: &AstRef) -> EvalResult<'a> {
@@ -42,11 +78,22 @@ impl<'a> BlockRef<'a> {
         }
     }
 
-    pub fn public_field_by_name(&self, name: IdentifierIndex, ast: &AstRef<'a>) -> EvalResult<'a> {
-        let block = self.0.borrow();
-        let ast_block = &ast.blocks()[block.index];
-        let index = ast_block.public_field_index(block.index, name, ast).or_else(|error| Err(error.in_block(self)))?;
-        self.field(index, ast)
+    pub fn public_field_by_name(&self, name: IdentifierIndex) -> EvalResult<'a> {
+        let ast = self.ast();
+        let index = {
+            let block = self.0.borrow();
+            let ast_block = &ast.blocks()[block.index];
+            ast_block.public_field_index(block.index, name, &ast).or_else(|error| Err(error.in_block(self)))?
+        };
+
+        match self.field(index, &ast) {
+            // If the field isn't there, ensure the block has been run before returning the error.
+            Err(Raw(BergError::NoSuchField(..))) => {
+                self.evaluate_local()?;
+                self.field(index, &ast)
+            },
+            result => result,
+        }
     }
 
     pub fn declare_field(&mut self, field_index: FieldIndex, ast: &AstRef) -> EvalResult<'a, ()> {
@@ -84,6 +131,62 @@ impl<'a> BlockRef<'a> {
 
     pub fn ast(&self) -> AstRef<'a> {
         self.0.borrow().parent.ast().clone()
+    }
+}
+
+impl<'a> From<BlockRef<'a>> for BergVal<'a> {
+    fn from(from: BlockRef<'a>) -> Self {
+        BergVal::BlockRef(from)
+    }
+}
+
+impl<'a> TryFrom<BergVal<'a>> for BlockRef<'a> {
+    type Error = BergVal<'a>;
+    fn try_from(from: BergVal<'a>) -> Result<Self, Self::Error> {
+        match from {
+            BergVal::BlockRef(value) => Ok(value),
+            _ => Err(from),
+        }
+    }
+}
+
+impl<'a> BergValue<'a> for BlockRef<'a> {
+    fn evaluate(self, scope: &mut ScopeRef<'a>) -> BergResult<'a> {
+        self.evaluate_local()?.evaluate(scope)
+    }
+
+    fn infix(
+        self,
+        operator: IdentifierIndex,
+        scope: &mut ScopeRef<'a>,
+        right: Operand,
+        ast: &AstRef<'a>,
+    ) -> EvalResult<'a> {
+        use syntax::identifiers::*;
+
+        if operator == DOT {
+            let identifier = right.evaluate_to::<IdentifierIndex>(scope, ast)?;
+            self.public_field_by_name(identifier)
+        } else {
+            self.evaluate_local()?.infix(operator, scope, right, ast)
+        }
+    }
+
+    fn prefix(
+        self,
+        operator: IdentifierIndex,
+        scope: &mut ScopeRef<'a>,
+    ) -> EvalResult<'a> {
+        // Closures report their own internal error instead of local ones.
+        self.evaluate_local()?.prefix(operator, scope)
+    }
+
+    fn postfix(
+        self,
+        operator: IdentifierIndex,
+        scope: &mut ScopeRef<'a>,
+    ) -> EvalResult<'a> {
+        self.evaluate_local()?.prefix(operator, scope)
     }
 }
 
