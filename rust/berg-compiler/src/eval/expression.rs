@@ -9,7 +9,7 @@ use syntax::{AstIndex, AstRef, ExpressionBoundary, ExpressionBoundaryError, Fiel
              OperandPosition, Token};
 use syntax::Fixity::*;
 use syntax::OperandPosition::*;
-use syntax::identifiers::{CALL, COLON, DASH_DASH, EMPTY_STRING, NEWLINE, PLUS_PLUS, SEMICOLON};
+use syntax::identifiers::{CALL, COLON, DASH_DASH, DOT, EMPTY_STRING, NEWLINE, PLUS_PLUS, SEMICOLON};
 use util::try_from::TryFrom;
 use util::type_name::TypeName;
 use value::{BergVal, BergValue};
@@ -40,7 +40,7 @@ impl Expression {
                 let parsed = BigRational::from_str(ast.literal_string(literal)).unwrap();
                 Ok(BergVal::BigRational(parsed))
             },
-            FieldReference(field) => scope.field(field, ast).take_error(ast, self),
+            FieldReference(field) => scope.local_field(field, ast).take_error(ast, self),
             ErrorTerm(IdentifierStartsWithNumber) => BergError::IdentifierStartsWithNumber.take_error(ast, self),
             ErrorTerm(UnsupportedCharacters) => BergError::UnsupportedCharacters.take_error(ast, self),
             ErrorTerm(InvalidUtf8) => BergError::InvalidUtf8.take_error(ast, self),
@@ -92,25 +92,6 @@ impl Expression {
         result
     }
 
-    fn assignment_target<'a>(
-        self,
-        operand: Operand,
-        ast: &AstRef<'a>,
-    ) -> Result<FieldIndex, Error<'a>> {
-        use syntax::Token::*;
-        match *operand.token(ast) {
-            PrefixOperator(COLON) => {
-                let colon_operand = operand.expression.prefix_operand(ast)?;
-                match *colon_operand.token(ast) {
-                    FieldReference(field) => Ok(field),
-                    _ => BergError::AssignmentTargetMustBeIdentifier.take_error(ast, colon_operand.expression),
-                }
-            }
-            FieldReference(field) => Ok(field),
-            _ => BergError::AssignmentTargetMustBeIdentifier.take_error(ast, operand.expression),
-        }
-    }
-
     fn evaluate_semicolon<'a>(self, scope: &mut ScopeRef<'a>, ast: &AstRef<'a>) -> BergResult<'a> {
         let left = self.left_operand(ast)?;
         let left_value = left.evaluate_local(scope, ast)?;
@@ -152,14 +133,16 @@ impl Expression {
         scope: &mut ScopeRef<'a>,
         ast: &AstRef<'a>,
     ) -> BergResult<'a> {
-        let left = self.left_operand(ast)?;
-        let name = self.assignment_target(left, ast)?;
+        let mut target = AssignmentTarget::from_expression(self.left_operand(ast)?.expression, scope, ast)?;
         let right = self.right_operand(ast)?;
         let value = match operator {
-            EMPTY_STRING => right.evaluate_local(scope, ast),
-            _ => left.infix(operator, scope, right, ast).take_error(ast, self),
+            EMPTY_STRING => {
+                target.initialize(scope, ast)?;
+                right.evaluate_local(scope, ast)
+            },
+            _ => target.get(scope, ast)?.infix(operator, scope, right, ast).take_error(ast, self),
         };
-        scope.set_field(name, value, ast).and_then(|_| Ok(BergVal::Nothing)).take_error(ast, self)
+        target.set(value, scope, ast)
     }
 
     fn evaluate_prefix<'a>(
@@ -189,11 +172,10 @@ impl Expression {
         ast: &AstRef<'a>,
     ) -> BergResult<'a> {
         let operand = self.prefix_operand(ast)?;
-        let name = self.assignment_target(operand, ast)?;
+        let mut target = AssignmentTarget::from_expression(operand.expression, scope, ast)?;
+        target.initialize(scope, ast)?;
         let value = operand.prefix(operator, scope, ast).take_error(ast, self);
-        let result = scope.set_field(name, value, ast);
-        let result = result.and_then(|_| BergVal::Nothing.ok());
-        result.take_error(ast, self)
+        target.set(value, scope, ast)
     }
 
     fn evaluate_postfix_assign<'a>(
@@ -203,17 +185,16 @@ impl Expression {
         ast: &AstRef<'a>,
     ) -> BergResult<'a> {
         let operand = self.postfix_operand(ast)?;
-        let name = self.assignment_target(operand, ast)?;
+        let mut target = AssignmentTarget::from_expression(operand.expression, scope, ast)?;
+        target.initialize(scope, ast)?;
         let value = operand.postfix(operator, scope, ast).take_error(ast, self);
-        let result = scope.set_field(name, value, ast);
-        result.and_then(|_| BergVal::Nothing.ok()).take_error(ast, self)
+        target.set(value, scope, ast)
     }
 
     fn evaluate_declare<'a>(self, scope: &mut ScopeRef<'a>, ast: &AstRef<'a>) -> BergResult<'a> {
-        let operand = self.prefix_operand(ast)?;
-        let name = self.assignment_target(operand, ast)?;
-        scope.declare_field(name, ast).take_error(ast, self)?;
-        operand.evaluate_local(scope, ast)
+        let mut target = AssignmentTarget::from_expression(self, scope, ast)?;
+        target.declare(scope, ast)?;
+        target.get(scope, ast)
     }
 
     pub(crate) fn range(self, ast: &AstRef) -> ByteRange {
@@ -455,6 +436,87 @@ impl Expression {
             let buffer = ast.source().reopen();
             cow_range_from_utf8_lossy(buffer, self.range(ast))
         }
+    }
+}
+
+#[derive(Debug, Clone)]
+enum AssignmentTarget<'a> {
+    Local(FieldIndex, Expression),
+    DeclareLocal(FieldIndex, Expression),
+    Object(BergVal<'a>, IdentifierIndex, Operand, Expression)
+}
+
+impl<'a> AssignmentTarget<'a> {
+    fn from_expression(
+        expression: Expression,
+        scope: &mut ScopeRef<'a>,
+        ast: &AstRef<'a>,
+    ) -> BergResult<'a, AssignmentTarget<'a>> {
+        use syntax::Token::*;
+        match *expression.token(ast) {
+            FieldReference(field) => Ok(AssignmentTarget::Local(field, expression)),
+            PrefixOperator(COLON) => {
+                let colon_operand = expression.prefix_operand(ast)?;
+                match *colon_operand.token(ast) {
+                    FieldReference(field) => Ok(AssignmentTarget::DeclareLocal(field, colon_operand.expression)),
+                    _ => BergError::AssignmentTargetMustBeIdentifier.take_error(ast, colon_operand.expression),
+                }
+            }
+            Open{error: ExpressionBoundaryError::None, ..} => AssignmentTarget::from_expression(expression.inner_expression(ast), scope, ast),
+            InfixOperator(DOT) => {
+                let right = expression.right_operand(ast)?;
+                match *right.token(ast) {
+                    RawIdentifier(name) => {
+                        let object = expression.left_operand(ast)?.evaluate_local(scope, ast)?;
+                        Ok(AssignmentTarget::Object(object, name, right, expression))
+                    }
+                    _ => BergError::AssignmentTargetMustBeIdentifier.take_error(ast, right.expression)
+                }
+            }
+            _ => BergError::AssignmentTargetMustBeIdentifier.take_error(ast, expression),
+        }
+    }
+
+    fn initialize(&self, scope: &mut ScopeRef<'a>, ast: &AstRef<'a>) -> BergResult<'a, ()> {
+        use eval::expression::AssignmentTarget::*;
+        match *self {
+            DeclareLocal(field, expression)|Local(field, expression) => scope.bring_local_field_into_scope(field, ast).take_error(ast, expression),
+            Object(..) => Ok(())
+        }
+    }
+
+    fn get(&mut self, scope: &mut ScopeRef<'a>, ast: &AstRef<'a>) -> BergResult<'a> {
+        use eval::expression::AssignmentTarget::*;
+        use syntax::identifiers::DOT;
+        self.initialize(scope, ast)?;
+        match *self {
+            DeclareLocal(field, expression)|Local(field, expression) => scope.local_field(field, ast).take_error(ast, expression),
+            Object(ref object, _, right, expression) => {
+                // Infix consumes values, but we still need the object around, so we clone the obj (it's cheap at the moment, a reference or primitive)
+                let object = object.clone();
+                object.infix(DOT, scope, right, ast).take_error(ast, expression)
+            }
+        }
+    }
+
+    fn set(&mut self, value: BergResult<'a>, scope: &mut ScopeRef<'a>, ast: &AstRef<'a>) -> BergResult<'a> {
+        use eval::expression::AssignmentTarget::*;
+        match *self {
+            Local(field, expression)|DeclareLocal(field, expression) => scope.set_local_field(field, value, ast).take_error(ast, expression)?,
+            Object(ref mut object, name, _, expression) => object.set_field(name, value, scope).take_error(ast, expression)?,
+        }
+        // If it's a declaration, declare it public now that it's been set.
+        self.declare(scope, ast)?;
+        Ok(BergVal::Nothing)
+    }
+
+    fn declare(&mut self, scope: &mut ScopeRef<'a>, ast: &AstRef<'a>) -> BergResult<'a> {
+        use eval::expression::AssignmentTarget::*;
+        match *self {
+            DeclareLocal(field, expression) => scope.declare_field(field, ast).take_error(ast, expression)?,
+            Local(..)|Object(..) => {},
+        }
+        Ok(BergVal::Nothing)
     }
 }
 

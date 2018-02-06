@@ -2,6 +2,7 @@ use error::{BergResult, EvalResult};
 use eval::{BlockRef, Expression};
 use std::fmt;
 use syntax::{AstRef, BlockIndex, FieldIndex, IdentifierIndex};
+use value::BergValue;
 
 #[derive(Clone)]
 pub enum ScopeRef<'a> {
@@ -16,16 +17,22 @@ impl<'a> ScopeRef<'a> {
             ScopeRef::AstRef(_) => BlockRef::new(expression, index, self.clone()),
         }
     }
-    pub fn field(&self, index: FieldIndex, ast: &AstRef) -> EvalResult<'a> {
+    pub fn local_field(&self, index: FieldIndex, ast: &AstRef) -> EvalResult<'a> {
         match *self {
-            ScopeRef::BlockRef(ref block) => block.field(index, ast),
-            ScopeRef::AstRef(ref ast) => ast.source().root().field(index),
+            ScopeRef::BlockRef(ref block) => block.local_field(index, ast),
+            ScopeRef::AstRef(ref ast) => ast.source().root().local_field(index),
         }
     }
-    pub fn public_field_by_name(&self, name: IdentifierIndex) -> EvalResult<'a> {
+    pub fn field(&self, name: IdentifierIndex, scope: &mut ScopeRef<'a>) -> EvalResult<'a> {
         match *self {
-            ScopeRef::BlockRef(ref block) => block.public_field_by_name(name),
-            ScopeRef::AstRef(ref ast) => ast.source().root().public_field_by_name(name),
+            ScopeRef::BlockRef(ref block) => block.field(name, scope),
+            ScopeRef::AstRef(ref ast) => ast.source().root().field(name),
+        }
+    }
+    pub fn bring_local_field_into_scope(&mut self, index: FieldIndex, ast: &AstRef) -> EvalResult<'a, ()> {
+        match *self {
+            ScopeRef::BlockRef(ref mut block) => block.bring_local_field_into_scope(index, ast),
+            ScopeRef::AstRef(_) => ast.source().root().bring_local_field_into_scope(index),
         }
     }
     pub fn declare_field(&mut self, index: FieldIndex, ast: &AstRef) -> EvalResult<'a, ()> {
@@ -34,15 +41,15 @@ impl<'a> ScopeRef<'a> {
             ScopeRef::AstRef(_) => ast.source().root().declare_field(index),
         }
     }
-    pub fn set_field(
+    pub fn set_local_field(
         &mut self,
         index: FieldIndex,
         value: BergResult<'a>,
         ast: &AstRef,
     ) -> EvalResult<'a, ()> {
         match *self {
-            ScopeRef::BlockRef(ref mut block) => block.set_field(index, value, ast),
-            ScopeRef::AstRef(ref ast) => ast.source().root().set_field(index, value),
+            ScopeRef::BlockRef(ref mut block) => block.set_local_field(index, value, ast),
+            ScopeRef::AstRef(ref ast) => ast.source().root().set_local_field(index, value),
         }
     }
     pub fn ast(&self) -> AstRef<'a> {

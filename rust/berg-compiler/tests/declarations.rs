@@ -125,10 +125,10 @@ compiler_tests! {
     assign_minus_non_field_expr:   "1+2 -= 1" => error(AssignmentTargetMustBeIdentifier@[0-2]),
     assign_times_non_field_expr:   "1+2 *= 1" => error(AssignmentTargetMustBeIdentifier@[0-2]),
     assign_divide_non_field_expr:  "1+2 /= 1" => error(AssignmentTargetMustBeIdentifier@[0-2]),
-    increment_post_non_field_expr: "(1+2)++" => error(AssignmentTargetMustBeIdentifier@[0-4]),
-    decrement_post_non_field_expr: "(1+2)--" => error(AssignmentTargetMustBeIdentifier@[0-4]),
-    increment_pre_non_field_expr:  "++(1+2)" => error(AssignmentTargetMustBeIdentifier@[2-6]),
-    decrement_pre_non_field_expr:  "--(1+2)" => error(AssignmentTargetMustBeIdentifier@[2-6]),
+    increment_post_non_field_expr: "(1+2)++" => error(AssignmentTargetMustBeIdentifier@[1-3]),
+    decrement_post_non_field_expr: "(1+2)--" => error(AssignmentTargetMustBeIdentifier@[1-3]),
+    increment_pre_non_field_expr:  "++(1+2)" => error(AssignmentTargetMustBeIdentifier@[3-5]),
+    decrement_pre_non_field_expr:  "--(1+2)" => error(AssignmentTargetMustBeIdentifier@[3-5]),
 
     //
     // Test that errors during the actual statement are propagated
@@ -159,23 +159,23 @@ compiler_tests! {
     //
 
     assign_undeclared:        "a = 1"       => value(Nothing),
-    assign_plus_undeclared:   "a += 1; a"      => error(NoSuchField@0),
-    assign_minus_undeclared:  "a -= 1; a"      => error(NoSuchField@0),
-    assign_times_undeclared:  "a *= 1; a"      => error(NoSuchField@0),
-    assign_divide_undeclared: "a /= 1; a"      => error(NoSuchField@0),
-    assign_and_undeclared:    "a &&= true; a"  => error(NoSuchField@0),
-    assign_or_undeclared:     "a ||= false; a" => error(NoSuchField@0),
-    increment_pre_undeclared: "++a; a"  => error(NoSuchField@2),
-    decrement_pre_undeclared: "--a; a"  => error(NoSuchField@2),
-    increment_post_undeclared: "a++; a" => error(NoSuchField@0),
-    decrement_post_undeclared: "a--; a" => error(NoSuchField@0),
+    assign_plus_undeclared:   "a += 1; a"      => error(FieldNotSet@0),
+    assign_minus_undeclared:  "a -= 1; a"      => error(FieldNotSet@0),
+    assign_times_undeclared:  "a *= 1; a"      => error(FieldNotSet@0),
+    assign_divide_undeclared: "a /= 1; a"      => error(FieldNotSet@0),
+    assign_and_undeclared:    "a &&= true; a"  => error(FieldNotSet@0),
+    assign_or_undeclared:     "a ||= false; a" => error(FieldNotSet@0),
+    increment_pre_undeclared: "++a; a"  => error(FieldNotSet@2),
+    decrement_pre_undeclared: "--a; a"  => error(FieldNotSet@2),
+    increment_post_undeclared: "a++; a" => error(FieldNotSet@0),
+    decrement_post_undeclared: "a--; a" => error(FieldNotSet@0),
 
-    assign_plus_undeclared_bad_type:   "a += true; a" => error(NoSuchField@0),
-    assign_minus_undeclared_bad_type:  "a -= true; a" => error(NoSuchField@0),
-    assign_times_undeclared_bad_type:  "a *= true; a" => error(NoSuchField@0),
-    assign_divide_undeclared_bad_type: "a /= true; a" => error(NoSuchField@0),
-    assign_and_undeclared_bad_type:    "a &&= 1; a"   => error(NoSuchField@0),
-    assign_or_undeclared_bad_type:     "a ||= 2; a"   => error(NoSuchField@0),
+    assign_plus_undeclared_bad_type:   "a += true; a" => error(FieldNotSet@0),
+    assign_minus_undeclared_bad_type:  "a -= true; a" => error(FieldNotSet@0),
+    assign_times_undeclared_bad_type:  "a *= true; a" => error(FieldNotSet@0),
+    assign_divide_undeclared_bad_type: "a /= true; a" => error(FieldNotSet@0),
+    assign_and_undeclared_bad_type:    "a &&= 1; a"   => error(FieldNotSet@0),
+    assign_or_undeclared_bad_type:     "a ||= 2; a"   => error(FieldNotSet@0),
 
     //
     // Test assignment to undefined values (ones that haven't been set)
@@ -225,14 +225,14 @@ compiler_tests! {
     // Test behavior of undefined self references
     //
 
-    assign_self_ref:          ":a = a + 1; a" => error(NoSuchField@5),
-    reassign_self_ref:        "a = a + 1; a" => error(NoSuchField@4),
-    assign_plus_self_ref:     "a += a; a" => error(NoSuchField@0),
-    assign_minus_self_ref:    "a -= a; a" => error(NoSuchField@0),
-    assign_multiply_self_ref: "a *= a; a" => error(NoSuchField@0),
-    assign_divide_self_ref:   "a /= a; a" => error(NoSuchField@0),
-    assign_and_self_ref:      "a &&= a; a" => error(NoSuchField@0),
-    assign_or_self_ref:       "a ||= a; a" => error(NoSuchField@0),
+    assign_self_ref:          ":a = a + 1; a" => error(FieldNotSet@5),
+    reassign_self_ref:        "a = a + 1; a" => error(FieldNotSet@4),
+    assign_plus_self_ref:     "a += a; a" => error(FieldNotSet@0),
+    assign_minus_self_ref:    "a -= a; a" => error(FieldNotSet@0),
+    assign_multiply_self_ref: "a *= a; a" => error(FieldNotSet@0),
+    assign_divide_self_ref:   "a /= a; a" => error(FieldNotSet@0),
+    assign_and_self_ref:      "a &&= a; a" => error(FieldNotSet@0),
+    assign_or_self_ref:       "a ||= a; a" => error(FieldNotSet@0),
 
     assign_plus_declaration_self_ref:     ":a += a; a" => error(FieldNotSet@1),
     assign_minus_declaration_self_ref:    ":a -= a; a" => error(FieldNotSet@1),

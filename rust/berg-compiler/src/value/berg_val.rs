@@ -73,6 +73,25 @@ impl<'a> BergValue<'a> for BergVal<'a> {
             BergVal::Nothing => Nothing.evaluate(scope),
         }
     }
+
+    fn field(&self, name: IdentifierIndex, scope: &mut ScopeRef<'a>) -> EvalResult<'a> {
+        match *self {
+            BergVal::Boolean(value) => value.field(name, scope),
+            BergVal::BigRational(ref value) => value.field(name, scope),
+            BergVal::Identifier(value) => value.field(name, scope),
+            BergVal::BlockRef(ref value) => value.field(name, scope),
+            BergVal::Nothing => Nothing.field(name, scope),
+        }
+    }
+    fn set_field(&mut self, name: IdentifierIndex, field_value: BergResult<'a>, scope: &mut ScopeRef<'a>) -> EvalResult<'a, ()> {
+        match *self {
+            BergVal::Boolean(ref mut value) => value.set_field(name, field_value, scope),
+            BergVal::BigRational(ref mut value) => value.set_field(name, field_value, scope),
+            BergVal::Identifier(ref mut value) => value.set_field(name, field_value, scope),
+            BergVal::BlockRef(ref mut value) => value.set_field(name, field_value, scope),
+            BergVal::Nothing => Nothing.set_field(name, field_value, scope),
+        }
+    }
 }
 
 impl<'a> fmt::Debug for BergVal<'a> {

@@ -17,7 +17,14 @@ compiler_tests! {
     primitive_field_access: "a = 10; a.x" => error(NoSuchPublicField@[8-10]),
     parent_field_access_error: ":x = 10; a = { y = 20 }; a.x" => error(NoSuchPublicField@[25-27]),
 
+    set_field: "a = { :x }; a.x = 10; a.x" => value(10),
+    multiple_set_field: "a = { :x; :y }; a.x = 10; a.y = 20; a.x + a.y" => value(30),
+    nested_set_field: "a = { :b = { :x } }; a.b.x = 10; a.b.x" => value(10),
+    set_no_such_field: "a = { :x }; a.y = 20; a.y" => error(NoSuchPublicField@[12-14]),
+    private_set_field: "a = { x = 10 }; a.x = 20; a.x" => error(PrivateField@[16-18]),
+    primitive_set_field: "a = 10; a.x = 10; a.x" => error(NoSuchPublicField@[8-10]),
+    parent_field_set_error: ":x = 10; a = { y = 20 }; a.x = 30; a.x" => error(NoSuchPublicField@[25-27]),
     // TODO make circular field access work right
-    // circular_field_access_error: "x = { :y = { x.y } }" => error(CircularDependency@1),
+    // circular_field_access_error: "x = { :y = { x.y } }; x.y" => error(CircularDependency@1),
     // roundabout_circular_field_access_error: "a = { :y = 10; }; x = { :y = { a.y } }; a = x; a" => error(CircularDependency@1),
 }

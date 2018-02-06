@@ -72,11 +72,11 @@ impl RootRef {
         }
     }
 
-    pub fn public_field_by_name<'a>(&self, name: IdentifierIndex) -> EvalResult<'a> {
-        self.field(self.field_index(name)?)
+    pub fn field<'a>(&self, name: IdentifierIndex) -> EvalResult<'a> {
+        self.local_field(self.field_index(name)?)
     }
 
-    pub fn field<'a>(&self, index: FieldIndex) -> EvalResult<'a> {
+    pub fn local_field<'a>(&self, index: FieldIndex) -> EvalResult<'a> {
         use eval::root_fields::*;
         match index {
             TRUE => true.ok(),
@@ -86,8 +86,13 @@ impl RootRef {
     }
 
     #[cfg_attr(feature = "clippy", allow(needless_pass_by_value))]
-    pub fn set_field<'a>(&self, index: FieldIndex, _value: BergResult<'a>) -> EvalResult<'a, ()> {
+    pub fn set_local_field<'a>(&self, index: FieldIndex, _value: BergResult<'a>) -> EvalResult<'a, ()> {
         BergError::ImmutableFieldOnRoot(index).err()
+    }
+
+    // All valid fields are already initialized, nothing to do here.
+    pub fn bring_local_field_into_scope<'a>(&self, _index: FieldIndex) -> EvalResult<'a, ()> {
+        Ok(())
     }
 
     pub fn declare_field<'a>(&self, _index: FieldIndex) -> EvalResult<'a, ()> {

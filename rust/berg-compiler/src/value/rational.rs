@@ -1,4 +1,4 @@
-use error::{BergError, EvalResult};
+use error::{BergError, BergResult, EvalResult};
 use eval::{Operand, ScopeRef};
 use num::{BigInt, BigRational, One, ToPrimitive, Zero};
 use std::{i64, u64};
@@ -6,7 +6,7 @@ use syntax::{AstRef, IdentifierIndex};
 use syntax::identifiers::*;
 use util::try_from::TryFrom;
 use util::type_name::TypeName;
-use value::{default_infix, default_postfix, default_prefix, BergVal, BergValue};
+use value::*;
 
 impl TypeName for BigRational {
     const TYPE_NAME: &'static str = "number";
@@ -60,6 +60,18 @@ impl<'a> BergValue<'a> for BigRational {
             DASH_DASH => (self - BigRational::one()).ok(),
             _ => default_postfix(self, operator, scope),
         }
+    }
+
+    // Evaluation: values which need further work to resolve, like blocks, implement this.
+    fn evaluate(self, scope: &mut ScopeRef<'a>) -> BergResult<'a> {
+        default_evaluate(self, scope)
+    }
+
+    fn field(&self, name: IdentifierIndex, scope: &mut ScopeRef<'a>) -> EvalResult<'a> {
+        default_field(self, name, scope)
+    }
+    fn set_field(&mut self, name: IdentifierIndex, value: BergResult<'a>, scope: &mut ScopeRef<'a>) -> EvalResult<'a, ()> {
+        default_set_field(self, name, value, scope)
     }
 }
 

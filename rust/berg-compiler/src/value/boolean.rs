@@ -34,6 +34,22 @@ impl<'a> BergValue<'a> for bool {
             _ => default_prefix(self, operator, scope),
         }
     }
+
+    fn postfix(self, operator: IdentifierIndex, scope: &mut ScopeRef<'a>) -> EvalResult<'a> {
+        default_postfix(self, operator, scope)
+    }
+
+    // Evaluation: values which need further work to resolve, like blocks, implement this.
+    fn evaluate(self, scope: &mut ScopeRef<'a>) -> BergResult<'a> {
+        default_evaluate(self, scope)
+    }
+
+    fn field(&self, name: IdentifierIndex, scope: &mut ScopeRef<'a>) -> EvalResult<'a> {
+        default_field(self, name, scope)
+    }
+    fn set_field(&mut self, name: IdentifierIndex, value: BergResult<'a>, scope: &mut ScopeRef<'a>) -> EvalResult<'a, ()> {
+        default_set_field(self, name, value, scope)
+    }
 }
 
 impl<'a> From<bool> for BergVal<'a> {

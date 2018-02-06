@@ -64,7 +64,7 @@ impl<'a> BlockRef<'a> {
         }
     }
 
-    pub fn field(&self, index: FieldIndex, ast: &AstRef) -> EvalResult<'a> {
+    pub fn local_field(&self, index: FieldIndex, ast: &AstRef) -> EvalResult<'a> {
         let scope_start = ast.blocks()[self.0.borrow().index].scope_start;
         let block = self.0.borrow();
         if index >= scope_start {
@@ -74,25 +74,7 @@ impl<'a> BlockRef<'a> {
                 None => BergError::NoSuchField(index).err(),
             }
         } else {
-            block.parent.field(index, ast)
-        }
-    }
-
-    pub fn public_field_by_name(&self, name: IdentifierIndex) -> EvalResult<'a> {
-        let ast = self.ast();
-        let index = {
-            let block = self.0.borrow();
-            let ast_block = &ast.blocks()[block.index];
-            ast_block.public_field_index(block.index, name, &ast).or_else(|error| Err(error.in_block(self)))?
-        };
-
-        match self.field(index, &ast) {
-            // If the field isn't there, ensure the block has been run before returning the error.
-            Err(Raw(BergError::NoSuchField(..))) => {
-                self.evaluate_local()?;
-                self.field(index, &ast)
-            },
-            result => result,
+            block.parent.local_field(index, ast)
         }
     }
 
@@ -109,7 +91,7 @@ impl<'a> BlockRef<'a> {
         Ok(())
     }
 
-    pub fn set_field(
+    pub fn set_local_field(
         &mut self,
         field_index: FieldIndex,
         value: BergResult<'a>,
@@ -118,7 +100,7 @@ impl<'a> BlockRef<'a> {
         let scope_start = ast.blocks()[self.0.borrow().index].scope_start;
         let mut block = self.0.borrow_mut();
         if field_index < scope_start {
-            return block.parent.set_field(field_index, value, ast);
+            return block.parent.set_local_field(field_index, value, ast);
         }
 
         let index: usize = (field_index - scope_start).into();
@@ -126,6 +108,28 @@ impl<'a> BlockRef<'a> {
             block.fields.push(BergError::NoSuchField(field_index).err());
         }
         block.fields[index] = match value { Ok(value) => Ok(value), Err(error) => Err(error.into()) };
+        Ok(())
+    }
+
+    pub fn bring_local_field_into_scope(
+        &mut self,
+        field_index: FieldIndex,
+        ast: &AstRef,
+    ) -> EvalResult<'a, ()> {
+        let scope_start = ast.blocks()[self.0.borrow().index].scope_start;
+        let mut block = self.0.borrow_mut();
+        if field_index < scope_start {
+            return Ok(());
+        }
+
+        let index: usize = (field_index - scope_start).into();
+        while index >= block.fields.len() {
+            block.fields.push(BergError::NoSuchField(field_index).err());
+        }
+        match block.fields[index] {
+            Err(Raw(BergError::NoSuchField(_))) => block.fields[index] = BergError::FieldNotSet(field_index).err(),
+            _ => {},
+        }
         Ok(())
     }
 
@@ -166,7 +170,7 @@ impl<'a> BergValue<'a> for BlockRef<'a> {
 
         if operator == DOT {
             let identifier = right.evaluate_to::<IdentifierIndex>(scope, ast)?;
-            self.public_field_by_name(identifier)
+            self.field(identifier, scope)
         } else {
             self.evaluate_local()?.infix(operator, scope, right, ast)
         }
@@ -187,6 +191,41 @@ impl<'a> BergValue<'a> for BlockRef<'a> {
         scope: &mut ScopeRef<'a>,
     ) -> EvalResult<'a> {
         self.evaluate_local()?.prefix(operator, scope)
+    }
+
+    fn field(&self, name: IdentifierIndex, _scope: &mut ScopeRef<'a> ) -> EvalResult<'a> {
+        // Figure out the field index from its name
+        let ast = self.ast();
+        let index = {
+            let block = self.0.borrow();
+            let ast_block = &ast.blocks()[block.index];
+            ast_block.public_field_index(block.index, name, &ast).or_else(|error| Err(error.in_block(self)))?
+        };
+
+        // Get the field.
+        match self.local_field(index, &ast) {
+            // If the field isn't there yet, evaluate ourselves so that it'll get vivified, and set again.
+            Err(Raw(BergError::NoSuchField(..))) => {
+                self.evaluate_local()?;
+                self.local_field(index, &ast)
+            },
+            result => result,
+        }
+    }
+
+    fn set_field(&mut self, name: IdentifierIndex, value: BergResult<'a>, _scope: &mut ScopeRef<'a> ) -> EvalResult<'a, ()> {
+        println!("-----------------");
+        println!("Setting field ...");
+        // Figure out the field index from its name
+        let ast = self.ast();
+        let index = {
+            let block = self.0.borrow();
+            let ast_block = &ast.blocks()[block.index];
+            ast_block.public_field_index(block.index, name, &ast).or_else(|error| Err(error.in_block(self)))?
+        };
+
+        // Set the field.
+        self.set_local_field(index, value, &ast)
     }
 }
 
