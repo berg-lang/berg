@@ -152,7 +152,7 @@ compiler_tests! {
     assign_and_error_ref:    ":a = true; a &&= true && 1; a"  => error(BadType@25),
     assign_or_error_ref:     ":a = true; a ||= false && 1; a" => value(true),
 
-    assign_error_ref_twice: ":a = 1 + true; a + a; a" => error(BadType@[9-12]),
+    assign_error_ref_twice: ":a = 1 + true; a + a" => error(BadType@[9-12]),
 
     //
     // Test assignment to undefined values (ones that haven't been set)

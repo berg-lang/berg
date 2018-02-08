@@ -278,13 +278,13 @@ impl<'a> fmt::Display for Error<'a> {
                 write!(f, "Invalid UTF-8! Perhaps this isn't a Berg source file?")
             }
             UnsupportedCharacters => write!(f, "Invalid Unicode characters"),
-            CloseWithoutOpen => write!(
+            OpenWithoutClose => write!(
                 f,
                 "Open '{}' found without a matching close '{}'.",
                 expression.open_token(ast).to_string(ast),
                 expression.boundary(ast).close_string()
             ),
-            OpenWithoutClose => write!(
+            CloseWithoutOpen => write!(
                 f,
                 "Close '{}' found without a matching open '{}'.",
                 expression.close_token(ast).to_string(ast),

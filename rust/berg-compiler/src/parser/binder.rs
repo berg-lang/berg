@@ -38,6 +38,8 @@ impl<'a> Binder<'a> {
         result.push_open_scope(ExpressionBoundary::Root, None);
 
         // Ensure the scope and the ast's fields (taken from root names) match up
+        // since the root object is going to assume that. The code above should
+        // ensure this; we're just making sure.
         assert_eq!(
             result.scope.len(),
             result.ast.source.root().field_names().len()
@@ -99,6 +101,7 @@ impl<'a> Binder<'a> {
             }
             // We are the one who generates these tokens; no one before us should be doing so.
             FieldReference(_) | OpenBlock { .. } | CloseBlock { .. } => unreachable!(),
+            InfixOperator(COLON) => self.push_declaration_with_default(token, range),
             _ => self.ast.push_token(token, range),
         }
     }
@@ -129,6 +132,33 @@ impl<'a> Binder<'a> {
             self.ast.fields[field].is_public = true;
         }
         self.ast.push_token(FieldReference(field), range)
+    }
+
+    fn push_declaration_with_default(&mut self, token: Token, range: ByteRange) -> AstIndex {
+        let prev_token_index = self.ast.tokens.last_index();
+        let prev_token = self.ast.tokens[prev_token_index];
+        // Flip the field public now that we know it's a declaration.
+        match prev_token {
+            FieldReference(field) => {
+                // If the field is from a parent block, we have misidentified this, because
+                // a: b always refers to a local variable. Fix that up.
+                // NOTE: This misidentification has no repercussions in the current code,
+                // but that doesn't mean it won't become a problem in the future (for
+                // example, if we start making a table of which fields are referenced by
+                // other blocks). Watch out for that! We'll either need to delay identification
+                // until we know the next token, or else have to go fix it up.
+                if field < self.open_scope().scope_start {
+                    let name = self.ast.fields[field].name;
+                    let new_field = self.create_field(name, true);
+                    self.ast.tokens[prev_token_index] = FieldReference(new_field);
+                } else {
+                    self.ast.fields[field].is_public = true;
+                }
+            }
+            // Anything besides `a: ...` is an error, but the evaluator will throw it. Nothing to see here.
+            _ => {},
+        }
+        self.ast.push_token(token, range)
     }
 
     fn find_field(&mut self, name: IdentifierIndex, is_declaration: bool) -> Option<FieldIndex> {

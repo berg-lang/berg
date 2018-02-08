@@ -69,58 +69,12 @@ pub enum Fixity {
 #[derive(Debug, Copy, Clone, PartialEq, PartialOrd)]
 pub enum ExpressionBoundary {
     PrecedenceGroup,
+    AutoBlock,
     CompoundTerm,
     Parentheses,
     CurlyBraces,
     Source,
     Root,
-}
-
-#[derive(Debug, Copy, Clone, PartialEq)]
-pub enum TermToken {
-    IntegerLiteral(LiteralIndex),
-    RawIdentifier(IdentifierIndex),
-    FieldReference(FieldIndex),
-    ErrorTerm(ErrorCode),
-    MissingExpression,
-}
-
-#[derive(Debug, Copy, Clone, PartialEq)]
-pub enum InfixToken {
-    InfixOperator(IdentifierIndex),
-    InfixAssignment(IdentifierIndex),
-    NewlineSequence,
-    MissingInfix,
-}
-
-#[derive(Debug, Copy, Clone, PartialEq)]
-pub enum PrefixToken {
-    Open {
-        delta: AstDelta,
-        boundary: ExpressionBoundary,
-        error: ExpressionBoundaryError,
-    },
-    OpenBlock {
-        delta: AstDelta,
-        index: BlockIndex,
-        error: ExpressionBoundaryError,
-    },
-    PrefixOperator(IdentifierIndex),
-}
-
-#[derive(Debug, Copy, Clone, PartialEq)]
-pub enum PostfixToken {
-    Close {
-        delta: AstDelta,
-        boundary: ExpressionBoundary,
-        error: ExpressionBoundaryError,
-    },
-    CloseBlock {
-        delta: AstDelta,
-        index: BlockIndex,
-        error: ExpressionBoundaryError,
-    },
-    PostfixOperator(IdentifierIndex),
 }
 
 impl Token {
@@ -134,18 +88,6 @@ impl Token {
             Open { .. } | OpenBlock { .. } => Fixity::Open,
             Close { .. } | CloseBlock { .. } => Fixity::Close,
         }
-    }
-    pub fn to_term(self) -> Option<TermToken> {
-        TermToken::try_from(self)
-    }
-    pub fn to_infix(self) -> Option<InfixToken> {
-        InfixToken::try_from(self)
-    }
-    pub fn to_prefix(self) -> Option<PrefixToken> {
-        PrefixToken::try_from(self)
-    }
-    pub fn to_postfix(self) -> Option<PostfixToken> {
-        PostfixToken::try_from(self)
     }
     pub fn num_operands(self) -> u8 {
         self.fixity().num_operands()
@@ -174,33 +116,86 @@ impl Token {
             Open { boundary, .. } => match boundary {
                 Parentheses => ast.identifier_string(OPEN_PAREN).into(),
                 CurlyBraces => ast.identifier_string(OPEN_CURLY).into(),
-                CompoundTerm | PrecedenceGroup | Source | Root => "".into(),
+                CompoundTerm | PrecedenceGroup | AutoBlock | Source | Root => "".into(),
             },
             OpenBlock { index, .. } => match ast.blocks()[index].boundary {
                 Parentheses => ast.identifier_string(OPEN_PAREN).into(),
                 CurlyBraces => ast.identifier_string(OPEN_CURLY).into(),
-                CompoundTerm | PrecedenceGroup | Source | Root => "".into(),
+                CompoundTerm | PrecedenceGroup | AutoBlock | Source | Root => "".into(),
             }
             Close { boundary, .. } => match boundary {
                 Parentheses => ast.identifier_string(CLOSE_PAREN).into(),
                 CurlyBraces => ast.identifier_string(CLOSE_CURLY).into(),
-                CompoundTerm | PrecedenceGroup | Source | Root => "".into(),
+                CompoundTerm | PrecedenceGroup | AutoBlock | Source | Root => "".into(),
             },
             CloseBlock { index, .. } => match ast.blocks()[index].boundary {
                 Parentheses => ast.identifier_string(CLOSE_PAREN).into(),
                 CurlyBraces => ast.identifier_string(CLOSE_CURLY).into(),
-                CompoundTerm | PrecedenceGroup | Source | Root => "".into(),
+                CompoundTerm | PrecedenceGroup | AutoBlock | Source | Root => "".into(),
             },
             MissingExpression | MissingInfix => "".into(),
+        }
+    }
+    pub fn takes_right_child(self, right: Token) -> bool {
+        use syntax::Fixity::*;
+        match self.fixity() {
+            Infix => match right.fixity() {
+                Infix => Precedence::from(self).takes_right_child(Precedence::from(right)),
+                _ => true,
+            },
+            Prefix => match right.fixity() {
+                Prefix|Term|Open|Close => true,
+                Infix|Postfix => false,
+            }
+            Term|Postfix => false,
+            Open|Close => unreachable!(),
+        }
+    }
+    pub fn takes_left_child(self, left: Token) -> bool {
+        use syntax::Fixity::*;
+        match self.fixity() {
+            Infix => match left.fixity() {
+                Infix => Precedence::from(self).takes_left_child(Precedence::from(left)),
+                _ => true,
+            },
+            Postfix => match left.fixity() {
+                Prefix|Postfix|Term|Open|Close => true,
+                Infix => false,
+            }
+            Term|Prefix => false,
+            Open|Close => unreachable!(),
+        }
+    }
+    pub fn delta(self) -> AstDelta {
+        match self {
+            Open { delta, .. } | OpenBlock { delta, .. } | Close { delta, .. } | CloseBlock { delta, .. } => delta,
+            _ => unreachable!(),
         }
     }
 }
 
 impl ExpressionBoundary {
+    /// Tells whether this expression boundary represents a scope.
     pub(crate) fn is_scope(&self) -> bool {
         match *self {
-            CurlyBraces | Source | Root => true,
+            CurlyBraces | Source | Root | AutoBlock => true,
             Parentheses | PrecedenceGroup | CompoundTerm => false,
+        }
+    }
+    /// Tells whether this boundary type MUST be in the expression tree (because
+    /// it represents actual user syntax, or opens a scope).
+    pub(crate) fn is_required(&self) -> bool {
+        match *self {
+            Root | AutoBlock | Source | CurlyBraces | Parentheses => true,
+            PrecedenceGroup | CompoundTerm => false,
+        }
+    }
+    /// Tells whether we expect a close token for this boundary or if it's handled
+    /// by the grouper automatically.
+    pub(crate) fn is_closed_automatically(&self) -> bool {
+        match *self {
+            PrecedenceGroup | CompoundTerm | AutoBlock => true,
+            Root | Source | CurlyBraces | Parentheses => false,
         }
     }
     pub(crate) fn placeholder_open_token(self, error: ExpressionBoundaryError) -> Token {
@@ -221,14 +216,14 @@ impl ExpressionBoundary {
         match self {
             CurlyBraces => identifier_string(OPEN_CURLY),
             Parentheses => identifier_string(OPEN_PAREN),
-            PrecedenceGroup | CompoundTerm | Source | Root => "",
+            PrecedenceGroup | AutoBlock | CompoundTerm | Source | Root => "",
         }
     }
     pub(crate) fn close_string(self) -> &'static str {
         match self {
             CurlyBraces => identifier_string(CLOSE_CURLY),
             Parentheses => identifier_string(CLOSE_PAREN),
-            PrecedenceGroup | CompoundTerm | Source | Root => "",
+            PrecedenceGroup | AutoBlock | CompoundTerm | Source | Root => "",
         }
     }
 }
@@ -270,223 +265,5 @@ impl fmt::Display for Fixity {
             Postfix => "postfix",
         };
         write!(f, "{}", fixity)
-    }
-}
-
-impl From<TermToken> for Token {
-    fn from(token: TermToken) -> Self {
-        match token {
-            TermToken::IntegerLiteral(literal) => IntegerLiteral(literal),
-            TermToken::RawIdentifier(field) => RawIdentifier(field),
-            TermToken::FieldReference(field) => FieldReference(field),
-            TermToken::ErrorTerm(code) => ErrorTerm(code),
-            TermToken::MissingExpression => MissingExpression,
-        }
-    }
-}
-
-impl TermToken {
-    pub fn try_from(token: Token) -> Option<Self> {
-        match token {
-            IntegerLiteral(literal) => Some(TermToken::IntegerLiteral(literal)),
-            ErrorTerm(code) => Some(TermToken::ErrorTerm(code)),
-            MissingExpression => Some(TermToken::MissingExpression),
-            RawIdentifier(identifier) => Some(TermToken::RawIdentifier(identifier)),
-            FieldReference(field) => Some(TermToken::FieldReference(field)),
-            InfixOperator(_)
-            | InfixAssignment(_)
-            | NewlineSequence
-            | MissingInfix
-            | PrefixOperator(_)
-            | Open { .. }
-            | OpenBlock { .. }
-            | PostfixOperator(_)
-            | Close { .. }
-            | CloseBlock { .. } => None,
-        }
-    }
-}
-
-impl From<InfixToken> for Token {
-    fn from(token: InfixToken) -> Self {
-        match token {
-            InfixToken::InfixOperator(identifier) => InfixOperator(identifier),
-            InfixToken::InfixAssignment(identifier) => InfixAssignment(identifier),
-            InfixToken::NewlineSequence => NewlineSequence,
-            InfixToken::MissingInfix => MissingInfix,
-        }
-    }
-}
-impl InfixToken {
-    pub fn try_from(token: Token) -> Option<Self> {
-        match token {
-            InfixOperator(identifier) => Some(InfixToken::InfixOperator(identifier)),
-            InfixAssignment(identifier) => Some(InfixToken::InfixAssignment(identifier)),
-            NewlineSequence => Some(InfixToken::NewlineSequence),
-            MissingInfix => Some(InfixToken::MissingInfix),
-            IntegerLiteral(_)
-            | RawIdentifier(_)
-            | FieldReference(_)
-            | ErrorTerm(_)
-            | MissingExpression
-            | PrefixOperator(_)
-            | Open { .. }
-            | OpenBlock { .. }
-            | PostfixOperator(_)
-            | Close { .. }
-            | CloseBlock { .. } => None,
-        }
-    }
-    pub fn precedence(self) -> Precedence {
-        use syntax::InfixToken::*;
-        use syntax::Precedence::*;
-        use syntax::identifiers::*;
-        match self {
-            InfixOperator(operator) => match operator {
-                STAR | SLASH => TimesDivide,
-                EQUAL_TO | NOT_EQUAL_TO | GREATER_THAN | GREATER_EQUAL | LESS_THAN | LESS_EQUAL => {
-                    Comparison
-                }
-                AND_AND => And,
-                OR_OR => Or,
-                SEMICOLON => SemicolonSequence,
-                _ => Precedence::default(),
-            },
-            InfixAssignment(_) => Assign,
-            InfixToken::NewlineSequence => Precedence::NewlineSequence,
-            _ => Precedence::default(),
-        }
-    }
-    pub fn takes_right_child(self, right: InfixToken) -> bool {
-        self.precedence().takes_right_child(right.precedence())
-    }
-    pub fn takes_left_child(self, left: InfixToken) -> bool {
-        self.precedence().takes_left_child(left.precedence())
-    }
-}
-
-impl From<PrefixToken> for Token {
-    fn from(token: PrefixToken) -> Self {
-        match token {
-            PrefixToken::PrefixOperator(identifier) => PrefixOperator(identifier),
-            PrefixToken::Open {
-                boundary,
-                delta,
-                error,
-            } => Open {
-                boundary,
-                delta,
-                error,
-            },
-            PrefixToken::OpenBlock {
-                delta,
-                index,
-                error,
-            } => OpenBlock {
-                delta,
-                index,
-                error,
-            },
-        }
-    }
-}
-impl PrefixToken {
-    pub fn try_from(token: Token) -> Option<Self> {
-        match token {
-            PrefixOperator(identifier) => Some(PrefixToken::PrefixOperator(identifier)),
-            Open {
-                boundary,
-                delta,
-                error,
-            } => Some(PrefixToken::Open {
-                boundary,
-                delta,
-                error,
-            }),
-            OpenBlock {
-                delta,
-                index,
-                error,
-            } => Some(PrefixToken::OpenBlock {
-                delta,
-                index,
-                error,
-            }),
-            IntegerLiteral(_)
-            | RawIdentifier(_)
-            | FieldReference(_)
-            | ErrorTerm(_)
-            | MissingExpression
-            | InfixOperator(_)
-            | InfixAssignment(_)
-            | NewlineSequence
-            | MissingInfix
-            | PostfixOperator(_)
-            | Close { .. }
-            | CloseBlock { .. } => None,
-        }
-    }
-}
-
-impl From<PostfixToken> for Token {
-    fn from(token: PostfixToken) -> Self {
-        match token {
-            PostfixToken::PostfixOperator(identifier) => PostfixOperator(identifier),
-            PostfixToken::Close {
-                boundary,
-                delta,
-                error,
-            } => Close {
-                boundary,
-                delta,
-                error,
-            },
-            PostfixToken::CloseBlock {
-                delta,
-                index,
-                error,
-            } => CloseBlock {
-                delta,
-                index,
-                error,
-            },
-        }
-    }
-}
-impl PostfixToken {
-    pub fn try_from(token: Token) -> Option<Self> {
-        match token {
-            PostfixOperator(identifier) => Some(PostfixToken::PostfixOperator(identifier)),
-            Close {
-                boundary,
-                delta,
-                error,
-            } => Some(PostfixToken::Close {
-                boundary,
-                delta,
-                error,
-            }),
-            CloseBlock {
-                delta,
-                index,
-                error,
-            } => Some(PostfixToken::CloseBlock {
-                delta,
-                index,
-                error,
-            }),
-            IntegerLiteral(_)
-            | RawIdentifier(_)
-            | FieldReference(_)
-            | ErrorTerm(_)
-            | MissingExpression
-            | InfixOperator(_)
-            | InfixAssignment(_)
-            | NewlineSequence
-            | MissingInfix
-            | PrefixOperator(_)
-            | Open { .. }
-            | OpenBlock { .. } => None,
-        }
     }
 }

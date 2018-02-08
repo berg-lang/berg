@@ -23,6 +23,13 @@ pub struct Operand {
     pub position: OperandPosition,
 }
 
+#[derive(Debug, Clone)]
+enum AssignmentTarget<'a> {
+    Local(FieldIndex, Expression),
+    DeclareLocal(FieldIndex, Expression),
+    Object(BergVal<'a>, IdentifierIndex, Operand, Expression)
+}
+
 impl fmt::Debug for Expression {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "Expression({})", (self.0).0)
@@ -47,6 +54,7 @@ impl Expression {
             MissingExpression => Ok(BergVal::Nothing),
 
             InfixOperator(SEMICOLON) => self.evaluate_semicolon(scope, ast),
+            InfixOperator(COLON) => self.evaluate_colon(scope, ast),
             InfixOperator(operator) => self.evaluate_infix(operator, scope, ast),
             InfixAssignment(operator) => self.evaluate_infix_assign(operator, scope, ast),
             NewlineSequence => self.evaluate_infix(NEWLINE, scope, ast),
@@ -142,6 +150,27 @@ impl Expression {
             },
             _ => target.get(scope, ast)?.infix(operator, scope, right, ast).take_error(ast, self),
         };
+        target.set(value, scope, ast)
+    }
+
+    fn evaluate_colon<'a>(
+        self,
+        scope: &mut ScopeRef<'a>,
+        ast: &AstRef<'a>,
+    ) -> BergResult<'a> {
+        // Declare the variable so it can self-reference if needed.
+        let mut target = AssignmentTarget::from_expression(self.left_operand(ast)?.expression, scope, ast)?.in_declaration();
+        target.declare(scope, ast)?;
+
+        // Because the right operand of colon is a block, we want to test if it has a MissingExpression Right Now.
+        let right = self.right_operand(ast)?;
+        assert!(match *right.expression.token(ast) { Token::OpenBlock{..} => true, _ => false });
+        if let Token::MissingExpression = *right.expression.inner_expression(ast).token(ast) {
+            return BergError::MissingOperand.take_error(ast, self);
+        }
+
+        // Now just evaluate and assign!
+        let value = self.right_operand(ast)?.evaluate_local(scope, ast);
         target.set(value, scope, ast)
     }
 
@@ -439,13 +468,6 @@ impl Expression {
     }
 }
 
-#[derive(Debug, Clone)]
-enum AssignmentTarget<'a> {
-    Local(FieldIndex, Expression),
-    DeclareLocal(FieldIndex, Expression),
-    Object(BergVal<'a>, IdentifierIndex, Operand, Expression)
-}
-
 impl<'a> AssignmentTarget<'a> {
     fn from_expression(
         expression: Expression,
@@ -474,6 +496,14 @@ impl<'a> AssignmentTarget<'a> {
                 }
             }
             _ => BergError::AssignmentTargetMustBeIdentifier.take_error(ast, expression),
+        }
+    }
+
+    fn in_declaration(self) -> Self {
+        use eval::expression::AssignmentTarget::*;
+        match self {
+            Local(field, expression) => DeclareLocal(field, expression),
+            value => value
         }
     }
 

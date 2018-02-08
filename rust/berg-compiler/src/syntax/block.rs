@@ -4,14 +4,8 @@ use std::u32;
 use syntax::{AstRef, ExpressionBoundary, IdentifierIndex};
 
 index_type! {
-    pub struct BlockIndex(pub u32) <= u32::MAX;
-    pub struct FieldIndex(pub u32) <= u32::MAX;
-}
-
-#[derive(Clone, Debug)]
-pub struct Field {
-    pub name: IdentifierIndex,
-    pub is_public: bool,
+    pub struct BlockIndex(pub u32) with Display,Debug <= u32::MAX;
+    pub struct FieldIndex(pub u32) with Display,Debug <= u32::MAX;
 }
 
 #[derive(Debug)]
@@ -20,6 +14,12 @@ pub struct AstBlock {
     pub parent: Delta<BlockIndex>,
     pub scope_start: FieldIndex,
     pub scope_count: Delta<FieldIndex>,
+}
+
+#[derive(Clone, Debug)]
+pub struct Field {
+    pub name: IdentifierIndex,
+    pub is_public: bool,
 }
 
 #[derive(Copy, Clone, Debug)]

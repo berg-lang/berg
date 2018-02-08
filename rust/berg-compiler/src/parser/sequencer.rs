@@ -105,7 +105,7 @@ impl<'a> Sequencer<'a> {
         let term_is_about_to_end = {
             let char_type = scanner.peek(buffer);
             char_type.is_space() || char_type.is_close() || char_type.is_separator()
-                || (char_type == Colon && !scanner.peek_at(buffer, 1).is_right_term_operand())
+                || (char_type == Colon && !scanner.peek_at(buffer, 1).is_always_right_operand())
         };
 
         let range = start..scanner.index;
@@ -149,7 +149,7 @@ impl<'a> Sequencer<'a> {
         let range = start..scanner.index;
         let identifier = self.make_identifier(&buffer[&range]);
         if (!self.tokenizer.in_term || self.tokenizer.operator)
-            && scanner.peek(buffer).is_right_term_operand()
+            && scanner.peek(buffer).is_always_right_operand()
         {
             self.tokenizer
                 .on_term_token(PrefixOperator(identifier), range);
@@ -386,7 +386,7 @@ impl CharType {
         }
     }
 
-    pub(crate) fn is_right_term_operand(self) -> bool {
+    pub(crate) fn is_always_right_operand(self) -> bool {
         self.is_always_operand() || self.is_open()
     }
 }

@@ -1,10 +1,11 @@
 use syntax::AstData;
 use syntax::{AstIndex, ExpressionBoundary, ExpressionBoundaryError, Fixity};
 use syntax::ExpressionBoundary::*;
-use parser::{ByteIndex, ByteRange, SourceRef};
+use parser::{ByteRange, SourceRef};
 use parser::binder::Binder;
-use syntax::{InfixToken, Token};
+use syntax::Token;
 use syntax::Token::*;
+use syntax::identifiers::COLON;
 
 // Handles nesting and precedence: balances (), {}, and compound terms, and
 // inserts "precedence groups," and removes compound terms and precedence
@@ -17,7 +18,7 @@ pub struct Grouper<'a> {
 
 #[derive(Debug)]
 struct OpenExpression {
-    infix: Option<(InfixToken, AstIndex)>,
+    infix: Option<(Token, AstIndex)>,
     open_index: AstIndex,
     boundary: ExpressionBoundary,
 }
@@ -42,22 +43,35 @@ impl<'a> Grouper<'a> {
             // Push the newly opened group onto open_expressions
             Open {
                 boundary, error, ..
-            } => self.on_open(boundary, error, range),
+            } => self.on_open_token(boundary, error, range),
             // Delay the close token so that we can see the next infix.
             Close {
                 boundary, error, ..
-            } => self.on_close(boundary, error, range),
+            } => self.on_close_token(boundary, error, range),
 
             // Infix tokens may have left->right or right->left precedence.
             InfixOperator(_) | InfixAssignment(_) | NewlineSequence | MissingInfix => {
                 // Open or close PrecedenceGroups as necessary based on this infix.
-                let infix = token.to_infix().unwrap();
-                self.handle_precedence(infix, range.start);
+                let range_end = range.end;
+                // Close parent groups that don't want us as a child.
+                while !self.open_expression_wants_child(token) {
+                    self.close(range.start..range.start, ExpressionBoundaryError::None);
+                }
+                // Open a precedence group if it's needed.
+                self.open_precedence_group_if_needed(token);
 
-                // Add the infix.
-                let infix_index = self.push_token(token, range);
-                // Set this as the last infix for future precedence checking
-                self.open_expressions.last_mut().unwrap().infix = Some((infix, infix_index));
+                // Add the infix token, lest we forget!
+                let index = self.push_token(token, range);
+
+                // Set this as the last infix of the current open expression.
+                self.open_expressions.last_mut().unwrap().infix = Some((token, index));
+
+                // If the operator is a colon, we open an auto block because :
+                // is defined to create a block. It will be automatically closed
+                // by the next close token or lower precedence operator.
+                if let InfixOperator(COLON) = token {
+                    self.on_open_token(AutoBlock, ExpressionBoundaryError::None, range_end..range_end);
+                }
             }
 
             _ => {
@@ -71,98 +85,87 @@ impl<'a> Grouper<'a> {
         self.binder.on_source_end()
     }
 
-    fn handle_precedence(&mut self, next_infix: InfixToken, next_infix_start: ByteIndex) {
+    fn open_precedence_group_if_needed(&mut self, next_infix: Token) {
+        // Close any parent precedence groups unless they want this infix as a child.
+        // If we are a right child of the parent, we need to wrap ourselves
+        // in an "invisible parentheses" (a precedence subexpression).
+        // e.g. 1+2*3 -> 1+2 -> 1+(2* ...
+        // e.g. 1*2>3+4 -> 1*2>(3+ ...
+        // e.g. 1+2>3*4 -> 1+2>(3* ...
+        // e.g. 1>2+3*4 -> 1>(2+(3* ...
         if let Some((infix, index)) = self.open_expression().infix {
-            // The normal order of things is that infixes run left to right.
-            // If the next infix binds *tighter* than current, wrap it in a
-            // "invisible parentheses" (a precedence subexpression).
-            // e.g. 1+2*3 -> 1+2 -> 1+(2* ...
-            // e.g. 1*2>3+4 -> 1*2>(3+ ...
-            // e.g. 1+2>3*4 -> 1+2>(3* ...
-            // e.g. 1>2+3*4 -> 1>(2+(3* ...
             if infix.takes_right_child(next_infix) {
-                let boundary = PrecedenceGroup;
-                let open_index = index + 1;
                 self.open_expressions.push(OpenExpression {
-                    open_index,
-                    boundary,
+                    open_index: index + 1,
+                    boundary: PrecedenceGroup,
                     infix: None,
                 });
-            } else {
-                // If the current expression is precedence, and its *parent* doesn't
-                // want the next infix as a child, we have to close off the invisible
-                // parentheses. Repeat as necessary.
-                // 1+2*3>4 = 1+(2*3 -> 1+(2*3)>...
-                while self.open_expression().boundary == PrecedenceGroup {
-                    if let Some((parent_infix, _)) = self.parent_expression().infix {
-                        if parent_infix.takes_right_child(next_infix) {
-                            break;
-                        } else {
-                            self.close(
-                                next_infix_start..next_infix_start,
-                                ExpressionBoundaryError::None,
-                            );
-                        }
-                    }
-                }
             }
         }
     }
 
+    fn open_expression_wants_child(&self, next_infix: Token) -> bool {
+        use syntax::ExpressionBoundary::*;
+        let infix = match self.open_expression().boundary {
+            // The autoblock wants whatever its *parent* infix wants.
+            AutoBlock => self.open_expressions[self.open_expressions.len()-2].infix,
+            PrecedenceGroup => self.open_expression().infix,
+            _ => return true,
+        };
+        if let Some((infix, _)) = infix {
+            infix.takes_right_child(next_infix)
+        } else {
+            true
+        }
+    }
+
     fn open_expression(&self) -> &OpenExpression {
-        self.open_expressions.last().unwrap()
+        &self.open_expressions.last().unwrap()
     }
 
-    fn parent_expression(&self) -> &OpenExpression {
-        &self.open_expressions[self.open_expressions.len() - 2]
-    }
-
-    fn on_close(
+    fn on_close_token(
         &mut self,
         boundary: ExpressionBoundary,
         error: ExpressionBoundaryError,
         range: ByteRange,
     ) {
-        // Close lesser subexpressions: File > Parentheses > CompoundTerm > PrecedenceGroup
         loop {
             use std::cmp::Ordering::*;
             let open_boundary = self.open_expression().boundary;
             match boundary.partial_cmp(&open_boundary).unwrap() {
+                // If we are HIGHER priority than the current expression (e.g. "( ... }"), the top
+                // expression must be closed even though it is unmatched.
                 Greater => {
-                    // Close and continue. Report "open without close" if parentheses get closed early
-                    match open_boundary {
-                        Source | Parentheses | CurlyBraces => self.close(
-                            range.start..range.start,
-                            ExpressionBoundaryError::OpenWithoutClose,
-                        ),
-                        CompoundTerm | PrecedenceGroup => {
-                            self.close(range.start..range.start, ExpressionBoundaryError::None)
-                        }
-                        Root => unreachable!(),
-                    }
+                    let error = if open_boundary.is_closed_automatically() {
+                        ExpressionBoundaryError::None
+                    } else {
+                        ExpressionBoundaryError::OpenWithoutClose
+                    };
+                    self.close(range.start..range.start, error);
                 }
+                // If they are the same, then we treat them as the same exact pair. This closes
+                // the boundary.
                 Equal => {
                     self.close(range, error);
                     break;
                 }
+                // If we are LOWER priority than the current expression (e.g. "{ ... )"), the close
+                // token is unmatched and will be opened right after the open of the parent expression
+                // and ).
                 Less => {
-                    match boundary {
-                        Source | Parentheses | CurlyBraces => {
-                            let error = ExpressionBoundaryError::CloseWithoutOpen;
-                            // Insert a fake open token to match the close token
-                            let open_index = {
-                                let parent = self.open_expression();
-                                match parent.boundary {
-                                    CompoundTerm | PrecedenceGroup => parent.open_index,
-                                    Source | Parentheses | CurlyBraces => parent.open_index + 1,
-                                    Root => unreachable!(),
-                                }
-                            };
-                            self.insert_token_pair(open_index, boundary, error, range);
-                        }
-                        CompoundTerm | PrecedenceGroup => {}
-                        Root => unreachable!(),
-                    }
+                    let error = if boundary.is_required() {
+                        ExpressionBoundaryError::CloseWithoutOpen
+                    } else {
+                        ExpressionBoundaryError::None
+                    };
+                    // Get the next index after the parent (if the parent hasn't been inserted yet, we
+                    // insert at the parent's intended location).
+                    let open_index = if open_boundary.is_required() {
+                        self.open_expression().open_index + 1
+                    } else {
+                        self.open_expression().open_index
+                    };
+                    self.insert_token_pair(open_index, boundary, error, range);
                     break;
                 }
             }
@@ -170,32 +173,12 @@ impl<'a> Grouper<'a> {
     }
 
     fn close(&mut self, range: ByteRange, error: ExpressionBoundaryError) {
-        let expression = self.open_expressions.pop().unwrap();
-        if expression.boundary == CompoundTerm
-            && !(expression.infix.is_some() && self.open_expression().infix.is_some())
-        {
-            // Unnecessary CompoundTerms, we silently remove.
-            // TODO report error on unnecessary parentheses like (a+b)+c? Would let user know the
-            // grouping is fine as-is, and we have few enough precedences that parens aren't needed for clarity generally.
-            return;
-        }
-
-        match expression.boundary {
-            CompoundTerm | PrecedenceGroup => {
+        if let Some(expression) = self.pop() {
+            if expression.boundary.is_required() {
+                self.push_close_token(&expression, error, range);
+            } else {
                 self.insert_token_pair(expression.open_index, expression.boundary, error, range);
             }
-            Source | Parentheses | CurlyBraces => {
-                // If we're fixing a missing open/close { or (, we may be creating an *empty* one, which
-                // require a MissingExpression between them.
-                // TODO the comments are probably right we need to deal with missing open as well here.
-                // Think it through and implement (or change the comment).
-                if error == ExpressionBoundaryError::OpenWithoutClose {
-                    self.push_token(MissingExpression, range.start..range.start);
-                }
-
-                self.push_close_token(&expression, error, range);
-            }
-            Root => unreachable!(),
         }
     }
 
@@ -203,7 +186,7 @@ impl<'a> Grouper<'a> {
         &mut self,
         open_index: AstIndex,
         boundary: ExpressionBoundary,
-        infix: Option<(InfixToken, AstIndex)>,
+        infix: Option<(Token, AstIndex)>,
     ) {
         let open_expression = OpenExpression {
             open_index,
@@ -302,7 +285,7 @@ impl<'a> Grouper<'a> {
         index
     }
 
-    fn on_open(
+    fn on_open_token(
         &mut self,
         boundary: ExpressionBoundary,
         error: ExpressionBoundaryError,
@@ -310,11 +293,54 @@ impl<'a> Grouper<'a> {
     ) {
         let open_index = self.ast().next_index();
         self.push_open_expression(open_index, boundary, None);
-        if match boundary {
-            Source | CurlyBraces | Parentheses => true,
-            _ => false,
-        } {
+        if boundary.is_required() {
             self.push_open_token(boundary, error, open_range);
+        }
+    }
+
+    /// Tells whether this expression is needed for precedence reasons.
+    /// Returns the popped expression, or None if the expression does not
+    /// need to be inserted into the tree.
+    fn pop(&mut self) -> Option<OpenExpression> {
+        let open_expression = self.open_expressions.pop().unwrap();
+        match open_expression.boundary {
+            // We don't need precedence groups unless they help.
+            ExpressionBoundary::PrecedenceGroup => {
+                match open_expression.infix {
+                    Some((infix,infix_index)) => {
+                        let parent_index = self.open_expressions.len() - 1;
+                        let parent = &mut self.open_expressions[parent_index];
+                        match parent.infix {
+                            // If this parent has an infix and takes us as a right child, we are definitely needed.
+                            Some((parent_infix,_)) if parent_infix.takes_right_child(infix) => Some(open_expression),
+                            // If the parent has no infix, or if our infix is the new parent, we are not needed,
+                            // but we do need to give our infix to the parent.
+                            Some(_)|None => {
+                                parent.infix = Some((infix,infix_index));
+                                None
+                            }
+                        }
+                    },
+                    // We have no infix at all, so we aren't needed to resolve precedence. Yay!
+                    None => None,
+                }
+            }
+            ExpressionBoundary::CompoundTerm => {
+                // We elide compound terms that have only prefixes and terms.
+                let mut index = open_expression.open_index;
+                while self.ast().tokens[index].fixity() == Fixity::Prefix {
+                    index += 1;
+                }
+                match self.ast().tokens[index].fixity() {
+                    Fixity::Term if index == self.ast().tokens.last_index() => None,
+                    Fixity::Open if index + self.ast().tokens[index].delta() == self.ast().tokens.last_index() => None,
+                    _ => Some(open_expression)
+                }
+            }
+            _ => {
+                assert!(open_expression.boundary.is_required());
+                Some(open_expression)
+            }
         }
     }
 }

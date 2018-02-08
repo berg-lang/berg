@@ -16,7 +16,7 @@ use util::type_name::TypeName;
 use value::{BergVal, BergValue};
 
 index_type! {
-    pub struct ByteIndex(pub u32) <= u32::MAX;
+    pub struct ByteIndex(pub u32) with Display,Debug <= u32::MAX;
 }
 pub type ByteSlice = IndexedSlice<u8, ByteIndex>;
 pub type ByteRange = Range<ByteIndex>;

@@ -2,19 +2,20 @@ use error::BergError;
 use eval::{Expression, RootRef};
 use parser::{ByteRange, SourceRef};
 use std::borrow::Cow;
-use std::{io, u32};
+use std::io;
 use std::rc::Rc;
-use syntax::{AstBlock, BlockIndex, Field, FieldIndex};
+use std::u32;
+use syntax::identifiers;
 use syntax::char_data::CharData;
-use syntax::Token;
+use syntax::{AstBlock, BlockIndex, Field, FieldIndex, Token};
 use syntax::OperandPosition::*;
 use util::indexed_vec::IndexedVec;
 use util::intern_pool::{InternPool, StringPool};
 
 index_type! {
-    pub struct AstIndex(pub u32) <= u32::MAX;
+    pub struct AstIndex(pub u32) with Display,Debug <= u32::MAX;
     pub struct IdentifierIndex(pub u32) <= u32::MAX;
-    pub struct LiteralIndex(pub u32) <= u32::MAX;
+    pub struct LiteralIndex(pub u32) with Display,Debug <= u32::MAX;
 }
 
 pub type Tokens = IndexedVec<Token, AstIndex>;
@@ -143,6 +144,7 @@ impl<'a> fmt::Debug for AstRef<'a> {
 
 impl<'a> AstData<'a> {
     pub fn push_token(&mut self, token: Token, range: ByteRange) -> AstIndex {
+        println!("PUSH {:?}", token);
         self.tokens.push(token);
         self.token_ranges.push(range)
     }
@@ -192,5 +194,24 @@ impl fmt::Display for OperandPosition {
             Right | PrefixOperand => "right side",
         };
         write!(f, "{}", string)
+    }
+}
+
+impl fmt::Display for IdentifierIndex {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        if self.0 < identifiers::LEN as u32 {
+            write!(f, "{}", identifiers::identifier_string(*self))
+        } else {
+            write!(f, "#{}", self.0)
+        }
+    }
+}
+impl fmt::Debug for IdentifierIndex {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        if self.0 < identifiers::LEN as u32 {
+            write!(f, "{}", identifiers::identifier_string(*self))
+        } else {
+            write!(f, "#{}", self.0)
+        }
     }
 }

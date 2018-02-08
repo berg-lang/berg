@@ -17,22 +17,18 @@ use std::slice::{Iter, IterMut};
 
 #[macro_export]
 macro_rules! index_type {
-    ($(pub struct $name:ident(pub $($type:tt)*) <= $max:expr;)*) => {
+    ($(pub struct $name:ident(pub $($type:tt)*) $(with $($trait:tt),*)* <= $max:expr ;)*) => {
         use util::indexed_vec::{Delta,IndexType};
         use std::fmt;
         use std::ops::{Add,AddAssign,Sub,SubAssign};
         use std::cmp::Ordering;
         $(
-            #[derive(Debug,Copy,Clone,Default,PartialEq,Eq,PartialOrd,Ord,Hash)]
+            #[derive(Copy,Clone,Default,PartialEq,Eq,PartialOrd,Ord,Hash)]
             pub struct $name(pub $($type)*);
             impl PartialEq<usize> for $name {
                 fn eq(&self, other: &usize) -> bool { (self.0 as usize).eq(other) }
             }
-            impl fmt::Display for $name {
-                fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-                    write!(f, "{}", self.0)
-                }
-            }
+            $($(index_type! { @trait $name $trait })*)*
             impl PartialOrd<usize> for $name {
                 fn partial_cmp(&self, other: &usize) -> Option<Ordering> {
                     (self.0 as usize).partial_cmp(other)
@@ -56,7 +52,21 @@ macro_rules! index_type {
             impl SubAssign<usize> for $name { fn sub_assign(&mut self, value: usize) { *self = *self - value } }
             impl SubAssign<Delta<Self>> for $name { fn sub_assign(&mut self, value: Delta<Self>) { *self = *self - value } }
         )*
-    }
+    };
+    (@trait $name:ident Display) => {
+        impl fmt::Display for $name {
+            fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+                write!(f, "{}", self.0)
+            }
+        }
+    };
+    (@trait $name:ident Debug) => {
+        impl fmt::Debug for $name {
+            fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+                write!(f, "{}({})", stringify!($name), self.0)
+            }
+        }
+    };
 }
 
 #[derive(Debug, Copy, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]

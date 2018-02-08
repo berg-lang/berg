@@ -1,8 +1,8 @@
 pub use syntax::char_data::LineColumnRange;
 pub(crate) use syntax::ast::{AstData,AstDelta,AstIndex,AstRef,IdentifierIndex,LiteralIndex,OperandPosition};
 pub(crate) use syntax::block::{AstBlock,BlockIndex,Field,FieldIndex};
-pub(crate) use syntax::token::{ExpressionBoundary,ExpressionBoundaryError,Fixity,InfixToken,Token};
-pub(crate) use syntax::precedence::Precedence;
+pub(crate) use syntax::token::{ExpressionBoundary,ExpressionBoundaryError,Fixity,Token};
+use syntax::precedence::Precedence;
 pub mod identifiers;
 
 mod ast;

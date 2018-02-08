@@ -14,6 +14,7 @@ impl<'p, 'a: 'p> ExpressionFormatter<'p, 'a> {
             _ => unreachable!(),
         };
         match boundary {
+            ExpressionBoundary::AutoBlock => ("prec{", "}"),
             ExpressionBoundary::PrecedenceGroup => ("prec(", ")"),
             ExpressionBoundary::CompoundTerm => ("term(", ")"),
             ExpressionBoundary::Parentheses => ("(", ")"),
@@ -87,7 +88,7 @@ impl<'p, 'a: 'p> ExpressionTreeFormatter<'p, 'a> {
     fn fmt_self(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let ExpressionTreeFormatter(expression, ast, level) = *self;
         let token = expression.token(ast);
-        write!(f, "{:level$}", "  ", level=level)?;
+        write!(f, "{:level$}", " ", level=level*2)?;
         match token.fixity() {
             Fixity::Open | Fixity::Close => write!(
                 f,
