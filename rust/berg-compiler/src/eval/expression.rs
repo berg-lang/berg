@@ -1,12 +1,10 @@
 use error::{BergError, Error, BergResult, EvalResult, Raw, TakeError};
 use eval::{ExpressionFormatter, ScopeRef};
 use num::BigRational;
-use parser::{ByteRange, ByteSlice};
-use std::borrow::Cow;
 use std::fmt;
 use std::str::FromStr;
-use syntax::{AstIndex, AstRef, ExpressionBoundary, ExpressionBoundaryError, FieldIndex, Fixity, IdentifierIndex,
-             OperandPosition, Token};
+use syntax::{AstIndex, AstRef, ByteRange, ExpressionBoundary, ExpressionBoundaryError, FieldIndex, Fixity, IdentifierIndex,
+             OperandPosition, SourceReconstruction, Token};
 use syntax::Fixity::*;
 use syntax::OperandPosition::*;
 use syntax::identifiers::{CALL, COLON, DASH_DASH, DOT, EMPTY_STRING, NEWLINE, PLUS_PLUS, SEMICOLON};
@@ -48,9 +46,9 @@ impl Expression {
                 Ok(BergVal::BigRational(parsed))
             },
             FieldReference(field) => scope.local_field(field, ast).take_error(ast, self),
-            ErrorTerm(IdentifierStartsWithNumber) => BergError::IdentifierStartsWithNumber.take_error(ast, self),
-            ErrorTerm(UnsupportedCharacters) => BergError::UnsupportedCharacters.take_error(ast, self),
-            ErrorTerm(InvalidUtf8) => BergError::InvalidUtf8.take_error(ast, self),
+            ErrorTerm(IdentifierStartsWithNumber, literal) => BergError::IdentifierStartsWithNumber(literal).take_error(ast, self),
+            ErrorTerm(UnsupportedCharacters, literal) => BergError::UnsupportedCharacters(literal).take_error(ast, self),
+            RawErrorTerm(InvalidUtf8, raw_literal) => BergError::InvalidUtf8(raw_literal).take_error(ast, self),
             MissingExpression => Ok(BergVal::Nothing),
 
             InfixOperator(SEMICOLON) => self.evaluate_semicolon(scope, ast),
@@ -94,7 +92,7 @@ impl Expression {
             Open { error: None, .. } => self.inner_expression(ast).evaluate_local(scope, ast),
             OpenBlock { error: None, index, .. } => Ok(scope.create_child_block(self.inner_expression(ast), index).into()),
             RawIdentifier(name) => Ok(name.into()),
-            Close { .. } | CloseBlock { .. } | ErrorTerm(_) => unreachable!(),
+            Close { .. } | CloseBlock { .. } | ErrorTerm(..) | RawErrorTerm(..) => unreachable!(),
         };
         println!("Result of {}: {:?}", ExpressionFormatter(self, ast), result);
         result
@@ -456,15 +454,8 @@ impl Expression {
         Expression(self.close_operator(ast)).left_expression(ast)
     }
 
-    pub(crate) fn to_string<'a>(&self, ast: &'a AstRef) -> Cow<'a, str> {
-        if self.token(ast).fixity() == Fixity::Term {
-            self.token(ast).to_string(ast).into()
-        } else {
-            // TODO this is terrible, but until we save comments and spaces in the AST (which we should),
-            // we have to reopen the source
-            let buffer = ast.source().reopen();
-            cow_range_from_utf8_lossy(buffer, self.range(ast))
-        }
+    pub(crate) fn to_string<'p, 'a: 'p>(&self, ast: &'p AstRef<'a>) -> String {
+        SourceReconstruction::new(ast, self.range(ast)).to_string()
     }
 }
 
@@ -585,15 +576,5 @@ impl Operand {
     }
     pub fn operator(&self) -> AstIndex {
         self.expression.operator()
-    }
-}
-
-pub fn cow_range_from_utf8_lossy(input: Cow<ByteSlice>, range: ByteRange) -> Cow<str> {
-    match input {
-        Cow::Borrowed(bytes) => String::from_utf8_lossy(&bytes[range]),
-        Cow::Owned(bytes) => match String::from_utf8_lossy(&bytes[range]) {
-            Cow::Borrowed(s) => s.to_string().into(),
-            Cow::Owned(s) => s.into(),
-        },
     }
 }

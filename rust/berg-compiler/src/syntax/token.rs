@@ -2,7 +2,7 @@ use error::ErrorCode;
 use std::borrow::Cow;
 use syntax::AstRef;
 use syntax::BlockIndex;
-use syntax::{AstDelta, FieldIndex, IdentifierIndex, LiteralIndex};
+use syntax::{AstDelta, FieldIndex, IdentifierIndex, LiteralIndex, RawLiteralIndex};
 use syntax::ExpressionBoundary::*;
 use syntax::Precedence;
 use syntax::token::Token::*;
@@ -15,7 +15,8 @@ pub enum Token {
     IntegerLiteral(LiteralIndex),
     FieldReference(FieldIndex),
     RawIdentifier(IdentifierIndex),
-    ErrorTerm(ErrorCode),
+    ErrorTerm(ErrorCode, LiteralIndex),
+    RawErrorTerm(ErrorCode, RawLiteralIndex),
     MissingExpression,
 
     InfixOperator(IdentifierIndex),
@@ -80,7 +81,7 @@ pub enum ExpressionBoundary {
 impl Token {
     pub fn fixity(self) -> Fixity {
         match self {
-            IntegerLiteral(_) | RawIdentifier(_) | FieldReference(_) | ErrorTerm(_)
+            IntegerLiteral(_) | RawIdentifier(_) | FieldReference(_) | ErrorTerm(..) | RawErrorTerm(..)
             | MissingExpression => Fixity::Term,
             InfixOperator(_) | InfixAssignment(_) | NewlineSequence | MissingInfix => Fixity::Infix,
             PrefixOperator(_) => Fixity::Prefix,
@@ -101,7 +102,7 @@ impl Token {
     pub fn to_string<'p, 'a: 'p>(&'p self, ast: &'p AstRef<'a>) -> Cow<'p, str> {
         match *self {
             IntegerLiteral(literal) => ast.literal_string(literal).into(),
-            ErrorTerm(_) => "error".into(),
+            ErrorTerm(code,..)|RawErrorTerm(code,..) => format!("error({:?})", code).into(),
 
             FieldReference(field) => ast.identifier_string(ast.fields()[field].name).into(),
 

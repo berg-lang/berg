@@ -1,21 +1,24 @@
-use error::BergError;
-use eval::{Expression, RootRef};
-use parser::{ByteRange, SourceRef};
+use util::try_from::TryFrom;
+use util::type_name::TypeName;
+use error::{BergError,BergResult,TakeError};
+use eval::{Expression, ScopeRef, RootRef};
 use std::borrow::Cow;
 use std::io;
 use std::rc::Rc;
 use std::u32;
 use syntax::identifiers;
 use syntax::char_data::CharData;
-use syntax::{AstBlock, BlockIndex, Field, FieldIndex, Token};
+use syntax::{AstBlock, BlockIndex, ByteRange, Field, FieldIndex, SourceReconstruction, SourceReconstructionReader, SourceRef, Token};
 use syntax::OperandPosition::*;
 use util::indexed_vec::IndexedVec;
 use util::intern_pool::{InternPool, StringPool};
+use value::{BergVal, BergValue};
 
 index_type! {
     pub struct AstIndex(pub u32) with Display,Debug <= u32::MAX;
     pub struct IdentifierIndex(pub u32) <= u32::MAX;
     pub struct LiteralIndex(pub u32) with Display,Debug <= u32::MAX;
+    pub struct RawLiteralIndex(pub u32) with Display,Debug <= u32::MAX;
 }
 
 pub type Tokens = IndexedVec<Token, AstIndex>;
@@ -41,6 +44,7 @@ pub struct AstData<'a> {
     pub char_data: CharData,
     pub identifiers: InternPool<IdentifierIndex>, // NOTE: if needed we can save space by removing or clearing the StringPool after making this readonly.
     pub literals: StringPool<LiteralIndex>,
+    pub raw_literals: IndexedVec<Vec<u8>, RawLiteralIndex>,
     pub tokens: Tokens,
     pub token_ranges: TokenRanges,
     pub blocks: IndexedVec<AstBlock, BlockIndex>,
@@ -63,6 +67,7 @@ impl<'a> AstData<'a> {
 
             char_data: Default::default(),
             literals: Default::default(),
+            raw_literals: Default::default(),
             blocks: Default::default(),
             tokens: Default::default(),
             token_ranges: Default::default(),
@@ -87,6 +92,30 @@ impl<'a> AstRef<'a> {
         assert_ne!(self.0.tokens.len(), 0);
         Expression(AstIndex(0))
     }
+    pub fn read_bytes<'p>(&'p self) -> SourceReconstructionReader<'p, 'a> where 'a: 'p {
+        SourceReconstructionReader::new(self, 0.into()..self.char_data().size)
+    }
+    pub fn to_bytes(&self) -> Vec<u8> {
+        SourceReconstruction::new(self, 0.into()..self.char_data().size).to_bytes()
+    }
+    pub fn to_string(&self) -> String {
+        SourceReconstruction::new(self, 0.into()..self.char_data().size).to_string()
+    }
+
+    pub fn evaluate(self) -> BergResult<'a> {
+        let (value, mut scope) = self.evaluate_local()?;
+        value.evaluate(&mut scope)
+    }
+    pub fn evaluate_to<T: TypeName + TryFrom<BergVal<'a>, Error = BergVal<'a>>>(self) -> BergResult<'a, T> {
+        let (value, mut scope) = self.evaluate_local()?;
+        value.evaluate(&mut scope)?.downcast::<T>().take_error(&self, self.expression())
+    }
+    fn evaluate_local(&self) -> BergResult<'a, (BergVal<'a>, ScopeRef<'a>)> {
+        let mut scope = ScopeRef::AstRef(self.clone());
+        let expression = self.expression();
+        let value = expression.evaluate_local(&mut scope, &self)?;
+        Ok((value, scope))
+    }
 
     pub fn char_data(&self) -> &CharData {
         &self.0.char_data
@@ -96,6 +125,9 @@ impl<'a> AstRef<'a> {
     }
     pub fn literals(&self) -> &StringPool<LiteralIndex> {
         &self.0.literals
+    }
+    pub fn raw_literals(&self) -> &IndexedVec<Vec<u8>,RawLiteralIndex> {
+        &self.0.raw_literals
     }
     pub fn tokens(&self) -> &IndexedVec<Token, AstIndex> {
         &self.0.tokens
@@ -144,7 +176,6 @@ impl<'a> fmt::Debug for AstRef<'a> {
 
 impl<'a> AstData<'a> {
     pub fn push_token(&mut self, token: Token, range: ByteRange) -> AstIndex {
-        println!("PUSH {:?}", token);
         self.tokens.push(token);
         self.token_ranges.push(range)
     }

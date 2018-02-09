@@ -1,9 +1,6 @@
-use syntax::AstData;
-use syntax::{AstIndex, ExpressionBoundary, ExpressionBoundaryError, Fixity};
-use syntax::ExpressionBoundary::*;
-use parser::{ByteRange, SourceRef};
 use parser::binder::Binder;
-use syntax::Token;
+use syntax::{AstData, AstIndex, ByteRange, ExpressionBoundary, ExpressionBoundaryError, Fixity, SourceRef, Token};
+use syntax::ExpressionBoundary::*;
 use syntax::Token::*;
 use syntax::identifiers::COLON;
 

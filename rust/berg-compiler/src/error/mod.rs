@@ -1,11 +1,9 @@
 mod result;
-
 pub use error::result::{BergResult, EvalResult, TakeError, UnwindFrame};
 pub use error::EvalError::Raw;
 
-use syntax::{AstRef, FieldIndex, Fixity, IdentifierIndex, LineColumnRange, OperandPosition};
+use syntax::{AstRef, ByteRange, FieldIndex, Fixity, IdentifierIndex, LiteralIndex, RawLiteralIndex, LineColumnRange, OperandPosition};
 use eval::{BlockRef,Expression};
-use parser::ByteRange;
 use std::fmt;
 use value::*;
 
@@ -41,9 +39,9 @@ pub enum BergError<'a> {
     SourceTooLarge(usize),
 
     // Code errors
-    InvalidUtf8,
-    UnsupportedCharacters,
-    IdentifierStartsWithNumber,
+    InvalidUtf8(RawLiteralIndex),
+    UnsupportedCharacters(LiteralIndex),
+    IdentifierStartsWithNumber(LiteralIndex),
     MissingOperand,
     AssignmentTargetMustBeIdentifier,
     OpenWithoutClose,
@@ -176,9 +174,9 @@ impl<'a> Error<'a> {
             ),
 
             // Expression errors
-            InvalidUtf8
-            | UnsupportedCharacters
-            | IdentifierStartsWithNumber
+            InvalidUtf8(..)
+            | UnsupportedCharacters(..)
+            | IdentifierStartsWithNumber(..)
             | AssignmentTargetMustBeIdentifier
             | NoSuchField(..)
             | NoSuchPublicField(..)
@@ -274,10 +272,17 @@ impl<'a> fmt::Display for Error<'a> {
                 ast.source().name(),
                 size
             ),
-            InvalidUtf8 => {
-                write!(f, "Invalid UTF-8! Perhaps this isn't a Berg source file?")
+            InvalidUtf8(raw_literal) => {
+                write!(f, "Invalid UTF-8 bytes! Perhaps this isn't a Berg UTF-8 source file? Invalid bytes: '")?;
+                for byte in &ast.raw_literals()[raw_literal][0..12] {
+                    write!(f, "{:2X}", byte)?;
+                }
+                if ast.raw_literals()[raw_literal].len() > 12 {
+                    write!(f, "...")?;
+                }
+                write!(f, "'")
             }
-            UnsupportedCharacters => write!(f, "Invalid Unicode characters"),
+            UnsupportedCharacters(literal) => write!(f, "Unsupported Unicode characters! Perhaps this isn't a Berg source file? Unsupported characters: '{}'", &ast.literals()[literal]),
             OpenWithoutClose => write!(
                 f,
                 "Open '{}' found without a matching close '{}'.",
@@ -342,10 +347,10 @@ impl<'a> fmt::Display for Error<'a> {
                 "'{}' cannot be modified!",
                 ast.field_name(field_index)
             ),
-            IdentifierStartsWithNumber => write!(
+            IdentifierStartsWithNumber(literal) => write!(
                 f,
-                "Fields must start with letters or '_', but field '{}' starts with a number! Perhaps you meant to reference a field, or were typing a number?",
-                expression.to_string(ast)
+                "Field names must start with letters or '_', but '{}' starts with a number! You may have mistyped the field name, or missed an operator?",
+                &ast.literals()[literal]
             ),
             CircularDependency => write!(
                 f,
@@ -404,9 +409,9 @@ impl<'a> BergError<'a> {
             SourceTooLarge(..) => ErrorCode::SourceTooLarge,
 
             // Expression errors
-            InvalidUtf8 => ErrorCode::InvalidUtf8,
-            UnsupportedCharacters => ErrorCode::UnsupportedCharacters,
-            IdentifierStartsWithNumber => ErrorCode::IdentifierStartsWithNumber,
+            InvalidUtf8(..) => ErrorCode::InvalidUtf8,
+            UnsupportedCharacters(..) => ErrorCode::UnsupportedCharacters,
+            IdentifierStartsWithNumber(..) => ErrorCode::IdentifierStartsWithNumber,
             MissingOperand => ErrorCode::MissingOperand,
             AssignmentTargetMustBeIdentifier => ErrorCode::AssignmentTargetMustBeIdentifier,
             OpenWithoutClose => ErrorCode::OpenWithoutClose,

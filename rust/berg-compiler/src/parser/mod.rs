@@ -1,7 +1,10 @@
 mod binder;
 mod grouper;
 mod sequencer;
-mod source;
 mod tokenizer;
 
-pub use parser::source::{ByteIndex,ByteRange,ByteSlice,SourceRef};
+use syntax::{AstRef, SourceRef};
+
+pub fn parse<'a>(source: &SourceRef<'a>) -> AstRef<'a> {
+    sequencer::Sequencer::parse(source)
+}

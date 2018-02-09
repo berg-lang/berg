@@ -1,8 +1,5 @@
-use parser::source::SourceRef;
-use syntax::{AstBlock, AstData, AstDelta, AstIndex, BlockIndex, ExpressionBoundary,
-             ExpressionBoundaryError, Field, FieldIndex, IdentifierIndex};
-use parser::ByteRange;
-use syntax::Token;
+use syntax::{AstBlock, AstData, AstDelta, AstIndex, BlockIndex, ByteRange, ExpressionBoundary,
+             ExpressionBoundaryError, Field, FieldIndex, IdentifierIndex, SourceRef, Token};
 use syntax::Token::*;
 use syntax::identifiers::*;
 use util::indexed_vec::Delta;

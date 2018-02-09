@@ -8,7 +8,7 @@ pub use error::{BergResult, Error, ErrorCode};
 pub use value::{BergVal, Nothing};
 
 use eval::RootRef;
-use parser::SourceRef;
+use syntax::SourceRef;
 use std::path::Path;
 use std::borrow::Cow;
 

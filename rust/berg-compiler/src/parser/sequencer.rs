@@ -1,10 +1,9 @@
 use error::ErrorCode;
-use parser::{ByteIndex, ByteSlice, SourceRef};
 use parser::sequencer::ByteType::*;
 use parser::sequencer::CharType::*;
 use parser::tokenizer::Tokenizer;
 use std::str;
-use syntax::{AstData, AstRef, IdentifierIndex};
+use syntax::{AstData, AstRef, ByteIndex, ByteSlice, IdentifierIndex, SourceRef};
 use syntax::ExpressionBoundary::*;
 use syntax::Token::*;
 use util::indexed_vec::Delta;
@@ -62,6 +61,8 @@ impl<'a> Sequencer<'a> {
         assert!(start == scanner.index);
         assert!(scanner.index == buffer.len());
 
+        self.ast_mut().char_data.size = scanner.index;
+
         self.tokenizer.on_source_end(scanner.index)
     }
 
@@ -69,15 +70,23 @@ impl<'a> Sequencer<'a> {
         self.tokenizer.ast_mut()
     }
 
-    fn syntax_error(&mut self, error: ErrorCode, start: ByteIndex, scanner: &Scanner) {
+    fn utf8_syntax_error(&mut self, error: ErrorCode, buffer: &ByteSlice, start: ByteIndex, scanner: &Scanner) {
         let range = start..scanner.index;
-        self.tokenizer.on_term_token(ErrorTerm(error), range);
+        let string = unsafe { str::from_utf8_unchecked(&buffer[&range]) };
+        let literal = self.ast_mut().literals.add(string);
+        self.tokenizer.on_term_token(ErrorTerm(error, literal), start..scanner.index);
+    }
+
+    fn raw_syntax_error(&mut self, error: ErrorCode, buffer: &ByteSlice, start: ByteIndex, scanner: &Scanner) {
+        let range = start..scanner.index;
+        let raw_literal = self.ast_mut().raw_literals.push(buffer[&range].into());
+        self.tokenizer.on_term_token(RawErrorTerm(error, raw_literal), range);
     }
 
     fn integer(&mut self, buffer: &ByteSlice, start: ByteIndex, scanner: &mut Scanner) {
         scanner.next_while(Digit, buffer);
         if scanner.next_while_identifier(buffer) {
-            return self.syntax_error(ErrorCode::IdentifierStartsWithNumber, start, scanner);
+            return self.utf8_syntax_error(ErrorCode::IdentifierStartsWithNumber, buffer, start, scanner);
         }
         let range = start..scanner.index;
         let string = unsafe { str::from_utf8_unchecked(&buffer[&range]) };
@@ -181,25 +190,30 @@ impl<'a> Sequencer<'a> {
         }
     }
 
-    fn newline(&mut self, _: &ByteSlice, start: ByteIndex, scanner: &Scanner) {
-        self.ast_mut().char_data.append_line(scanner.index);
+    fn newline(&mut self, buffer: &ByteSlice, start: ByteIndex, scanner: &Scanner) {
+        self.ast_mut().char_data.append_line(buffer, start..scanner.index);
         self.tokenizer
             .on_newline(start, ((scanner.index - start).0).0 as u8)
     }
 
     fn space(&mut self, buffer: &ByteSlice, start: ByteIndex, scanner: &mut Scanner) {
         scanner.next_while(Space, buffer);
+        self.store_spaces_in_char_data(buffer, start, scanner);
         self.tokenizer.on_space(start)
     }
 
     fn unsupported(&mut self, buffer: &ByteSlice, start: ByteIndex, scanner: &mut Scanner) {
         scanner.next_while(Unsupported, buffer);
-        self.syntax_error(ErrorCode::UnsupportedCharacters, start, scanner)
+        self.utf8_syntax_error(ErrorCode::UnsupportedCharacters, buffer, start, scanner)
     }
 
     fn invalid_utf8(&mut self, buffer: &ByteSlice, start: ByteIndex, scanner: &mut Scanner) {
         scanner.next_while(InvalidUtf8, buffer);
-        self.syntax_error(ErrorCode::InvalidUtf8, start, scanner)
+        self.raw_syntax_error(ErrorCode::InvalidUtf8, buffer, start, scanner)
+    }
+
+    fn store_spaces_in_char_data(&mut self, buffer: &ByteSlice, start: ByteIndex, scanner: &mut Scanner) {
+        self.ast_mut().char_data.whitespace.append(unsafe { str::from_utf8_unchecked(&buffer[start..scanner.index]) }, start);
     }
 }
 

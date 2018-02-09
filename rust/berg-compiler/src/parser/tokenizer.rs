@@ -1,8 +1,6 @@
-use parser::source::SourceRef;
-use syntax::{AstData, ExpressionBoundary, ExpressionBoundaryError};
+use syntax::{AstData, ByteIndex, ByteRange, ExpressionBoundary, ExpressionBoundaryError, SourceRef};
 use syntax::Token;
 use syntax::Token::*;
-use parser::{ByteIndex, ByteRange};
 use parser::grouper::Grouper;
 
 // This builds up a valid expression from the incoming sequences, doing two things:
@@ -74,7 +72,7 @@ impl<'a> Tokenizer<'a> {
 
     // Space after a term closes it.
     pub fn on_space(&mut self, start: ByteIndex) {
-        self.close_term(start)
+        self.close_term(start);
     }
 
     // Newline is space, so it closes terms just like space. If the last line ended in a evaluate
