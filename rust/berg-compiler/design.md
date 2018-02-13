@@ -1,7 +1,7 @@
 Interpreter
 -----------
 
-Berg sees each function call as an object (and each object as a function call). Each function manages its own local variables, and functions have pointers to
+Berg sees each function APPLY as an object (and each object as a function APPLY). Each function manages its own local variables, and functions have pointers to
 their parent function (lexically). A function does not exit until its child functions have completed. This means that the stack can be used for both the
 local variables, and for function calls themselves.
 

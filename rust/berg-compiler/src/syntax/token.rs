@@ -22,7 +22,7 @@ pub enum Token {
     InfixOperator(IdentifierIndex),
     InfixAssignment(IdentifierIndex),
     NewlineSequence,
-    MissingInfix,
+    Apply,
 
     PrefixOperator(IdentifierIndex),
     Open {
@@ -83,7 +83,7 @@ impl Token {
         match self {
             IntegerLiteral(_) | RawIdentifier(_) | FieldReference(_) | ErrorTerm(..) | RawErrorTerm(..)
             | MissingExpression => Fixity::Term,
-            InfixOperator(_) | InfixAssignment(_) | NewlineSequence | MissingInfix => Fixity::Infix,
+            InfixOperator(_) | InfixAssignment(_) | NewlineSequence | Apply => Fixity::Infix,
             PrefixOperator(_) => Fixity::Prefix,
             PostfixOperator(_) => Fixity::Postfix,
             Open { .. } | OpenBlock { .. } => Fixity::Open,
@@ -134,7 +134,7 @@ impl Token {
                 CurlyBraces => ast.identifier_string(CLOSE_CURLY).into(),
                 CompoundTerm | PrecedenceGroup | AutoBlock | Source | Root => "".into(),
             },
-            MissingExpression | MissingInfix => "".into(),
+            MissingExpression | Apply => "".into(),
         }
     }
     pub fn takes_right_child(self, right: Token) -> bool {

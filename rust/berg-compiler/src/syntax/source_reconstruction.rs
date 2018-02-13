@@ -1,4 +1,4 @@
-use syntax::{AstRef, AstIndex, ByteIndex, ByteRange, Token};
+use syntax::{AstIndex, AstRef, ByteIndex, ByteRange, Token};
 use syntax::identifiers::*;
 use std::cmp;
 use std::fmt;
@@ -48,8 +48,8 @@ impl<'p, 'a: 'p> SourceReconstruction<'p, 'a> {
 
 impl<'p, 'a: 'p> fmt::Display for SourceReconstruction<'p, 'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let mut iterator = SourceReconstructionIterator::new(self.ast, self.range.clone());
-        while let Some(bytes) = iterator.next() {
+        let iterator = SourceReconstructionIterator::new(self.ast, self.range.clone());
+        for bytes in iterator {
             write!(f, "{}", String::from_utf8_lossy(bytes))?;
         }
         Ok(())
@@ -77,10 +77,10 @@ impl<'p, 'a: 'p> io::Read for SourceReconstructionReader<'p, 'a> {
     fn read(&mut self, buffer: &mut [u8]) -> io::Result<usize> {
         let mut read = 0;
         while let Some(mut bytes) = self.next() {
-            assert!(bytes.len() > 0);
+            assert!(!bytes.is_empty());
 
             read += bytes.read(&mut buffer[read..])?;
-            if bytes.len() > 0 {
+            if !bytes.is_empty() {
                 // If we filled the buffer, stash it and return.
                 self.buffered = Some(bytes);
                 break;
@@ -120,13 +120,15 @@ impl<'p, 'a: 'p> Iterator for SourceReconstructionIterator<'p, 'a> {
 
         // Clip the beginning of the string if it starts earlier than index.
         match start.cmp(&self.index) {
-            cmp::Ordering::Equal => {},
-            cmp::Ordering::Less => { bytes = &bytes[(self.index-start).into()..]; },
+            cmp::Ordering::Equal => {}
+            cmp::Ordering::Less => {
+                bytes = &bytes[(self.index - start).into()..];
+            }
             cmp::Ordering::Greater => unreachable!(),
         }
         // Clip the end of the string if it goes past the end.
-        if self.index+bytes.len() > self.end {
-            bytes = &bytes[..(self.end-self.index).into()]
+        if self.index + bytes.len() > self.end {
+            bytes = &bytes[..(self.end - self.index).into()]
         }
         // Increment the index, and return!
         self.index += bytes.len();
@@ -142,13 +144,13 @@ impl<'p, 'a: 'p> SourceReconstructionIterator<'p, 'a> {
             // Grab the string we are returning this time.
             let result = self.token_bytes(token_range.start, self.ast.tokens()[self.ast_index]);
             let end = match result {
-                Some((start, bytes)) => start+bytes.len(),
+                Some((start, bytes)) => start + bytes.len(),
                 None => token_range.end,
             };
 
             // Skip to the next non-empty ast index now that we've passed this token.
             if end >= token_range.end {
-                while self.ast_index+1 < token_ranges.len() {
+                while self.ast_index + 1 < token_ranges.len() {
                     self.ast_index += 1;
                     if token_ranges[self.ast_index].start < token_ranges[self.ast_index].end {
                         break;
@@ -172,15 +174,15 @@ impl<'p, 'a: 'p> SourceReconstructionIterator<'p, 'a> {
             let range = &ranges[range_index];
             if range.start <= self.index && self.index < range.end {
                 // Figure out where this repeat of the space character starts (it could be a multibyte character).
-                let offset = usize::from(self.index-range.start)%space_char.len();
+                let offset = usize::from(self.index - range.start) % space_char.len();
                 let start = self.index - offset;
 
                 // Skip to the next whitespace if we need to.
-                if start+space_char.len() >= range.end && range_index+1 < ranges.len() {
-                    self.whitespace_indices[index] = range_index+1;
+                if start + space_char.len() >= range.end && range_index + 1 < ranges.len() {
+                    self.whitespace_indices[index] = range_index + 1;
                 }
 
-                return Some((start, space_char.as_bytes()))
+                return Some((start, space_char.as_bytes()));
             }
         }
         None
@@ -189,7 +191,9 @@ impl<'p, 'a: 'p> SourceReconstructionIterator<'p, 'a> {
     fn next_newline(&mut self) -> Option<(ByteIndex, &'p [u8])> {
         let line_starts = &self.ast.char_data().line_starts;
         // If we are looking for the character just before the end of the line, it's \n.
-        if self.line_index+1 < line_starts.len() && self.index == line_starts[self.line_index+1]-1 {
+        if self.line_index + 1 < line_starts.len()
+            && self.index == line_starts[self.line_index + 1] - 1
+        {
             self.line_index += 1;
             let string = identifier_string(NEWLINE).as_bytes();
             assert!(string.len() == 1);
@@ -202,21 +206,25 @@ impl<'p, 'a: 'p> SourceReconstructionIterator<'p, 'a> {
     fn token_bytes(&self, token_start: ByteIndex, token: Token) -> Option<(ByteIndex, &'p [u8])> {
         use syntax::token::Token::*;
         let bytes = match token {
-            IntegerLiteral(literal)|ErrorTerm(..,literal) => self.ast.literals()[literal].as_bytes(),
-            RawErrorTerm(..,raw_literal) => &self.ast.raw_literals()[raw_literal],
+            IntegerLiteral(literal) | ErrorTerm(.., literal) => {
+                self.ast.literals()[literal].as_bytes()
+            }
+            RawErrorTerm(.., raw_literal) => &self.ast.raw_literals()[raw_literal],
 
-            FieldReference(field) => self.ast.identifiers()[self.ast.fields()[field].name].as_bytes(),
+            FieldReference(field) => {
+                self.ast.identifiers()[self.ast.fields()[field].name].as_bytes()
+            }
 
             RawIdentifier(identifier)
             | InfixOperator(identifier)
             | PostfixOperator(identifier)
-            | PrefixOperator(identifier) => &self.ast.identifiers()[identifier].as_bytes(),
+            | PrefixOperator(identifier) => self.ast.identifiers()[identifier].as_bytes(),
 
             InfixAssignment(identifier) => {
                 // Because of how InfixAssignment works, we store the str for the "+" and assume the "="
                 let bytes = self.ast.identifiers()[identifier].as_bytes();
                 if self.index == token_start + bytes.len() {
-                    return Some((token_start+bytes.len(), "=".as_bytes()));
+                    return Some((token_start + bytes.len(), b"="));
                 } else {
                     bytes
                 }
@@ -227,20 +235,27 @@ impl<'p, 'a: 'p> SourceReconstructionIterator<'p, 'a> {
             Close { boundary, .. } => boundary.close_string().as_bytes(),
             CloseBlock { index, .. } => self.ast.blocks()[index].boundary.close_string().as_bytes(),
             NewlineSequence => return None,
-            MissingExpression | MissingInfix => unreachable!(),
+            MissingExpression | Apply => unreachable!(),
         };
         Some((token_start, bytes))
     }
 }
 
 fn find_ast_index(ast: &AstRef, index: ByteIndex) -> AstIndex {
-    let ast_index = ast.token_ranges().iter().position(|range| range.end > index);
+    let ast_index = ast.token_ranges()
+        .iter()
+        .position(|range| range.end > index);
     ast_index.unwrap_or_else(|| ast.token_ranges().last_index())
 }
 
 fn find_whitespace_indices(ast: &AstRef, index: ByteIndex) -> Vec<usize> {
-    ast.char_data().whitespace.char_ranges.iter().map(|&(_,ref ranges)| {
-        let whitespace_index = ranges.iter().position(|range| range.end > index);
-        whitespace_index.unwrap_or_else(|| ranges.len() - 1)
-    }).collect()
+    ast.char_data()
+        .whitespace
+        .char_ranges
+        .iter()
+        .map(|&(_, ref ranges)| {
+            let whitespace_index = ranges.iter().position(|range| range.end > index);
+            whitespace_index.unwrap_or_else(|| ranges.len() - 1)
+        })
+        .collect()
 }

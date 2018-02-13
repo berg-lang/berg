@@ -1,6 +1,6 @@
 // Evaluates a given source expression.
 use util::try_from::TryFrom;
-use error::{BergError, BergResult, EvalError, EvalResult, Raw, TakeError};
+use error::{BergError, BergResult, ErrorCode, EvalError, EvalResult, Raw, TakeError};
 use eval::{Expression, Operand, ScopeRef};
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -17,6 +17,7 @@ pub struct BlockData<'a> {
     index: BlockIndex,
     fields: Vec<EvalResult<'a>>,
     parent: ScopeRef<'a>,
+    input: Option<BergResult<'a>>,
 }
 
 #[derive(Debug)]
@@ -27,18 +28,34 @@ enum BlockState<'a> {
 }
 
 impl<'a> BlockRef<'a> {
-    pub fn new(expression: Expression, index: BlockIndex, parent: ScopeRef<'a>) -> Self {
+    pub fn new(
+        expression: Expression,
+        index: BlockIndex,
+        parent: ScopeRef<'a>,
+        input: Option<BergResult<'a>>,
+    ) -> Self {
         BlockRef(Rc::new(RefCell::new(BlockData {
             expression,
             index,
             state: BlockState::Ready,
             fields: Default::default(),
             parent,
+            input,
         })))
     }
 
     pub fn create_child_block(&self, expression: Expression, index: BlockIndex) -> Self {
-        Self::new(expression, index, ScopeRef::BlockRef(self.clone()))
+        Self::new(expression, index, ScopeRef::BlockRef(self.clone()), None)
+    }
+
+    pub fn apply(&self, input: BergResult<'a>) -> BlockRef<'a> {
+        let block = self.0.borrow();
+        Self::new(
+            block.expression,
+            block.index,
+            block.parent.clone(),
+            Some(input),
+        )
     }
 
     pub fn evaluate_local(&self) -> BergResult<'a> {
@@ -46,9 +63,11 @@ impl<'a> BlockRef<'a> {
         let expression = {
             let mut block = self.0.borrow_mut();
             match block.state {
-                BlockState::Running => return BergError::CircularDependency.take_error(&ast, block.expression),
+                BlockState::Running => {
+                    return BergError::CircularDependency.take_error(&ast, block.expression)
+                }
                 BlockState::Complete(ref result) => return result.as_ref().clone(),
-                BlockState::Ready => {},
+                BlockState::Ready => {}
             }
             block.state = BlockState::Running;
             block.expression
@@ -70,7 +89,7 @@ impl<'a> BlockRef<'a> {
         if index >= scope_start {
             let scope_index: usize = (index - scope_start).into();
             match block.fields.get(scope_index) {
-                Some(&ref result) => result.clone(),
+                Some(result) => result.clone(),
                 None => BergError::NoSuchField(index).err(),
             }
         } else {
@@ -86,7 +105,11 @@ impl<'a> BlockRef<'a> {
             block.fields.push(BergError::NoSuchField(field_index).err());
         }
         if let Err(Raw(BergError::NoSuchField(..))) = block.fields[index] {
-            block.fields[index] = BergError::FieldNotSet(field_index).err();
+            block.fields[index] = match block.input {
+                Some(Ok(ref value)) => Ok(value.clone()),
+                Some(Err(ref error)) => Err(error.clone().into()),
+                None => BergError::FieldNotSet(field_index).err(),
+            }
         }
         Ok(())
     }
@@ -107,7 +130,10 @@ impl<'a> BlockRef<'a> {
         while index >= block.fields.len() {
             block.fields.push(BergError::NoSuchField(field_index).err());
         }
-        block.fields[index] = match value { Ok(value) => Ok(value), Err(error) => Err(error.into()) };
+        block.fields[index] = match value {
+            Ok(value) => Ok(value),
+            Err(error) => Err(error.into()),
+        };
         Ok(())
     }
 
@@ -126,9 +152,8 @@ impl<'a> BlockRef<'a> {
         while index >= block.fields.len() {
             block.fields.push(BergError::NoSuchField(field_index).err());
         }
-        match block.fields[index] {
-            Err(Raw(BergError::NoSuchField(_))) => block.fields[index] = BergError::FieldNotSet(field_index).err(),
-            _ => {},
+        if let Err(Raw(BergError::NoSuchField(_))) = block.fields[index] {
+            block.fields[index] = BergError::FieldNotSet(field_index).err()
         }
         Ok(())
     }
@@ -168,52 +193,48 @@ impl<'a> BergValue<'a> for BlockRef<'a> {
     ) -> EvalResult<'a> {
         use syntax::identifiers::*;
 
-        if operator == DOT {
-            let identifier = right.evaluate_to::<IdentifierIndex>(scope, ast)?;
-            self.field(identifier, scope)
-        } else {
-            self.evaluate_local()?.infix(operator, scope, right, ast)
+        match operator {
+            DOT => {
+                let identifier = right.evaluate_to::<IdentifierIndex>(scope, ast)?;
+                self.field(identifier)
+            }
+            APPLY => {
+                let argument = right.evaluate_local(scope, ast);
+                self.apply(argument).ok()
+            }
+            _ => self.evaluate_local()?.infix(operator, scope, right, ast),
         }
     }
 
-    fn prefix(
-        self,
-        operator: IdentifierIndex,
-        scope: &mut ScopeRef<'a>,
-    ) -> EvalResult<'a> {
+    fn prefix(self, operator: IdentifierIndex, scope: &mut ScopeRef<'a>) -> EvalResult<'a> {
         // Closures report their own internal error instead of local ones.
         self.evaluate_local()?.prefix(operator, scope)
     }
 
-    fn postfix(
-        self,
-        operator: IdentifierIndex,
-        scope: &mut ScopeRef<'a>,
-    ) -> EvalResult<'a> {
+    fn postfix(self, operator: IdentifierIndex, scope: &mut ScopeRef<'a>) -> EvalResult<'a> {
         self.evaluate_local()?.prefix(operator, scope)
     }
 
-    fn field(&self, name: IdentifierIndex, _scope: &mut ScopeRef<'a> ) -> EvalResult<'a> {
-        // Figure out the field index from its name
-        let ast = self.ast();
-        let index = {
-            let block = self.0.borrow();
-            let ast_block = &ast.blocks()[block.index];
-            ast_block.public_field_index(block.index, name, &ast).or_else(|error| Err(error.in_block(self)))?
-        };
-
-        // Get the field.
-        match self.local_field(index, &ast) {
-            // If the field isn't there yet, evaluate ourselves so that it'll get vivified, and set again.
-            Err(Raw(BergError::NoSuchField(..))) => {
-                self.evaluate_local()?;
+    fn field(&self, name: IdentifierIndex) -> EvalResult<'a> {
+        // Always try to get the field from the inner result first
+        match self.evaluate_local()?.field(name) {
+            Err(Raw(ref error)) if error.code() == ErrorCode::NoSuchPublicField => {
+                let ast = self.ast();
+                // If the inner result doesn't have it, get our own local field
+                let index = {
+                    let block = self.0.borrow();
+                    let ast_block = &ast.blocks()[block.index];
+                    ast_block
+                        .public_field_index(block.index, name, &ast)
+                        .or_else(|error| Err(error.in_block(self)))?
+                };
                 self.local_field(index, &ast)
-            },
+            }
             result => result,
         }
     }
 
-    fn set_field(&mut self, name: IdentifierIndex, value: BergResult<'a>, _scope: &mut ScopeRef<'a> ) -> EvalResult<'a, ()> {
+    fn set_field(&mut self, name: IdentifierIndex, value: BergResult<'a>) -> EvalResult<'a, ()> {
         println!("-----------------");
         println!("Setting field ...");
         // Figure out the field index from its name
@@ -221,7 +242,9 @@ impl<'a> BergValue<'a> for BlockRef<'a> {
         let index = {
             let block = self.0.borrow();
             let ast_block = &ast.blocks()[block.index];
-            ast_block.public_field_index(block.index, name, &ast).or_else(|error| Err(error.in_block(self)))?
+            ast_block
+                .public_field_index(block.index, name, &ast)
+                .or_else(|error| Err(error.in_block(self)))?
         };
 
         // Set the field.
@@ -241,7 +264,7 @@ impl<'a> fmt::Display for BlockRef<'a> {
 
             match *field_value {
                 Ok(ref value) => write!(f, " {}: {},", name, value)?,
-                Err(Raw(BergError::NoSuchField(..))) => {},
+                Err(Raw(BergError::NoSuchField(..))) => {}
                 Err(Raw(BergError::FieldNotSet(..))) => write!(f, " {}: <uninitialized>,", name)?,
                 Err(Raw(_)) => unreachable!(),
                 Err(EvalError::Error(ref error)) => write!(f, " {}: {},", name, error)?,
@@ -263,7 +286,7 @@ impl<'a> fmt::Debug for BlockRef<'a> {
 
             match *field_value {
                 Ok(ref value) => write!(f, "{}: {}", name, value)?,
-                Err(Raw(BergError::NoSuchField(..))) => {},
+                Err(Raw(BergError::NoSuchField(..))) => {}
                 Err(Raw(BergError::FieldNotSet(..))) => write!(f, " {}: <uninitialized>,", name)?,
                 Err(Raw(_)) => unreachable!(),
                 Err(EvalError::Error(ref error)) => write!(f, " {}: {},", name, error)?,
@@ -278,4 +301,3 @@ impl<'a> PartialEq for BlockRef<'a> {
         Rc::ptr_eq(&self.0, &other.0)
     }
 }
-

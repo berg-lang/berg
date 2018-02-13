@@ -99,7 +99,7 @@ impl From<Token> for Precedence {
             Token::InfixOperator(operator) => operator.into(),
             Token::InfixAssignment(_) => Assign,
             Token::NewlineSequence => Precedence::NewlineSequence,
-            Token::MissingInfix => Precedence::default(),
+            Token::Apply => Precedence::default(),
             // Should only ever be called for infix
             _ => unreachable!(),
         }

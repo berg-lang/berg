@@ -47,7 +47,7 @@ impl<'a> Grouper<'a> {
             } => self.on_close_token(boundary, error, range),
 
             // Infix tokens may have left->right or right->left precedence.
-            InfixOperator(_) | InfixAssignment(_) | NewlineSequence | MissingInfix => {
+            InfixOperator(_) | InfixAssignment(_) | NewlineSequence | Apply => {
                 // Open or close PrecedenceGroups as necessary based on this infix.
                 let range_end = range.end;
                 // Close parent groups that don't want us as a child.
@@ -117,7 +117,7 @@ impl<'a> Grouper<'a> {
     }
 
     fn open_expression(&self) -> &OpenExpression {
-        &self.open_expressions.last().unwrap()
+        self.open_expressions.last().unwrap()
     }
 
     fn on_close_token(

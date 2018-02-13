@@ -113,7 +113,7 @@ impl<'a> AstRef<'a> {
     fn evaluate_local(&self) -> BergResult<'a, (BergVal<'a>, ScopeRef<'a>)> {
         let mut scope = ScopeRef::AstRef(self.clone());
         let expression = self.expression();
-        let value = expression.evaluate_local(&mut scope, &self)?;
+        let value = expression.evaluate_local(&mut scope, self)?;
         Ok((value, scope))
     }
 

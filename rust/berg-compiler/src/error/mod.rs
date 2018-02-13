@@ -2,8 +2,9 @@ mod result;
 pub use error::result::{BergResult, EvalResult, TakeError, UnwindFrame};
 pub use error::EvalError::Raw;
 
-use syntax::{AstRef, ByteRange, FieldIndex, Fixity, IdentifierIndex, LiteralIndex, RawLiteralIndex, LineColumnRange, OperandPosition};
-use eval::{BlockRef,Expression};
+use syntax::{AstRef, ByteRange, FieldIndex, Fixity, IdentifierIndex, LineColumnRange,
+             LiteralIndex, OperandPosition, RawLiteralIndex};
+use eval::{BlockRef, Expression};
 use std::fmt;
 use value::*;
 
@@ -15,10 +16,10 @@ pub struct Error<'a> {
 
 ///
 /// This is the error type that is sent throughout the code.
-/// 
+///
 /// A *Stacked* value means the error has already been attached to at least one
 /// stack trace.
-/// 
+///
 #[derive(Debug, Clone)]
 pub enum EvalError<'a> {
     /// A *Raw* value means we've thrown an error from native code and don't yet
@@ -127,7 +128,10 @@ impl<'a> ErrorLocation<'a> {
 
 impl<'a> Error<'a> {
     pub fn new(error: BergError<'a>, ast: &AstRef<'a>, expression: Expression) -> Self {
-        Error { error, stack: Default::default() }.push_frame(ast, expression)
+        Error {
+            error,
+            stack: Default::default(),
+        }.push_frame(ast, expression)
     }
 
     pub fn push_frame(mut self, ast: &AstRef<'a>, expression: Expression) -> Self {
@@ -421,9 +425,9 @@ impl<'a> BergError<'a> {
             UnsupportedOperator(..) => ErrorCode::UnsupportedOperator,
             DivideByZero => ErrorCode::DivideByZero,
             NoSuchField(..) => ErrorCode::NoSuchField,
-            NoSuchPublicField(..) => ErrorCode::NoSuchPublicField,
-            NoSuchPublicFieldOnValue(..) => ErrorCode::NoSuchPublicField,
-            NoSuchPublicFieldOnRoot(..) => ErrorCode::NoSuchPublicField,
+            NoSuchPublicField(..) | NoSuchPublicFieldOnValue(..) | NoSuchPublicFieldOnRoot(..) => {
+                ErrorCode::NoSuchPublicField
+            }
             PrivateField(..) => ErrorCode::PrivateField,
             FieldNotSet(..) => ErrorCode::FieldNotSet,
             CircularDependency => ErrorCode::CircularDependency,

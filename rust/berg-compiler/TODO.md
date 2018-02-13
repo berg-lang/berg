@@ -231,7 +231,7 @@ break
 Round 5: Functions
 ==================
 
-Call
+APPLY
 ----
 
 
@@ -334,8 +334,8 @@ List
 Function Calls
 --------------
 
-[ ] Call Operator Overload: ("Call :: { :Arguments, ... }")
-[ ] Function Call: "F Arguments"
+[ ] APPLY Operator Overload: ("APPLY :: { :Arguments, ... }")
+[ ] Function APPLY: "F Arguments"
 [ ] Function Declaration Syntax: ":F(:A,:B,:C)"
 [ ] Inline Function Declaration Syntax
 
@@ -444,7 +444,7 @@ UNICODE STRING ESCAPES
 
 FUNCTION
 --------
-[ ] Function Call Apply "Operator"
+[ ] Function APPLY Apply "Operator"
 
 FLOW
 ----

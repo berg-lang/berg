@@ -143,7 +143,7 @@ impl<'a> Tokenizer<'a> {
                 let newline_end = newline_start + (self.newline_length as usize);
                 self.emit_token(NewlineSequence, newline_start..newline_end);
             } else {
-                self.emit_token(MissingInfix, range.start..range.start);
+                self.emit_token(Apply, range.start..range.start);
             }
         }
         self.grouper.on_token(token, range);

@@ -53,15 +53,20 @@ impl<'a> SourceRef<'a> {
     }
     pub fn parse(&self) -> AstRef<'a> {
         let parsed = parser::parse(self);
-        println!("");
+        println!();
         println!("Parsed:");
-        print!("{}", ExpressionTreeFormatter(parsed.expression(), &parsed, 1));
+        print!(
+            "{}",
+            ExpressionTreeFormatter(parsed.expression(), &parsed, 1)
+        );
         parsed
     }
     pub fn evaluate(self) -> BergResult<'a> {
         self.parse().evaluate()
     }
-    pub fn evaluate_to<T: TypeName + TryFrom<BergVal<'a>, Error = BergVal<'a>>>(self) -> BergResult<'a, T> {
+    pub fn evaluate_to<T: TypeName + TryFrom<BergVal<'a>, Error = BergVal<'a>>>(
+        self,
+    ) -> BergResult<'a, T> {
         self.parse().evaluate_to()
     }
 
@@ -104,13 +109,11 @@ fn open_file_and_report<'a>(
         }
     };
     let size = result.len();
-    if size >= usize::from(ByteIndex::MAX) {
-        if ast.file_open_error.is_none() {
-            ast.file_open_error = Some((
-                BergError::SourceTooLarge(size),
-                io::Error::new(io::ErrorKind::Other, "source too large"),
-            ));
-        }
+    if size >= usize::from(ByteIndex::MAX) && ast.file_open_error.is_none() {
+        ast.file_open_error = Some((
+            BergError::SourceTooLarge(size),
+            io::Error::new(io::ErrorKind::Other, "source too large"),
+        ));
     }
     to_indexed_cow(result)
 }
@@ -149,18 +152,13 @@ fn absolute_path<'p, 'a: 'p>(
     }
 }
 
-fn open_memory_and_report<'a>(
-    buffer: &'a [u8],
-    ast: &mut AstData<'a>,
-) -> Cow<'a, ByteSlice> {
+fn open_memory_and_report<'a>(buffer: &'a [u8], ast: &mut AstData<'a>) -> Cow<'a, ByteSlice> {
     let size = buffer.len();
-    if size >= usize::from(ByteIndex::MAX) {
-        if ast.file_open_error.is_none() {
-            ast.file_open_error = Some((
-                BergError::SourceTooLarge(size),
-                io::Error::new(io::ErrorKind::Other, "source too large"),
-            ));
-        }
+    if size >= usize::from(ByteIndex::MAX) && ast.file_open_error.is_none() {
+        ast.file_open_error = Some((
+            BergError::SourceTooLarge(size),
+            io::Error::new(io::ErrorKind::Other, "source too large"),
+        ));
     }
     to_indexed_cow(Cow::Borrowed(buffer))
 }

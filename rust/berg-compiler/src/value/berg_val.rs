@@ -74,22 +74,26 @@ impl<'a> BergValue<'a> for BergVal<'a> {
         }
     }
 
-    fn field(&self, name: IdentifierIndex, scope: &mut ScopeRef<'a>) -> EvalResult<'a> {
+    fn field(&self, name: IdentifierIndex) -> EvalResult<'a> {
         match *self {
-            BergVal::Boolean(value) => value.field(name, scope),
-            BergVal::BigRational(ref value) => value.field(name, scope),
-            BergVal::Identifier(value) => value.field(name, scope),
-            BergVal::BlockRef(ref value) => value.field(name, scope),
-            BergVal::Nothing => Nothing.field(name, scope),
+            BergVal::Boolean(value) => value.field(name),
+            BergVal::BigRational(ref value) => value.field(name),
+            BergVal::Identifier(value) => value.field(name),
+            BergVal::BlockRef(ref value) => value.field(name),
+            BergVal::Nothing => Nothing.field(name),
         }
     }
-    fn set_field(&mut self, name: IdentifierIndex, field_value: BergResult<'a>, scope: &mut ScopeRef<'a>) -> EvalResult<'a, ()> {
+    fn set_field(
+        &mut self,
+        name: IdentifierIndex,
+        field_value: BergResult<'a>,
+    ) -> EvalResult<'a, ()> {
         match *self {
-            BergVal::Boolean(ref mut value) => value.set_field(name, field_value, scope),
-            BergVal::BigRational(ref mut value) => value.set_field(name, field_value, scope),
-            BergVal::Identifier(ref mut value) => value.set_field(name, field_value, scope),
-            BergVal::BlockRef(ref mut value) => value.set_field(name, field_value, scope),
-            BergVal::Nothing => Nothing.set_field(name, field_value, scope),
+            BergVal::Boolean(ref mut value) => value.set_field(name, field_value),
+            BergVal::BigRational(ref mut value) => value.set_field(name, field_value),
+            BergVal::Identifier(ref mut value) => value.set_field(name, field_value),
+            BergVal::BlockRef(ref mut value) => value.set_field(name, field_value),
+            BergVal::Nothing => Nothing.set_field(name, field_value),
         }
     }
 }

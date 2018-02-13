@@ -7,7 +7,13 @@ impl TypeName for IdentifierIndex {
 }
 
 impl<'a> BergValue<'a> for IdentifierIndex {
-    fn infix(self, operator: IdentifierIndex, scope: &mut ScopeRef<'a>, right: Operand, ast: &AstRef<'a>) -> EvalResult<'a> {
+    fn infix(
+        self,
+        operator: IdentifierIndex,
+        scope: &mut ScopeRef<'a>,
+        right: Operand,
+        ast: &AstRef<'a>,
+    ) -> EvalResult<'a> {
         use syntax::identifiers::EQUAL_TO;
         match operator {
             EQUAL_TO => match right.evaluate(scope, ast)?.downcast::<IdentifierIndex>() {
@@ -30,11 +36,11 @@ impl<'a> BergValue<'a> for IdentifierIndex {
         default_evaluate(self, scope)
     }
 
-    fn field(&self, name: IdentifierIndex, scope: &mut ScopeRef<'a>) -> EvalResult<'a> {
-        default_field(self, name, scope)
+    fn field(&self, name: IdentifierIndex) -> EvalResult<'a> {
+        default_field(self, name)
     }
-    fn set_field(&mut self, name: IdentifierIndex, value: BergResult<'a>, scope: &mut ScopeRef<'a>) -> EvalResult<'a, ()> {
-        default_set_field(self, name, value, scope)
+    fn set_field(&mut self, name: IdentifierIndex, value: BergResult<'a>) -> EvalResult<'a, ()> {
+        default_set_field(self, name, value)
     }
 }
 

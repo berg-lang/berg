@@ -135,25 +135,21 @@ impl<'a> Binder<'a> {
         let prev_token_index = self.ast.tokens.last_index();
         let prev_token = self.ast.tokens[prev_token_index];
         // Flip the field public now that we know it's a declaration.
-        match prev_token {
-            FieldReference(field) => {
-                // If the field is from a parent block, we have misidentified this, because
-                // a: b always refers to a local variable. Fix that up.
-                // NOTE: This misidentification has no repercussions in the current code,
-                // but that doesn't mean it won't become a problem in the future (for
-                // example, if we start making a table of which fields are referenced by
-                // other blocks). Watch out for that! We'll either need to delay identification
-                // until we know the next token, or else have to go fix it up.
-                if field < self.open_scope().scope_start {
-                    let name = self.ast.fields[field].name;
-                    let new_field = self.create_field(name, true);
-                    self.ast.tokens[prev_token_index] = FieldReference(new_field);
-                } else {
-                    self.ast.fields[field].is_public = true;
-                }
+        if let FieldReference(field) = prev_token {
+            // If the field is from a parent block, we have misidentified this, because
+            // a: b always refers to a local variable. Fix that up.
+            // NOTE: This misidentification has no repercussions in the current code,
+            // but that doesn't mean it won't become a problem in the future (for
+            // example, if we start making a table of which fields are referenced by
+            // other blocks). Watch out for that! We'll either need to delay identification
+            // until we know the next token, or else have to go fix it up.
+            if field < self.open_scope().scope_start {
+                let name = self.ast.fields[field].name;
+                let new_field = self.create_field(name, true);
+                self.ast.tokens[prev_token_index] = FieldReference(new_field);
+            } else {
+                self.ast.fields[field].is_public = true;
             }
-            // Anything besides `a: ...` is an error, but the evaluator will throw it. Nothing to see here.
-            _ => {},
         }
         self.ast.push_token(token, range)
     }

@@ -44,11 +44,15 @@ impl<'a> BergValue<'a> for bool {
         default_evaluate(self, scope)
     }
 
-    fn field(&self, name: IdentifierIndex, scope: &mut ScopeRef<'a>) -> EvalResult<'a> {
-        default_field(self, name, scope)
+    fn field(&self, name: IdentifierIndex) -> EvalResult<'a> {
+        default_field(self, name)
     }
-    fn set_field(&mut self, name: IdentifierIndex, value: BergResult<'a>, scope: &mut ScopeRef<'a>) -> EvalResult<'a, ()> {
-        default_set_field(self, name, value, scope)
+    fn set_field(
+        &mut self,
+        name: IdentifierIndex,
+        value: BergResult<'a>,
+    ) -> EvalResult<'a, ()> {
+        default_set_field(self, name, value)
     }
 }
 

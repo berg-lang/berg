@@ -32,7 +32,7 @@ const ALL_IDENTIFIERS: [(IdentifierIndex, &str); LEN] = [
     (OPERATORS, "Operators"),
     (PREFIX_OPERATORS, "PrefixOperators"),
     (SUFFIX_OPERATORS, "SuffixOperators"),
-    (CALL, "Call"),
+    (APPLY, "Call"),
     (NEWLINE, "\n"),
     (NOTHING, "nothing"),
     (DOT, "."),
@@ -69,7 +69,7 @@ pub const FIELDS: IdentifierIndex = IdentifierIndex(26);
 pub const OPERATORS: IdentifierIndex = IdentifierIndex(27);
 pub const PREFIX_OPERATORS: IdentifierIndex = IdentifierIndex(28);
 pub const SUFFIX_OPERATORS: IdentifierIndex = IdentifierIndex(29);
-pub const CALL: IdentifierIndex = IdentifierIndex(30);
+pub const APPLY: IdentifierIndex = IdentifierIndex(30);
 pub const NEWLINE: IdentifierIndex = IdentifierIndex(31);
 pub const NOTHING: IdentifierIndex = IdentifierIndex(32);
 pub const DOT: IdentifierIndex = IdentifierIndex(33);
