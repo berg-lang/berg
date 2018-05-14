@@ -2,7 +2,7 @@ use parser::grouper::Grouper;
 use syntax::Token;
 use syntax::Token::*;
 use syntax::{
-    AstData, ByteIndex, ByteRange, ExpressionBoundary, ExpressionBoundaryError, SourceRef,
+    AstData, ByteIndex, ByteRange, ExpressionBoundary, ExpressionBoundaryError,
 };
 
 // This builds up a valid expression from the incoming sequences, doing two things:
@@ -19,9 +19,9 @@ pub struct Tokenizer<'a> {
 }
 
 impl<'a> Tokenizer<'a> {
-    pub fn new(source: SourceRef<'a>) -> Self {
+    pub fn new(ast: AstData<'a>) -> Self {
         Tokenizer {
-            grouper: Grouper::new(source),
+            grouper: Grouper::new(ast),
             in_term: false,
             operator: true,
             newline_start: ByteIndex(0),
@@ -37,7 +37,7 @@ impl<'a> Tokenizer<'a> {
     }
 
     fn source_error(&self) -> ExpressionBoundaryError {
-        if self.ast().file_open_error.is_some() {
+        if self.ast().source_open_error.is_some() {
             ExpressionBoundaryError::OpenError
         } else {
             ExpressionBoundaryError::None
@@ -47,7 +47,7 @@ impl<'a> Tokenizer<'a> {
     // The start of source emits the "open source" token.
     pub fn on_source_start(&mut self, start: ByteIndex) {
         let mut open_token = ExpressionBoundary::Source.placeholder_open_token(self.source_error());
-        if self.ast().file_open_error.is_some() {
+        if self.ast().source_open_error.is_some() {
             if let OpenBlock { ref mut error, .. } = open_token {
                 *error = ExpressionBoundaryError::OpenError;
             } else {
@@ -108,8 +108,8 @@ impl<'a> Tokenizer<'a> {
         self.in_term = true;
     }
 
-    // ; or :. If the : is in a term, it closes it. Afterwards, we are looking to start a new term,
-    // so it's still closed.
+    // ; , or :. If it is in a term, the term is closed before the separator.
+    // Afterwards, we are looking to start a new term, so it's still closed.
     pub fn on_separator(&mut self, token: Token, range: ByteRange) {
         assert!(range.start < range.end);
         self.close_term(range.start);

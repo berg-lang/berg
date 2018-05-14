@@ -9,6 +9,7 @@ pub enum Precedence {
     Comparison,
     And,
     Or,
+    CommaSequence,
     Assign,
     ColonDeclaration,
     SemicolonSequence,
@@ -35,6 +36,7 @@ impl From<IdentifierIndex> for Precedence {
             }
             AND_AND => And,
             OR_OR => Or,
+            COMMA => CommaSequence,
             COLON => ColonDeclaration,
             SEMICOLON => SemicolonSequence,
             _ => DEFAULT_PRECEDENCE,
@@ -66,22 +68,26 @@ impl Precedence {
                 Dot | TimesDivide | PlusMinus | Comparison | And => true,
                 _ => false,
             },
-            Assign => match right {
+            CommaSequence => match right {
                 Dot | TimesDivide | PlusMinus | Comparison | And | Or => true,
                 _ => false,
             },
+            Assign => match right {
+                Dot | TimesDivide | PlusMinus | Comparison | And | Or | CommaSequence => true,
+                _ => false,
+            },
             ColonDeclaration => match right {
-                Dot | TimesDivide | PlusMinus | Comparison | And | Or | Assign => true,
-                _ => false,
-            },
+                Dot | TimesDivide | PlusMinus | Comparison | And | Or | CommaSequence | Assign => true,
+                _ => false
+            }
             SemicolonSequence => match right {
-                Dot | TimesDivide | PlusMinus | Comparison | And | Or | Assign
-                | ColonDeclaration => true,
-                _ => false,
-            },
+                Dot | TimesDivide | PlusMinus | Comparison | And | Or | CommaSequence | Assign | ColonDeclaration => true,
+                _ => false
+            }
             NewlineSequence => match right {
-                Dot | TimesDivide | PlusMinus | Comparison | And | Or | Assign
-                | ColonDeclaration | SemicolonSequence => true,
+                Dot | TimesDivide | PlusMinus | Comparison | And | Or | CommaSequence | Assign | ColonDeclaration | SemicolonSequence => {
+                    true
+                },
                 _ => false,
             },
         }

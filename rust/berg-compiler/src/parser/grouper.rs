@@ -3,7 +3,7 @@ use syntax::identifiers::COLON;
 use syntax::ExpressionBoundary::*;
 use syntax::Token::*;
 use syntax::{
-    AstData, AstIndex, ByteRange, ExpressionBoundary, ExpressionBoundaryError, Fixity, SourceRef,
+    AstData, AstIndex, ByteRange, ExpressionBoundary, ExpressionBoundaryError, Fixity,
     Token,
 };
 
@@ -24,9 +24,9 @@ struct OpenExpression {
 }
 
 impl<'a> Grouper<'a> {
-    pub fn new(source: SourceRef<'a>) -> Self {
+    pub fn new(ast: AstData<'a>) -> Self {
         Grouper {
-            binder: Binder::new(source),
+            binder: Binder::new(ast),
             open_expressions: Default::default(),
         }
     }

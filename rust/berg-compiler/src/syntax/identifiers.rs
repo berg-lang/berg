@@ -35,8 +35,10 @@ const ALL_IDENTIFIERS: [(IdentifierIndex, &str); LEN] = [
     (APPLY, "Call"),
     (NEWLINE, "\n"),
     (NOTHING, "nothing"),
+    (NEXT, "Next"),
     (DOT, "."),
     (SPACE, " "),
+    (COMMA, ","),
 ];
 
 pub const NOT_AN_IDENTIFIER: IdentifierIndex = IdentifierIndex(0);
@@ -72,9 +74,11 @@ pub const SUFFIX_OPERATORS: IdentifierIndex = IdentifierIndex(29);
 pub const APPLY: IdentifierIndex = IdentifierIndex(30);
 pub const NEWLINE: IdentifierIndex = IdentifierIndex(31);
 pub const NOTHING: IdentifierIndex = IdentifierIndex(32);
-pub const DOT: IdentifierIndex = IdentifierIndex(33);
-pub const SPACE: IdentifierIndex = IdentifierIndex(34);
-pub const LEN: usize = 35;
+pub const NEXT: IdentifierIndex = IdentifierIndex(33);
+pub const DOT: IdentifierIndex = IdentifierIndex(34);
+pub const SPACE: IdentifierIndex = IdentifierIndex(35);
+pub const COMMA: IdentifierIndex = IdentifierIndex(36);
+pub const LEN: usize = 37;
 
 pub(crate) fn intern_all() -> InternPool<IdentifierIndex> {
     let mut identifiers = InternPool::default();

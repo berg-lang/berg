@@ -5,7 +5,7 @@ pub(crate) use syntax::ast::{
 pub(crate) use syntax::block::{AstBlock, BlockIndex, Field, FieldIndex};
 pub use syntax::char_data::LineColumnRange;
 use syntax::precedence::Precedence;
-pub(crate) use syntax::source::{ByteIndex, ByteRange, ByteSlice, SourceRef};
+pub(crate) use syntax::source::{ByteIndex, ByteRange, ByteSlice, SourceOpenError, SourceRef, SourceBuffer};
 pub(crate) use syntax::source_reconstruction::{SourceReconstruction, SourceReconstructionReader};
 pub(crate) use syntax::token::{ExpressionBoundary, ExpressionBoundaryError, Fixity, Token};
 pub mod identifiers;

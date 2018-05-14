@@ -5,32 +5,48 @@ use parser::tokenizer::Tokenizer;
 use std::str;
 use syntax::ExpressionBoundary::*;
 use syntax::Token::*;
-use syntax::{AstData, AstRef, ByteIndex, ByteSlice, IdentifierIndex, SourceRef};
+use syntax::{AstData, ByteIndex, ByteSlice, IdentifierIndex};
 use util::indexed_vec::Delta;
 use util::intern_pool::Pool;
 
-// Chunks up the source into sequences: space, newlines, operators, etc.
-// Passes these to the Tokenizer to handle expression and whitespace rules.
+///
+/// Chunks up the source into sequences: space, newlines, operators, etc.
+/// Assigns each sequence a token type--term, prefix, postfix, infix or space.
+/// Passes these to the Tokenizer to handle expression and whitespace rules.
+///
+/// In general, the sequencer chunks *character runs*--sequences containing all
+/// of the same type of character. The most straightforward of these include:
+/// 
+/// | Integer | `1234` | A run of digit characters. | Term |
+/// | Identifier | `ThisIsAnIdentifier` | A run of alphanumeric characters, or `_`. | Term |
+/// | Operator | `+` `-` `*` `++` `+=` `<=>` `--->` | A run of operator characters. | Prefix if unbalanced like `+1`, postfix if unbalanced like If it's unbalanced like `+1` or `2*`, it's a postfix/prefix operator. Otherwise it's infix.
+/// | Space | ` ` `\t` | A run of space characters. | Space |
+/// | Unsupported | | A run of valid UTF-8 characters which aren't supported (such as emoji). | Term |
+/// | Invalid | | A run of invalid UTF-8 bytes. | Term |
+/// 
+/// The sequencer also recognizes very specific, short character sequences, like
+/// special operators and newlines, including:
+/// 
+/// | Separator | `;` `,` | Infix |
+/// | Colon | `:` | Prefix if unbalanced like `:x`, otherwise infix.
+/// | Open | `{` `(` | Open |
+/// | Close | `}` `)` | Close |
+/// | Newline | `\r` `\n` `\r\n` | Newlines are treated separately from other space, so that they can be counted for line #'s and possibly used to separate statements.
+/// 
 #[derive(Debug)]
 pub struct Sequencer<'a> {
+    /// The tokenizer to send sequences to.
     tokenizer: Tokenizer<'a>,
 }
 
 impl<'a> Sequencer<'a> {
-    fn new(source: SourceRef<'a>) -> Self {
+    pub fn new(ast: AstData<'a>) -> Self {
         Sequencer {
-            tokenizer: Tokenizer::new(source),
+            tokenizer: Tokenizer::new(ast),
         }
     }
 
-    pub fn parse(source: &SourceRef<'a>) -> AstRef<'a> {
-        let mut sequencer = Sequencer::new(source.clone());
-        let buffer = source.open(sequencer.ast_mut());
-        let ast = sequencer.parse_buffer(&buffer);
-        AstRef::new(ast)
-    }
-
-    fn parse_buffer(mut self, buffer: &ByteSlice) -> AstData<'a> {
+    pub fn parse_buffer(mut self, buffer: &ByteSlice) -> AstData<'a> {
         let mut scanner = Scanner::default();
         let mut start = scanner.index;
 
@@ -456,7 +472,7 @@ impl ByteType {
             b'{' => Char(OpenCurly),
             b')' => Char(CloseParen),
             b'}' => Char(CloseCurly),
-            b';' => Char(Separator),
+            b';' | b',' => Char(Separator),
             b':' => Char(Colon),
             b' ' | b'\t' => Char(Space),
             b'\n' => Char(Newline),

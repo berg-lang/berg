@@ -8,7 +8,7 @@ use syntax::char_data::CharData;
 use syntax::identifiers;
 use syntax::OperandPosition::*;
 use syntax::{
-    AstBlock, BlockIndex, ByteRange, Field, FieldIndex, SourceReconstruction,
+    AstBlock, BlockIndex, ByteRange, Field, FieldIndex, SourceOpenError, SourceReconstruction,
     SourceReconstructionReader, SourceRef, Token,
 };
 use util::indexed_vec::IndexedVec;
@@ -52,11 +52,11 @@ pub struct AstData<'a> {
     pub token_ranges: TokenRanges,
     pub blocks: IndexedVec<AstBlock, BlockIndex>,
     pub fields: IndexedVec<Field, FieldIndex>,
-    pub file_open_error: Option<(BergError<'a>, io::Error)>,
+    pub source_open_error: Option<SourceOpenError<'a>>,
 }
 
 impl<'a> AstData<'a> {
-    pub fn new(source: SourceRef<'a>) -> AstData<'a> {
+    pub fn new(source: SourceRef<'a>, source_open_error: Option<SourceOpenError<'a>>) -> AstData<'a> {
         let identifiers = source.root().identifiers();
         let fields = source
             .root()
@@ -70,6 +70,7 @@ impl<'a> AstData<'a> {
             source,
             identifiers,
             fields,
+            source_open_error,
 
             char_data: Default::default(),
             literals: Default::default(),
@@ -77,7 +78,6 @@ impl<'a> AstData<'a> {
             blocks: Default::default(),
             tokens: Default::default(),
             token_ranges: Default::default(),
-            file_open_error: None,
         }
     }
 }
@@ -172,10 +172,10 @@ impl<'a> AstRef<'a> {
         &self.0.literals[index]
     }
     pub fn open_error(&self) -> &BergError<'a> {
-        &self.0.file_open_error.as_ref().unwrap().0
+        &self.0.source_open_error.as_ref().unwrap().0
     }
     pub fn open_io_error(&self) -> &io::Error {
-        &self.0.file_open_error.as_ref().unwrap().1
+        &self.0.source_open_error.as_ref().unwrap().1
     }
     pub fn field_name(&self, index: FieldIndex) -> &str {
         self.identifier_string(self.fields()[index].name)

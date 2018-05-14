@@ -1,4 +1,3 @@
-// Evaluates a given source expression.
 use error::{BergError, BergResult, ErrorCode, EvalError, EvalResult, Raw, TakeError};
 use eval::{Expression, Operand, ScopeRef};
 use std::cell::RefCell;
@@ -8,10 +7,15 @@ use syntax::{AstRef, BlockIndex, FieldIndex, IdentifierIndex};
 use util::try_from::TryFrom;
 use value::{BergVal, BergValue};
 
+///
+/// A block represents the execution of an expression, including the next
+/// expression to execute, as well as the scope (field values and parent block)
+/// and input (a BergResult).
+/// 
 #[derive(Clone)]
 pub struct BlockRef<'a>(Rc<RefCell<BlockData<'a>>>);
 
-pub struct BlockData<'a> {
+struct BlockData<'a> {
     expression: Expression,
     state: BlockState<'a>,
     index: BlockIndex,
@@ -28,6 +32,10 @@ enum BlockState<'a> {
 }
 
 impl<'a> BlockRef<'a> {
+    ///
+    /// Create a new block that will run the given expression against the
+    /// given scope and input.
+    ///
     pub fn new(
         expression: Expression,
         index: BlockIndex,

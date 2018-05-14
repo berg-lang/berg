@@ -2,7 +2,7 @@ use syntax::identifiers::*;
 use syntax::Token::*;
 use syntax::{
     AstBlock, AstData, AstDelta, AstIndex, BlockIndex, ByteRange, ExpressionBoundary,
-    ExpressionBoundaryError, Field, FieldIndex, IdentifierIndex, SourceRef, Token,
+    ExpressionBoundaryError, Field, FieldIndex, IdentifierIndex, Token,
 };
 use util::indexed_vec::Delta;
 
@@ -24,13 +24,13 @@ pub struct OpenScope {
 }
 
 impl<'a> Binder<'a> {
-    pub fn new(source: SourceRef<'a>) -> Self {
+    pub fn new(ast: AstData<'a>) -> Self {
         // Grab the root field names
-        let scope = (0..source.root().field_names().len())
+        let scope = (0..ast.source.root().field_names().len())
             .map(|i| i.into())
             .collect();
         let mut result = Binder {
-            ast: AstData::new(source),
+            ast,
             open_scopes: Default::default(),
             scope,
         };
