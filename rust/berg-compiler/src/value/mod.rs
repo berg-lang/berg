@@ -60,7 +60,8 @@ pub fn default_infix<'a, T: BergValue<'a>>(
     match operator {
         SEMICOLON | NEWLINE => Ok(right.evaluate_local(scope, ast)?),
         EQUAL_TO => false.ok(),
-        NOT_EQUAL_TO => left.infix(EQUAL_TO, scope, right, ast)?
+        NOT_EQUAL_TO => left
+            .infix(EQUAL_TO, scope, right, ast)?
             .prefix(EXCLAMATION_POINT, scope),
         DOT => {
             let identifier = right.evaluate_to::<IdentifierIndex>(scope, ast)?;

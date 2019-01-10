@@ -1,5 +1,5 @@
-use std::any::TypeId;
 use std;
+use std::any::TypeId;
 
 ///
 /// A value that can be any Rust value underneath.

@@ -29,10 +29,15 @@ pub enum FieldError {
 }
 
 impl AstBlock {
-    pub fn public_field_index(&self, index: BlockIndex, name: IdentifierIndex, ast: &AstRef) -> Result<FieldIndex, FieldError> {
+    pub fn public_field_index(
+        &self,
+        index: BlockIndex,
+        name: IdentifierIndex,
+        ast: &AstRef,
+    ) -> Result<FieldIndex, FieldError> {
         let mut child_index = index + 1;
         let mut field_index = self.scope_start;
-        let scope_end = self.scope_start+self.scope_count;
+        let scope_end = self.scope_start + self.scope_count;
         while field_index < scope_end {
             // Bypass any indices that are owned by child blocks.
             if let Some(child) = ast.blocks().get(child_index) {
@@ -48,7 +53,7 @@ impl AstBlock {
                 if field.is_public {
                     return Ok(field_index);
                 } else {
-                    return Err(FieldError::PrivateField(name))
+                    return Err(FieldError::PrivateField(name));
                 };
             }
             field_index += 1;
@@ -61,7 +66,9 @@ impl AstBlock {
 impl FieldError {
     pub fn in_block<'a>(self, block: &BlockRef<'a>) -> BergError<'a> {
         match self {
-            FieldError::NoSuchPublicField(index) => BergError::NoSuchPublicField(block.clone(), index),
+            FieldError::NoSuchPublicField(index) => {
+                BergError::NoSuchPublicField(block.clone(), index)
+            }
             FieldError::PrivateField(index) => BergError::PrivateField(block.clone(), index),
         }
     }

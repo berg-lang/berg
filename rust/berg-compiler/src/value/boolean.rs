@@ -47,11 +47,7 @@ impl<'a> BergValue<'a> for bool {
     fn field(&self, name: IdentifierIndex) -> EvalResult<'a> {
         default_field(self, name)
     }
-    fn set_field(
-        &mut self,
-        name: IdentifierIndex,
-        value: BergResult<'a>,
-    ) -> EvalResult<'a, ()> {
+    fn set_field(&mut self, name: IdentifierIndex, value: BergResult<'a>) -> EvalResult<'a, ()> {
         default_set_field(self, name, value)
     }
 }

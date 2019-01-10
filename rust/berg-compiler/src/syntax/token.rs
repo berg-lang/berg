@@ -1,13 +1,13 @@
 use error::ErrorCode;
 use std::borrow::Cow;
+use std::fmt;
+use syntax::identifiers::*;
+use syntax::token::Token::*;
 use syntax::AstRef;
 use syntax::BlockIndex;
-use syntax::{AstDelta, FieldIndex, IdentifierIndex, LiteralIndex, RawLiteralIndex};
 use syntax::ExpressionBoundary::*;
 use syntax::Precedence;
-use syntax::token::Token::*;
-use syntax::identifiers::*;
-use std::fmt;
+use syntax::{AstDelta, FieldIndex, IdentifierIndex, LiteralIndex, RawLiteralIndex};
 
 // ExpressionType, String, LeftChild, RightChild
 #[derive(Debug, Copy, Clone, PartialEq)]
@@ -81,8 +81,8 @@ pub enum ExpressionBoundary {
 impl Token {
     pub fn fixity(self) -> Fixity {
         match self {
-            IntegerLiteral(_) | RawIdentifier(_) | FieldReference(_) | ErrorTerm(..) | RawErrorTerm(..)
-            | MissingExpression => Fixity::Term,
+            IntegerLiteral(_) | RawIdentifier(_) | FieldReference(_) | ErrorTerm(..)
+            | RawErrorTerm(..) | MissingExpression => Fixity::Term,
             InfixOperator(_) | InfixAssignment(_) | NewlineSequence | Apply => Fixity::Infix,
             PrefixOperator(_) => Fixity::Prefix,
             PostfixOperator(_) => Fixity::Postfix,
@@ -102,7 +102,7 @@ impl Token {
     pub fn to_string<'p, 'a: 'p>(&'p self, ast: &'p AstRef<'a>) -> Cow<'p, str> {
         match *self {
             IntegerLiteral(literal) => ast.literal_string(literal).into(),
-            ErrorTerm(code,..)|RawErrorTerm(code,..) => format!("error({:?})", code).into(),
+            ErrorTerm(code, ..) | RawErrorTerm(code, ..) => format!("error({:?})", code).into(),
 
             FieldReference(field) => ast.identifier_string(ast.fields()[field].name).into(),
 
@@ -123,7 +123,7 @@ impl Token {
                 Parentheses => ast.identifier_string(OPEN_PAREN).into(),
                 CurlyBraces => ast.identifier_string(OPEN_CURLY).into(),
                 CompoundTerm | PrecedenceGroup | AutoBlock | Source | Root => "".into(),
-            }
+            },
             Close { boundary, .. } => match boundary {
                 Parentheses => ast.identifier_string(CLOSE_PAREN).into(),
                 CurlyBraces => ast.identifier_string(CLOSE_CURLY).into(),
@@ -145,11 +145,11 @@ impl Token {
                 _ => true,
             },
             Prefix => match right.fixity() {
-                Prefix|Term|Open|Close => true,
-                Infix|Postfix => false,
-            }
-            Term|Postfix => false,
-            Open|Close => unreachable!(),
+                Prefix | Term | Open | Close => true,
+                Infix | Postfix => false,
+            },
+            Term | Postfix => false,
+            Open | Close => unreachable!(),
         }
     }
     pub fn takes_left_child(self, left: Token) -> bool {
@@ -160,16 +160,19 @@ impl Token {
                 _ => true,
             },
             Postfix => match left.fixity() {
-                Prefix|Postfix|Term|Open|Close => true,
+                Prefix | Postfix | Term | Open | Close => true,
                 Infix => false,
-            }
-            Term|Prefix => false,
-            Open|Close => unreachable!(),
+            },
+            Term | Prefix => false,
+            Open | Close => unreachable!(),
         }
     }
     pub fn delta(self) -> AstDelta {
         match self {
-            Open { delta, .. } | OpenBlock { delta, .. } | Close { delta, .. } | CloseBlock { delta, .. } => delta,
+            Open { delta, .. }
+            | OpenBlock { delta, .. }
+            | Close { delta, .. }
+            | CloseBlock { delta, .. } => delta,
             _ => unreachable!(),
         }
     }
@@ -234,7 +237,7 @@ impl Fixity {
         use syntax::Fixity::*;
         match self {
             Term => 0,
-            Prefix | Postfix | Open | Close=> 1,
+            Prefix | Postfix | Open | Close => 1,
             Infix => 2,
         }
     }

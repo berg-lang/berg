@@ -1,12 +1,12 @@
-use eval::{ExpressionTreeFormatter, RootRef};
 use error::{BergError, BergResult, EvalResult};
+use eval::{ExpressionTreeFormatter, RootRef};
 use parser;
 use std::borrow::Cow;
 use std::fs::File;
 use std::io;
 use std::io::Read;
-use std::path::Path;
 use std::ops::Range;
+use std::path::Path;
 use std::rc::Rc;
 use std::u32;
 use syntax::{AstData, AstRef};
@@ -138,10 +138,7 @@ fn open_file<'a>(path: &Path, ast: &mut AstData<'a>) -> Cow<'static, [u8]> {
     }
 }
 
-fn absolute_path<'a>(
-    path: Cow<'a, Path>,
-    root: &RootRef,
-) -> EvalResult<'a, Cow<'a, Path>> {
+fn absolute_path<'a>(path: Cow<'a, Path>, root: &RootRef) -> EvalResult<'a, Cow<'a, Path>> {
     if path.is_relative() {
         match *root.root_path() {
             Ok(ref root_path) => Ok(Cow::Owned(root_path.join(path))),

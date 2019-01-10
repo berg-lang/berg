@@ -1,7 +1,9 @@
-use syntax::{AstBlock, AstData, AstDelta, AstIndex, BlockIndex, ByteRange, ExpressionBoundary,
-             ExpressionBoundaryError, Field, FieldIndex, IdentifierIndex, SourceRef, Token};
-use syntax::Token::*;
 use syntax::identifiers::*;
+use syntax::Token::*;
+use syntax::{
+    AstBlock, AstData, AstDelta, AstIndex, BlockIndex, ByteRange, ExpressionBoundary,
+    ExpressionBoundaryError, Field, FieldIndex, IdentifierIndex, SourceRef, Token,
+};
 use util::indexed_vec::Delta;
 
 // Handles nesting and precedence: balances (), {}, and compound terms, and
@@ -60,15 +62,19 @@ impl<'a> Binder<'a> {
     pub fn push_token(&mut self, token: Token, range: ByteRange) -> AstIndex {
         match token {
             // Unless it's preceded by a ., raw identifier is always a local field access or declaration, so bind it and translate it.
-            RawIdentifier(name) if match self.ast.tokens.last() { Some(&InfixOperator(DOT)) => false, _ => true } => {
+            RawIdentifier(name)
+                if match self.ast.tokens.last() {
+                    Some(&InfixOperator(DOT)) => false,
+                    _ => true,
+                } =>
+            {
                 self.push_field_reference(name, range)
-            },
+            }
             Open {
                 boundary,
                 error,
                 delta,
-            } if boundary.is_scope() =>
-            {
+            } if boundary.is_scope() => {
                 let open_block_index = self.open_block_index();
                 let index = self.push_open_scope(boundary, Some(open_block_index));
 
@@ -84,8 +90,7 @@ impl<'a> Binder<'a> {
                 boundary,
                 error,
                 delta,
-            } if boundary.is_scope() =>
-            {
+            } if boundary.is_scope() => {
                 let index = self.push_close_scope();
 
                 // Push the token.
@@ -109,8 +114,7 @@ impl<'a> Binder<'a> {
                 boundary,
                 error,
                 delta,
-            } if boundary.is_scope() =>
-            {
+            } if boundary.is_scope() => {
                 self.insert_open_scope(index, boundary, error, delta, range)
             }
             Open { .. } => self.ast.insert_token(index, token, range),
@@ -123,7 +127,8 @@ impl<'a> Binder<'a> {
             Some(&PrefixOperator(COLON)) => true,
             _ => false,
         };
-        let field = self.find_field(name, is_declaration)
+        let field = self
+            .find_field(name, is_declaration)
             .unwrap_or_else(|| self.create_field(name, is_declaration));
         if is_declaration {
             self.ast.fields[field].is_public = true;

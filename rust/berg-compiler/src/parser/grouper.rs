@@ -1,8 +1,11 @@
 use parser::binder::Binder;
-use syntax::{AstData, AstIndex, ByteRange, ExpressionBoundary, ExpressionBoundaryError, Fixity, SourceRef, Token};
+use syntax::identifiers::COLON;
 use syntax::ExpressionBoundary::*;
 use syntax::Token::*;
-use syntax::identifiers::COLON;
+use syntax::{
+    AstData, AstIndex, ByteRange, ExpressionBoundary, ExpressionBoundaryError, Fixity, SourceRef,
+    Token,
+};
 
 // Handles nesting and precedence: balances (), {}, and compound terms, and
 // inserts "precedence groups," and removes compound terms and precedence
@@ -67,7 +70,11 @@ impl<'a> Grouper<'a> {
                 // is defined to create a block. It will be automatically closed
                 // by the next close token or lower precedence operator.
                 if let InfixOperator(COLON) = token {
-                    self.on_open_token(AutoBlock, ExpressionBoundaryError::None, range_end..range_end);
+                    self.on_open_token(
+                        AutoBlock,
+                        ExpressionBoundaryError::None,
+                        range_end..range_end,
+                    );
                 }
             }
 
@@ -105,7 +112,7 @@ impl<'a> Grouper<'a> {
         use syntax::ExpressionBoundary::*;
         let infix = match self.open_expression().boundary {
             // The autoblock wants whatever its *parent* infix wants.
-            AutoBlock => self.open_expressions[self.open_expressions.len()-2].infix,
+            AutoBlock => self.open_expressions[self.open_expressions.len() - 2].infix,
             PrecedenceGroup => self.open_expression().infix,
             _ => return true,
         };
@@ -304,20 +311,22 @@ impl<'a> Grouper<'a> {
             // We don't need precedence groups unless they help.
             ExpressionBoundary::PrecedenceGroup => {
                 match open_expression.infix {
-                    Some((infix,infix_index)) => {
+                    Some((infix, infix_index)) => {
                         let parent_index = self.open_expressions.len() - 1;
                         let parent = &mut self.open_expressions[parent_index];
                         match parent.infix {
                             // If this parent has an infix and takes us as a right child, we are definitely needed.
-                            Some((parent_infix,_)) if parent_infix.takes_right_child(infix) => Some(open_expression),
+                            Some((parent_infix, _)) if parent_infix.takes_right_child(infix) => {
+                                Some(open_expression)
+                            }
                             // If the parent has no infix, or if our infix is the new parent, we are not needed,
                             // but we do need to give our infix to the parent.
-                            Some(_)|None => {
-                                parent.infix = Some((infix,infix_index));
+                            Some(_) | None => {
+                                parent.infix = Some((infix, infix_index));
                                 None
                             }
                         }
-                    },
+                    }
                     // We have no infix at all, so we aren't needed to resolve precedence. Yay!
                     None => None,
                 }
@@ -330,8 +339,13 @@ impl<'a> Grouper<'a> {
                 }
                 match self.ast().tokens[index].fixity() {
                     Fixity::Term if index == self.ast().tokens.last_index() => None,
-                    Fixity::Open if index + self.ast().tokens[index].delta() == self.ast().tokens.last_index() => None,
-                    _ => Some(open_expression)
+                    Fixity::Open
+                        if index + self.ast().tokens[index].delta()
+                            == self.ast().tokens.last_index() =>
+                    {
+                        None
+                    }
+                    _ => Some(open_expression),
                 }
             }
             _ => {

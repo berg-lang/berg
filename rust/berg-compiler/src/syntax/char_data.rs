@@ -1,8 +1,8 @@
-use util::indexed_vec::Delta;
-use syntax::{ByteIndex, ByteRange, ByteSlice};
 use std::cmp::Ordering;
 use std::fmt::{Display, Formatter, Result};
 use std::str;
+use syntax::{ByteIndex, ByteRange, ByteSlice};
+use util::indexed_vec::Delta;
 
 #[derive(Debug)]
 pub struct CharData {
@@ -14,7 +14,6 @@ pub struct CharData {
     // time retrieved
     // time modified
     // system retrieved on
-
     /// Beginning index of each line.
     pub(crate) line_starts: Vec<ByteIndex>,
     /// Whitespace of each character type except ' ' and '\n' (those are the default whitespace)
@@ -23,7 +22,7 @@ pub struct CharData {
 
 #[derive(Debug, Default)]
 pub struct Whitespace {
-    pub char_ranges: Vec<(String,Vec<ByteRange>)>
+    pub char_ranges: Vec<(String, Vec<ByteRange>)>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -148,15 +147,22 @@ impl Whitespace {
         let mut char_indices = spaces.char_indices();
         let (mut current_char_start, mut current_char) = char_indices.next().unwrap();
         for (next_char_start, next_char) in char_indices {
-            if next_char == current_char { continue; }
+            if next_char == current_char {
+                continue;
+            }
 
             // Store the character (and the number of repeats)
             // We don't store ' ' since it's so common
             if current_char != ' ' {
-                let space_start = start+current_char_start;
-                let space_end = start+next_char_start;
-                let space_char = unsafe { spaces.get_unchecked(current_char_start..current_char_start+current_char.len_utf8()) };
-                self.ranges_for_char(space_char).push(space_start..space_end);
+                let space_start = start + current_char_start;
+                let space_end = start + next_char_start;
+                let space_char = unsafe {
+                    spaces.get_unchecked(
+                        current_char_start..current_char_start + current_char.len_utf8(),
+                    )
+                };
+                self.ranges_for_char(space_char)
+                    .push(space_start..space_end);
             }
 
             current_char = next_char;
@@ -166,11 +172,16 @@ impl Whitespace {
 
     pub fn ranges_for_char(&mut self, space_char: &str) -> &mut Vec<ByteRange> {
         // Find the vec we're storing this character in. (e.g. \t)
-        let index = match self.char_ranges.iter().position(|&(ref range_space_char,_)| range_space_char == space_char) {
+        let index = match self
+            .char_ranges
+            .iter()
+            .position(|&(ref range_space_char, _)| range_space_char == space_char)
+        {
             Some(index) => index,
             None => {
-                self.char_ranges.push((space_char.to_string(), Default::default()));
-                self.char_ranges.len()-1
+                self.char_ranges
+                    .push((space_char.to_string(), Default::default()));
+                self.char_ranges.len() - 1
             }
         };
         &mut self.char_ranges[index].1

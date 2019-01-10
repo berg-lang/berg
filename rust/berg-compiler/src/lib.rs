@@ -7,18 +7,18 @@ pub use error::{BergResult, Error, ErrorCode};
 pub use value::{BergVal, Nothing};
 
 use eval::RootRef;
-use syntax::SourceRef;
-use std::path::Path;
 use std::borrow::Cow;
+use std::path::Path;
+use syntax::SourceRef;
 
 #[macro_use]
 pub(crate) mod util;
-pub(crate) mod eval;
 pub(crate) mod error;
+pub(crate) mod eval;
 pub(crate) mod parser;
 pub(crate) mod syntax;
-pub(crate) mod value;
 pub mod test;
+pub(crate) mod value;
 
 pub fn evaluate_file<'a, P: Into<Cow<'a, Path>>>(path: P) -> BergResult<'a> {
     let root = RootRef::from_env();

@@ -3,9 +3,9 @@ use parser::sequencer::ByteType::*;
 use parser::sequencer::CharType::*;
 use parser::tokenizer::Tokenizer;
 use std::str;
-use syntax::{AstData, AstRef, ByteIndex, ByteSlice, IdentifierIndex, SourceRef};
 use syntax::ExpressionBoundary::*;
 use syntax::Token::*;
+use syntax::{AstData, AstRef, ByteIndex, ByteSlice, IdentifierIndex, SourceRef};
 use util::indexed_vec::Delta;
 use util::intern_pool::Pool;
 
@@ -70,23 +70,42 @@ impl<'a> Sequencer<'a> {
         self.tokenizer.ast_mut()
     }
 
-    fn utf8_syntax_error(&mut self, error: ErrorCode, buffer: &ByteSlice, start: ByteIndex, scanner: &Scanner) {
+    fn utf8_syntax_error(
+        &mut self,
+        error: ErrorCode,
+        buffer: &ByteSlice,
+        start: ByteIndex,
+        scanner: &Scanner,
+    ) {
         let range = start..scanner.index;
         let string = unsafe { str::from_utf8_unchecked(&buffer[&range]) };
         let literal = self.ast_mut().literals.add(string);
-        self.tokenizer.on_term_token(ErrorTerm(error, literal), start..scanner.index);
+        self.tokenizer
+            .on_term_token(ErrorTerm(error, literal), start..scanner.index);
     }
 
-    fn raw_syntax_error(&mut self, error: ErrorCode, buffer: &ByteSlice, start: ByteIndex, scanner: &Scanner) {
+    fn raw_syntax_error(
+        &mut self,
+        error: ErrorCode,
+        buffer: &ByteSlice,
+        start: ByteIndex,
+        scanner: &Scanner,
+    ) {
         let range = start..scanner.index;
         let raw_literal = self.ast_mut().raw_literals.push(buffer[&range].into());
-        self.tokenizer.on_term_token(RawErrorTerm(error, raw_literal), range);
+        self.tokenizer
+            .on_term_token(RawErrorTerm(error, raw_literal), range);
     }
 
     fn integer(&mut self, buffer: &ByteSlice, start: ByteIndex, scanner: &mut Scanner) {
         scanner.next_while(Digit, buffer);
         if scanner.next_while_identifier(buffer) {
-            return self.utf8_syntax_error(ErrorCode::IdentifierStartsWithNumber, buffer, start, scanner);
+            return self.utf8_syntax_error(
+                ErrorCode::IdentifierStartsWithNumber,
+                buffer,
+                start,
+                scanner,
+            );
         }
         let range = start..scanner.index;
         let string = unsafe { str::from_utf8_unchecked(&buffer[&range]) };
@@ -113,7 +132,9 @@ impl<'a> Sequencer<'a> {
 
         let term_is_about_to_end = {
             let char_type = scanner.peek(buffer);
-            char_type.is_space() || char_type.is_close() || char_type.is_separator()
+            char_type.is_space()
+                || char_type.is_close()
+                || char_type.is_separator()
                 || (char_type == Colon && !scanner.peek_at(buffer, 1).is_always_right_operand())
         };
 
@@ -191,7 +212,9 @@ impl<'a> Sequencer<'a> {
     }
 
     fn newline(&mut self, buffer: &ByteSlice, start: ByteIndex, scanner: &Scanner) {
-        self.ast_mut().char_data.append_line(buffer, start..scanner.index);
+        self.ast_mut()
+            .char_data
+            .append_line(buffer, start..scanner.index);
         self.tokenizer
             .on_newline(start, ((scanner.index - start).0).0 as u8)
     }
@@ -212,8 +235,16 @@ impl<'a> Sequencer<'a> {
         self.raw_syntax_error(ErrorCode::InvalidUtf8, buffer, start, scanner)
     }
 
-    fn store_spaces_in_char_data(&mut self, buffer: &ByteSlice, start: ByteIndex, scanner: &mut Scanner) {
-        self.ast_mut().char_data.whitespace.append(unsafe { str::from_utf8_unchecked(&buffer[start..scanner.index]) }, start);
+    fn store_spaces_in_char_data(
+        &mut self,
+        buffer: &ByteSlice,
+        start: ByteIndex,
+        scanner: &mut Scanner,
+    ) {
+        self.ast_mut().char_data.whitespace.append(
+            unsafe { str::from_utf8_unchecked(&buffer[start..scanner.index]) },
+            start,
+        );
     }
 }
 
@@ -416,7 +447,9 @@ impl ByteType {
 
     fn from_byte(byte: u8) -> ByteType {
         match byte {
-            b'+' | b'-' | b'*' | b'/' | b'=' | b'>' | b'<' | b'&' | b'|' | b'!' | b'.' => Char(Operator),
+            b'+' | b'-' | b'*' | b'/' | b'=' | b'>' | b'<' | b'&' | b'|' | b'!' | b'.' => {
+                Char(Operator)
+            }
             b'0'...b'9' => Char(Digit),
             b'a'...b'z' | b'A'...b'Z' | b'_' => Char(Identifier),
             b'(' => Char(OpenParen),

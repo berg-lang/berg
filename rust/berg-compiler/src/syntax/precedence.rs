@@ -1,5 +1,5 @@
-use syntax::{IdentifierIndex,Token};
 use syntax::Precedence::*;
+use syntax::{IdentifierIndex, Token};
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum Precedence {
@@ -72,16 +72,16 @@ impl Precedence {
             },
             ColonDeclaration => match right {
                 Dot | TimesDivide | PlusMinus | Comparison | And | Or | Assign => true,
-                _ => false
-            }
+                _ => false,
+            },
             SemicolonSequence => match right {
-                Dot | TimesDivide | PlusMinus | Comparison | And | Or | Assign | ColonDeclaration => true,
-                _ => false
-            }
+                Dot | TimesDivide | PlusMinus | Comparison | And | Or | Assign
+                | ColonDeclaration => true,
+                _ => false,
+            },
             NewlineSequence => match right {
-                Dot | TimesDivide | PlusMinus | Comparison | And | Or | Assign | ColonDeclaration | SemicolonSequence => {
-                    true
-                }
+                Dot | TimesDivide | PlusMinus | Comparison | And | Or | Assign
+                | ColonDeclaration | SemicolonSequence => true,
                 _ => false,
             },
         }

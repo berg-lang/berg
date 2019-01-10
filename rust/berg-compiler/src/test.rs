@@ -52,7 +52,13 @@ impl<'a> ExpectBerg<'a> {
         expected_value: V,
     ) {
         let source = test_source(self.0).parse();
-        assert_eq!(self.0, source.to_bytes().as_slice(), "Round trip failed!\nExpected:\n{}\n---------\nActual:\n{}\n---------\n", String::from_utf8_lossy(self.0), source.to_string());
+        assert_eq!(
+            self.0,
+            source.to_bytes().as_slice(),
+            "Round trip failed!\nExpected:\n{}\n---------\nActual:\n{}\n---------\n",
+            String::from_utf8_lossy(self.0),
+            source.to_string()
+        );
         let result = source.evaluate_to::<V>();
         assert!(
             result.is_ok(),
@@ -71,7 +77,7 @@ impl<'a> ExpectBerg<'a> {
     #[allow(clippy::wrong_self_convention)]
     pub fn to_error(self, code: ErrorCode, range: Range<usize>) {
         let source = test_source(self.0);
-        let result = source.evaluate();        
+        let result = source.evaluate();
         assert!(
             result.is_err(),
             "No error produced by {}: expected {}, got value {}",

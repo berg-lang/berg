@@ -1,7 +1,7 @@
 use eval::Expression;
 use std::fmt;
-use syntax::{AstRef, ExpressionBoundary, Fixity, Token};
 use syntax::identifiers::SEMICOLON;
+use syntax::{AstRef, ExpressionBoundary, Fixity, Token};
 
 pub struct ExpressionFormatter<'p, 'a: 'p>(pub Expression, pub &'p AstRef<'a>);
 
@@ -39,7 +39,7 @@ impl<'p, 'a: 'p> fmt::Display for ExpressionFormatter<'p, 'a> {
                     Token::NewlineSequence => write!(f, "{}\\n {}", left, right),
                     _ => write!(f, "{} {} {}", left, string, right),
                 }
-            },
+            }
             Fixity::Prefix => {
                 let right = ExpressionFormatter(expression.right_expression(ast), ast);
                 if ast.tokens()[expression.operator() - 1].has_left_operand() {
@@ -47,7 +47,7 @@ impl<'p, 'a: 'p> fmt::Display for ExpressionFormatter<'p, 'a> {
                 } else {
                     write!(f, "{}{}", string, right)
                 }
-            },
+            }
             Fixity::Postfix => {
                 let left = ExpressionFormatter(expression.left_expression(ast), ast);
                 if ast.tokens()[expression.operator() + 1].has_right_operand() {
@@ -55,22 +55,18 @@ impl<'p, 'a: 'p> fmt::Display for ExpressionFormatter<'p, 'a> {
                 } else {
                     write!(f, "{}{}", left, string)
                 }
-            },
+            }
             Fixity::Term => write!(f, "{}", token.to_string(ast)),
             Fixity::Open | Fixity::Close => {
                 let (open, close) = self.boundary_strings();
                 let inner = ExpressionFormatter(expression.inner_expression(ast), ast);
                 write!(f, "{}{}{}", open, inner, close)
-            },
+            }
         }
     }
 }
 
-pub struct ExpressionTreeFormatter<'p, 'a: 'p>(
-    pub Expression,
-    pub &'p AstRef<'a>,
-    pub usize,
-);
+pub struct ExpressionTreeFormatter<'p, 'a: 'p>(pub Expression, pub &'p AstRef<'a>, pub usize);
 
 impl<'p, 'a: 'p> ExpressionTreeFormatter<'p, 'a> {
     fn left(&self) -> Self {
@@ -88,7 +84,7 @@ impl<'p, 'a: 'p> ExpressionTreeFormatter<'p, 'a> {
     fn fmt_self(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let ExpressionTreeFormatter(expression, ast, level) = *self;
         let token = expression.token(ast);
-        write!(f, "{:level$}", " ", level=level*2)?;
+        write!(f, "{:level$}", " ", level = level * 2)?;
         match token.fixity() {
             Fixity::Open | Fixity::Close => write!(
                 f,
@@ -121,4 +117,3 @@ impl<'p, 'a: 'p> fmt::Display for ExpressionTreeFormatter<'p, 'a> {
         }
     }
 }
-

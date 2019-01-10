@@ -3,11 +3,15 @@ use eval::{ExpressionFormatter, ScopeRef};
 use num::BigRational;
 use std::fmt;
 use std::str::FromStr;
-use syntax::{AstIndex, AstRef, ByteRange, ExpressionBoundary, ExpressionBoundaryError, FieldIndex,
-             Fixity, IdentifierIndex, OperandPosition, SourceReconstruction, Token};
+use syntax::identifiers::{
+    APPLY, COLON, DASH_DASH, DOT, EMPTY_STRING, NEWLINE, PLUS_PLUS, SEMICOLON,
+};
 use syntax::Fixity::*;
 use syntax::OperandPosition::*;
-use syntax::identifiers::{APPLY, COLON, DASH_DASH, DOT, EMPTY_STRING, NEWLINE, PLUS_PLUS, SEMICOLON};
+use syntax::{
+    AstIndex, AstRef, ByteRange, ExpressionBoundary, ExpressionBoundaryError, FieldIndex, Fixity,
+    IdentifierIndex, OperandPosition, SourceReconstruction, Token,
+};
 use util::try_from::TryFrom;
 use util::type_name::TypeName;
 use value::{BergVal, BergValue};
@@ -37,9 +41,9 @@ impl fmt::Debug for Expression {
 impl Expression {
     pub fn evaluate_local<'a>(self, scope: &mut ScopeRef<'a>, ast: &AstRef<'a>) -> BergResult<'a> {
         println!("Evaluate {} ...", ExpressionFormatter(self, ast));
-        use syntax::Token::*;
         use error::ErrorCode::*;
         use syntax::ExpressionBoundaryError::*;
+        use syntax::Token::*;
         let result = match *self.token(ast) {
             IntegerLiteral(literal) => {
                 let parsed = BigRational::from_str(ast.literal_string(literal)).unwrap();
@@ -575,9 +579,9 @@ impl<'a> AssignmentTarget<'a> {
     fn declare(&mut self, scope: &mut ScopeRef<'a>, ast: &AstRef<'a>) -> BergResult<'a> {
         use eval::expression::AssignmentTarget::*;
         match *self {
-            DeclareLocal(field, expression) => {
-                scope.declare_field(field, ast).take_error(ast, expression)?
-            }
+            DeclareLocal(field, expression) => scope
+                .declare_field(field, ast)
+                .take_error(ast, expression)?,
             Local(..) | Object(..) => {}
         }
         Ok(BergVal::Nothing)
@@ -624,7 +628,10 @@ impl Operand {
         scope: &mut ScopeRef<'a>,
         ast: &AstRef<'a>,
     ) -> EvalResult<'a, T> {
-        let value = self.expression.evaluate_local(scope, ast)?.evaluate(scope)?;
+        let value = self
+            .expression
+            .evaluate_local(scope, ast)?
+            .evaluate(scope)?;
         match value.downcast::<T>() {
             Err(Raw(BergError::BadType(value, expected_type))) => {
                 BergError::BadOperandType(self.position, value, expected_type).err()

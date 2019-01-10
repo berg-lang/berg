@@ -1,8 +1,8 @@
-use std::ops::Index;
 use fnv::FnvHashMap;
-use util::indexed_vec::IndexedVec;
-use util::indexed_vec::IndexType;
+use std::ops::Index;
 use std::str;
+use util::indexed_vec::IndexType;
+use util::indexed_vec::IndexedVec;
 
 const DEFAULT_CAPACITY: usize = 1024;
 
@@ -18,12 +18,7 @@ pub struct StringPool<Ind: IndexType>(IndexedVec<String, Ind>);
 
 pub trait Pool<Ind: IndexType> {
     fn add(&mut self, string: &str) -> Ind;
-    unsafe fn add_utf8_unchecked(
-        &mut self,
-        buffer: &[u8],
-        start: usize,
-        end: usize,
-    ) -> Ind {
+    unsafe fn add_utf8_unchecked(&mut self, buffer: &[u8], start: usize, end: usize) -> Ind {
         let string = str::from_utf8_unchecked(&buffer[start..end]);
         self.add(string)
     }

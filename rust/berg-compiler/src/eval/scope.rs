@@ -72,7 +72,8 @@ impl<'a> fmt::Debug for ScopeRef<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             ScopeRef::BlockRef(ref block) => block.fmt(f),
-            ScopeRef::AstRef(ref ast) => f.debug_struct("AstRef")
+            ScopeRef::AstRef(ref ast) => f
+                .debug_struct("AstRef")
                 .field("fields", &ast.root().field_names())
                 .finish(),
         }

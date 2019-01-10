@@ -22,8 +22,8 @@ struct RootData {
 }
 
 pub mod root_fields {
-    use syntax::{FieldIndex, IdentifierIndex};
     use syntax::identifiers;
+    use syntax::{FieldIndex, IdentifierIndex};
 
     pub const TRUE: FieldIndex = FieldIndex(0);
     pub const FALSE: FieldIndex = FieldIndex(1);
@@ -88,7 +88,11 @@ impl RootRef {
     }
 
     #[allow(clippy::needless_pass_by_value)]
-    pub fn set_local_field<'a>(&self, index: FieldIndex, _value: BergResult<'a>) -> EvalResult<'a, ()> {
+    pub fn set_local_field<'a>(
+        &self,
+        index: FieldIndex,
+        _value: BergResult<'a>,
+    ) -> EvalResult<'a, ()> {
         BergError::ImmutableFieldOnRoot(index).err()
     }
 

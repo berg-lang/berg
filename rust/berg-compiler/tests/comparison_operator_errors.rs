@@ -1,4 +1,4 @@
-#![recursion_limit="512"]
+#![recursion_limit = "512"]
 #[macro_use]
 pub mod compiler_test;
 use compiler_test::*;

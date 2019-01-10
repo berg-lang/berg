@@ -2,10 +2,12 @@ mod result;
 pub use error::result::{BergResult, EvalResult, TakeError, UnwindFrame};
 pub use error::EvalError::Raw;
 
-use syntax::{AstRef, ByteRange, FieldIndex, Fixity, IdentifierIndex, LineColumnRange,
-             LiteralIndex, OperandPosition, RawLiteralIndex};
 use eval::{BlockRef, Expression};
 use std::fmt;
+use syntax::{
+    AstRef, ByteRange, FieldIndex, Fixity, IdentifierIndex, LineColumnRange, LiteralIndex,
+    OperandPosition, RawLiteralIndex,
+};
 use value::*;
 
 #[derive(Debug, Clone)]
@@ -131,7 +133,8 @@ impl<'a> Error<'a> {
         Error {
             error,
             stack: Default::default(),
-        }.push_frame(ast, expression)
+        }
+        .push_frame(ast, expression)
     }
 
     pub fn push_frame(mut self, ast: &AstRef<'a>, expression: Expression) -> Self {
@@ -374,8 +377,9 @@ impl<'a> fmt::Display for Error<'a> {
                 position = expression.operand_position(ast),
                 operand = expression.to_string(ast),
             ),
-            BadOperandType(position,ref actual_value,expected_type) => 
-            write!(f, "The value of '{operand}' is {actual_value}, but {position} '{operator}' must be an {expected_type}!",
+            BadOperandType(position,ref actual_value,expected_type) => write!(
+                f,
+                "The value of '{operand}' is {actual_value}, but {position} '{operator}' must be an {expected_type}!",
                 operand = position.get(expression, ast).to_string(ast),
                 actual_value = actual_value,
                 position = position,

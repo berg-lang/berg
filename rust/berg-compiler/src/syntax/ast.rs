@@ -1,17 +1,20 @@
-use util::try_from::TryFrom;
-use util::type_name::TypeName;
-use error::{BergError,BergResult,TakeError};
-use eval::{Expression, ScopeRef, RootRef};
+use error::{BergError, BergResult, TakeError};
+use eval::{Expression, RootRef, ScopeRef};
 use std::borrow::Cow;
 use std::io;
 use std::rc::Rc;
 use std::u32;
-use syntax::identifiers;
 use syntax::char_data::CharData;
-use syntax::{AstBlock, BlockIndex, ByteRange, Field, FieldIndex, SourceReconstruction, SourceReconstructionReader, SourceRef, Token};
+use syntax::identifiers;
 use syntax::OperandPosition::*;
+use syntax::{
+    AstBlock, BlockIndex, ByteRange, Field, FieldIndex, SourceReconstruction,
+    SourceReconstructionReader, SourceRef, Token,
+};
 use util::indexed_vec::IndexedVec;
 use util::intern_pool::{InternPool, StringPool};
+use util::try_from::TryFrom;
+use util::type_name::TypeName;
 use value::{BergVal, BergValue};
 
 index_type! {
@@ -58,7 +61,10 @@ impl<'a> AstData<'a> {
         let fields = source
             .root()
             .field_names()
-            .map(|name| Field { name: *name, is_public: false })
+            .map(|name| Field {
+                name: *name,
+                is_public: false,
+            })
             .collect();
         AstData {
             source,
@@ -92,7 +98,10 @@ impl<'a> AstRef<'a> {
         assert_ne!(self.0.tokens.len(), 0);
         Expression(AstIndex(0))
     }
-    pub fn read_bytes<'p>(&'p self) -> SourceReconstructionReader<'p, 'a> where 'a: 'p {
+    pub fn read_bytes<'p>(&'p self) -> SourceReconstructionReader<'p, 'a>
+    where
+        'a: 'p,
+    {
         SourceReconstructionReader::new(self, 0.into()..self.char_data().size)
     }
     pub fn to_bytes(&self) -> Vec<u8> {
@@ -106,9 +115,14 @@ impl<'a> AstRef<'a> {
         let (value, mut scope) = self.evaluate_local()?;
         value.evaluate(&mut scope)
     }
-    pub fn evaluate_to<T: TypeName + TryFrom<BergVal<'a>, Error = BergVal<'a>>>(self) -> BergResult<'a, T> {
+    pub fn evaluate_to<T: TypeName + TryFrom<BergVal<'a>, Error = BergVal<'a>>>(
+        self,
+    ) -> BergResult<'a, T> {
         let (value, mut scope) = self.evaluate_local()?;
-        value.evaluate(&mut scope)?.downcast::<T>().take_error(&self, self.expression())
+        value
+            .evaluate(&mut scope)?
+            .downcast::<T>()
+            .take_error(&self, self.expression())
     }
     fn evaluate_local(&self) -> BergResult<'a, (BergVal<'a>, ScopeRef<'a>)> {
         let mut scope = ScopeRef::AstRef(self.clone());
@@ -126,7 +140,7 @@ impl<'a> AstRef<'a> {
     pub fn literals(&self) -> &StringPool<LiteralIndex> {
         &self.0.literals
     }
-    pub fn raw_literals(&self) -> &IndexedVec<Vec<u8>,RawLiteralIndex> {
+    pub fn raw_literals(&self) -> &IndexedVec<Vec<u8>, RawLiteralIndex> {
         &self.0.raw_literals
     }
     pub fn tokens(&self) -> &IndexedVec<Token, AstIndex> {

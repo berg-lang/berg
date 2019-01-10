@@ -1,8 +1,8 @@
 use error::{BergError, EvalResult};
 use eval::BlockRef;
+use num::BigRational;
 use util::try_from::TryFrom;
 use util::type_name::TypeName;
-use num::BigRational;
 use value;
 use value::*;
 

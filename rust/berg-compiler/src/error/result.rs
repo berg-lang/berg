@@ -28,7 +28,6 @@ impl<'a, T> UnwindFrame<'a, T> for Error<'a> {
     }
 }
 
-
 impl<'a, T> TakeError<'a, T, Expression> for EvalResult<'a, T> {
     fn take_error(self, ast: &AstRef<'a>, expression: Expression) -> BergResult<'a, T> {
         match self {

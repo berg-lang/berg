@@ -3,7 +3,9 @@ use std::cmp::Ordering;
 use std::fmt;
 use std::iter::*;
 use std::marker::PhantomData;
-use std::ops::{Add, AddAssign, Deref, DerefMut, Index, IndexMut, Range, RangeFrom, Sub, SubAssign};
+use std::ops::{
+    Add, AddAssign, Deref, DerefMut, Index, IndexMut, Range, RangeFrom, Sub, SubAssign,
+};
 use std::slice::{Iter, IterMut};
 
 // index_type and util::indexed_vec work together to let you use a custom type
@@ -109,17 +111,53 @@ impl<T: IndexType> PartialOrd<usize> for Delta<T> {
     }
 }
 
-impl<T: IndexType> Add<usize> for Delta<T> { type Output = Self; fn add(self, value: usize) -> Self { Delta(self.0 + value) } }
-impl<T: IndexType> Add for Delta<T> { type Output = Self; fn add(self, value: Self) -> Self { Delta(self.0 + value) } }
-impl<T: IndexType> Sub<usize> for Delta<T> { type Output = Self; fn sub(self, value: usize) -> Self { Delta(self.0 - value) } }
-impl<T: IndexType> Sub for Delta<T> { type Output = Self; fn sub(self, value: Self) -> Self { Delta(self.0 - value) } }
-impl<T: IndexType> AddAssign<usize> for Delta<T> { fn add_assign(&mut self, value: usize) { *self = *self + value } }
-impl<T: IndexType> AddAssign for Delta<T> { fn add_assign(&mut self, value: Self) { *self = *self + value } }
-impl<T: IndexType> SubAssign<usize> for Delta<T> { fn sub_assign(&mut self, value: usize) { *self = *self - value } }
-impl<T: IndexType> SubAssign for Delta<T> { fn sub_assign(&mut self, value: Self) { *self = *self - value } }
+impl<T: IndexType> Add<usize> for Delta<T> {
+    type Output = Self;
+    fn add(self, value: usize) -> Self {
+        Delta(self.0 + value)
+    }
+}
+impl<T: IndexType> Add for Delta<T> {
+    type Output = Self;
+    fn add(self, value: Self) -> Self {
+        Delta(self.0 + value)
+    }
+}
+impl<T: IndexType> Sub<usize> for Delta<T> {
+    type Output = Self;
+    fn sub(self, value: usize) -> Self {
+        Delta(self.0 - value)
+    }
+}
+impl<T: IndexType> Sub for Delta<T> {
+    type Output = Self;
+    fn sub(self, value: Self) -> Self {
+        Delta(self.0 - value)
+    }
+}
+impl<T: IndexType> AddAssign<usize> for Delta<T> {
+    fn add_assign(&mut self, value: usize) {
+        *self = *self + value
+    }
+}
+impl<T: IndexType> AddAssign for Delta<T> {
+    fn add_assign(&mut self, value: Self) {
+        *self = *self + value
+    }
+}
+impl<T: IndexType> SubAssign<usize> for Delta<T> {
+    fn sub_assign(&mut self, value: usize) {
+        *self = *self - value
+    }
+}
+impl<T: IndexType> SubAssign for Delta<T> {
+    fn sub_assign(&mut self, value: Self) {
+        *self = *self - value
+    }
+}
 
-pub trait IndexType
-    : Copy
+pub trait IndexType:
+    Copy
     + Clone
     + fmt::Display
     + Into<usize>
@@ -136,7 +174,8 @@ pub trait IndexType
     + Add<usize, Output = Self>
     + Sub<usize, Output = Self>
     + Add<Delta<Self>, Output = Self>
-    + Sub<Delta<Self>, Output = Self> {
+    + Sub<Delta<Self>, Output = Self>
+{
 }
 
 pub struct IndexedIter<Inner: Iterator, Idx: IndexType>(Inner, PhantomData<Idx>);

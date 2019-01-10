@@ -1,9 +1,9 @@
-use syntax::{AstIndex, AstRef, ByteIndex, ByteRange, Token};
-use syntax::identifiers::*;
 use std::cmp;
 use std::fmt;
 use std::io;
 use std::io::Read;
+use syntax::identifiers::*;
+use syntax::{AstIndex, AstRef, ByteIndex, ByteRange, Token};
 
 pub struct SourceReconstruction<'p, 'a: 'p> {
     ast: &'p AstRef<'a>,
@@ -113,7 +113,8 @@ impl<'p, 'a: 'p> Iterator for SourceReconstructionIterator<'p, 'a> {
         }
 
         // Get the next thing (be it token or whitespace)
-        let (start, mut bytes) = self.next_token()
+        let (start, mut bytes) = self
+            .next_token()
             .or_else(|| self.next_whitespace_range())
             .or_else(|| self.next_newline())
             .unwrap_or_else(|| (self.index, identifier_string(SPACE).as_bytes()));
@@ -242,7 +243,8 @@ impl<'p, 'a: 'p> SourceReconstructionIterator<'p, 'a> {
 }
 
 fn find_ast_index(ast: &AstRef, index: ByteIndex) -> AstIndex {
-    let ast_index = ast.token_ranges()
+    let ast_index = ast
+        .token_ranges()
         .iter()
         .position(|range| range.end > index);
     ast_index.unwrap_or_else(|| ast.token_ranges().last_index())

@@ -1,11 +1,11 @@
 // Evaluates a given source expression.
-use util::try_from::TryFrom;
 use error::{BergError, BergResult, ErrorCode, EvalError, EvalResult, Raw, TakeError};
 use eval::{Expression, Operand, ScopeRef};
 use std::cell::RefCell;
-use std::rc::Rc;
 use std::fmt;
+use std::rc::Rc;
 use syntax::{AstRef, BlockIndex, FieldIndex, IdentifierIndex};
+use util::try_from::TryFrom;
 use value::{BergVal, BergValue};
 
 #[derive(Clone)]
