@@ -40,7 +40,7 @@ impl<'a> fmt::Display for ExpectBerg<'a> {
 }
 
 impl<'a> ExpectBerg<'a> {
-    #[cfg_attr(feature = "clippy", allow(needless_pass_by_value, wrong_self_convention))]
+    #[allow(clippy::needless_pass_by_value, clippy::wrong_self_convention)]
     pub fn to_yield<
         V: TypeName
             + TryFrom<BergVal<'a>, Error = BergVal<'a>>
@@ -68,7 +68,7 @@ impl<'a> ExpectBerg<'a> {
             self, expected_value, value
         );
     }
-    #[cfg_attr(feature = "clippy", allow(wrong_self_convention))]
+    #[allow(clippy::wrong_self_convention)]
     pub fn to_error(self, code: ErrorCode, range: Range<usize>) {
         let source = test_source(self.0);
         let result = source.evaluate();        

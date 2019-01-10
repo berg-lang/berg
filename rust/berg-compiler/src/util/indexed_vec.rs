@@ -3,7 +3,6 @@ use std::cmp::Ordering;
 use std::fmt;
 use std::iter::*;
 use std::marker::PhantomData;
-use std::mem;
 use std::ops::{Add, AddAssign, Deref, DerefMut, Index, IndexMut, Range, RangeFrom, Sub, SubAssign};
 use std::slice::{Iter, IterMut};
 
@@ -712,10 +711,10 @@ impl<Elem, Idx: IndexType> IndexedSlice<Elem, Idx> {
         self.slice.is_empty()
     }
     pub fn from_slice(slice: &[Elem]) -> &Self {
-        unsafe { mem::transmute(slice) }
+        unsafe { &*(slice as *const [Elem] as *const Self) }
     }
     pub fn from_mut_slice(slice: &mut [Elem]) -> &mut Self {
-        unsafe { mem::transmute(slice) }
+        unsafe { &mut *(slice as *mut [Elem] as *mut Self) }
     }
     pub fn first(&self) -> Option<&Elem> {
         self.slice.first()

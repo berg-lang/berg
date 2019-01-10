@@ -81,20 +81,20 @@ impl<'a> SourceRef<'a> {
         'a: 'p,
     {
         match *self.0 {
-            SourceData::File(ref path, ref root) => absolute_path(path, root),
+            SourceData::File(ref path, ref root) => absolute_path(path.clone(), root),
             SourceData::Memory(..) => unreachable!(),
         }
     }
     pub fn open(&self, ast: &mut AstData<'a>) -> Cow<'a, ByteSlice> {
         match *self.0 {
-            SourceData::File(ref path, ref root) => open_file_and_report(path, ast, root),
+            SourceData::File(ref path, ref root) => open_file_and_report(path.clone(), ast, root),
             SourceData::Memory(_, buffer, _) => open_memory_and_report(buffer, ast),
         }
     }
 }
 
 fn open_file_and_report<'a>(
-    path: &Cow<Path>,
+    path: Cow<Path>,
     ast: &mut AstData<'a>,
     root: &RootRef,
 ) -> Cow<'static, ByteSlice> {
@@ -138,17 +138,17 @@ fn open_file<'a>(path: &Path, ast: &mut AstData<'a>) -> Cow<'static, [u8]> {
     }
 }
 
-fn absolute_path<'p, 'a: 'p>(
-    path: &'p Cow<'a, Path>,
+fn absolute_path<'a>(
+    path: Cow<'a, Path>,
     root: &RootRef,
-) -> EvalResult<'a, Cow<'p, Path>> {
+) -> EvalResult<'a, Cow<'a, Path>> {
     if path.is_relative() {
         match *root.root_path() {
             Ok(ref root_path) => Ok(Cow::Owned(root_path.join(path))),
             Err(_) => BergError::CurrentDirectoryError.err(),
         }
     } else {
-        Ok(Cow::Borrowed(path.as_ref()))
+        Ok(path)
     }
 }
 

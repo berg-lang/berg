@@ -1,5 +1,4 @@
-#![cfg_attr(feature = "clippy", feature(plugin))]
-#![cfg_attr(feature = "clippy", plugin(clippy))]
+#![warn(clippy::all)]
 
 extern crate fnv;
 extern crate num;

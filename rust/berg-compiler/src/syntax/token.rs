@@ -177,24 +177,24 @@ impl Token {
 
 impl ExpressionBoundary {
     /// Tells whether this expression boundary represents a scope.
-    pub(crate) fn is_scope(&self) -> bool {
-        match *self {
+    pub(crate) fn is_scope(self) -> bool {
+        match self {
             CurlyBraces | Source | Root | AutoBlock => true,
             Parentheses | PrecedenceGroup | CompoundTerm => false,
         }
     }
     /// Tells whether this boundary type MUST be in the expression tree (because
     /// it represents actual user syntax, or opens a scope).
-    pub(crate) fn is_required(&self) -> bool {
-        match *self {
+    pub(crate) fn is_required(self) -> bool {
+        match self {
             Root | AutoBlock | Source | CurlyBraces | Parentheses => true,
             PrecedenceGroup | CompoundTerm => false,
         }
     }
     /// Tells whether we expect a close token for this boundary or if it's handled
     /// by the grouper automatically.
-    pub(crate) fn is_closed_automatically(&self) -> bool {
-        match *self {
+    pub(crate) fn is_closed_automatically(self) -> bool {
+        match self {
             PrecedenceGroup | CompoundTerm | AutoBlock => true,
             Root | Source | CurlyBraces | Parentheses => false,
         }
@@ -230,24 +230,24 @@ impl ExpressionBoundary {
 }
 
 impl Fixity {
-    pub fn num_operands(&self) -> u8 {
+    pub fn num_operands(self) -> u8 {
         use syntax::Fixity::*;
-        match *self {
+        match self {
             Term => 0,
             Prefix | Postfix | Open | Close=> 1,
             Infix => 2,
         }
     }
-    pub fn has_left_operand(&self) -> bool {
+    pub fn has_left_operand(self) -> bool {
         use syntax::Fixity::*;
-        match *self {
+        match self {
             Term | Prefix | Open => false,
             Infix | Postfix | Close => true,
         }
     }
-    pub fn has_right_operand(&self) -> bool {
+    pub fn has_right_operand(self) -> bool {
         use syntax::Fixity::*;
-        match *self {
+        match self {
             Term | Postfix | Close => false,
             Infix | Prefix | Open => true,
         }

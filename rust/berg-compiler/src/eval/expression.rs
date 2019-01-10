@@ -292,21 +292,21 @@ impl Expression {
         &ast.tokens()[self.close_operator(ast)]
     }
 
-    pub(crate) fn open_operator<'p>(&self, ast: &'p AstRef) -> AstIndex {
+    pub(crate) fn open_operator(self, ast: &AstRef) -> AstIndex {
         match *self.token(ast) {
             Token::Close { delta, .. } | Token::CloseBlock { delta, .. } => self.operator() - delta,
             _ => self.operator(),
         }
     }
 
-    pub(crate) fn close_operator<'p>(&self, ast: &'p AstRef) -> AstIndex {
+    pub(crate) fn close_operator(self, ast: &AstRef) -> AstIndex {
         match *self.token(ast) {
             Token::Open { delta, .. } | Token::OpenBlock { delta, .. } => self.operator() + delta,
             _ => self.operator(),
         }
     }
 
-    pub(crate) fn boundary(&self, ast: &AstRef) -> ExpressionBoundary {
+    pub(crate) fn boundary(self, ast: &AstRef) -> ExpressionBoundary {
         match *self.open_token(ast) {
             Token::Open { boundary, .. } => boundary,
             Token::OpenBlock { index, .. } => ast.blocks()[index].boundary,
@@ -342,7 +342,7 @@ impl Expression {
         self.operand(OperandPosition::PostfixOperand, ast)
     }
 
-    pub(crate) fn left_expression(&self, ast: &AstRef) -> Self {
+    pub(crate) fn left_expression(self, ast: &AstRef) -> Self {
         // Grab the term immediately to our left.
         let allow_infix_children = match self.token(ast).fixity() {
             Fixity::Close | Fixity::Infix => true,
@@ -387,7 +387,7 @@ impl Expression {
         Expression(start)
     }
 
-    pub(crate) fn right_expression(&self, ast: &AstRef) -> Self {
+    pub(crate) fn right_expression(self, ast: &AstRef) -> Self {
         let start = self.operator() + 1;
 
         match self.token(ast).fixity() {
@@ -426,7 +426,7 @@ impl Expression {
         Expression(start)
     }
 
-    pub(crate) fn parent(&self, ast: &AstRef) -> Self {
+    pub(crate) fn parent(self, ast: &AstRef) -> Self {
         // Grab the next and previous expression.
         let first_index = self.first_index(ast);
         let last_index = self.last_index(ast);
@@ -457,7 +457,7 @@ impl Expression {
         }
     }
 
-    pub(crate) fn operand_position(&self, ast: &AstRef) -> OperandPosition {
+    pub(crate) fn operand_position(self, ast: &AstRef) -> OperandPosition {
         let parent = self.parent(ast);
         match parent.token(ast).fixity() {
             Prefix | Open => PrefixOperand,
@@ -468,11 +468,11 @@ impl Expression {
         }
     }
 
-    pub(crate) fn inner_expression<'a>(&self, ast: &AstRef<'a>) -> Self {
+    pub(crate) fn inner_expression<'a>(self, ast: &AstRef<'a>) -> Self {
         Expression(self.close_operator(ast)).left_expression(ast)
     }
 
-    pub(crate) fn to_string<'p, 'a: 'p>(&self, ast: &'p AstRef<'a>) -> String {
+    pub(crate) fn to_string<'p, 'a: 'p>(self, ast: &'p AstRef<'a>) -> String {
         SourceReconstruction::new(ast, self.range(ast)).to_string()
     }
 }
@@ -635,7 +635,7 @@ impl Operand {
     pub fn token<'p>(&self, ast: &'p AstRef) -> &'p Token {
         self.expression.token(ast)
     }
-    pub fn operator(&self) -> AstIndex {
+    pub fn operator(self) -> AstIndex {
         self.expression.operator()
     }
 }

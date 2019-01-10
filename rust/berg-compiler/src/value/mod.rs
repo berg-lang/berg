@@ -98,7 +98,7 @@ pub fn default_field<'a, T: BergValue<'a>>(object: &T, name: IdentifierIndex) ->
     BergError::NoSuchPublicFieldOnValue(Box::new(object.clone().into()), name).err()
 }
 
-#[cfg_attr(feature = "clippy", allow(needless_pass_by_value))]
+#[allow(clippy::needless_pass_by_value)]
 pub fn default_set_field<'a, T: BergValue<'a>>(
     object: &mut T,
     name: IdentifierIndex,

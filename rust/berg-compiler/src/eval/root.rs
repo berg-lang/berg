@@ -87,7 +87,7 @@ impl RootRef {
         }
     }
 
-    #[cfg_attr(feature = "clippy", allow(needless_pass_by_value))]
+    #[allow(clippy::needless_pass_by_value)]
     pub fn set_local_field<'a>(&self, index: FieldIndex, _value: BergResult<'a>) -> EvalResult<'a, ()> {
         BergError::ImmutableFieldOnRoot(index).err()
     }

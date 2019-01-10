@@ -30,7 +30,7 @@ impl<'a> BergValue<'a> for bool {
     fn prefix(self, operator: IdentifierIndex, scope: &mut ScopeRef<'a>) -> EvalResult<'a> {
         match operator {
             EXCLAMATION_POINT => (!self).ok(),
-            DOUBLE_EXCLAMATION_POINT => (!!self).ok(),
+            DOUBLE_EXCLAMATION_POINT => self.ok(),
             _ => default_prefix(self, operator, scope),
         }
     }
