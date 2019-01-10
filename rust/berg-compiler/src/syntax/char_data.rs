@@ -155,7 +155,7 @@ impl Whitespace {
             if current_char != ' ' {
                 let space_start = start+current_char_start;
                 let space_end = start+next_char_start;
-                let space_char = unsafe { spaces.slice_unchecked(current_char_start, current_char_start+current_char.len_utf8()) };
+                let space_char = unsafe { spaces.get_unchecked(current_char_start..current_char_start+current_char.len_utf8()) };
                 self.ranges_for_char(space_char).push(space_start..space_end);
             }
 

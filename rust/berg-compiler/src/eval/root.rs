@@ -15,7 +15,9 @@ pub struct RootRef(Rc<RootData>);
 
 struct RootData {
     root_path: io::Result<PathBuf>,
+    #[allow(dead_code)]
     out: Box<Write>,
+    #[allow(dead_code)]
     err: Box<Write>,
 }
 
