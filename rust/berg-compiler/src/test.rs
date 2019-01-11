@@ -1,5 +1,6 @@
 use error::{Error, ErrorCode};
 use eval::RootRef;
+use parser;
 use std::fmt;
 use std::io;
 use std::ops::Range;
@@ -51,15 +52,15 @@ impl<'a> ExpectBerg<'a> {
         self,
         expected_value: V,
     ) {
-        let source = test_source(self.0).parse();
+        let ast = parser::parse(test_source(self.0));
         assert_eq!(
             self.0,
-            source.to_bytes().as_slice(),
+            ast.to_bytes().as_slice(),
             "Round trip failed!\nExpected:\n{}\n---------\nActual:\n{}\n---------\n",
             String::from_utf8_lossy(self.0),
-            source.to_string()
+            ast.to_string()
         );
-        let result = source.evaluate_to::<V>();
+        let result = ast.evaluate_to::<V>();
         assert!(
             result.is_ok(),
             "Unexpected error {} in {}: expected {}",
@@ -76,8 +77,8 @@ impl<'a> ExpectBerg<'a> {
     }
     #[allow(clippy::wrong_self_convention)]
     pub fn to_error(self, code: ErrorCode, range: Range<usize>) {
-        let source = test_source(self.0);
-        let result = source.evaluate();
+        let ast = parser::parse(test_source(self.0));
+        let result = ast.evaluate();
         assert!(
             result.is_err(),
             "No error produced by {}: expected {}, got value {}",

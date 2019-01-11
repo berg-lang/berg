@@ -22,12 +22,14 @@ pub(crate) mod value;
 
 pub fn evaluate_file<'a, P: Into<Cow<'a, Path>>>(path: P) -> BergResult<'a> {
     let root = RootRef::from_env();
-    SourceRef::file(path.into(), root).evaluate()
+    let source = SourceRef::file(path.into(), root);
+    parser::parse(source).evaluate()
 }
 
 pub fn evaluate_bytes<'a>(name: &'a str, value: &'a [u8]) -> BergResult<'a> {
     let root = RootRef::from_env();
-    SourceRef::memory(name, value, root).evaluate()
+    let source = SourceRef::memory(name, value, root);
+    parser::parse(source).evaluate()
 }
 
 // #[cfg(test)]

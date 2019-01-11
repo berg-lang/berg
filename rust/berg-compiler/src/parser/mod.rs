@@ -3,6 +3,7 @@ mod grouper;
 mod sequencer;
 mod tokenizer;
 
+use eval::ExpressionTreeFormatter;
 use syntax::{AstRef, AstData, SourceRef, SourceBuffer};
 use parser::sequencer::Sequencer;
 
@@ -19,7 +20,13 @@ use parser::sequencer::Sequencer;
 ///
 pub fn parse(source: SourceRef) -> AstRef {
     let SourceBuffer { buffer, source_open_error } = source.open();
-    let ast = AstData::new(source, source_open_error);
-    let sequencer = Sequencer::new(ast);
-    AstRef::new(sequencer.parse_buffer(&buffer))
+    let sequencer = Sequencer::new(AstData::new(source, source_open_error));
+    let ast = AstRef::new(sequencer.parse_buffer(&buffer));
+    println!();
+    println!("Parsed:");
+    print!(
+        "{}",
+        ExpressionTreeFormatter(ast.expression(), &ast, 1)
+    );
+    ast
 }

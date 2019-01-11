@@ -1,6 +1,5 @@
-use error::{BergError, BergResult, EvalResult};
-use eval::{ExpressionTreeFormatter, RootRef};
-use parser;
+use error::{BergError, EvalResult};
+use eval::RootRef;
 use std::borrow::Cow;
 use std::fs::File;
 use std::io;
@@ -9,11 +8,7 @@ use std::ops::Range;
 use std::path::Path;
 use std::rc::Rc;
 use std::u32;
-use syntax::{AstRef};
 use util::indexed_vec::{to_indexed_cow, IndexedSlice};
-use util::try_from::TryFrom;
-use util::type_name::TypeName;
-use value::BergVal;
 
 index_type! {
     pub struct ByteIndex(pub u32) with Display,Debug <= u32::MAX;
@@ -59,24 +54,6 @@ impl<'a> SourceRef<'a> {
         match *self.0 {
             SourceData::File(_, ref root) | SourceData::Memory(_, _, ref root) => root,
         }
-    }
-    pub fn parse(self) -> AstRef<'a> {
-        let parsed = parser::parse(self);
-        println!();
-        println!("Parsed:");
-        print!(
-            "{}",
-            ExpressionTreeFormatter(parsed.expression(), &parsed, 1)
-        );
-        parsed
-    }
-    pub fn evaluate(self) -> BergResult<'a> {
-        self.parse().evaluate()
-    }
-    pub fn evaluate_to<T: TypeName + TryFrom<BergVal<'a>, Error = BergVal<'a>>>(
-        self,
-    ) -> BergResult<'a, T> {
-        self.parse().evaluate_to()
     }
 
     pub fn name(&'a self) -> Cow<'a, str> {
