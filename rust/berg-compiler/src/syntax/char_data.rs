@@ -51,7 +51,7 @@ impl Default for CharData {
 impl CharData {
     pub(crate) fn append_line(&mut self, buffer: &ByteSlice, range: ByteRange) {
         self.line_starts.push(range.end);
-        let newline_char = unsafe { str::from_utf8_unchecked(&buffer[&range]) };
+        let newline_char = unsafe { str::from_utf8_unchecked(&buffer[range.clone()]) };
         self.whitespace.ranges_for_char(newline_char).push(range);
     }
 

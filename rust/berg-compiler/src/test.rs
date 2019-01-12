@@ -1,10 +1,12 @@
+use util::from_range::ExplicitRange;
+use util::from_range::IntoRange;
 use error::{Error, ErrorCode};
 use eval::RootRef;
 use parser;
 use std::fmt;
 use std::io;
-use std::ops::Range;
-use syntax::SourceRef;
+use std::ops::RangeBounds;
+use syntax::{ByteIndex, SourceRef};
 use util::try_from::TryFrom;
 use util::type_name::TypeName;
 use value::BergVal;
@@ -76,14 +78,15 @@ impl<'a> ExpectBerg<'a> {
         );
     }
     #[allow(clippy::wrong_self_convention)]
-    pub fn to_error(self, code: ErrorCode, range: Range<usize>) {
+    pub fn to_error<R: ExplicitRange<ByteIndex>>(self, code: ErrorCode, expected_range: impl IntoRange<ByteIndex, Output=R>) {
         let ast = parser::parse(test_source(self.0));
+        let expected_range = expected_range.into_range().explicit_range(ast.char_data().size);
         let result = ast.evaluate();
         assert!(
             result.is_err(),
             "No error produced by {}: expected {}, got value {}",
             self,
-            error_string(code, range),
+            error_string(code, &expected_range),
             result.as_ref().unwrap()
         );
         let value = Error::try_from(result.unwrap_err());
@@ -91,7 +94,7 @@ impl<'a> ExpectBerg<'a> {
             value.is_ok(),
             "Result of {} is an error, but of an unexpected type! Expected {}, got {}",
             self,
-            error_string(code, range),
+            error_string(code, &expected_range),
             value.as_ref().unwrap_err()
         );
         let error = value.unwrap();
@@ -100,30 +103,63 @@ impl<'a> ExpectBerg<'a> {
             error.code(),
             "Wrong error code from {}! Expected {}, got {} at {}",
             self,
-            error_string(code, range),
+            error_string(code, &expected_range),
             error.code(),
             error.location().range()
         );
-        let expected_range = Range {
-            start: range.start.into(),
-            end: range.end.into(),
-        };
-        assert_eq!(
-            expected_range,
-            *error.location().byte_range(),
+        assert!(
+            ranges_equal(&expected_range, error.location().byte_range()),
             "Wrong error range from {}! Expected {}, got {} at {}",
             self,
-            error_string(code, range),
+            error_string(code, &expected_range),
             error.code(),
             error.location().range()
         );
     }
 }
 
-fn error_string(code: ErrorCode, range: Range<usize>) -> String {
-    match range.end - range.start {
-        0 => format!("{} at {} (zero width)", code, range.start + 1),
-        1 => format!("{} at {}", code, range.start),
-        _ => format!("{} at {}-{}", code, range.start, range.end - 1),
+fn ranges_equal(a: &impl RangeBounds<ByteIndex>, b: &impl RangeBounds<ByteIndex>) -> bool {
+    let start_equal = match (start_inclusive(a), start_inclusive(b)) {
+        (None, None) => true,
+        (Some(a), Some(b)) => a == b,
+        _ => false
+    };
+    start_equal && match (end_inclusive(a), end_inclusive(b)) {
+        (None, None) => true,
+        (Some(a), Some(b)) => a == b,
+        _ => false
+    }
+}
+
+fn start_inclusive(range: &impl RangeBounds<ByteIndex>) -> Option<ByteIndex> {
+    use std::ops::Bound::*;
+    match range.start_bound() {
+        Included(a) => Some(*a),
+        Excluded(a) => Some(*a+1),
+        Unbounded => None
+    }
+}
+
+fn end_inclusive(range: &impl RangeBounds<ByteIndex>) -> Option<ByteIndex> {
+    use std::ops::Bound::*;
+    match range.end_bound() {
+        Included(a) => Some(*a),
+        Excluded(a) => Some(*a-1),
+        Unbounded => None
+    }
+}
+
+fn error_string(code: ErrorCode, range: &impl RangeBounds<ByteIndex>) -> String {
+    format!("{} at {}", code, range_string(range))
+}
+
+fn range_string(range: &impl RangeBounds<ByteIndex>) -> String {
+    match (start_inclusive(range), end_inclusive(range)) {
+        (Some(start), Some(end)) if start == end     => format!("{} (zero width)", start),
+        (Some(start), Some(end)) if start + 1 == end => format!("{}", start),
+        (Some(start), Some(end))                     => format!("{}-{}", start, end),
+        (Some(start), None)                          => format!("{}-<end>", start),
+        (None, Some(end))                            => format!("0-{}", end),
+        (None, None)                                 => "0-<end>".into(),
     }
 }

@@ -93,8 +93,7 @@ impl<'a> Sequencer<'a> {
         start: ByteIndex,
         scanner: &Scanner,
     ) {
-        let range = start..scanner.index;
-        let string = unsafe { str::from_utf8_unchecked(&buffer[&range]) };
+        let string = unsafe { str::from_utf8_unchecked(&buffer[start..scanner.index]) };
         let literal = self.ast_mut().literals.add(string);
         self.tokenizer
             .on_term_token(ErrorTerm(error, literal), start..scanner.index);
@@ -107,10 +106,9 @@ impl<'a> Sequencer<'a> {
         start: ByteIndex,
         scanner: &Scanner,
     ) {
-        let range = start..scanner.index;
-        let raw_literal = self.ast_mut().raw_literals.push(buffer[&range].into());
+        let raw_literal = self.ast_mut().raw_literals.push(buffer[start..scanner.index].into());
         self.tokenizer
-            .on_term_token(RawErrorTerm(error, raw_literal), range);
+            .on_term_token(RawErrorTerm(error, raw_literal), start..scanner.index);
     }
 
     fn integer(&mut self, buffer: &ByteSlice, start: ByteIndex, scanner: &mut Scanner) {
@@ -123,19 +121,17 @@ impl<'a> Sequencer<'a> {
                 scanner,
             );
         }
-        let range = start..scanner.index;
-        let string = unsafe { str::from_utf8_unchecked(&buffer[&range]) };
+        let string = unsafe { str::from_utf8_unchecked(&buffer[start..scanner.index]) };
         let literal = self.ast_mut().literals.add(string);
-        self.tokenizer.on_term_token(IntegerLiteral(literal), range)
+        self.tokenizer.on_term_token(IntegerLiteral(literal), start..scanner.index)
     }
 
     fn identifier(&mut self, buffer: &ByteSlice, start: ByteIndex, scanner: &mut Scanner) {
         scanner.next_while_identifier(buffer);
-        let range = start..scanner.index;
-        let string = unsafe { str::from_utf8_unchecked(&buffer[&range]) };
+        let string = unsafe { str::from_utf8_unchecked(&buffer[start..scanner.index]) };
         let identifier = self.ast_mut().identifiers.add(string);
         self.tokenizer
-            .on_term_token(RawIdentifier(identifier), range)
+            .on_term_token(RawIdentifier(identifier), start..scanner.index)
     }
 
     fn make_identifier(&mut self, slice: &[u8]) -> IdentifierIndex {
@@ -154,27 +150,26 @@ impl<'a> Sequencer<'a> {
                 || (char_type == Colon && !scanner.peek_at(buffer, 1).is_always_right_operand())
         };
 
-        let range = start..scanner.index;
         if self.tokenizer.in_term && term_is_about_to_end {
-            let identifier = self.make_identifier(&buffer[&range]);
+            let identifier = self.make_identifier(&buffer[start..scanner.index]);
             self.tokenizer
-                .on_term_token(PostfixOperator(identifier), range);
+                .on_term_token(PostfixOperator(identifier), start..scanner.index);
         } else if !self.tokenizer.in_term && !term_is_about_to_end {
-            let identifier = self.make_identifier(&buffer[&range]);
+            let identifier = self.make_identifier(&buffer[start..scanner.index]);
             self.tokenizer
-                .on_term_token(PrefixOperator(identifier), range);
+                .on_term_token(PrefixOperator(identifier), start..scanner.index);
         } else {
-            let token = if Self::is_assignment_operator(&buffer[&range]) {
+            let token = if Self::is_assignment_operator(&buffer[start..scanner.index]) {
                 InfixAssignment(self.make_identifier(&buffer[start..scanner.index - 1]))
             } else {
-                InfixOperator(self.make_identifier(&buffer[&range]))
+                InfixOperator(self.make_identifier(&buffer[start..scanner.index]))
             };
             // If the infix operator is like a+b, it's inside the term. If it's
             // like a + b, it's outside (like a separator).
             if self.tokenizer.in_term {
-                self.tokenizer.on_term_token(token, range);
+                self.tokenizer.on_term_token(token, start..scanner.index);
             } else {
-                self.tokenizer.on_separator(token, range);
+                self.tokenizer.on_separator(token, start..scanner.index);
             }
         }
     }
@@ -192,16 +187,15 @@ impl<'a> Sequencer<'a> {
     // See where the "operator" function calculates whether the term is about to end for the other
     // relevant silliness to ensure "a+:b" means "(a) + (:b)".
     fn colon(&mut self, buffer: &ByteSlice, start: ByteIndex, scanner: &mut Scanner) {
-        let range = start..scanner.index;
-        let identifier = self.make_identifier(&buffer[&range]);
+        let identifier = self.make_identifier(&buffer[start..scanner.index]);
         if (!self.tokenizer.in_term || self.tokenizer.operator)
             && scanner.peek(buffer).is_always_right_operand()
         {
             self.tokenizer
-                .on_term_token(PrefixOperator(identifier), range);
+                .on_term_token(PrefixOperator(identifier), start..scanner.index);
         } else {
             self.tokenizer
-                .on_separator(InfixOperator(identifier), range);
+                .on_separator(InfixOperator(identifier), start..scanner.index);
         }
     }
 
