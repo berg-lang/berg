@@ -5,8 +5,8 @@ use eval::RootRef;
 use parser;
 use std::fmt;
 use std::io;
-use std::ops::{Range, RangeBounds};
-use syntax::{ByteIndex, SourceRef};
+use std::ops::{Range};
+use syntax::{ByteIndex, ByteRange, LineColumnRange, SourceRef};
 use util::try_from::TryFrom;
 use util::type_name::TypeName;
 use value::BergVal;
@@ -57,21 +57,21 @@ impl<'a, V: TypeName
 }
 
 pub trait ExpectedErrorRange {
-    fn into_error_range(self, len: ByteIndex) -> Range<ByteIndex>;
+    fn into_error_range(self, len: ByteIndex) -> ByteRange;
 }
 impl ExpectedErrorRange for usize {
-    fn into_error_range(self, len: ByteIndex) -> Range<ByteIndex> {
+    fn into_error_range(self, len: ByteIndex) -> ByteRange {
         ByteIndex::from(self).into_error_range(len)
     }
 }
 impl ExpectedErrorRange for ByteIndex {
     #[allow(clippy::range_plus_one)]
-    fn into_error_range(self, _len: ByteIndex) -> Range<ByteIndex> {
+    fn into_error_range(self, _len: ByteIndex) -> ByteRange {
         Range { start: self, end: self+1 }
     }
 }
 impl<R: BoundedRange<ByteIndex>, T: IntoRange<ByteIndex, Output=R>> ExpectedErrorRange for T {
-    fn into_error_range(self, len: ByteIndex) -> Range<ByteIndex> {
+    fn into_error_range(self, len: ByteIndex) -> ByteRange {
         let result = self.into_range().bounded_range(len);
         assert!(result.start+1 != result.end);
         result
@@ -107,13 +107,13 @@ impl<'a> ExpectBerg<'a> {
     #[allow(clippy::wrong_self_convention)]
     pub fn to_error(self, code: ErrorCode, expected_range: impl ExpectedErrorRange) {
         let ast = parser::parse(test_source(self.0));
-        let expected_range = expected_range.into_error_range(ast.char_data().size);
+        let expected_range = ast.char_data().range(&expected_range.into_error_range(ast.char_data().size));
         let result = ast.evaluate();
         assert!(
             result.is_err(),
             "No error produced by {}: expected {}, got value {}",
             self,
-            error_string(code, &expected_range),
+            error_string(code, expected_range),
             result.as_ref().unwrap()
         );
         let value = Error::try_from(result.unwrap_err());
@@ -121,7 +121,7 @@ impl<'a> ExpectBerg<'a> {
             value.is_ok(),
             "Result of {} is an error, but of an unexpected type! Expected {}, got {}",
             self,
-            error_string(code, &expected_range),
+            error_string(code, expected_range),
             value.as_ref().unwrap_err()
         );
         let error = value.unwrap();
@@ -130,63 +130,22 @@ impl<'a> ExpectBerg<'a> {
             error.code(),
             "Wrong error code from {}! Expected {}, got {} at {}",
             self,
-            error_string(code, &expected_range),
+            error_string(code, expected_range),
             error.code(),
             error.location().range()
         );
-        assert!(
-            ranges_equal(&expected_range, error.location().byte_range()),
+        assert_eq!(
+            expected_range,
+            error.location().range(),
             "Wrong error range from {}! Expected {}, got {} at {}",
             self,
-            error_string(code, &expected_range),
+            error_string(code, expected_range),
             error.code(),
             error.location().range()
         );
     }
 }
 
-fn ranges_equal(a: &impl RangeBounds<ByteIndex>, b: &impl RangeBounds<ByteIndex>) -> bool {
-    let start_equal = match (start_inclusive(a), start_inclusive(b)) {
-        (None, None) => true,
-        (Some(a), Some(b)) => a == b,
-        _ => false
-    };
-    start_equal && match (end_inclusive(a), end_inclusive(b)) {
-        (None, None) => true,
-        (Some(a), Some(b)) => a == b,
-        _ => false
-    }
-}
-
-fn start_inclusive(range: &impl RangeBounds<ByteIndex>) -> Option<ByteIndex> {
-    use std::ops::Bound::*;
-    match range.start_bound() {
-        Included(a) => Some(*a),
-        Excluded(a) => Some(*a+1),
-        Unbounded => None
-    }
-}
-
-fn end_inclusive(range: &impl RangeBounds<ByteIndex>) -> Option<ByteIndex> {
-    use std::ops::Bound::*;
-    match range.end_bound() {
-        Included(a) => Some(*a),
-        Excluded(a) => Some(*a-1),
-        Unbounded => None
-    }
-}
-
-fn error_string(code: ErrorCode, range: &impl RangeBounds<ByteIndex>) -> String {
-    format!("{} at {}", code, range_string(range))
-}
-
-fn range_string(range: &impl RangeBounds<ByteIndex>) -> String {
-    match (start_inclusive(range), end_inclusive(range)) {
-        (Some(start), Some(end)) if start == end     => format!("{} (zero width)", start),
-        (Some(start), Some(end)) if start + 1 == end => format!("{}", start),
-        (Some(start), Some(end))                     => format!("{}-{}", start, end),
-        (Some(start), None)                          => format!("{}-<end>", start),
-        (None, Some(end))                            => format!("0-{}", end),
-        (None, None)                                 => "0-<end>".into(),
-    }
+fn error_string(code: ErrorCode, range: LineColumnRange) -> String {
+    format!("{} at {}", code, range)
 }
