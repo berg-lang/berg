@@ -11,7 +11,7 @@ use value::{BergVal, BergValue};
 /// A block represents the execution of an expression, including the next
 /// expression to execute, as well as the scope (field values and parent block)
 /// and input (a BergResult).
-/// 
+///
 #[derive(Clone)]
 pub struct BlockRef<'a>(Rc<RefCell<BlockData<'a>>>);
 

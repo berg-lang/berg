@@ -4,7 +4,8 @@ use std::fmt;
 use std::iter::*;
 use std::marker::PhantomData;
 use std::ops::{
-    Add, AddAssign, Deref, DerefMut, Index, IndexMut, Range, RangeFrom, RangeFull, RangeInclusive, RangeTo, RangeToInclusive, Sub, SubAssign,
+    Add, AddAssign, Deref, DerefMut, Index, IndexMut, Range, RangeFrom, RangeFull, RangeInclusive,
+    RangeTo, RangeToInclusive, Sub, SubAssign,
 };
 use std::slice::{Iter, IterMut};
 use util::from_range::IntoRange;
@@ -770,21 +771,123 @@ impl<Elem, Idx: IndexType> IndexedSlice<Elem, Idx> {
     }
 }
 
-impl<Elem, Idx: IndexType> Index<Idx>                   for IndexedSlice<Elem, Idx> { type Output = Elem; fn index(&self, index: Idx) -> &Elem { &self.slice[index.into()] } }
-impl<Elem, Idx: IndexType> Index<Range<Idx>>            for IndexedSlice<Elem, Idx> where usize: From<Idx> { type Output = [Elem]; fn index(&self, range: Range<Idx>) -> &[Elem] { &self.slice[range.into_range()] } }
-impl<Elem, Idx: IndexType> Index<RangeFrom<Idx>>        for IndexedSlice<Elem, Idx> where usize: From<Idx> { type Output = [Elem]; fn index(&self, range: RangeFrom<Idx>) -> &[Elem] { &self.slice[range.into_range()] } }
-impl<Elem, Idx: IndexType> Index<RangeFull>             for IndexedSlice<Elem, Idx> where usize: From<Idx> { type Output = [Elem]; fn index(&self, range: RangeFull) -> &[Elem] { &self.slice[range] } }
-impl<Elem, Idx: IndexType> Index<RangeInclusive<Idx>>   for IndexedSlice<Elem, Idx> where usize: From<Idx> { type Output = [Elem]; fn index(&self, range: RangeInclusive<Idx>) -> &[Elem] { &self.slice[range.into_range()] } }
-impl<Elem, Idx: IndexType> Index<RangeTo<Idx>>          for IndexedSlice<Elem, Idx> where usize: From<Idx> { type Output = [Elem]; fn index(&self, range: RangeTo<Idx>) -> &[Elem] { &self.slice[range.into_range()] } }
-impl<Elem, Idx: IndexType> Index<RangeToInclusive<Idx>> for IndexedSlice<Elem, Idx> where usize: From<Idx> { type Output = [Elem]; fn index(&self, range: RangeToInclusive<Idx>) -> &[Elem] { &self.slice[range.into_range()] } }
+impl<Elem, Idx: IndexType> Index<Idx> for IndexedSlice<Elem, Idx> {
+    type Output = Elem;
+    fn index(&self, index: Idx) -> &Elem {
+        &self.slice[index.into()]
+    }
+}
+impl<Elem, Idx: IndexType> Index<Range<Idx>> for IndexedSlice<Elem, Idx>
+where
+    usize: From<Idx>,
+{
+    type Output = [Elem];
+    fn index(&self, range: Range<Idx>) -> &[Elem] {
+        &self.slice[range.into_range()]
+    }
+}
+impl<Elem, Idx: IndexType> Index<RangeFrom<Idx>> for IndexedSlice<Elem, Idx>
+where
+    usize: From<Idx>,
+{
+    type Output = [Elem];
+    fn index(&self, range: RangeFrom<Idx>) -> &[Elem] {
+        &self.slice[range.into_range()]
+    }
+}
+impl<Elem, Idx: IndexType> Index<RangeFull> for IndexedSlice<Elem, Idx>
+where
+    usize: From<Idx>,
+{
+    type Output = [Elem];
+    fn index(&self, range: RangeFull) -> &[Elem] {
+        &self.slice[range]
+    }
+}
+impl<Elem, Idx: IndexType> Index<RangeInclusive<Idx>> for IndexedSlice<Elem, Idx>
+where
+    usize: From<Idx>,
+{
+    type Output = [Elem];
+    fn index(&self, range: RangeInclusive<Idx>) -> &[Elem] {
+        &self.slice[range.into_range()]
+    }
+}
+impl<Elem, Idx: IndexType> Index<RangeTo<Idx>> for IndexedSlice<Elem, Idx>
+where
+    usize: From<Idx>,
+{
+    type Output = [Elem];
+    fn index(&self, range: RangeTo<Idx>) -> &[Elem] {
+        &self.slice[range.into_range()]
+    }
+}
+impl<Elem, Idx: IndexType> Index<RangeToInclusive<Idx>> for IndexedSlice<Elem, Idx>
+where
+    usize: From<Idx>,
+{
+    type Output = [Elem];
+    fn index(&self, range: RangeToInclusive<Idx>) -> &[Elem] {
+        &self.slice[range.into_range()]
+    }
+}
 
-impl<Elem, Idx: IndexType> IndexMut<Idx>                   for IndexedSlice<Elem, Idx> where usize: From<Idx> { fn index_mut(&mut self, index: Idx) -> &mut Elem { &mut self.slice[index.into()] } }
-impl<Elem, Idx: IndexType> IndexMut<Range<Idx>>            for IndexedSlice<Elem, Idx> where usize: From<Idx> { fn index_mut(&mut self, range: Range<Idx>) -> &mut [Elem] { &mut self.slice[range.into_range()] } }
-impl<Elem, Idx: IndexType> IndexMut<RangeFrom<Idx>>        for IndexedSlice<Elem, Idx> where usize: From<Idx> { fn index_mut(&mut self, range: RangeFrom<Idx>) -> &mut [Elem] { &mut self.slice[range.into_range()] } }
-impl<Elem, Idx: IndexType> IndexMut<RangeFull>             for IndexedSlice<Elem, Idx> where usize: From<Idx> { fn index_mut(&mut self, range: RangeFull) -> &mut [Elem] { &mut self.slice[range] } }
-impl<Elem, Idx: IndexType> IndexMut<RangeInclusive<Idx>>   for IndexedSlice<Elem, Idx> where usize: From<Idx> { fn index_mut(&mut self, range: RangeInclusive<Idx>) -> &mut [Elem] { &mut self.slice[range.into_range()] } }
-impl<Elem, Idx: IndexType> IndexMut<RangeTo<Idx>>          for IndexedSlice<Elem, Idx> where usize: From<Idx> { fn index_mut(&mut self, range: RangeTo<Idx>) -> &mut [Elem] { &mut self.slice[range.into_range()] } }
-impl<Elem, Idx: IndexType> IndexMut<RangeToInclusive<Idx>> for IndexedSlice<Elem, Idx> where usize: From<Idx> { fn index_mut(&mut self, range: RangeToInclusive<Idx>) -> &mut [Elem] { &mut self.slice[range.into_range()] } }
+impl<Elem, Idx: IndexType> IndexMut<Idx> for IndexedSlice<Elem, Idx>
+where
+    usize: From<Idx>,
+{
+    fn index_mut(&mut self, index: Idx) -> &mut Elem {
+        &mut self.slice[index.into()]
+    }
+}
+impl<Elem, Idx: IndexType> IndexMut<Range<Idx>> for IndexedSlice<Elem, Idx>
+where
+    usize: From<Idx>,
+{
+    fn index_mut(&mut self, range: Range<Idx>) -> &mut [Elem] {
+        &mut self.slice[range.into_range()]
+    }
+}
+impl<Elem, Idx: IndexType> IndexMut<RangeFrom<Idx>> for IndexedSlice<Elem, Idx>
+where
+    usize: From<Idx>,
+{
+    fn index_mut(&mut self, range: RangeFrom<Idx>) -> &mut [Elem] {
+        &mut self.slice[range.into_range()]
+    }
+}
+impl<Elem, Idx: IndexType> IndexMut<RangeFull> for IndexedSlice<Elem, Idx>
+where
+    usize: From<Idx>,
+{
+    fn index_mut(&mut self, range: RangeFull) -> &mut [Elem] {
+        &mut self.slice[range]
+    }
+}
+impl<Elem, Idx: IndexType> IndexMut<RangeInclusive<Idx>> for IndexedSlice<Elem, Idx>
+where
+    usize: From<Idx>,
+{
+    fn index_mut(&mut self, range: RangeInclusive<Idx>) -> &mut [Elem] {
+        &mut self.slice[range.into_range()]
+    }
+}
+impl<Elem, Idx: IndexType> IndexMut<RangeTo<Idx>> for IndexedSlice<Elem, Idx>
+where
+    usize: From<Idx>,
+{
+    fn index_mut(&mut self, range: RangeTo<Idx>) -> &mut [Elem] {
+        &mut self.slice[range.into_range()]
+    }
+}
+impl<Elem, Idx: IndexType> IndexMut<RangeToInclusive<Idx>> for IndexedSlice<Elem, Idx>
+where
+    usize: From<Idx>,
+{
+    fn index_mut(&mut self, range: RangeToInclusive<Idx>) -> &mut [Elem] {
+        &mut self.slice[range.into_range()]
+    }
+}
 
 impl<Elem: Clone, Idx: IndexType> ToOwned for IndexedSlice<Elem, Idx> {
     type Owned = IndexedVec<Elem, Idx>;

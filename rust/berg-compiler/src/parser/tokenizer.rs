@@ -1,9 +1,7 @@
 use parser::grouper::Grouper;
 use syntax::Token;
 use syntax::Token::*;
-use syntax::{
-    AstData, ByteIndex, ByteRange, ExpressionBoundary, ExpressionBoundaryError,
-};
+use syntax::{AstData, ByteIndex, ByteRange, ExpressionBoundary, ExpressionBoundaryError};
 
 // This builds up a valid expression from the incoming sequences, doing two things:
 // 1. Inserting apply, newline sequence, and missing expression as appropriate

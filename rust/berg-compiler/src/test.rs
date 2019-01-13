@@ -1,12 +1,12 @@
-use util::from_range::BoundedRange;
-use util::from_range::IntoRange;
 use error::{Error, ErrorCode};
 use eval::RootRef;
 use parser;
 use std::fmt;
 use std::io;
-use std::ops::{Range};
+use std::ops::Range;
 use syntax::{ByteIndex, ByteRange, LineColumnRange, SourceRef};
+use util::from_range::BoundedRange;
+use util::from_range::IntoRange;
 use util::try_from::TryFrom;
 use util::type_name::TypeName;
 use value::BergVal;
@@ -42,18 +42,20 @@ impl<'a> fmt::Display for ExpectBerg<'a> {
     }
 }
 
-pub trait ExpectedValue<'a>: TypeName
-            + TryFrom<BergVal<'a>, Error = BergVal<'a>>
-            + PartialEq<Self>
-            + fmt::Display
-            + fmt::Debug {
+pub trait ExpectedValue<'a>:
+    TypeName + TryFrom<BergVal<'a>, Error = BergVal<'a>> + PartialEq<Self> + fmt::Display + fmt::Debug
+{
 }
 
-impl<'a, V: TypeName
+impl<
+        'a,
+        V: TypeName
             + TryFrom<BergVal<'a>, Error = BergVal<'a>>
             + PartialEq<V>
             + fmt::Display
-            + fmt::Debug> ExpectedValue<'a> for V {    
+            + fmt::Debug,
+    > ExpectedValue<'a> for V
+{
 }
 
 pub trait ExpectedErrorRange {
@@ -67,13 +69,16 @@ impl ExpectedErrorRange for usize {
 impl ExpectedErrorRange for ByteIndex {
     #[allow(clippy::range_plus_one)]
     fn into_error_range(self, _len: ByteIndex) -> ByteRange {
-        Range { start: self, end: self+1 }
+        Range {
+            start: self,
+            end: self + 1,
+        }
     }
 }
-impl<R: BoundedRange<ByteIndex>, T: IntoRange<ByteIndex, Output=R>> ExpectedErrorRange for T {
+impl<R: BoundedRange<ByteIndex>, T: IntoRange<ByteIndex, Output = R>> ExpectedErrorRange for T {
     fn into_error_range(self, len: ByteIndex) -> ByteRange {
         let result = self.into_range().bounded_range(len);
-        assert!(result.start+1 != result.end);
+        assert!(result.start + 1 != result.end);
         result
     }
 }
@@ -107,7 +112,9 @@ impl<'a> ExpectBerg<'a> {
     #[allow(clippy::wrong_self_convention)]
     pub fn to_error(self, code: ErrorCode, expected_range: impl ExpectedErrorRange) {
         let ast = parser::parse(test_source(self.0));
-        let expected_range = ast.char_data().range(&expected_range.into_error_range(ast.char_data().size));
+        let expected_range = ast
+            .char_data()
+            .range(&expected_range.into_error_range(ast.char_data().size));
         let result = ast.evaluate();
         assert!(
             result.is_err(),

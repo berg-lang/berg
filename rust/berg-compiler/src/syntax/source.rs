@@ -93,7 +93,7 @@ impl<'a> SourceRef<'a> {
                     io::ErrorKind::NotFound => BergError::SourceNotFound,
                     _ => BergError::IoOpenError,
                 };
-                return SourceBuffer::from_slice(&[], Some(SourceOpenError(error, io_error)))
+                return SourceBuffer::from_slice(&[], Some(SourceOpenError(error, io_error)));
             }
         };
 
@@ -115,7 +115,11 @@ fn check_source_too_large<'a>(size: usize) -> Option<SourceOpenError<'a>> {
     if size < usize::from(ByteIndex::MAX) {
         None
     } else {
-        Some(SourceOpenError::new(BergError::SourceTooLarge(size), io::ErrorKind::Other, "source too large"))
+        Some(SourceOpenError::new(
+            BergError::SourceTooLarge(size),
+            io::ErrorKind::Other,
+            "source too large",
+        ))
     }
 }
 
@@ -144,7 +148,10 @@ impl<'a> SourceOpenError<'a> {
 
 impl<'a> SourceBuffer<'a> {
     fn from_cow(buffer: Cow<'a, [u8]>, source_open_error: Option<SourceOpenError<'a>>) -> Self {
-        SourceBuffer { buffer: to_indexed_cow(buffer), source_open_error }
+        SourceBuffer {
+            buffer: to_indexed_cow(buffer),
+            source_open_error,
+        }
     }
     fn from_slice(buffer: &'a [u8], source_open_error: Option<SourceOpenError<'a>>) -> Self {
         SourceBuffer::from_cow(Cow::Borrowed(buffer), source_open_error)

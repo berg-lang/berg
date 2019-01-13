@@ -56,7 +56,10 @@ pub struct AstData<'a> {
 }
 
 impl<'a> AstData<'a> {
-    pub fn new(source: SourceRef<'a>, source_open_error: Option<SourceOpenError<'a>>) -> AstData<'a> {
+    pub fn new(
+        source: SourceRef<'a>,
+        source_open_error: Option<SourceOpenError<'a>>,
+    ) -> AstData<'a> {
         let identifiers = source.root().identifiers();
         let fields = source
             .root()

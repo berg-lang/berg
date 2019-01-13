@@ -3,8 +3,7 @@ use syntax::identifiers::COLON;
 use syntax::ExpressionBoundary::*;
 use syntax::Token::*;
 use syntax::{
-    AstData, AstIndex, ByteRange, ExpressionBoundary, ExpressionBoundaryError, Fixity,
-    Token,
+    AstData, AstIndex, ByteRange, ExpressionBoundary, ExpressionBoundaryError, Fixity, Token,
 };
 
 // Handles nesting and precedence: balances (), {}, and compound terms, and

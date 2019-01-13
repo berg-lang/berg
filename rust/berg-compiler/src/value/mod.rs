@@ -16,7 +16,7 @@ use util::type_name::TypeName;
 
 ///
 /// A value that can participate in Berg expressions.
-/// 
+///
 pub trait BergValue<'a>: Sized + Into<BergVal<'a>> + Clone + fmt::Debug {
     fn infix(
         self,

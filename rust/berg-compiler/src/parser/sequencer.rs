@@ -16,23 +16,23 @@ use util::intern_pool::Pool;
 ///
 /// In general, the sequencer chunks *character runs*--sequences containing all
 /// of the same type of character. The most straightforward of these include:
-/// 
+///
 /// | Integer | `1234` | A run of digit characters. | Term |
 /// | Identifier | `ThisIsAnIdentifier` | A run of alphanumeric characters, or `_`. | Term |
 /// | Operator | `+` `-` `*` `++` `+=` `<=>` `--->` | A run of operator characters. | Prefix if unbalanced like `+1`, postfix if unbalanced like If it's unbalanced like `+1` or `2*`, it's a postfix/prefix operator. Otherwise it's infix.
 /// | Space | ` ` `\t` | A run of space characters. | Space |
 /// | Unsupported | | A run of valid UTF-8 characters which aren't supported (such as emoji). | Term |
 /// | Invalid | | A run of invalid UTF-8 bytes. | Term |
-/// 
+///
 /// The sequencer also recognizes very specific, short character sequences, like
 /// special operators and newlines, including:
-/// 
+///
 /// | Separator | `;` `,` | Infix |
 /// | Colon | `:` | Prefix if unbalanced like `:x`, otherwise infix.
 /// | Open | `{` `(` | Open |
 /// | Close | `}` `)` | Close |
 /// | Newline | `\r` `\n` `\r\n` | Newlines are treated separately from other space, so that they can be counted for line #'s and possibly used to separate statements.
-/// 
+///
 #[derive(Debug)]
 pub struct Sequencer<'a> {
     /// The tokenizer to send sequences to.
@@ -106,7 +106,10 @@ impl<'a> Sequencer<'a> {
         start: ByteIndex,
         scanner: &Scanner,
     ) {
-        let raw_literal = self.ast_mut().raw_literals.push(buffer[start..scanner.index].into());
+        let raw_literal = self
+            .ast_mut()
+            .raw_literals
+            .push(buffer[start..scanner.index].into());
         self.tokenizer
             .on_term_token(RawErrorTerm(error, raw_literal), start..scanner.index);
     }
@@ -123,7 +126,8 @@ impl<'a> Sequencer<'a> {
         }
         let string = unsafe { str::from_utf8_unchecked(&buffer[start..scanner.index]) };
         let literal = self.ast_mut().literals.add(string);
-        self.tokenizer.on_term_token(IntegerLiteral(literal), start..scanner.index)
+        self.tokenizer
+            .on_term_token(IntegerLiteral(literal), start..scanner.index)
     }
 
     fn identifier(&mut self, buffer: &ByteSlice, start: ByteIndex, scanner: &mut Scanner) {

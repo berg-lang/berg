@@ -77,17 +77,19 @@ impl Precedence {
                 _ => false,
             },
             ColonDeclaration => match right {
-                Dot | TimesDivide | PlusMinus | Comparison | And | Or | CommaSequence | Assign => true,
-                _ => false
-            }
-            SemicolonSequence => match right {
-                Dot | TimesDivide | PlusMinus | Comparison | And | Or | CommaSequence | Assign | ColonDeclaration => true,
-                _ => false
-            }
-            NewlineSequence => match right {
-                Dot | TimesDivide | PlusMinus | Comparison | And | Or | CommaSequence | Assign | ColonDeclaration | SemicolonSequence => {
+                Dot | TimesDivide | PlusMinus | Comparison | And | Or | CommaSequence | Assign => {
                     true
-                },
+                }
+                _ => false,
+            },
+            SemicolonSequence => match right {
+                Dot | TimesDivide | PlusMinus | Comparison | And | Or | CommaSequence | Assign
+                | ColonDeclaration => true,
+                _ => false,
+            },
+            NewlineSequence => match right {
+                Dot | TimesDivide | PlusMinus | Comparison | And | Or | CommaSequence | Assign
+                | ColonDeclaration | SemicolonSequence => true,
                 _ => false,
             },
         }
