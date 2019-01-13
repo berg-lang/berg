@@ -45,11 +45,63 @@ impl Expression {
         use syntax::ExpressionBoundaryError::*;
         use syntax::Token::*;
         let result = match *self.token(ast) {
+            //
+            // Nouns (operands)
+            //
+
+            // 1234
             IntegerLiteral(literal) => {
                 let parsed = BigRational::from_str(ast.literal_string(literal)).unwrap();
                 Ok(BergVal::BigRational(parsed))
             }
+            // VariableName
             FieldReference(field) => scope.local_field(field, ast).take_error(ast, self),
+            // VariableName
+            RawIdentifier(name) => Ok(name.into()),
+            // Empty parens or empty block
+            // () {}
+            MissingExpression => Ok(BergVal::Nothing),
+
+            //
+            // Infix operators
+            //
+
+            // A; B
+            InfixOperator(SEMICOLON) => self.evaluate_semicolon(scope, ast),
+            // Field: Value
+            InfixOperator(COLON) => self.evaluate_colon(scope, ast),
+            // A <op> B
+            InfixOperator(operator) => self.evaluate_infix(operator, scope, ast),
+            // A <op>= B
+            InfixAssignment(operator) => self.evaluate_infix_assign(operator, scope, ast),
+            // Multiline sequence:
+            // A
+            // B
+            NewlineSequence => self.evaluate_infix(NEWLINE, scope, ast),
+            // F Arg
+            Apply => self.evaluate_infix(APPLY, scope, ast),
+
+            //
+            // Prefix operators
+            //
+
+            // A++
+            PrefixOperator(PLUS_PLUS) => self.evaluate_prefix_assign(PLUS_PLUS, scope, ast),
+            // A--
+            PrefixOperator(DASH_DASH) => self.evaluate_prefix_assign(DASH_DASH, scope, ast),
+            // A:
+            PrefixOperator(COLON) => self.evaluate_declare(scope, ast),
+            // A<op>
+            PrefixOperator(operator) => self.evaluate_prefix(operator, scope, ast),
+
+            PostfixOperator(PLUS_PLUS) => self.evaluate_postfix_assign(PLUS_PLUS, scope, ast),
+            PostfixOperator(DASH_DASH) => self.evaluate_postfix_assign(DASH_DASH, scope, ast),
+            PostfixOperator(operator) => self.evaluate_postfix(operator, scope, ast),
+
+            //
+            // Syntax errors
+            //
+
             ErrorTerm(IdentifierStartsWithNumber, literal) => {
                 BergError::IdentifierStartsWithNumber(literal).take_error(ast, self)
             }
@@ -59,24 +111,7 @@ impl Expression {
             RawErrorTerm(InvalidUtf8, raw_literal) => {
                 BergError::InvalidUtf8(raw_literal).take_error(ast, self)
             }
-            MissingExpression => Ok(BergVal::Nothing),
-
-            InfixOperator(SEMICOLON) => self.evaluate_semicolon(scope, ast),
-            InfixOperator(COLON) => self.evaluate_colon(scope, ast),
-            InfixOperator(operator) => self.evaluate_infix(operator, scope, ast),
-            InfixAssignment(operator) => self.evaluate_infix_assign(operator, scope, ast),
-            NewlineSequence => self.evaluate_infix(NEWLINE, scope, ast),
-            Apply => self.evaluate_infix(APPLY, scope, ast),
-
-            PrefixOperator(PLUS_PLUS) => self.evaluate_prefix_assign(PLUS_PLUS, scope, ast),
-            PrefixOperator(DASH_DASH) => self.evaluate_prefix_assign(DASH_DASH, scope, ast),
-            PrefixOperator(COLON) => self.evaluate_declare(scope, ast),
-            PrefixOperator(operator) => self.evaluate_prefix(operator, scope, ast),
-
-            PostfixOperator(PLUS_PLUS) => self.evaluate_postfix_assign(PLUS_PLUS, scope, ast),
-            PostfixOperator(DASH_DASH) => self.evaluate_postfix_assign(DASH_DASH, scope, ast),
-            PostfixOperator(operator) => self.evaluate_postfix(operator, scope, ast),
-
+            // ( and { syntax errors
             Open {
                 error: OpenError, ..
             }
@@ -99,13 +134,22 @@ impl Expression {
                 error: ExpressionBoundaryError::CloseWithoutOpen,
                 ..
             } => BergError::CloseWithoutOpen.take_error(ast, self),
+
+            //
+            // Groupings
+            //
+
+            // (...)
             Open { error: None, .. } => self.inner_expression(ast).evaluate_local(scope, ast),
+
+            // {...}, indent group
             OpenBlock {
                 error: None, index, ..
             } => Ok(scope
                 .create_child_block(self.inner_expression(ast), index)
                 .into()),
-            RawIdentifier(name) => Ok(name.into()),
+
+            // Tokens that should have been handled elsewhere in the stack
             Close { .. } | CloseBlock { .. } | ErrorTerm(..) | RawErrorTerm(..) => unreachable!(),
         };
         println!("Result of {}: {:?}", ExpressionFormatter(self, ast), result);

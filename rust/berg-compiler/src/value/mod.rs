@@ -1,14 +1,17 @@
 mod berg_val;
 mod boolean;
 mod identifier;
+mod berg_value_iterator;
 mod nothing;
 mod rational;
+mod sequence;
 
 pub use value::berg_val::BergVal;
 pub use value::nothing::Nothing;
 
 use error::{BergError, BergResult, EvalResult};
 use eval::{Operand, ScopeRef};
+use sequence::Sequence;
 use std::fmt;
 use syntax::{AstRef, Fixity, IdentifierIndex};
 use util::try_from::TryFrom;
@@ -56,9 +59,10 @@ pub fn default_infix<'a, T: BergValue<'a>>(
     right: Operand,
     ast: &AstRef<'a>,
 ) -> EvalResult<'a> {
-    use syntax::identifiers::{DOT, EQUAL_TO, EXCLAMATION_POINT, NEWLINE, NOT_EQUAL_TO, SEMICOLON};
+    use syntax::identifiers::{DOT, COMMA, EQUAL_TO, EXCLAMATION_POINT, NEWLINE, NOT_EQUAL_TO, SEMICOLON};
     match operator {
         SEMICOLON | NEWLINE => Ok(right.evaluate_local(scope, ast)?),
+        COMMA => Ok(Sequence::concatenate(left, right.evaluate_local(scope, ast)?)),
         EQUAL_TO => false.ok(),
         NOT_EQUAL_TO => left
             .infix(EQUAL_TO, scope, right, ast)?

@@ -15,6 +15,7 @@ pub enum BergVal<'a> {
     BigRational(BigRational),
     Identifier(IdentifierIndex),
     BlockRef(BlockRef<'a>),
+    List(List<'a>),
     Nothing,
 }
 

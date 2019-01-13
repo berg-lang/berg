@@ -1,8 +1,8 @@
 pub mod compiler_test;
 use compiler_test::*;
 
-// #[test]
-// fn comma_sequence()       { expect( "1,2"         ).to_yield([1,2]) }
+#[test]
+fn comma_sequence()       { expect( "1,2"         ).to_yield(1) }//[1,2]) }
 // #[test]
 // fn comma_left_space()     { expect( "1 ,2"        ).to_yield([1,2]) }
 // #[test]
