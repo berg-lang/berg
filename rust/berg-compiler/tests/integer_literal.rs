@@ -1,9 +1,6 @@
-#[macro_use]
 pub mod compiler_test;
 use compiler_test::*;
 
-compiler_tests! {
-    zero: "0" => value(0),
-    one: "1" => value(1),
-    huge: "999999999999999999999999999999999999999999999" => value(BigRational::from_str("999999999999999999999999999999999999999999999").unwrap()),
-}
+#[test] fn zero() { expect( "0"                                             ).to_yield(0) }
+#[test] fn one()  { expect( "1"                                             ).to_yield(1) }
+#[test] fn huge() { expect( "999999999999999999999999999999999999999999999" ).to_yield(BigRational::from_str("999999999999999999999999999999999999999999999").unwrap()) }

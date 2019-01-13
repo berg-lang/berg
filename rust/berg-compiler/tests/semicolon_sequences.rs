@@ -1,25 +1,22 @@
-#[macro_use]
 pub mod compiler_test;
 use compiler_test::*;
 
-compiler_tests! {
-    right_semicolon: "1;" => value(Nothing),
-    semicolon_right_space: "1; 2" => value(2),
-    semicolon_both_space: "1 ; 2" => value(2),
-    semicolon_sequence: "1;2" => value(2),
-    semicolon_sequence_add: "1+1+1;2+2+2" => value(6),
-    semicolon_sequence_or_and_ge_plus_mul: "1*2+3>=4&&true||false;false||true&&4>=3+2*1" => value(false),
-    semicolon_sequence_or_and_le_plus_mul: "1*2+3<=4&&true||false;false||true&&4<=3+2*1" => value(true),
+#[test] fn right_semicolon()          { expect( "1;"          ).to_yield(Nothing) }
+#[test] fn semicolon_right_space()    { expect( "1; 2"        ).to_yield(2) }
+#[test] fn semicolon_both_space()     { expect( "1 ; 2"       ).to_yield(2) }
+#[test] fn semicolon_sequence()       { expect( "1;2"         ).to_yield(2) }
+#[test] fn semicolon_sequence_add()   { expect( "1+1+1;2+2+2" ).to_yield(6) }
+#[test] fn semicolon_sequence_or_and_ge_plus_mul() { expect( "1*2+3>=4&&true||false;false||true&&4>=3+2*1" ).to_yield(false) }
+#[test] fn semicolon_sequence_or_and_le_plus_mul() { expect( "1*2+3<=4&&true||false;false||true&&4<=3+2*1" ).to_yield(true) }
 
-    left_semicolon: ";1" => error(MissingOperand@0),
-    both_semicolon: ";1;" => error(MissingOperand@0),
+#[test] fn left_semicolon()           { expect( ";1"          ).to_error(MissingOperand,0) }
+#[test] fn both_semicolon()           { expect( ";1;"         ).to_error(MissingOperand,0) }
 
-    semicolon_left_space: "1 ;2" => value(2),
+#[test] fn semicolon_left_space()     { expect( "1 ;2"        ).to_yield(2) }
 
-    left_double_semicolon: ";;1" => error(MissingOperand@0),
-    right_double_semicolon: "1;;" => error(MissingOperand@2),
-    both_double_semicolon: ";;1;;" => error(MissingOperand@0),
-    between_double_semicolon: "1;;2" => error(MissingOperand@2),
+#[test] fn left_double_semicolon()    { expect( ";;1"         ).to_error(MissingOperand,0) }
+#[test] fn right_double_semicolon()   { expect( "1;;"         ).to_error(MissingOperand,2) }
+#[test] fn both_double_semicolon()    { expect( ";;1;;"       ).to_error(MissingOperand,0) }
+#[test] fn between_double_semicolon() { expect( "1;;2"        ).to_error(MissingOperand,2) }
 
-    paren_semicolon_all_over: ";(;(;););" => error(MissingOperand@0),
-}
+#[test] fn paren_semicolon_all_over() { expect( ";(;(;););"   ).to_error(MissingOperand,0) }

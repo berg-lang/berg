@@ -1,34 +1,32 @@
-#[macro_use]
 pub mod compiler_test;
+use compiler_test::*;
 
-compiler_tests! {
-    and_true_true: "true&&true"     => value(true),
-    and_true_false: "true&&false"   => value(false),
-    and_false_true: "false&&true"   => value(false),
-    and_false_false: "false&&false" => value(false),
+#[test] fn and_true_true()       { expect( "true&&true"   ).to_yield(true) }
+#[test] fn and_true_false()      { expect( "true&&false"  ).to_yield(false) }
+#[test] fn and_false_true()      { expect( "false&&true"  ).to_yield(false) }
+#[test] fn and_false_false()     { expect( "false&&false" ).to_yield(false) }
 
-    or_true_true: "true||true"     => value(true),
-    or_true_false: "true||false"   => value(true),
-    or_false_true: "false||true"   => value(true),
-    or_false_false: "false||false" => value(false),
+#[test] fn or_true_true()        { expect( "true||true"   ).to_yield(true) }
+#[test] fn or_true_false()       { expect( "true||false"  ).to_yield(true) }
+#[test] fn or_false_true()       { expect( "false||true"  ).to_yield(true) }
+#[test] fn or_false_false()      { expect( "false||false" ).to_yield(false) }
 
-    not_true: "!true"   => value(false),
-    not_false: "!false" => value(true),
+#[test] fn not_true()            { expect( "!true"        ).to_yield(false) }
+#[test] fn not_false()           { expect( "!false"       ).to_yield(true) }
 
-    and_equal_equal: "1==1&&2==2"   => value(true),
-    and_ne_ne: "1!=2&&3!=4"         => value(true),
-    and_greater_greater: "4>3&&2>1" => value(true),
-    and_less_less: "1<2&&3<4"       => value(true),
-    and_ge_ge: "4>=3&&2>=1"         => value(true),
-    and_le_le: "1<=2&&3<=5"         => value(true),
+#[test] fn and_equal_equal()     { expect( "1==1&&2==2"   ).to_yield(true) }
+#[test] fn and_ne_ne()           { expect( "1!=2&&3!=4"   ).to_yield(true) }
+#[test] fn and_greater_greater() { expect( "4>3&&2>1"     ).to_yield(true) }
+#[test] fn and_less_less()       { expect( "1<2&&3<4"     ).to_yield(true) }
+#[test] fn and_ge_ge()           { expect( "4>=3&&2>=1"   ).to_yield(true) }
+#[test] fn and_le_le()           { expect( "1<=2&&3<=5"   ).to_yield(true) }
 
-    or_equal_equal: "1==2||2==2"   => value(true),
-    or_ne_ne: "1!=1||3!=4"         => value(true),
-    or_greater_greater: "4>5||2>1" => value(true),
-    or_less_less: "3<2||3<4"       => value(true),
-    or_ge_ge: "4>=5||2>=1"         => value(true),
-    or_le_le: "4<=5||2<=1"         => value(true),
+#[test] fn or_equal_equal()      { expect( "1==2||2==2"   ).to_yield(true) }
+#[test] fn or_ne_ne()            { expect( "1!=1||3!=4"   ).to_yield(true) }
+#[test] fn or_greater_greater()  { expect( "4>5||2>1"     ).to_yield(true) }
+#[test] fn or_less_less()        { expect( "3<2||3<4"     ).to_yield(true) }
+#[test] fn or_ge_ge()            { expect( "4>=5||2>=1"   ).to_yield(true) }
+#[test] fn or_le_le()            { expect( "4<=5||2<=1"   ).to_yield(true) }
 
-    and_or_ge_add_mul_true: "false||true&&7<=1+2*3" => value(true),
-    and_or_ge_add_mul_false: "false||true&&8<=1+2*3" => value(false),
-}
+#[test] fn and_or_ge_add_mul_true() { expect( "false||true&&7<=1+2*3" ).to_yield(true) }
+#[test] fn and_or_ge_add_mul_false() { expect( "false||true&&8<=1+2*3" ).to_yield(false) }

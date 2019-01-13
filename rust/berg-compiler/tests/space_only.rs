@@ -1,19 +1,16 @@
-#[macro_use]
 pub mod compiler_test;
 use compiler_test::*;
 
-compiler_tests! {
-    empty: "" => value(Nothing),
-    space: " " => value(Nothing),
-    newline: "\n" => value(Nothing),
-    newline_newline: "\n" => value(Nothing),
-    newline_cr: "\n\r" => value(Nothing),
-    newline_crlf: "\n\r\n" => value(Nothing),
-    cr: "\r" => value(Nothing),
-    cr_cr: "\r\r" => value(Nothing),
-    cr_crlf: "\r\r\n" => value(Nothing),
-    crlf: "\r\n" => value(Nothing),
-    crlf_newline: "\r\n\n" => value(Nothing),
-    crlf_cr: "\r\n\r" => value(Nothing),
-    crlf_crlf: "\r\n\r\n" => value(Nothing),
-}
+#[test] fn empty()        { expect( ""         ).to_yield(Nothing) }
+#[test] fn space()        { expect( " "        ).to_yield(Nothing) }
+#[test] fn newline()      { expect( "\n"       ).to_yield(Nothing) }
+#[test] fn newline_newline() { expect( "\n"       ).to_yield(Nothing) }
+#[test] fn newline_cr()   { expect( "\n\r"     ).to_yield(Nothing) }
+#[test] fn newline_crlf() { expect( "\n\r\n"   ).to_yield(Nothing) }
+#[test] fn cr()           { expect( "\r"       ).to_yield(Nothing) }
+#[test] fn cr_cr()        { expect( "\r\r"     ).to_yield(Nothing) }
+#[test] fn cr_crlf()      { expect( "\r\r\n"   ).to_yield(Nothing) }
+#[test] fn crlf()         { expect( "\r\n"     ).to_yield(Nothing) }
+#[test] fn crlf_newline() { expect( "\r\n\n"   ).to_yield(Nothing) }
+#[test] fn crlf_cr()      { expect( "\r\n\r"   ).to_yield(Nothing) }
+#[test] fn crlf_crlf()    { expect( "\r\n\r\n" ).to_yield(Nothing) }

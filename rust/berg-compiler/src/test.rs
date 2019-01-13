@@ -1,11 +1,11 @@
-use util::from_range::ExplicitRange;
+use util::from_range::BoundedRange;
 use util::from_range::IntoRange;
 use error::{Error, ErrorCode};
 use eval::RootRef;
 use parser;
 use std::fmt;
 use std::io;
-use std::ops::RangeBounds;
+use std::ops::{Range, RangeBounds};
 use syntax::{ByteIndex, SourceRef};
 use util::try_from::TryFrom;
 use util::type_name::TypeName;
@@ -42,18 +42,45 @@ impl<'a> fmt::Display for ExpectBerg<'a> {
     }
 }
 
-impl<'a> ExpectBerg<'a> {
-    #[allow(clippy::needless_pass_by_value, clippy::wrong_self_convention)]
-    pub fn to_yield<
-        V: TypeName
+pub trait ExpectedValue<'a>: TypeName
+            + TryFrom<BergVal<'a>, Error = BergVal<'a>>
+            + PartialEq<Self>
+            + fmt::Display
+            + fmt::Debug {
+}
+
+impl<'a, V: TypeName
             + TryFrom<BergVal<'a>, Error = BergVal<'a>>
             + PartialEq<V>
             + fmt::Display
-            + fmt::Debug,
-    >(
-        self,
-        expected_value: V,
-    ) {
+            + fmt::Debug> ExpectedValue<'a> for V {    
+}
+
+pub trait ExpectedErrorRange {
+    fn into_error_range(self, len: ByteIndex) -> Range<ByteIndex>;
+}
+impl ExpectedErrorRange for usize {
+    fn into_error_range(self, len: ByteIndex) -> Range<ByteIndex> {
+        ByteIndex::from(self).into_error_range(len)
+    }
+}
+impl ExpectedErrorRange for ByteIndex {
+    #[allow(clippy::range_plus_one)]
+    fn into_error_range(self, _len: ByteIndex) -> Range<ByteIndex> {
+        Range { start: self, end: self+1 }
+    }
+}
+impl<R: BoundedRange<ByteIndex>, T: IntoRange<ByteIndex, Output=R>> ExpectedErrorRange for T {
+    fn into_error_range(self, len: ByteIndex) -> Range<ByteIndex> {
+        let result = self.into_range().bounded_range(len);
+        assert!(result.start+1 != result.end);
+        result
+    }
+}
+
+impl<'a> ExpectBerg<'a> {
+    #[allow(clippy::needless_pass_by_value, clippy::wrong_self_convention)]
+    pub fn to_yield<V: ExpectedValue<'a>>(self, expected_value: V) {
         let ast = parser::parse(test_source(self.0));
         assert_eq!(
             self.0,
@@ -78,9 +105,9 @@ impl<'a> ExpectBerg<'a> {
         );
     }
     #[allow(clippy::wrong_self_convention)]
-    pub fn to_error<R: ExplicitRange<ByteIndex>>(self, code: ErrorCode, expected_range: impl IntoRange<ByteIndex, Output=R>) {
+    pub fn to_error(self, code: ErrorCode, expected_range: impl ExpectedErrorRange) {
         let ast = parser::parse(test_source(self.0));
-        let expected_range = expected_range.into_range().explicit_range(ast.char_data().size);
+        let expected_range = expected_range.into_error_range(ast.char_data().size);
         let result = ast.evaluate();
         assert!(
             result.is_err(),

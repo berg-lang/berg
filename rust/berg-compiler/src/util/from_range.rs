@@ -25,33 +25,33 @@ impl<FromIndex, ToIndex: From<FromIndex>> IntoRange<ToIndex> for RangeTo<FromInd
 impl<FromIndex, ToIndex: From<FromIndex>> IntoRange<ToIndex> for RangeToInclusive<FromIndex> { type Output = RangeToInclusive<ToIndex>; fn into_range(self) -> Self::Output { Self::Output { end: ToIndex::from(self.end) } } }
 impl<FromIndex> IntoRange<FromIndex> for RangeFull { type Output = RangeFull; fn into_range(self) -> RangeFull { self } }
 
-pub trait ExplicitRange<I>: RangeBounds<I> {
-    fn explicit_range(&self, len: I) -> Range<I> { Range { start: self.explicit_start_bound(), end: self.explicit_end_bound(len) } }
-    fn explicit_start_bound(&self) -> I;
-    fn explicit_end_bound(&self, len: I) -> I;
+pub trait BoundedRange<I>: RangeBounds<I> {
+    fn bounded_range(&self, len: I) -> Range<I> { Range { start: self.bounded_start_bound(), end: self.bounded_end_bound(len) } }
+    fn bounded_start_bound(&self) -> I;
+    fn bounded_end_bound(&self, len: I) -> I;
 }
 
-impl<I: Copy> ExplicitRange<I> for Range<I> {
-    fn explicit_start_bound(&self) -> I { self.start }
-    fn explicit_end_bound(&self, _: I) -> I { self.end }
+impl<I: Copy> BoundedRange<I> for Range<I> {
+    fn bounded_start_bound(&self) -> I { self.start }
+    fn bounded_end_bound(&self, _: I) -> I { self.end }
 }
-impl<I: Copy+Add<usize, Output=I>> ExplicitRange<I> for RangeInclusive<I> {
-    fn explicit_start_bound(&self) -> I { *self.start() }
-    fn explicit_end_bound(&self, _: I) -> I { *self.end() + 1 }
+impl<I: Copy+Add<usize, Output=I>> BoundedRange<I> for RangeInclusive<I> {
+    fn bounded_start_bound(&self) -> I { *self.start() }
+    fn bounded_end_bound(&self, _: I) -> I { *self.end() + 1 }
 }
-impl<I: Copy> ExplicitRange<I> for RangeFrom<I> {
-    fn explicit_start_bound(&self) -> I { self.start }
-    fn explicit_end_bound(&self, len: I) -> I { len }
+impl<I: Copy> BoundedRange<I> for RangeFrom<I> {
+    fn bounded_start_bound(&self) -> I { self.start }
+    fn bounded_end_bound(&self, len: I) -> I { len }
 }
-impl<I: Copy+From<usize>> ExplicitRange<I> for RangeTo<I> {
-    fn explicit_start_bound(&self) -> I { I::from(0) }
-    fn explicit_end_bound(&self, _: I) -> I { self.end }
+impl<I: Copy+From<usize>> BoundedRange<I> for RangeTo<I> {
+    fn bounded_start_bound(&self) -> I { I::from(0) }
+    fn bounded_end_bound(&self, _: I) -> I { self.end }
 }
-impl<I: Copy+From<usize>+Add<usize, Output=I>> ExplicitRange<I> for RangeToInclusive<I> {
-    fn explicit_start_bound(&self) -> I { I::from(0) }
-    fn explicit_end_bound(&self, _: I) -> I { self.end + 1 }
+impl<I: Copy+From<usize>+Add<usize, Output=I>> BoundedRange<I> for RangeToInclusive<I> {
+    fn bounded_start_bound(&self) -> I { I::from(0) }
+    fn bounded_end_bound(&self, _: I) -> I { self.end + 1 }
 }
-impl<I: Copy+From<usize>> ExplicitRange<I> for RangeFull {
-    fn explicit_start_bound(&self) -> I { I::from(0) }
-    fn explicit_end_bound(&self, len: I) -> I { len }
+impl<I: Copy+From<usize>> BoundedRange<I> for RangeFull {
+    fn bounded_start_bound(&self) -> I { I::from(0) }
+    fn bounded_end_bound(&self, len: I) -> I { len }
 }

@@ -1,25 +1,22 @@
-#[macro_use]
-pub mod compiler_test;
-use compiler_test::*;
+// pub mod compiler_test;
+// use compiler_test::*;
 
-compiler_tests! {
-    comma_sequence: "1,2" => value([1,2]),
-    comma_left_space: "1 ,2" => value([1,2]),
-    comma_right_space: "1, 2" => value([1,2]),
-    comma_both_space: "1 , 2" => value([1,2]),
+// #[test] fn comma_sequence()       { expect( "1,2"         ).to_yield([1,2]) }
+// #[test] fn comma_left_space()     { expect( "1 ,2"        ).to_yield([1,2]) }
+// #[test] fn comma_right_space()    { expect( "1, 2"        ).to_yield([1,2]) }
+// #[test] fn comma_both_space()     { expect( "1 , 2"       ).to_yield([1,2]) }
 
-    comma_sequence_add: "1+1+1,2+2+2" => value([3,6]),
-    comma_sequence_or_and_ge_plus_mul: "1*2+3>=4&&true||false,false||true&&4>=3+2*1" => value([true,false]),
-    comma_sequence_or_and_le_plus_mul: "1*2+3<=4&&true||false,false||true&&4<=3+2*1" => value([false,true]),
+// #[test] fn comma_sequence_add()   { expect( "1+1+1,2+2+2" ).to_yield([3,6]) }
+// #[test] fn comma_sequence_or_and_ge_plus_mul() { expect( "1*2+3>=4&&true||false,false||true&&4>=3+2*1" ).to_yield([true,false]) }
+// #[test] fn comma_sequence_or_and_le_plus_mul() { expect( "1*2+3<=4&&true||false,false||true&&4<=3+2*1" ).to_yield([false,true]) }
 
-    right_comma: "1," => error(MissingOperand@2),
-    left_comma: ",1" => error(MissingOperand@0),
-    both_comma: ",1," => error(MissingOperand@0),
+// #[test] fn right_comma()          { expect( "1,"          ).to_error(MissingOperand,2) }
+// #[test] fn left_comma()           { expect( ",1"          ).to_error(MissingOperand,0) }
+// #[test] fn both_comma()           { expect( ",1,"         ).to_error(MissingOperand,0) }
 
-    left_double_comma: ",,1" => error(MissingOperand@0),
-    right_double_comma: "1,," => error(MissingOperand@2),
-    both_double_comma: ",,1,," => error(MissingOperand@0),
-    between_double_comma: "1,,2" => error(MissingOperand@2),
+// #[test] fn left_double_comma()    { expect( ",,1"         ).to_error(MissingOperand,0) }
+// #[test] fn right_double_comma()   { expect( "1,,"         ).to_error(MissingOperand,2) }
+// #[test] fn both_double_comma()    { expect( ",,1,,"       ).to_error(MissingOperand,0) }
+// #[test] fn between_double_comma() { expect( "1,,2"        ).to_error(MissingOperand,2) }
 
-    paren_comma_all_over: ",(,(,),)," => error(MissingOperand@0),
-}
+// #[test] fn paren_comma_all_over() { expect( ",(,(,),),"   ).to_error(MissingOperand,0) }

@@ -1,12 +1,9 @@
-#[macro_use]
 pub mod compiler_test;
 use compiler_test::*;
 
-compiler_tests! {
-    no_such_field: "blah" => error(NoSuchField@[0-3]),
-    field_starts_with_number: "1bla" => error(IdentifierStartsWithNumber@[0-3]),
-    field_starts_with_underscore: "_bla" => error(NoSuchField@[0-3]),
-    field_with_all_characters: "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_" => error(NoSuchField@[0-62]),
-    one_character_field: "b" => error(NoSuchField@0),
-    underscore_only: "_" => error(NoSuchField@0),
-}
+#[test] fn no_such_field()                { expect( "blah"                                                            ).to_error(NoSuchField,0..=3) }
+#[test] fn field_starts_with_number()     { expect( "1bla"                                                            ).to_error(IdentifierStartsWithNumber,0..=3) }
+#[test] fn field_starts_with_underscore() { expect( "_bla"                                                            ).to_error(NoSuchField,0..=3) }
+#[test] fn field_with_all_characters()    { expect( "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_" ).to_error(NoSuchField,0..=62) }
+#[test] fn one_character_field()          { expect( "b"                                                               ).to_error(NoSuchField,0) }
+#[test] fn underscore_only()              { expect( "_"                                                               ).to_error(NoSuchField,0) }
