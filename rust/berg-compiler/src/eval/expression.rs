@@ -4,10 +4,9 @@ use num::BigRational;
 use std::fmt;
 use std::str::FromStr;
 use syntax::identifiers::{
-    APPLY, COLON, DASH_DASH, DOT, EMPTY_STRING, NEWLINE, PLUS_PLUS, SEMICOLON,
+    APPLY, COLON, COMMA, DASH_DASH, DOT, EMPTY_STRING, NEWLINE, PLUS_PLUS, SEMICOLON,
 };
 use syntax::Fixity::*;
-use syntax::OperandPosition::*;
 use syntax::{
     AstIndex, AstRef, ByteRange, ExpressionBoundary, ExpressionBoundaryError, FieldIndex, Fixity,
     IdentifierIndex, OperandPosition, SourceReconstruction, Token,
@@ -39,7 +38,7 @@ impl fmt::Debug for Expression {
 }
 
 impl Expression {
-    pub fn evaluate_local<'a>(self, scope: &mut ScopeRef<'a>, ast: &AstRef<'a>) -> BergResult<'a> {
+    pub fn evaluate<'a>(self, scope: &mut ScopeRef<'a>, ast: &AstRef<'a>) -> BergResult<'a> {
         println!("Evaluate {} ...", ExpressionFormatter(self, ast));
         use error::ErrorCode::*;
         use syntax::ExpressionBoundaryError::*;
@@ -70,6 +69,8 @@ impl Expression {
             InfixOperator(SEMICOLON) => self.evaluate_semicolon(scope, ast),
             // Field: Value
             InfixOperator(COLON) => self.evaluate_colon(scope, ast),
+            // A, B, C, D
+            InfixOperator(COMMA) => self.evaluate_comma(scope, ast),
             // A <op> B
             InfixOperator(operator) => self.evaluate_infix(operator, scope, ast),
             // A <op>= B
@@ -140,7 +141,7 @@ impl Expression {
             //
 
             // (...)
-            Open { error: None, .. } => self.inner_expression(ast).evaluate_local(scope, ast),
+            Open { error: None, .. } => self.inner_expression(ast).evaluate(scope, ast),
 
             // {...}, indent group
             OpenBlock {
@@ -158,7 +159,7 @@ impl Expression {
 
     fn evaluate_semicolon<'a>(self, scope: &mut ScopeRef<'a>, ast: &AstRef<'a>) -> BergResult<'a> {
         let left = self.left_operand(ast)?;
-        let left_value = left.evaluate_local(scope, ast)?;
+        let left_value = left.evaluate(scope, ast)?;
 
         // If the left hand side is a semicolon with a missing expression between,
         // raise MissingExpression.
@@ -180,6 +181,24 @@ impl Expression {
         left_value
             .infix(SEMICOLON, scope, right, ast)
             .take_error(ast, self)
+    }
+
+    fn evaluate_comma<'a>(self, scope: &mut ScopeRef<'a>, ast: &AstRef<'a>) -> BergResult<'a> {
+        let mut comma = self;
+        let mut vec: Vec<BergVal<'a>> = Vec::new();
+        while let Token::InfixOperator(COMMA) = comma.token(ast) {
+            assert!(match comma.left_expression(ast).token(ast) { Token::InfixOperator(COMMA) => false, _ => true }, "Malformed source tree: comma on the left hand side of a comma!");
+            vec.push(comma.left_operand(ast)?.evaluate(scope, ast)?);
+            comma = comma.right_expression(ast);
+        }
+        // Push the final element 1,2,3
+        //                            ^
+        // (unless it's a trailing comma: (1,2,)
+        if let Token::MissingExpression = comma.token(ast) {
+        } else {
+            vec.push(comma.evaluate(scope, ast)?)
+        }
+        Ok(vec.into())
     }
 
     fn evaluate_infix<'a>(
@@ -206,7 +225,7 @@ impl Expression {
         let value = match operator {
             EMPTY_STRING => {
                 target.initialize(scope, ast)?;
-                right.evaluate_local(scope, ast)
+                right.evaluate(scope, ast)
             }
             _ => target
                 .get(scope, ast)?
@@ -234,7 +253,7 @@ impl Expression {
         }
 
         // Now just evaluate and assign!
-        let value = self.right_operand(ast)?.evaluate_local(scope, ast);
+        let value = self.right_operand(ast)?.evaluate(scope, ast);
         target.set(value, scope, ast)
     }
 
@@ -506,6 +525,7 @@ impl Expression {
     }
 
     pub(crate) fn operand_position(self, ast: &AstRef) -> OperandPosition {
+        use self::OperandPosition::*;
         let parent = self.parent(ast);
         match parent.token(ast).fixity() {
             Prefix | Open => PrefixOperand,
@@ -553,7 +573,7 @@ impl<'a> AssignmentTarget<'a> {
                 let right = expression.right_operand(ast)?;
                 match *right.token(ast) {
                     RawIdentifier(name) => {
-                        let object = expression.left_operand(ast)?.evaluate_local(scope, ast)?;
+                        let object = expression.left_operand(ast)?.evaluate(scope, ast)?;
                         Ok(AssignmentTarget::Object(object, name, right, expression))
                     }
                     _ => BergError::AssignmentTargetMustBeIdentifier
@@ -640,7 +660,7 @@ impl Operand {
         right: Operand,
         ast: &AstRef<'a>,
     ) -> EvalResult<'a> {
-        let value = self.expression.evaluate_local(scope, ast)?;
+        let value = self.expression.evaluate(scope, ast)?;
         value.infix(operator, scope, right, ast)
     }
     pub fn postfix<'a>(
@@ -649,7 +669,7 @@ impl Operand {
         scope: &mut ScopeRef<'a>,
         ast: &AstRef<'a>,
     ) -> EvalResult<'a> {
-        let value = self.expression.evaluate_local(scope, ast)?;
+        let value = self.expression.evaluate(scope, ast)?;
         value.postfix(operator, scope)
     }
     pub fn prefix<'a>(
@@ -658,24 +678,21 @@ impl Operand {
         scope: &mut ScopeRef<'a>,
         ast: &AstRef<'a>,
     ) -> EvalResult<'a> {
-        let value = self.expression.evaluate_local(scope, ast)?;
+        let value = self.expression.evaluate(scope, ast)?;
         value.prefix(operator, scope)
     }
-    pub fn evaluate_local<'a>(self, scope: &mut ScopeRef<'a>, ast: &AstRef<'a>) -> BergResult<'a> {
-        self.expression.evaluate_local(scope, ast)
-    }
     pub fn evaluate<'a>(self, scope: &mut ScopeRef<'a>, ast: &AstRef<'a>) -> BergResult<'a> {
-        self.evaluate_local(scope, ast)?.evaluate(scope)
+        self.expression.evaluate(scope, ast)
     }
-    pub fn evaluate_to<'a, T: TypeName + TryFrom<BergVal<'a>, Error = BergVal<'a>>>(
+    pub fn execute<'a>(self, scope: &mut ScopeRef<'a>, ast: &AstRef<'a>) -> BergResult<'a> {
+        self.evaluate(scope, ast)?.result(scope)
+    }
+    pub fn execute_to<'a, T: TypeName + TryFrom<BergVal<'a>, Error = BergVal<'a>>>(
         self,
         scope: &mut ScopeRef<'a>,
         ast: &AstRef<'a>,
     ) -> EvalResult<'a, T> {
-        let value = self
-            .expression
-            .evaluate_local(scope, ast)?
-            .evaluate(scope)?;
+        let value = self.execute(scope, ast)?;
         match value.downcast::<T>() {
             Err(Raw(BergError::BadType(value, expected_type))) => {
                 BergError::BadOperandType(self.position, value, expected_type).err()

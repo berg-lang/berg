@@ -16,7 +16,7 @@ impl<'a> BergValue<'a> for IdentifierIndex {
     ) -> EvalResult<'a> {
         use syntax::identifiers::EQUAL_TO;
         match operator {
-            EQUAL_TO => match right.evaluate(scope, ast)?.downcast::<IdentifierIndex>() {
+            EQUAL_TO => match right.execute(scope, ast)?.downcast::<IdentifierIndex>() {
                 Ok(identifier) if identifier == self => true.ok(),
                 _ => false.ok(),
             },
@@ -32,8 +32,8 @@ impl<'a> BergValue<'a> for IdentifierIndex {
     }
 
     // Evaluation: values which need further work to resolve, like blocks, implement this.
-    fn evaluate(self, scope: &mut ScopeRef<'a>) -> BergResult<'a> {
-        default_evaluate(self, scope)
+    fn result(self, scope: &mut ScopeRef<'a>) -> BergResult<'a> {
+        default_result(self, scope)
     }
 
     fn field(&self, name: IdentifierIndex) -> EvalResult<'a> {

@@ -21,25 +21,25 @@ impl<'a> BergValue<'a> for BigRational {
         ast: &AstRef<'a>,
     ) -> EvalResult<'a> {
         match operator {
-            PLUS => (self + right.evaluate_to::<BigRational>(scope, ast)?).ok(),
-            DASH => (self - right.evaluate_to::<BigRational>(scope, ast)?).ok(),
+            PLUS => (self + right.execute_to::<BigRational>(scope, ast)?).ok(),
+            DASH => (self - right.execute_to::<BigRational>(scope, ast)?).ok(),
             SLASH => {
-                let right = right.evaluate_to::<BigRational>(scope, ast)?;
+                let right = right.execute_to::<BigRational>(scope, ast)?;
                 if right.is_zero() {
                     BergError::DivideByZero.err()
                 } else {
                     (self / right).ok()
                 }
             }
-            STAR => (self * right.evaluate_to::<BigRational>(scope, ast)?).ok(),
-            EQUAL_TO => match right.evaluate(scope, ast)?.downcast::<BigRational>() {
+            STAR => (self * right.execute_to::<BigRational>(scope, ast)?).ok(),
+            EQUAL_TO => match right.execute(scope, ast)?.downcast::<BigRational>() {
                 Ok(ref value) if self == *value => true.ok(),
                 _ => false.ok(),
             },
-            GREATER_THAN => (self > right.evaluate_to::<BigRational>(scope, ast)?).ok(),
-            LESS_THAN => (self < right.evaluate_to::<BigRational>(scope, ast)?).ok(),
-            GREATER_EQUAL => (self >= right.evaluate_to::<BigRational>(scope, ast)?).ok(),
-            LESS_EQUAL => (self <= right.evaluate_to::<BigRational>(scope, ast)?).ok(),
+            GREATER_THAN => (self > right.execute_to::<BigRational>(scope, ast)?).ok(),
+            LESS_THAN => (self < right.execute_to::<BigRational>(scope, ast)?).ok(),
+            GREATER_EQUAL => (self >= right.execute_to::<BigRational>(scope, ast)?).ok(),
+            LESS_EQUAL => (self <= right.execute_to::<BigRational>(scope, ast)?).ok(),
             _ => default_infix(self, operator, scope, right, ast),
         }
     }
@@ -63,8 +63,8 @@ impl<'a> BergValue<'a> for BigRational {
     }
 
     // Evaluation: values which need further work to resolve, like blocks, implement this.
-    fn evaluate(self, scope: &mut ScopeRef<'a>) -> BergResult<'a> {
-        default_evaluate(self, scope)
+    fn result(self, scope: &mut ScopeRef<'a>) -> BergResult<'a> {
+        default_result(self, scope)
     }
 
     fn field(&self, name: IdentifierIndex) -> EvalResult<'a> {

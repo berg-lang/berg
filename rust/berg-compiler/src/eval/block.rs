@@ -66,7 +66,7 @@ impl<'a> BlockRef<'a> {
         )
     }
 
-    pub fn evaluate_local(&self) -> BergResult<'a> {
+    pub fn evaluate(&self) -> BergResult<'a> {
         let ast = self.ast();
         let expression = {
             let mut block = self.0.borrow_mut();
@@ -81,7 +81,7 @@ impl<'a> BlockRef<'a> {
             block.expression
         };
         let mut scope = ScopeRef::BlockRef(self.clone());
-        let result = expression.evaluate_local(&mut scope, &ast);
+        let result = expression.evaluate(&mut scope, &ast);
         let mut block = self.0.borrow_mut();
         block.state = BlockState::Complete(Box::new(result));
         if let BlockState::Complete(ref result) = block.state {
@@ -188,8 +188,8 @@ impl<'a> TryFrom<BergVal<'a>> for BlockRef<'a> {
 }
 
 impl<'a> BergValue<'a> for BlockRef<'a> {
-    fn evaluate(self, scope: &mut ScopeRef<'a>) -> BergResult<'a> {
-        self.evaluate_local()?.evaluate(scope)
+    fn result(self, scope: &mut ScopeRef<'a>) -> BergResult<'a> {
+        self.evaluate()?.result(scope)
     }
 
     fn infix(
@@ -203,29 +203,29 @@ impl<'a> BergValue<'a> for BlockRef<'a> {
 
         match operator {
             DOT => {
-                let identifier = right.evaluate_to::<IdentifierIndex>(scope, ast)?;
+                let identifier = right.execute_to::<IdentifierIndex>(scope, ast)?;
                 self.field(identifier)
             }
             APPLY => {
-                let argument = right.evaluate_local(scope, ast);
+                let argument = right.evaluate(scope, ast);
                 self.apply(argument).ok()
             }
-            _ => self.evaluate_local()?.infix(operator, scope, right, ast),
+            _ => self.evaluate()?.infix(operator, scope, right, ast),
         }
     }
 
     fn prefix(self, operator: IdentifierIndex, scope: &mut ScopeRef<'a>) -> EvalResult<'a> {
         // Closures report their own internal error instead of local ones.
-        self.evaluate_local()?.prefix(operator, scope)
+        self.evaluate()?.prefix(operator, scope)
     }
 
     fn postfix(self, operator: IdentifierIndex, scope: &mut ScopeRef<'a>) -> EvalResult<'a> {
-        self.evaluate_local()?.prefix(operator, scope)
+        self.evaluate()?.postfix(operator, scope)
     }
 
     fn field(&self, name: IdentifierIndex) -> EvalResult<'a> {
         // Always try to get the field from the inner result first
-        match self.evaluate_local()?.field(name) {
+        match self.evaluate()?.field(name) {
             Err(Raw(ref error)) if error.code() == ErrorCode::NoSuchPublicField => {
                 let ast = self.ast();
                 // If the inner result doesn't have it, get our own local field

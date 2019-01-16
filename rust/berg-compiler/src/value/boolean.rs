@@ -17,9 +17,9 @@ impl<'a> BergValue<'a> for bool {
         ast: &AstRef<'a>,
     ) -> EvalResult<'a> {
         match operator {
-            AND_AND => (self && right.evaluate_to(scope, ast)?).ok(),
-            OR_OR => (self || right.evaluate_to(scope, ast)?).ok(),
-            EQUAL_TO => match right.evaluate(scope, ast)?.downcast::<bool>() {
+            AND_AND => (self && right.execute_to(scope, ast)?).ok(),
+            OR_OR => (self || right.execute_to(scope, ast)?).ok(),
+            EQUAL_TO => match right.execute(scope, ast)?.downcast::<bool>() {
                 Ok(value) if self == value => true.ok(),
                 _ => false.ok(),
             },
@@ -40,8 +40,8 @@ impl<'a> BergValue<'a> for bool {
     }
 
     // Evaluation: values which need further work to resolve, like blocks, implement this.
-    fn evaluate(self, scope: &mut ScopeRef<'a>) -> BergResult<'a> {
-        default_evaluate(self, scope)
+    fn result(self, scope: &mut ScopeRef<'a>) -> BergResult<'a> {
+        default_result(self, scope)
     }
 
     fn field(&self, name: IdentifierIndex) -> EvalResult<'a> {

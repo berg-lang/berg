@@ -4,7 +4,7 @@ mod sequencer;
 mod tokenizer;
 
 use eval::ExpressionTreeFormatter;
-use parser::sequencer::Sequencer;
+use self::sequencer::Sequencer;
 use syntax::{AstData, AstRef, SourceBuffer, SourceRef};
 
 ///

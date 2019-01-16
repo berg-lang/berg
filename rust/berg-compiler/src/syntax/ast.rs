@@ -30,14 +30,7 @@ pub type TokenRanges = IndexedVec<ByteRange, AstIndex>;
 // So we can signify that something is meant to be a *difference* between indices.
 pub type AstDelta = Delta<AstIndex>;
 
-#[derive(Debug, Copy, Clone, PartialEq)]
-pub enum OperandPosition {
-    Left,
-    Right,
-    PrefixOperand,
-    PostfixOperand,
-}
-
+// TODO stuff AstData into SourceData, and don't have AstRef anymore.
 #[derive(Clone)]
 pub struct AstRef<'a>(Rc<AstData<'a>>);
 
@@ -53,6 +46,15 @@ pub struct AstData<'a> {
     pub blocks: IndexedVec<AstBlock, BlockIndex>,
     pub fields: IndexedVec<Field, FieldIndex>,
     pub source_open_error: Option<SourceOpenError<'a>>,
+}
+
+
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub enum OperandPosition {
+    Left,
+    Right,
+    PrefixOperand,
+    PostfixOperand,
 }
 
 impl<'a> AstData<'a> {
@@ -114,23 +116,22 @@ impl<'a> AstRef<'a> {
         SourceReconstruction::new(self, 0.into()..self.char_data().size).to_string()
     }
 
-    pub fn evaluate(self) -> BergResult<'a> {
-        let (value, mut scope) = self.evaluate_local()?;
-        value.evaluate(&mut scope)
+    // TODO no more evaluation in syntax!
+    pub fn result(self) -> BergResult<'a> {
+        let (value, mut scope) = self.evaluate()?;
+        value.result(&mut scope)
     }
-    pub fn evaluate_to<T: TypeName + TryFrom<BergVal<'a>, Error = BergVal<'a>>>(
+    pub fn result_to<T: TypeName + TryFrom<BergVal<'a>, Error = BergVal<'a>>>(
         self,
     ) -> BergResult<'a, T> {
-        let (value, mut scope) = self.evaluate_local()?;
-        value
-            .evaluate(&mut scope)?
-            .downcast::<T>()
-            .take_error(&self, self.expression())
+        let (value, mut scope) = self.evaluate()?;
+        value.result_to::<T>(&mut scope)
+             .take_error(&self, self.expression())
     }
-    fn evaluate_local(&self) -> BergResult<'a, (BergVal<'a>, ScopeRef<'a>)> {
+    pub fn evaluate(&self) -> BergResult<'a, (BergVal<'a>, ScopeRef<'a>)> {
         let mut scope = ScopeRef::AstRef(self.clone());
         let expression = self.expression();
-        let value = expression.evaluate_local(&mut scope, self)?;
+        let value = expression.evaluate(&mut scope, self)?;
         Ok((value, scope))
     }
 
@@ -226,25 +227,6 @@ impl<'a> fmt::Display for AstRef<'a> {
     }
 }
 
-impl OperandPosition {
-    pub(crate) fn get(self, expression: Expression, ast: &AstRef) -> Expression {
-        match self {
-            Left | PostfixOperand => expression.left_expression(ast),
-            Right | PrefixOperand => expression.right_expression(ast),
-        }
-    }
-}
-
-impl fmt::Display for OperandPosition {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let string = match *self {
-            Left | PostfixOperand => "left side",
-            Right | PrefixOperand => "right side",
-        };
-        write!(f, "{}", string)
-    }
-}
-
 impl fmt::Display for IdentifierIndex {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         if self.0 < identifiers::LEN as u32 {
@@ -261,5 +243,25 @@ impl fmt::Debug for IdentifierIndex {
         } else {
             write!(f, "#{}", self.0)
         }
+    }
+}
+
+
+impl OperandPosition {
+    pub(crate) fn get(self, expression: Expression, ast: &AstRef) -> Expression {
+        match self {
+            Left | PostfixOperand => expression.left_expression(ast),
+            Right | PrefixOperand => expression.right_expression(ast),
+        }
+    }
+}
+
+impl fmt::Display for OperandPosition {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let string = match *self {
+            Left | PostfixOperand => "left side",
+            Right | PrefixOperand => "right side",
+        };
+        write!(f, "{}", string)
     }
 }

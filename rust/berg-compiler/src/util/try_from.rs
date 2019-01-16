@@ -63,246 +63,246 @@ impl fmt::Display for Never {
 
 //#[stable(feature = "rust1", since = "1.0.0")]
 pub trait AsRef<T: ?Sized> {
-    /// Performs the conversion.
+    // Performs the conversion.
     //#[stable(feature = "rust1", since = "1.0.0")]
     fn as_ref(&self) -> &T;
 }
 
-/// A cheap, mutable reference-to-mutable reference conversion.
-///
-/// This trait is similar to `AsRef` but used for converting between mutable
-/// references.
-///
-/// **Note: this trait must not fail**. If the conversion can fail, use a
-/// dedicated method which returns an [`Option<T>`] or a [`Result<T, E>`].
-///
-/// [`Option<T>`]: ../../std/option/enum.Option.html
-/// [`Result<T, E>`]: ../../std/result/enum.Result.html
-///
-/// # Generic Implementations
-///
-/// - `AsMut` auto-dereferences if the inner type is a mutable reference
-///   (e.g.: `foo.as_mut()` will work the same if `foo` has type `&mut Foo`
-///   or `&mut &mut Foo`)
-///
-/// # Examples
-///
-/// [`Box<T>`] implements `AsMut<T>`:
-///
-/// [`Box<T>`]: ../../std/boxed/struct.Box.html
-///
-/// ```
-/// fn add_one<T: AsMut<u64>>(num: &mut T) {
-///     *num.as_mut() += 1;
-/// }
-///
-/// let mut boxed_num = Box::new(0);
-/// add_one(&mut boxed_num);
-/// assert_eq!(*boxed_num, 1);
-/// ```
-///
-///
+// A cheap, mutable reference-to-mutable reference conversion.
+//
+// This trait is similar to `AsRef` but used for converting between mutable
+// references.
+//
+// **Note: this trait must not fail**. If the conversion can fail, use a
+// dedicated method which returns an [`Option<T>`] or a [`Result<T, E>`].
+//
+// [`Option<T>`]: ../../std/option/enum.Option.html
+// [`Result<T, E>`]: ../../std/result/enum.Result.html
+//
+// # Generic Implementations
+//
+// - `AsMut` auto-dereferences if the inner type is a mutable reference
+//   (e.g.: `foo.as_mut()` will work the same if `foo` has type `&mut Foo`
+//   or `&mut &mut Foo`)
+//
+// # Examples
+//
+// [`Box<T>`] implements `AsMut<T>`:
+//
+// [`Box<T>`]: ../../std/boxed/struct.Box.html
+//
+// ```
+// fn add_one<T: AsMut<u64>>(num: &mut T) {
+//     *num.as_mut() += 1;
+// }
+//
+// let mut boxed_num = Box::new(0);
+// add_one(&mut boxed_num);
+// assert_eq!(*boxed_num, 1);
+// ```
+//
+//
 //#[stable(feature = "rust1", since = "1.0.0")]
 pub trait AsMut<T: ?Sized> {
-    /// Performs the conversion.
+    // Performs the conversion.
     //#[stable(feature = "rust1", since = "1.0.0")]
     fn as_mut(&mut self) -> &mut T;
 }
 
-/// A conversion that consumes `self`, which may or may not be expensive. The
-/// reciprocal of [`From`][From].
-///
-/// **Note: this trait must not fail**. If the conversion can fail, use
-/// [`TryInto`] or a dedicated method which returns an [`Option<T>`] or a
-/// [`Result<T, E>`].
-///
-/// Library authors should not directly implement this trait, but should prefer
-/// implementing the [`From`][From] trait, which offers greater flexibility and
-/// provides an equivalent `Into` implementation for free, thanks to a blanket
-/// implementation in the standard library.
-///
-/// # Generic Implementations
-///
-/// - [`From<T>`][From]` for U` implies `Into<U> for T`
-/// - [`into`] is reflexive, which means that `Into<T> for T` is implemented
-///
-/// # Implementing `Into`
-///
-/// There is one exception to implementing `Into`, and it's kind of esoteric.
-/// If the destination type is not part of the current crate, and it uses a
-/// generic variable, then you can't implement `From` directly.  For example,
-/// take this crate:
-///
-/// ```compile_fail
-/// struct Wrapper<T>(Vec<T>);
-/// impl<T> From<Wrapper<T>> for Vec<T> {
-///     fn from(w: Wrapper<T>) -> Vec<T> {
-///         w.0
-///     }
-/// }
-/// ```
-///
-/// To fix this, you can implement `Into` directly:
-///
-/// ```
-/// struct Wrapper<T>(Vec<T>);
-/// impl<T> Into<Vec<T>> for Wrapper<T> {
-///     fn into(self) -> Vec<T> {
-///         self.0
-///     }
-/// }
-/// ```
-///
-/// This won't always allow the conversion: for example, `try!` and `?`
-/// always use `From`. However, in most cases, people use `Into` to do the
-/// conversions, and this will allow that.
-///
-/// In almost all cases, you should try to implement `From`, then fall back
-/// to `Into` if `From` can't be implemented.
-///
-/// # Examples
-///
-/// [`String`] implements `Into<Vec<u8>>`:
-///
-/// ```
-/// fn is_hello<T: Into<Vec<u8>>>(s: T) {
-///    let bytes = b"hello".to_vec();
-///    assert_eq!(bytes, s.into());
-/// }
-///
-/// let s = "hello".to_string();
-/// is_hello(s);
-/// ```
-///
-/// [`TryInto`]: trait.TryInto.html
-/// [`Option<T>`]: ../../std/option/enum.Option.html
-/// [`Result<T, E>`]: ../../std/result/enum.Result.html
-/// [`String`]: ../../std/string/struct.String.html
-/// [From]: trait.From.html
-/// [`into`]: trait.Into.html#tymethod.into
+// A conversion that consumes `self`, which may or may not be expensive. The
+// reciprocal of [`From`][From].
+//
+// **Note: this trait must not fail**. If the conversion can fail, use
+// [`TryInto`] or a dedicated method which returns an [`Option<T>`] or a
+// [`Result<T, E>`].
+//
+// Library authors should not directly implement this trait, but should prefer
+// implementing the [`From`][From] trait, which offers greater flexibility and
+// provides an equivalent `Into` implementation for free, thanks to a blanket
+// implementation in the standard library.
+//
+// # Generic Implementations
+//
+// - [`From<T>`][From]` for U` implies `Into<U> for T`
+// - [`into`] is reflexive, which means that `Into<T> for T` is implemented
+//
+// # Implementing `Into`
+//
+// There is one exception to implementing `Into`, and it's kind of esoteric.
+// If the destination type is not part of the current crate, and it uses a
+// generic variable, then you can't implement `From` directly.  For example,
+// take this crate:
+//
+// ```compile_fail
+// struct Wrapper<T>(Vec<T>);
+// impl<T> From<Wrapper<T>> for Vec<T> {
+//     fn from(w: Wrapper<T>) -> Vec<T> {
+//         w.0
+//     }
+// }
+// ```
+//
+// To fix this, you can implement `Into` directly:
+//
+// ```
+// struct Wrapper<T>(Vec<T>);
+// impl<T> Into<Vec<T>> for Wrapper<T> {
+//     fn into(self) -> Vec<T> {
+//         self.0
+//     }
+// }
+// ```
+//
+// This won't always allow the conversion: for example, `try!` and `?`
+// always use `From`. However, in most cases, people use `Into` to do the
+// conversions, and this will allow that.
+//
+// In almost all cases, you should try to implement `From`, then fall back
+// to `Into` if `From` can't be implemented.
+//
+// # Examples
+//
+// [`String`] implements `Into<Vec<u8>>`:
+//
+// ```
+// fn is_hello<T: Into<Vec<u8>>>(s: T) {
+//    let bytes = b"hello".to_vec();
+//    assert_eq!(bytes, s.into());
+// }
+//
+// let s = "hello".to_string();
+// is_hello(s);
+// ```
+//
+// [`TryInto`]: trait.TryInto.html
+// [`Option<T>`]: ../../std/option/enum.Option.html
+// [`Result<T, E>`]: ../../std/result/enum.Result.html
+// [`String`]: ../../std/string/struct.String.html
+// [From]: trait.From.html
+// [`into`]: trait.Into.html#tymethod.into
 //#[stable(feature = "rust1", since = "1.0.0")]
 pub trait Into<T>: Sized {
-    /// Performs the conversion.
+    // Performs the conversion.
     //#[stable(feature = "rust1", since = "1.0.0")]
     fn into(self) -> T;
 }
 
-/// Simple and safe type conversions in to `Self`. It is the reciprocal of
-/// `Into`.
-///
-/// This trait is useful when performing error handling as described by
-/// [the book][book] and is closely related to the `?` operator.
-///
-/// When constructing a function that is capable of failing the return type
-/// will generally be of the form `Result<T, E>`.
-///
-/// The `From` trait allows for simplification of error handling by providing a
-/// means of returning a single error type that encapsulates numerous possible
-/// erroneous situations.
-///
-/// This trait is not limited to error handling, rather the general case for
-/// this trait would be in any type conversions to have an explicit definition
-/// of how they are performed.
-///
-/// **Note: this trait must not fail**. If the conversion can fail, use
-/// [`TryFrom`] or a dedicated method which returns an [`Option<T>`] or a
-/// [`Result<T, E>`].
-///
-/// # Generic Implementations
-///
-/// - `From<T> for U` implies [`Into<U>`]` for T`
-/// - [`from`] is reflexive, which means that `From<T> for T` is implemented
-///
-/// # Examples
-///
-/// [`String`] implements `From<&str>`:
-///
-/// ```
-/// let string = "hello".to_string();
-/// let other_string = String::from("hello");
-///
-/// assert_eq!(string, other_string);
-/// ```
-///
-/// An example usage for error handling:
-///
-/// ```
-/// use std::io::{self, Read};
-/// use std::num;
-///
-/// enum CliError {
-///     IoError(io::Error),
-///     ParseError(num::ParseIntError),
-/// }
-///
-/// impl From<io::Error> for CliError {
-///     fn from(error: io::Error) -> Self {
-///         CliError::IoError(error)
-///     }
-/// }
-///
-/// impl From<num::ParseIntError> for CliError {
-///     fn from(error: num::ParseIntError) -> Self {
-///         CliError::ParseError(error)
-///     }
-/// }
-///
-/// fn open_and_parse_file(file_name: &str) -> Result<i32, CliError> {
-///     let mut file = std::fs::File::open("test")?;
-///     let mut contents = String::new();
-///     file.read_to_string(&mut contents)?;
-///     let num: i32 = contents.trim().parse()?;
-///     Ok(num)
-/// }
-/// ```
-///
-/// [`TryFrom`]: trait.TryFrom.html
-/// [`Option<T>`]: ../../std/option/enum.Option.html
-/// [`Result<T, E>`]: ../../std/result/enum.Result.html
-/// [`String`]: ../../std/string/struct.String.html
-/// [`Into<U>`]: trait.Into.html
-/// [`from`]: trait.From.html#tymethod.from
-/// [book]: ../../book/first-edition/error-handling.html
+// Simple and safe type conversions in to `Self`. It is the reciprocal of
+// `Into`.
+//
+// This trait is useful when performing error handling as described by
+// [the book][book] and is closely related to the `?` operator.
+//
+// When constructing a function that is capable of failing the return type
+// will generally be of the form `Result<T, E>`.
+//
+// The `From` trait allows for simplification of error handling by providing a
+// means of returning a single error type that encapsulates numerous possible
+// erroneous situations.
+//
+// This trait is not limited to error handling, rather the general case for
+// this trait would be in any type conversions to have an explicit definition
+// of how they are performed.
+//
+// **Note: this trait must not fail**. If the conversion can fail, use
+// [`TryFrom`] or a dedicated method which returns an [`Option<T>`] or a
+// [`Result<T, E>`].
+//
+// # Generic Implementations
+//
+// - `From<T> for U` implies [`Into<U>`]` for T`
+// - [`from`] is reflexive, which means that `From<T> for T` is implemented
+//
+// # Examples
+//
+// [`String`] implements `From<&str>`:
+//
+// ```
+// let string = "hello".to_string();
+// let other_string = String::from("hello");
+//
+// assert_eq!(string, other_string);
+// ```
+//
+// An example usage for error handling:
+//
+// ```
+// use std::io::{self, Read};
+// use std::num;
+//
+// enum CliError {
+//     IoError(io::Error),
+//     ParseError(num::ParseIntError),
+// }
+//
+// impl From<io::Error> for CliError {
+//     fn from(error: io::Error) -> Self {
+//         CliError::IoError(error)
+//     }
+// }
+//
+// impl From<num::ParseIntError> for CliError {
+//     fn from(error: num::ParseIntError) -> Self {
+//         CliError::ParseError(error)
+//     }
+// }
+//
+// fn open_and_parse_file(file_name: &str) -> Result<i32, CliError> {
+//     let mut file = std::fs::File::open("test")?;
+//     let mut contents = String::new();
+//     file.read_to_string(&mut contents)?;
+//     let num: i32 = contents.trim().parse()?;
+//     Ok(num)
+// }
+// ```
+//
+// [`TryFrom`]: trait.TryFrom.html
+// [`Option<T>`]: ../../std/option/enum.Option.html
+// [`Result<T, E>`]: ../../std/result/enum.Result.html
+// [`String`]: ../../std/string/struct.String.html
+// [`Into<U>`]: trait.Into.html
+// [`from`]: trait.From.html#tymethod.from
+// [book]: ../../book/first-edition/error-handling.html
 //#[stable(feature = "rust1", since = "1.0.0")]
 pub trait From<T>: Sized {
-    /// Performs the conversion.
+    // Performs the conversion.
     //#[stable(feature = "rust1", since = "1.0.0")]
     fn from(_: T) -> Self;
 }
 
-/// An attempted conversion that consumes `self`, which may or may not be
-/// expensive.
-///
-/// Library authors should not directly implement this trait, but should prefer
-/// implementing the [`TryFrom`] trait, which offers greater flexibility and
-/// provides an equivalent `TryInto` implementation for free, thanks to a
-/// blanket implementation in the standard library. For more information on this,
-/// see the documentation for [`Into`].
-///
-/// [`TryFrom`]: trait.TryFrom.html
-/// [`Into`]: trait.Into.html
+// An attempted conversion that consumes `self`, which may or may not be
+// expensive.
+//
+// Library authors should not directly implement this trait, but should prefer
+// implementing the [`TryFrom`] trait, which offers greater flexibility and
+// provides an equivalent `TryInto` implementation for free, thanks to a
+// blanket implementation in the standard library. For more information on this,
+// see the documentation for [`Into`].
+//
+// [`TryFrom`]: trait.TryFrom.html
+// [`Into`]: trait.Into.html
 //#[unstable(feature = "try_from", issue = "33417")]
 pub trait TryInto<T>: Sized {
-    /// The type returned in the event of a conversion error.
+    // The type returned in the event of a conversion error.
     type Error;
 
-    /// Performs the conversion.
+    // Performs the conversion.
     fn try_into(self) -> Result<T, Self::Error>;
 }
 
-/// Attempt to construct `Self` via a conversion.
+// Attempt to construct `Self` via a conversion.
 //#[unstable(feature = "try_from", issue = "33417")]
 pub trait TryFrom<T>: Sized {
-    /// The type returned in the event of a conversion error.
+    // The type returned in the event of a conversion error.
     type Error;
 
-    /// Performs the conversion.
+    // Performs the conversion.
     fn try_from(value: T) -> Result<Self, Self::Error>;
 }
 
-////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////
 // GENERIC IMPLS
-////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////
 
 // As lifts over &
 //#[stable(feature = "rust1", since = "1.0.0")]
@@ -399,9 +399,9 @@ where
     }
 }
 
-////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////
 // CONCRETE IMPLS
-////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////
 
 //#[stable(feature = "rust1", since = "1.0.0")]
 impl<T> AsRef<[T]> for [T] {

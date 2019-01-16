@@ -68,8 +68,9 @@ impl Precedence {
                 Dot | TimesDivide | PlusMinus | Comparison | And => true,
                 _ => false,
             },
+            // Comma sequences are right-associative: 1,2,3 -> 1, 2,3
             CommaSequence => match right {
-                Dot | TimesDivide | PlusMinus | Comparison | And | Or => true,
+                Dot | TimesDivide | PlusMinus | Comparison | And | Or | CommaSequence => true,
                 _ => false,
             },
             Assign => match right {

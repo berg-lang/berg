@@ -1,6 +1,6 @@
 mod result;
-pub use error::result::{BergResult, EvalResult, TakeError, UnwindFrame};
-pub use error::EvalError::Raw;
+pub use self::result::{BergResult, EvalResult, TakeError, UnwindFrame};
+pub use self::EvalError::Raw;
 
 use eval::{BlockRef, Expression};
 use std::fmt;
@@ -54,6 +54,7 @@ pub enum BergError<'a> {
     NoSuchField(FieldIndex),
     FieldNotSet(FieldIndex),
     CircularDependency,
+    // TODO stop boxing BergVals
     BadType(Box<BergVal<'a>>, &'static str),
     BadOperandType(OperandPosition, Box<BergVal<'a>>, &'static str),
     PrivateField(BlockRef<'a>, IdentifierIndex),
@@ -147,8 +148,8 @@ impl<'a> Error<'a> {
     }
 
     pub fn location(&self) -> ErrorLocation<'a> {
-        use error::BergError::*;
-        use error::ErrorLocation::*;
+        use self::BergError::*;
+        use self::ErrorLocation::*;
         let ast = self.ast();
         match self.error {
             // File open errors
@@ -212,7 +213,7 @@ impl<'a> Error<'a> {
 
 impl fmt::Display for ErrorCode {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        use error::ErrorCode::*;
+        use self::ErrorCode::*;
         let string = match *self {
             SourceNotFound => "SourceNotFound",
             IoOpenError => "IoOpenError",
@@ -242,7 +243,7 @@ impl fmt::Display for ErrorCode {
 
 impl<'a> fmt::Display for Error<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        use error::BergError::*;
+        use self::BergError::*;
         let expression = self.expression();
         let ast = self.ast();
         match self.error {
@@ -407,7 +408,7 @@ impl<'a> BergError<'a> {
     }
 
     pub fn code(&self) -> ErrorCode {
-        use error::BergError::*;
+        use self::BergError::*;
         match *self {
             // File open errors
             SourceNotFound => ErrorCode::SourceNotFound,

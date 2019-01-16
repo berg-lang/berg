@@ -4,7 +4,7 @@ use parser;
 use std::fmt;
 use std::io;
 use std::ops::Range;
-use syntax::{ByteIndex, ByteRange, LineColumnRange, SourceRef};
+use syntax::{AstRef, ByteIndex, ByteRange, LineColumnRange, SourceRef};
 use util::from_range::BoundedRange;
 use util::from_range::IntoRange;
 use util::try_from::TryFrom;
@@ -84,8 +84,7 @@ impl<R: BoundedRange<ByteIndex>, T: IntoRange<ByteIndex, Output = R>> ExpectedEr
 }
 
 impl<'a> ExpectBerg<'a> {
-    #[allow(clippy::needless_pass_by_value, clippy::wrong_self_convention)]
-    pub fn to_yield<V: ExpectedValue<'a>>(self, expected_value: V) {
+    fn parse(&self) -> AstRef<'a> {
         let ast = parser::parse(test_source(self.0));
         assert_eq!(
             self.0,
@@ -94,7 +93,13 @@ impl<'a> ExpectBerg<'a> {
             String::from_utf8_lossy(self.0),
             ast.to_string()
         );
-        let result = ast.evaluate_to::<V>();
+        ast
+    }
+
+    #[allow(clippy::needless_pass_by_value, clippy::wrong_self_convention)]
+    pub fn to_yield<V: ExpectedValue<'a>+Clone>(self, expected_value: V) {
+        let ast = self.parse();
+        let result = ast.result_to::<V>();
         assert!(
             result.is_ok(),
             "Unexpected error {} in {}: expected {}",
@@ -109,13 +114,34 @@ impl<'a> ExpectBerg<'a> {
             self, expected_value, value
         );
     }
+    #[allow(clippy::needless_pass_by_value, clippy::wrong_self_convention)]
+    pub fn to_yield_tuple<V: ExpectedValue<'a>+Clone>(self, expected_value: &[V]) where Vec<V>: TypeName+TryFrom<BergVal<'a>, Error=BergVal<'a>> {
+        let ast = self.parse();
+        let result = ast.result_to::<Vec<V>>();
+        
+        assert!(
+            result.is_ok(),
+            "Unexpected error {} in {}: expected [{}]",
+            result.unwrap_err(),
+            self,
+            { let i: Vec<String> = expected_value.iter().map(|v| { format!("{}", v) }).collect(); i.join(",") }
+        );
+        let value = result.unwrap();
+        assert_eq!(
+            Vec::from(expected_value), value,
+            "Wrong result from {}! Expected [{}], got [{}]",
+            self,
+            { let i: Vec<String> = expected_value.iter().map(|v| { format!("{}", v) }).collect(); i.join(",") },
+            { let i: Vec<String> = value.iter().map(|v| { format!("{}", v) }).collect(); i.join(",") }
+        );
+    }
     #[allow(clippy::wrong_self_convention)]
     pub fn to_error(self, code: ErrorCode, expected_range: impl ExpectedErrorRange) {
         let ast = parser::parse(test_source(self.0));
         let expected_range = ast
             .char_data()
             .range(&expected_range.into_error_range(ast.char_data().size));
-        let result = ast.evaluate();
+        let result = ast.result();
         assert!(
             result.is_err(),
             "No error produced by {}: expected {}, got value {}",

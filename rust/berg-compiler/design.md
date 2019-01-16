@@ -27,5 +27,5 @@ When an expression runs, it returns a value on the stack, with the lifetime of t
 - `val.downcast::<bool>() -> bool`
 - `val.downcast_ref::<bool>() -> &bool`
 - `val.downcast_mut::<bool>() -> &mut bool`
-- `val.infix(PLUS, &right_hand_side) -> Val`
+- `val.evaluate_lfix_expression(PLUS, &right_hand_side) -> Val`
 - `evaluator.evaluate_extended(val: Val<'parent>, to_scope: Val<'scope>) -> Val<'scope>` - this takes the value and wraps it up 

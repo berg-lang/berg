@@ -4,7 +4,7 @@ extern crate fnv;
 extern crate num;
 
 pub use error::{BergResult, Error, ErrorCode};
-pub use value::{BergVal, Nothing};
+pub use value::{BergVal, BergValue, Nothing};
 
 use eval::RootRef;
 use std::borrow::Cow;
@@ -23,13 +23,13 @@ pub(crate) mod value;
 pub fn evaluate_file<'a, P: Into<Cow<'a, Path>>>(path: P) -> BergResult<'a> {
     let root = RootRef::from_env();
     let source = SourceRef::file(path.into(), root);
-    parser::parse(source).evaluate()
+    parser::parse(source).result()
 }
 
 pub fn evaluate_bytes<'a>(name: &'a str, value: &'a [u8]) -> BergResult<'a> {
     let root = RootRef::from_env();
     let source = SourceRef::memory(name, value, root);
-    parser::parse(source).evaluate()
+    parser::parse(source).result()
 }
 
 // #[cfg(test)]

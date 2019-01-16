@@ -1,17 +1,17 @@
 mod berg_val;
 mod boolean;
+// mod error;
 mod identifier;
-mod berg_value_iterator;
 mod nothing;
 mod rational;
-mod sequence;
+mod tuple;
 
-pub use value::berg_val::BergVal;
-pub use value::nothing::Nothing;
+pub use self::berg_val::BergVal;
+pub use self::nothing::Nothing;
+pub use self::tuple::Tuple;
 
 use error::{BergError, BergResult, EvalResult};
 use eval::{Operand, ScopeRef};
-use sequence::Sequence;
 use std::fmt;
 use syntax::{AstRef, Fixity, IdentifierIndex};
 use util::try_from::TryFrom;
@@ -31,8 +31,10 @@ pub trait BergValue<'a>: Sized + Into<BergVal<'a>> + Clone + fmt::Debug {
     fn postfix(self, operator: IdentifierIndex, scope: &mut ScopeRef<'a>) -> EvalResult<'a>;
     fn prefix(self, operator: IdentifierIndex, scope: &mut ScopeRef<'a>) -> EvalResult<'a>;
 
-    // Evaluation: values which need further work to resolve, like blocks, implement this.
-    fn evaluate(self, scope: &mut ScopeRef<'a>) -> BergResult<'a>;
+    ///
+    /// Executes this value if it is lazy, returning the final value.
+    /// 
+    fn result(self, scope: &mut ScopeRef<'a>) -> BergResult<'a>;
 
     fn field(&self, name: IdentifierIndex) -> EvalResult<'a>;
     fn set_field(&mut self, name: IdentifierIndex, value: BergResult<'a>) -> EvalResult<'a, ()>;
@@ -44,11 +46,19 @@ pub trait BergValue<'a>: Sized + Into<BergVal<'a>> + Clone + fmt::Debug {
     {
         Ok(self.into())
     }
-    fn evaluate_to<T: TypeName + TryFrom<BergVal<'a>, Error = BergVal<'a>>>(
+
+    ///
+    /// Convert this value to the given type, executing it if it is lazy.
+    ///
+    /// If the actual code fails, returns Ok(Err(error)). If the conversion
+    /// fails, returns Err(error) so that the caller can take responsibility
+    /// for its desire to convert the value.
+    /// 
+    fn result_to<T: TypeName + TryFrom<BergVal<'a>, Error = BergVal<'a>>>(
         self,
         scope: &mut ScopeRef<'a>,
     ) -> EvalResult<'a, T> {
-        self.evaluate(scope)?.downcast::<T>()
+        self.result(scope)?.downcast::<T>()
     }
 }
 
@@ -61,14 +71,14 @@ pub fn default_infix<'a, T: BergValue<'a>>(
 ) -> EvalResult<'a> {
     use syntax::identifiers::{DOT, COMMA, EQUAL_TO, EXCLAMATION_POINT, NEWLINE, NOT_EQUAL_TO, SEMICOLON};
     match operator {
-        SEMICOLON | NEWLINE => Ok(right.evaluate_local(scope, ast)?),
-        COMMA => Ok(Sequence::concatenate(left, right.evaluate_local(scope, ast)?)),
+        SEMICOLON | NEWLINE => Ok(right.evaluate(scope, ast)?),
+        COMMA => unreachable!(),
         EQUAL_TO => false.ok(),
         NOT_EQUAL_TO => left
             .infix(EQUAL_TO, scope, right, ast)?
             .prefix(EXCLAMATION_POINT, scope),
         DOT => {
-            let identifier = right.evaluate_to::<IdentifierIndex>(scope, ast)?;
+            let identifier = right.execute_to::<IdentifierIndex>(scope, ast)?;
             left.field(identifier)
         }
         _ => BergError::UnsupportedOperator(Box::new(left.into()), Fixity::Infix, operator).err(),
@@ -112,7 +122,7 @@ pub fn default_set_field<'a, T: BergValue<'a>>(
     BergError::NoSuchPublicFieldOnValue(Box::new(object.clone().into()), name).err()
 }
 
-pub fn default_evaluate<'a, T: BergValue<'a>>(
+pub fn default_result<'a, T: BergValue<'a>>(
     value: T,
     _scope: &mut ScopeRef<'a>,
 ) -> BergResult<'a> {

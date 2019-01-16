@@ -11,6 +11,7 @@ use syntax::{FieldIndex, IdentifierIndex};
 use util::intern_pool::InternPool;
 use value::BergValue;
 
+#[derive(Clone)]
 pub struct RootRef(Rc<RootData>);
 
 struct RootData {
