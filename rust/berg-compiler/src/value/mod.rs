@@ -12,10 +12,10 @@ pub use self::tuple::Tuple;
 
 use crate::error::{BergError, BergResult, EvalResult};
 use crate::eval::{Operand, ScopeRef};
-use std::fmt;
 use crate::syntax::{AstRef, Fixity, IdentifierIndex};
 use crate::util::try_from::TryFrom;
 use crate::util::type_name::TypeName;
+use std::fmt;
 
 ///
 /// A value that can participate in Berg expressions.
@@ -33,7 +33,7 @@ pub trait BergValue<'a>: Sized + Into<BergVal<'a>> + Clone + fmt::Debug {
 
     ///
     /// Executes this value if it is lazy, returning the final value.
-    /// 
+    ///
     fn result(self, scope: &mut ScopeRef<'a>) -> BergResult<'a>;
 
     fn field(&self, name: IdentifierIndex) -> EvalResult<'a>;
@@ -53,7 +53,7 @@ pub trait BergValue<'a>: Sized + Into<BergVal<'a>> + Clone + fmt::Debug {
     /// If the actual code fails, returns Ok(Err(error)). If the conversion
     /// fails, returns Err(error) so that the caller can take responsibility
     /// for its desire to convert the value.
-    /// 
+    ///
     fn result_to<T: TypeName + TryFrom<BergVal<'a>, Error = BergVal<'a>>>(
         self,
         scope: &mut ScopeRef<'a>,
@@ -69,7 +69,9 @@ pub fn default_infix<'a, T: BergValue<'a>>(
     right: Operand,
     ast: &AstRef<'a>,
 ) -> EvalResult<'a> {
-    use crate::syntax::identifiers::{DOT, COMMA, EQUAL_TO, EXCLAMATION_POINT, NEWLINE, NOT_EQUAL_TO, SEMICOLON};
+    use crate::syntax::identifiers::{
+        COMMA, DOT, EQUAL_TO, EXCLAMATION_POINT, NEWLINE, NOT_EQUAL_TO, SEMICOLON,
+    };
     match operator {
         SEMICOLON | NEWLINE => Ok(right.evaluate(scope, ast)?),
         COMMA => unreachable!(),
@@ -122,9 +124,6 @@ pub fn default_set_field<'a, T: BergValue<'a>>(
     BergError::NoSuchPublicFieldOnValue(Box::new(object.clone().into()), name).err()
 }
 
-pub fn default_result<'a, T: BergValue<'a>>(
-    value: T,
-    _scope: &mut ScopeRef<'a>,
-) -> BergResult<'a> {
+pub fn default_result<'a, T: BergValue<'a>>(value: T, _scope: &mut ScopeRef<'a>) -> BergResult<'a> {
     value.ok()
 }

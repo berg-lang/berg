@@ -1,4 +1,8 @@
 use crate::error::{BergError, BergResult, EvalResult};
+use crate::syntax::identifiers;
+use crate::syntax::{FieldIndex, IdentifierIndex};
+use crate::util::intern_pool::InternPool;
+use crate::value::BergValue;
 use std;
 use std::env;
 use std::fmt;
@@ -6,10 +10,6 @@ use std::io;
 use std::io::Write;
 use std::path::PathBuf;
 use std::rc::Rc;
-use crate::syntax::identifiers;
-use crate::syntax::{FieldIndex, IdentifierIndex};
-use crate::util::intern_pool::InternPool;
-use crate::value::BergValue;
 
 #[derive(Clone)]
 pub struct RootRef(Rc<RootData>);

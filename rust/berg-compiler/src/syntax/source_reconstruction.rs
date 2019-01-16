@@ -1,9 +1,9 @@
+use crate::syntax::identifiers::*;
+use crate::syntax::{AstIndex, AstRef, ByteIndex, ByteRange, Token};
 use std::cmp;
 use std::fmt;
 use std::io;
 use std::io::Read;
-use crate::syntax::identifiers::*;
-use crate::syntax::{AstIndex, AstRef, ByteIndex, ByteRange, Token};
 
 pub struct SourceReconstruction<'p, 'a: 'p> {
     ast: &'p AstRef<'a>,

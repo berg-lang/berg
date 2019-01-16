@@ -1,12 +1,12 @@
 use crate::error::{BergError, BergResult, EvalResult};
 use crate::eval::{Operand, ScopeRef};
-use num::{BigInt, BigRational, One, ToPrimitive, Zero};
-use std::{i64, u64};
 use crate::syntax::identifiers::*;
 use crate::syntax::{AstRef, IdentifierIndex};
 use crate::util::try_from::TryFrom;
 use crate::util::type_name::TypeName;
 use crate::value::*;
+use num::{BigInt, BigRational, One, ToPrimitive, Zero};
+use std::{i64, u64};
 
 impl TypeName for BigRational {
     const TYPE_NAME: &'static str = "number";

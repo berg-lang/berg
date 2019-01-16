@@ -1,7 +1,7 @@
 use crate::error::BergError;
 use crate::eval::BlockRef;
-use std::u32;
 use crate::syntax::{AstRef, ExpressionBoundary, IdentifierIndex};
+use std::u32;
 
 index_type! {
     pub struct BlockIndex(pub u32) with Display,Debug <= u32::MAX;

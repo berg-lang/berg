@@ -1,5 +1,6 @@
 use crate::error::{BergError, EvalResult};
 use crate::eval::RootRef;
+use crate::util::indexed_vec::{to_indexed_cow, IndexedSlice};
 use std::borrow::Cow;
 use std::fs::File;
 use std::io;
@@ -8,7 +9,6 @@ use std::ops::Range;
 use std::path::Path;
 use std::rc::Rc;
 use std::u32;
-use crate::util::indexed_vec::{to_indexed_cow, IndexedSlice};
 
 index_type! {
     pub struct ByteIndex(pub u32) with Display,Debug <= u32::MAX;

@@ -1,8 +1,8 @@
+use crate::util::indexed_vec::IndexType;
+use crate::util::indexed_vec::IndexedVec;
 use fnv::FnvHashMap;
 use std::ops::Index;
 use std::str;
-use crate::util::indexed_vec::IndexType;
-use crate::util::indexed_vec::IndexedVec;
 
 const DEFAULT_CAPACITY: usize = 1024;
 

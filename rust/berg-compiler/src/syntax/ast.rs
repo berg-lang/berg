@@ -1,9 +1,5 @@
 use crate::error::{BergError, BergResult, TakeError};
 use crate::eval::{Expression, RootRef, ScopeRef};
-use std::borrow::Cow;
-use std::io;
-use std::rc::Rc;
-use std::u32;
 use crate::syntax::char_data::CharData;
 use crate::syntax::identifiers;
 use crate::syntax::OperandPosition::*;
@@ -16,6 +12,10 @@ use crate::util::intern_pool::{InternPool, StringPool};
 use crate::util::try_from::TryFrom;
 use crate::util::type_name::TypeName;
 use crate::value::{BergVal, BergValue};
+use std::borrow::Cow;
+use std::io;
+use std::rc::Rc;
+use std::u32;
 
 index_type! {
     pub struct AstIndex(pub u32) with Display,Debug <= u32::MAX;
@@ -47,7 +47,6 @@ pub struct AstData<'a> {
     pub fields: IndexedVec<Field, FieldIndex>,
     pub source_open_error: Option<SourceOpenError<'a>>,
 }
-
 
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub enum OperandPosition {
@@ -125,8 +124,9 @@ impl<'a> AstRef<'a> {
         self,
     ) -> BergResult<'a, T> {
         let (value, mut scope) = self.evaluate()?;
-        value.result_to::<T>(&mut scope)
-             .take_error(&self, self.expression())
+        value
+            .result_to::<T>(&mut scope)
+            .take_error(&self, self.expression())
     }
     pub fn evaluate(&self) -> BergResult<'a, (BergVal<'a>, ScopeRef<'a>)> {
         let mut scope = ScopeRef::AstRef(self.clone());
@@ -245,7 +245,6 @@ impl fmt::Debug for IdentifierIndex {
         }
     }
 }
-
 
 impl OperandPosition {
     pub(crate) fn get(self, expression: Expression, ast: &AstRef) -> Expression {

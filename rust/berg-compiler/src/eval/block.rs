@@ -1,11 +1,11 @@
 use crate::error::{BergError, BergResult, ErrorCode, EvalError, EvalResult, Raw, TakeError};
 use crate::eval::{Expression, Operand, ScopeRef};
-use std::cell::RefCell;
-use std::fmt;
-use std::rc::Rc;
 use crate::syntax::{AstRef, BlockIndex, FieldIndex, IdentifierIndex};
 use crate::util::try_from::TryFrom;
 use crate::value::{BergVal, BergValue};
+use std::cell::RefCell;
+use std::fmt;
+use std::rc::Rc;
 
 ///
 /// A block represents the execution of an expression, including the next

@@ -3,12 +3,12 @@ pub use self::result::{BergResult, EvalResult, TakeError, UnwindFrame};
 pub use self::EvalError::Raw;
 
 use crate::eval::{BlockRef, Expression};
-use std::fmt;
 use crate::syntax::{
     AstRef, ByteRange, FieldIndex, Fixity, IdentifierIndex, LineColumnRange, LiteralIndex,
     OperandPosition, RawLiteralIndex,
 };
 use crate::value::*;
+use std::fmt;
 
 #[derive(Debug, Clone)]
 pub struct Error<'a> {

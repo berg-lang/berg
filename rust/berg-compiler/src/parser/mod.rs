@@ -3,8 +3,8 @@ mod grouper;
 mod sequencer;
 mod tokenizer;
 
-use crate::eval::ExpressionTreeFormatter;
 use self::sequencer::Sequencer;
+use crate::eval::ExpressionTreeFormatter;
 use crate::syntax::{AstData, AstRef, SourceBuffer, SourceRef};
 
 ///

@@ -1,8 +1,5 @@
 use crate::error::{BergError, BergResult, Error, EvalResult, Raw, TakeError};
 use crate::eval::{ExpressionFormatter, ScopeRef};
-use num::BigRational;
-use std::fmt;
-use std::str::FromStr;
 use crate::syntax::identifiers::{
     APPLY, COLON, COMMA, DASH_DASH, DOT, EMPTY_STRING, NEWLINE, PLUS_PLUS, SEMICOLON,
 };
@@ -14,6 +11,9 @@ use crate::syntax::{
 use crate::util::try_from::TryFrom;
 use crate::util::type_name::TypeName;
 use crate::value::{BergVal, BergValue};
+use num::BigRational;
+use std::fmt;
+use std::str::FromStr;
 
 #[derive(Copy, Clone, PartialEq)]
 pub struct Expression(pub AstIndex);
@@ -102,7 +102,6 @@ impl Expression {
             //
             // Syntax errors
             //
-
             ErrorTerm(IdentifierStartsWithNumber, literal) => {
                 BergError::IdentifierStartsWithNumber(literal).take_error(ast, self)
             }
@@ -187,7 +186,13 @@ impl Expression {
         let mut comma = self;
         let mut vec: Vec<BergVal<'a>> = Vec::new();
         while let Token::InfixOperator(COMMA) = comma.token(ast) {
-            assert!(match comma.left_expression(ast).token(ast) { Token::InfixOperator(COMMA) => false, _ => true }, "Malformed source tree: comma on the left hand side of a comma!");
+            assert!(
+                match comma.left_expression(ast).token(ast) {
+                    Token::InfixOperator(COMMA) => false,
+                    _ => true,
+                },
+                "Malformed source tree: comma on the left hand side of a comma!"
+            );
             vec.push(comma.left_operand(ast)?.evaluate(scope, ast)?);
             comma = comma.right_expression(ast);
         }

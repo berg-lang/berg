@@ -3,22 +3,32 @@ use crate::compiler_test::*;
 
 // Declaration without reference (sets value, returns Nothing)
 #[test]
-fn declare()                          { expect( "a: 1"                ).to_yield(Nothing) }
+fn declare() {
+    expect("a: 1").to_yield(Nothing)
+}
 
 // Test declare laziness
 #[test]
-fn declare_lazy()                     { expect( "a = 1; b = 2; c: a + b; a++; b++; c" ).to_yield(5) }
+fn declare_lazy() {
+    expect("a = 1; b = 2; c: a + b; a++; b++; c").to_yield(5)
+}
 #[test]
-fn declare_scope()                    { expect( "a = 1; c: :a; c"     ).to_error(FieldNotSet,11) }
+fn declare_scope() {
+    expect("a = 1; c: :a; c").to_error(FieldNotSet, 11)
+}
 
 //
 // Test declarations with references
 //
 
 #[test]
-fn declare_ref()                      { expect( "a: 1; a"             ).to_yield(1) }
+fn declare_ref() {
+    expect("a: 1; a").to_yield(1)
+}
 #[test]
-fn declare_two_fields_ref()           { expect( "a: 1; b: 2; a + b"   ).to_yield(3) }
+fn declare_two_fields_ref() {
+    expect("a: 1; b: 2; a + b").to_yield(3)
+}
 
 // #[test]
 // fn redeclare_error()                  { expect( "a: 1; a: 2"          ).to_error(ImmutableField,6) }
@@ -72,40 +82,60 @@ fn declare_two_fields_ref()           { expect( "a: 1; b: 2; a + b"   ).to_yield
 // Test precedence
 //
 #[test]
-fn declare_precedence()               { expect( "a: false; b: false || true && 14 == 2 + 3 * 4; b" ).to_yield(true) }
+fn declare_precedence() {
+    expect("a: false; b: false || true && 14 == 2 + 3 * 4; b").to_yield(true)
+}
 
 //
 // Test missing syntax
 //
 #[test]
-fn declare_missing_right()            { expect( "a: ; a"              ).to_error(MissingOperand,1) }
+fn declare_missing_right() {
+    expect("a: ; a").to_error(MissingOperand, 1)
+}
 #[test]
-fn declare_missing_left()             { expect( ": 1"                 ).to_error(MissingOperand,0) }
+fn declare_missing_left() {
+    expect(": 1").to_error(MissingOperand, 0)
+}
 #[test]
-fn declare_missing_both()             { expect( ":"                   ).to_error(MissingOperand,0) }
+fn declare_missing_both() {
+    expect(":").to_error(MissingOperand, 0)
+}
 
 //
 // Test assignment to non-properties
 //
 #[test]
-fn declare_non_field()                { expect( "1: 1"                ).to_error(AssignmentTargetMustBeIdentifier,0) }
+fn declare_non_field() {
+    expect("1: 1").to_error(AssignmentTargetMustBeIdentifier, 0)
+}
 #[test]
-fn declare_non_field_expr()           { expect( "1+2: 1"              ).to_error(AssignmentTargetMustBeIdentifier,0..=2) }
+fn declare_non_field_expr() {
+    expect("1+2: 1").to_error(AssignmentTargetMustBeIdentifier, 0..=2)
+}
 
 //
 // Test that errors during the actual statement are propagated
 //
 
 #[test]
-fn declare_error()                    { expect( "a: 1 + true"         ).to_yield(Nothing) }
+fn declare_error() {
+    expect("a: 1 + true").to_yield(Nothing)
+}
 #[test]
-fn declare_error_ref()                { expect( "a: 1 + true; a"      ).to_error(BadType,7..=10) }
+fn declare_error_ref() {
+    expect("a: 1 + true; a").to_error(BadType, 7..=10)
+}
 #[test]
-fn declare_error_ref_twice()          { expect( "a: 1 + true; a + a"  ).to_error(BadType,7..=10) }
+fn declare_error_ref_twice() {
+    expect("a: 1 + true; a + a").to_error(BadType, 7..=10)
+}
 
 //
 // Test behavior of undefined self references
 //
 
 #[test]
-fn declare_self_ref()                 { expect( "a: a + 1; a"         ).to_error(CircularDependency,3..=7) }
+fn declare_self_ref() {
+    expect("a: a + 1; a").to_error(CircularDependency, 3..=7)
+}

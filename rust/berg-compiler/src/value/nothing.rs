@@ -1,7 +1,7 @@
-use std::fmt;
 use crate::syntax::IdentifierIndex;
 use crate::util::try_from::TryFrom;
 use crate::value::*;
+use std::fmt;
 
 #[derive(Debug, Copy, Clone, PartialEq, Default)]
 pub struct Nothing;

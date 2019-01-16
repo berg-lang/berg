@@ -1,3 +1,4 @@
+use crate::util::from_range::IntoRange;
 use std::borrow::{Borrow, BorrowMut, Cow};
 use std::cmp::Ordering;
 use std::fmt;
@@ -8,7 +9,6 @@ use std::ops::{
     RangeTo, RangeToInclusive, Sub, SubAssign,
 };
 use std::slice::{Iter, IterMut};
-use crate::util::from_range::IntoRange;
 
 // index_type and util::indexed_vec work together to let you use a custom type
 // (like TokenIndex) to index the vector, and disallow any other type (like usize

@@ -1,6 +1,4 @@
 use crate::error::ErrorCode;
-use std::borrow::Cow;
-use std::fmt;
 use crate::syntax::identifiers::*;
 use crate::syntax::token::Token::*;
 use crate::syntax::AstRef;
@@ -8,6 +6,8 @@ use crate::syntax::BlockIndex;
 use crate::syntax::ExpressionBoundary::*;
 use crate::syntax::Precedence;
 use crate::syntax::{AstDelta, FieldIndex, IdentifierIndex, LiteralIndex, RawLiteralIndex};
+use std::borrow::Cow;
+use std::fmt;
 
 // ExpressionType, String, LeftChild, RightChild
 #[derive(Debug, Copy, Clone, PartialEq)]

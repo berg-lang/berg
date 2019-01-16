@@ -1,6 +1,6 @@
 pub(crate) use self::ast::{
-    AstData, AstDelta, AstIndex, AstRef, IdentifierIndex, LiteralIndex,
-    OperandPosition, RawLiteralIndex,
+    AstData, AstDelta, AstIndex, AstRef, IdentifierIndex, LiteralIndex, OperandPosition,
+    RawLiteralIndex,
 };
 pub(crate) use self::block::{AstBlock, BlockIndex, Field, FieldIndex};
 pub use self::char_data::LineColumnRange;

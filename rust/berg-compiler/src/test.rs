@@ -1,15 +1,15 @@
 use crate::error::{Error, ErrorCode};
 use crate::eval::RootRef;
 use crate::parser;
-use std::fmt;
-use std::io;
-use std::ops::Range;
 use crate::syntax::{AstRef, ByteIndex, ByteRange, LineColumnRange, SourceRef};
 use crate::util::from_range::BoundedRange;
 use crate::util::from_range::IntoRange;
 use crate::util::try_from::TryFrom;
 use crate::util::type_name::TypeName;
 use crate::value::BergVal;
+use std::fmt;
+use std::io;
+use std::ops::Range;
 
 pub fn expect<T: AsRef<[u8]> + ?Sized>(source: &T) -> ExpectBerg {
     ExpectBerg(source.as_ref())
@@ -97,7 +97,7 @@ impl<'a> ExpectBerg<'a> {
     }
 
     #[allow(clippy::needless_pass_by_value, clippy::wrong_self_convention)]
-    pub fn to_yield<V: ExpectedValue<'a>+Clone>(self, expected_value: V) {
+    pub fn to_yield<V: ExpectedValue<'a> + Clone>(self, expected_value: V) {
         let ast = self.parse();
         let result = ast.result_to::<V>();
         assert!(
@@ -115,24 +115,37 @@ impl<'a> ExpectBerg<'a> {
         );
     }
     #[allow(clippy::needless_pass_by_value, clippy::wrong_self_convention)]
-    pub fn to_yield_tuple<V: ExpectedValue<'a>+Clone>(self, expected_value: &[V]) where Vec<V>: TypeName+TryFrom<BergVal<'a>, Error=BergVal<'a>> {
+    pub fn to_yield_tuple<V: ExpectedValue<'a> + Clone>(self, expected_value: &[V])
+    where
+        Vec<V>: TypeName + TryFrom<BergVal<'a>, Error = BergVal<'a>>,
+    {
         let ast = self.parse();
         let result = ast.result_to::<Vec<V>>();
-        
+
         assert!(
             result.is_ok(),
             "Unexpected error {} in {}: expected [{}]",
             result.unwrap_err(),
             self,
-            { let i: Vec<String> = expected_value.iter().map(|v| { format!("{}", v) }).collect(); i.join(",") }
+            {
+                let i: Vec<String> = expected_value.iter().map(|v| format!("{}", v)).collect();
+                i.join(",")
+            }
         );
         let value = result.unwrap();
         assert_eq!(
-            Vec::from(expected_value), value,
+            Vec::from(expected_value),
+            value,
             "Wrong result from {}! Expected [{}], got [{}]",
             self,
-            { let i: Vec<String> = expected_value.iter().map(|v| { format!("{}", v) }).collect(); i.join(",") },
-            { let i: Vec<String> = value.iter().map(|v| { format!("{}", v) }).collect(); i.join(",") }
+            {
+                let i: Vec<String> = expected_value.iter().map(|v| format!("{}", v)).collect();
+                i.join(",")
+            },
+            {
+                let i: Vec<String> = value.iter().map(|v| format!("{}", v)).collect();
+                i.join(",")
+            }
         );
     }
     #[allow(clippy::wrong_self_convention)]

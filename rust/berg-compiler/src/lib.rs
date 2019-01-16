@@ -7,9 +7,9 @@ pub use crate::error::{BergResult, Error, ErrorCode};
 pub use crate::value::{BergVal, BergValue, Nothing};
 
 use crate::eval::RootRef;
+use crate::syntax::SourceRef;
 use std::borrow::Cow;
 use std::path::Path;
-use crate::syntax::SourceRef;
 
 #[macro_use]
 pub(crate) mod util;

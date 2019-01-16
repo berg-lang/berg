@@ -1,8 +1,8 @@
 use crate::error::{BergResult, EvalResult};
 use crate::eval::{BlockRef, Expression};
-use std::fmt;
 use crate::syntax::{AstRef, BlockIndex, FieldIndex, IdentifierIndex};
 use crate::value::BergValue;
+use std::fmt;
 
 #[derive(Clone)]
 pub enum ScopeRef<'a> {
