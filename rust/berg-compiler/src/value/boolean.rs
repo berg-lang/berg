@@ -1,7 +1,7 @@
-use error::EvalResult;
-use syntax::identifiers::*;
-use util::try_from::TryFrom;
-use value::*;
+use crate::error::EvalResult;
+use crate::syntax::identifiers::*;
+use crate::util::try_from::TryFrom;
+use crate::value::*;
 
 impl<'a> TypeName for bool {
     const TYPE_NAME: &'static str = "bool";

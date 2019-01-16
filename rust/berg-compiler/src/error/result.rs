@@ -1,7 +1,7 @@
-use error::{BergError, Error, EvalError};
-use eval::Expression;
-use syntax::AstRef;
-use value::BergVal;
+use crate::error::{BergError, Error, EvalError};
+use crate::eval::Expression;
+use crate::syntax::AstRef;
+use crate::value::BergVal;
 
 pub type BergResult<'a, T = BergVal<'a>> = Result<T, Error<'a>>;
 pub type EvalResult<'a, T = BergVal<'a>> = Result<T, EvalError<'a>>;

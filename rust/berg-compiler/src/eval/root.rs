@@ -1,4 +1,4 @@
-use error::{BergError, BergResult, EvalResult};
+use crate::error::{BergError, BergResult, EvalResult};
 use std;
 use std::env;
 use std::fmt;
@@ -6,10 +6,10 @@ use std::io;
 use std::io::Write;
 use std::path::PathBuf;
 use std::rc::Rc;
-use syntax::identifiers;
-use syntax::{FieldIndex, IdentifierIndex};
-use util::intern_pool::InternPool;
-use value::BergValue;
+use crate::syntax::identifiers;
+use crate::syntax::{FieldIndex, IdentifierIndex};
+use crate::util::intern_pool::InternPool;
+use crate::value::BergValue;
 
 #[derive(Clone)]
 pub struct RootRef(Rc<RootData>);
@@ -23,8 +23,8 @@ struct RootData {
 }
 
 pub mod root_fields {
-    use syntax::identifiers;
-    use syntax::{FieldIndex, IdentifierIndex};
+    use crate::syntax::identifiers;
+    use crate::syntax::{FieldIndex, IdentifierIndex};
 
     pub const TRUE: FieldIndex = FieldIndex(0);
     pub const FALSE: FieldIndex = FieldIndex(1);
@@ -80,7 +80,7 @@ impl RootRef {
     }
 
     pub fn local_field<'a>(&self, index: FieldIndex) -> EvalResult<'a> {
-        use eval::root_fields::*;
+        use crate::eval::root_fields::*;
         match index {
             TRUE => true.ok(),
             FALSE => false.ok(),

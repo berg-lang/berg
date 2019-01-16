@@ -1,5 +1,5 @@
 pub mod compiler_test;
-use compiler_test::*;
+use crate::compiler_test::*;
 
 #[test]
 fn child_references_parent()                     { expect( "a = 1; { a + 2 }"                       ).to_yield(3) }

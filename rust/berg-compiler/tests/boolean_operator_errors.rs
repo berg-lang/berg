@@ -1,5 +1,5 @@
 pub mod compiler_test;
-use compiler_test::*;
+use crate::compiler_test::*;
 
 #[test]
 fn not_equal()           { expect( "!1==1"        ).to_error(UnsupportedOperator,0) }

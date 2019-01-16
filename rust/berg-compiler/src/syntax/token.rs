@@ -1,13 +1,13 @@
-use error::ErrorCode;
+use crate::error::ErrorCode;
 use std::borrow::Cow;
 use std::fmt;
-use syntax::identifiers::*;
-use syntax::token::Token::*;
-use syntax::AstRef;
-use syntax::BlockIndex;
-use syntax::ExpressionBoundary::*;
-use syntax::Precedence;
-use syntax::{AstDelta, FieldIndex, IdentifierIndex, LiteralIndex, RawLiteralIndex};
+use crate::syntax::identifiers::*;
+use crate::syntax::token::Token::*;
+use crate::syntax::AstRef;
+use crate::syntax::BlockIndex;
+use crate::syntax::ExpressionBoundary::*;
+use crate::syntax::Precedence;
+use crate::syntax::{AstDelta, FieldIndex, IdentifierIndex, LiteralIndex, RawLiteralIndex};
 
 // ExpressionType, String, LeftChild, RightChild
 #[derive(Debug, Copy, Clone, PartialEq)]
@@ -138,7 +138,7 @@ impl Token {
         }
     }
     pub fn takes_right_child(self, right: Token) -> bool {
-        use syntax::Fixity::*;
+        use crate::syntax::Fixity::*;
         match self.fixity() {
             Infix => match right.fixity() {
                 Infix => Precedence::from(self).takes_right_child(Precedence::from(right)),
@@ -153,7 +153,7 @@ impl Token {
         }
     }
     pub fn takes_left_child(self, left: Token) -> bool {
-        use syntax::Fixity::*;
+        use crate::syntax::Fixity::*;
         match self.fixity() {
             Infix => match left.fixity() {
                 Infix => Precedence::from(self).takes_left_child(Precedence::from(left)),
@@ -234,7 +234,7 @@ impl ExpressionBoundary {
 
 impl Fixity {
     pub fn num_operands(self) -> u8 {
-        use syntax::Fixity::*;
+        use crate::syntax::Fixity::*;
         match self {
             Term => 0,
             Prefix | Postfix | Open | Close => 1,
@@ -242,14 +242,14 @@ impl Fixity {
         }
     }
     pub fn has_left_operand(self) -> bool {
-        use syntax::Fixity::*;
+        use crate::syntax::Fixity::*;
         match self {
             Term | Prefix | Open => false,
             Infix | Postfix | Close => true,
         }
     }
     pub fn has_right_operand(self) -> bool {
-        use syntax::Fixity::*;
+        use crate::syntax::Fixity::*;
         match self {
             Term | Postfix | Close => false,
             Infix | Prefix | Open => true,
@@ -259,7 +259,7 @@ impl Fixity {
 
 impl fmt::Display for Fixity {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        use syntax::Fixity::*;
+        use crate::syntax::Fixity::*;
         let fixity = match *self {
             Term => "term",
             Prefix => "unary",

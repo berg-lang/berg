@@ -1,5 +1,5 @@
 pub mod compiler_test;
-use compiler_test::*;
+use crate::compiler_test::*;
 
 #[test]
 fn addmul_missing_operator_precedence() { expect( "1 * + 3"     ).to_error(MissingOperand,2) }

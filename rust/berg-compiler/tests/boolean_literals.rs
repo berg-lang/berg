@@ -1,5 +1,5 @@
 pub mod compiler_test;
-use compiler_test::*;
+use crate::compiler_test::*;
 
 #[test]
 fn true_literal()    { expect( "true"  ).to_yield(true) }

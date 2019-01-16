@@ -1,5 +1,5 @@
 pub mod compiler_test;
-use compiler_test::*;
+use crate::compiler_test::*;
 
 #[test]
 fn unsupported_characters()           { expect( "`"                                      ).to_error(UnsupportedCharacters,0) }

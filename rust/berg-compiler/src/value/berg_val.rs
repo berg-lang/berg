@@ -1,9 +1,9 @@
-use error::{BergError, EvalResult};
-use eval::{BlockRef};
+use crate::error::{BergError, EvalResult};
+use crate::eval::{BlockRef};
 use num::BigRational;
-use util::try_from::TryFrom;
-use util::type_name::TypeName;
-use value::*;
+use crate::util::try_from::TryFrom;
+use crate::util::type_name::TypeName;
+use crate::value::*;
 
 ///
 /// A concrete type that can hold any `BergValue`, and delegates operations to the concrete type.

@@ -3,9 +3,9 @@ mod grouper;
 mod sequencer;
 mod tokenizer;
 
-use eval::ExpressionTreeFormatter;
+use crate::eval::ExpressionTreeFormatter;
 use self::sequencer::Sequencer;
-use syntax::{AstData, AstRef, SourceBuffer, SourceRef};
+use crate::syntax::{AstData, AstRef, SourceBuffer, SourceRef};
 
 ///
 /// Opens and parses the source into an AST.

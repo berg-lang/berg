@@ -2,8 +2,8 @@ use std::cmp;
 use std::fmt;
 use std::io;
 use std::io::Read;
-use syntax::identifiers::*;
-use syntax::{AstIndex, AstRef, ByteIndex, ByteRange, Token};
+use crate::syntax::identifiers::*;
+use crate::syntax::{AstIndex, AstRef, ByteIndex, ByteRange, Token};
 
 pub struct SourceReconstruction<'p, 'a: 'p> {
     ast: &'p AstRef<'a>,
@@ -205,7 +205,7 @@ impl<'p, 'a: 'p> SourceReconstructionIterator<'p, 'a> {
     }
 
     fn token_bytes(&self, token_start: ByteIndex, token: Token) -> Option<(ByteIndex, &'p [u8])> {
-        use syntax::token::Token::*;
+        use crate::syntax::token::Token::*;
         let bytes = match token {
             IntegerLiteral(literal) | ErrorTerm(.., literal) => {
                 self.ast.literals()[literal].as_bytes()

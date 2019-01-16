@@ -1,11 +1,11 @@
-use error::{BergError, BergResult, ErrorCode, EvalError, EvalResult, Raw, TakeError};
-use eval::{Expression, Operand, ScopeRef};
+use crate::error::{BergError, BergResult, ErrorCode, EvalError, EvalResult, Raw, TakeError};
+use crate::eval::{Expression, Operand, ScopeRef};
 use std::cell::RefCell;
 use std::fmt;
 use std::rc::Rc;
-use syntax::{AstRef, BlockIndex, FieldIndex, IdentifierIndex};
-use util::try_from::TryFrom;
-use value::{BergVal, BergValue};
+use crate::syntax::{AstRef, BlockIndex, FieldIndex, IdentifierIndex};
+use crate::util::try_from::TryFrom;
+use crate::value::{BergVal, BergValue};
 
 ///
 /// A block represents the execution of an expression, including the next
@@ -199,7 +199,7 @@ impl<'a> BergValue<'a> for BlockRef<'a> {
         right: Operand,
         ast: &AstRef<'a>,
     ) -> EvalResult<'a> {
-        use syntax::identifiers::*;
+        use crate::syntax::identifiers::*;
 
         match operator {
             DOT => {

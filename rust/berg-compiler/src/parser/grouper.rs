@@ -1,8 +1,8 @@
-use parser::binder::Binder;
-use syntax::identifiers::COLON;
-use syntax::ExpressionBoundary::*;
-use syntax::Token::*;
-use syntax::{
+use crate::parser::binder::Binder;
+use crate::syntax::identifiers::COLON;
+use crate::syntax::ExpressionBoundary::*;
+use crate::syntax::Token::*;
+use crate::syntax::{
     AstData, AstIndex, ByteRange, ExpressionBoundary, ExpressionBoundaryError, Fixity, Token,
 };
 
@@ -108,7 +108,7 @@ impl<'a> Grouper<'a> {
     }
 
     fn open_expression_wants_child(&self, next_infix: Token) -> bool {
-        use syntax::ExpressionBoundary::*;
+        use crate::syntax::ExpressionBoundary::*;
         let infix = match self.open_expression().boundary {
             // The autoblock wants whatever its *parent* infix wants.
             AutoBlock => self.open_expressions[self.open_expressions.len() - 2].infix,

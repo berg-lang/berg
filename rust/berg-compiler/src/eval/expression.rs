@@ -1,19 +1,19 @@
-use error::{BergError, BergResult, Error, EvalResult, Raw, TakeError};
-use eval::{ExpressionFormatter, ScopeRef};
+use crate::error::{BergError, BergResult, Error, EvalResult, Raw, TakeError};
+use crate::eval::{ExpressionFormatter, ScopeRef};
 use num::BigRational;
 use std::fmt;
 use std::str::FromStr;
-use syntax::identifiers::{
+use crate::syntax::identifiers::{
     APPLY, COLON, COMMA, DASH_DASH, DOT, EMPTY_STRING, NEWLINE, PLUS_PLUS, SEMICOLON,
 };
-use syntax::Fixity::*;
-use syntax::{
+use crate::syntax::Fixity::*;
+use crate::syntax::{
     AstIndex, AstRef, ByteRange, ExpressionBoundary, ExpressionBoundaryError, FieldIndex, Fixity,
     IdentifierIndex, OperandPosition, SourceReconstruction, Token,
 };
-use util::try_from::TryFrom;
-use util::type_name::TypeName;
-use value::{BergVal, BergValue};
+use crate::util::try_from::TryFrom;
+use crate::util::type_name::TypeName;
+use crate::value::{BergVal, BergValue};
 
 #[derive(Copy, Clone, PartialEq)]
 pub struct Expression(pub AstIndex);
@@ -40,9 +40,9 @@ impl fmt::Debug for Expression {
 impl Expression {
     pub fn evaluate<'a>(self, scope: &mut ScopeRef<'a>, ast: &AstRef<'a>) -> BergResult<'a> {
         println!("Evaluate {} ...", ExpressionFormatter(self, ast));
-        use error::ErrorCode::*;
-        use syntax::ExpressionBoundaryError::*;
-        use syntax::Token::*;
+        use crate::error::ErrorCode::*;
+        use crate::syntax::ExpressionBoundaryError::*;
+        use crate::syntax::Token::*;
         let result = match *self.token(ast) {
             //
             // Nouns (operands)
@@ -551,7 +551,7 @@ impl<'a> AssignmentTarget<'a> {
         scope: &mut ScopeRef<'a>,
         ast: &AstRef<'a>,
     ) -> BergResult<'a, AssignmentTarget<'a>> {
-        use syntax::Token::*;
+        use crate::syntax::Token::*;
         match *expression.token(ast) {
             FieldReference(field) => Ok(AssignmentTarget::Local(field, expression)),
             PrefixOperator(COLON) => {
@@ -585,7 +585,7 @@ impl<'a> AssignmentTarget<'a> {
     }
 
     fn in_declaration(self) -> Self {
-        use eval::expression::AssignmentTarget::*;
+        use crate::eval::expression::AssignmentTarget::*;
         match self {
             Local(field, expression) => DeclareLocal(field, expression),
             value => value,
@@ -593,7 +593,7 @@ impl<'a> AssignmentTarget<'a> {
     }
 
     fn initialize(&self, scope: &mut ScopeRef<'a>, ast: &AstRef<'a>) -> BergResult<'a, ()> {
-        use eval::expression::AssignmentTarget::*;
+        use crate::eval::expression::AssignmentTarget::*;
         match *self {
             DeclareLocal(field, expression) | Local(field, expression) => scope
                 .bring_local_field_into_scope(field, ast)
@@ -603,8 +603,8 @@ impl<'a> AssignmentTarget<'a> {
     }
 
     fn get(&mut self, scope: &mut ScopeRef<'a>, ast: &AstRef<'a>) -> BergResult<'a> {
-        use eval::expression::AssignmentTarget::*;
-        use syntax::identifiers::DOT;
+        use crate::eval::expression::AssignmentTarget::*;
+        use crate::syntax::identifiers::DOT;
         self.initialize(scope, ast)?;
         match *self {
             DeclareLocal(field, expression) | Local(field, expression) => {
@@ -626,7 +626,7 @@ impl<'a> AssignmentTarget<'a> {
         scope: &mut ScopeRef<'a>,
         ast: &AstRef<'a>,
     ) -> BergResult<'a> {
-        use eval::expression::AssignmentTarget::*;
+        use crate::eval::expression::AssignmentTarget::*;
         match *self {
             Local(field, expression) | DeclareLocal(field, expression) => scope
                 .set_local_field(field, value, ast)
@@ -641,7 +641,7 @@ impl<'a> AssignmentTarget<'a> {
     }
 
     fn declare(&mut self, scope: &mut ScopeRef<'a>, ast: &AstRef<'a>) -> BergResult<'a> {
-        use eval::expression::AssignmentTarget::*;
+        use crate::eval::expression::AssignmentTarget::*;
         match *self {
             DeclareLocal(field, expression) => scope
                 .declare_field(field, ast)

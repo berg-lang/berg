@@ -1,5 +1,5 @@
 pub mod compiler_test;
-use compiler_test::*;
+use crate::compiler_test::*;
 
 #[test]
 fn field_access()                     { expect( "a = { :x = 10 }; a.x"                          ).to_yield(10) }

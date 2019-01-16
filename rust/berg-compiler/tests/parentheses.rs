@@ -1,5 +1,5 @@
 pub mod compiler_test;
-use compiler_test::*;
+use crate::compiler_test::*;
 
 #[test]
 fn parens()                             { expect( "(1+2*3)*3"   ).to_yield(21) }

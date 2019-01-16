@@ -1,8 +1,8 @@
 use std::cmp::Ordering;
 use std::fmt::{Display, Formatter, Result};
 use std::str;
-use syntax::{ByteIndex, ByteRange, ByteSlice};
-use util::indexed_vec::Delta;
+use crate::syntax::{ByteIndex, ByteRange, ByteSlice};
+use crate::util::indexed_vec::Delta;
 
 #[derive(Debug)]
 pub struct CharData {

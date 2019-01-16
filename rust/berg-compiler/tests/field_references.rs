@@ -1,5 +1,5 @@
 pub mod compiler_test;
-use compiler_test::*;
+use crate::compiler_test::*;
 
 #[test]
 fn no_such_field()                { expect( "blah"                                                            ).to_error(NoSuchField,0..=3) }

@@ -1,5 +1,5 @@
 pub mod compiler_test;
-use compiler_test::*;
+use crate::compiler_test::*;
 
 #[test]
 fn function()                  { expect( "Square: :X*X; Square 10"         ).to_yield(100) }

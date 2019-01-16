@@ -3,13 +3,13 @@
 extern crate fnv;
 extern crate num;
 
-pub use error::{BergResult, Error, ErrorCode};
-pub use value::{BergVal, BergValue, Nothing};
+pub use crate::error::{BergResult, Error, ErrorCode};
+pub use crate::value::{BergVal, BergValue, Nothing};
 
-use eval::RootRef;
+use crate::eval::RootRef;
 use std::borrow::Cow;
 use std::path::Path;
-use syntax::SourceRef;
+use crate::syntax::SourceRef;
 
 #[macro_use]
 pub(crate) mod util;

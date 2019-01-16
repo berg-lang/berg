@@ -1,10 +1,10 @@
-use syntax::identifiers::*;
-use syntax::Token::*;
-use syntax::{
+use crate::syntax::identifiers::*;
+use crate::syntax::Token::*;
+use crate::syntax::{
     AstBlock, AstData, AstDelta, AstIndex, BlockIndex, ByteRange, ExpressionBoundary,
     ExpressionBoundaryError, Field, FieldIndex, IdentifierIndex, Token,
 };
-use util::indexed_vec::Delta;
+use crate::util::indexed_vec::Delta;
 
 // Handles nesting and precedence: balances (), {}, and compound terms, and
 // inserts "precedence groups," and removes compound terms and precedence

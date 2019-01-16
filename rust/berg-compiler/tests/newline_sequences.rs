@@ -1,5 +1,5 @@
 pub mod compiler_test;
-use compiler_test::*;
+use crate::compiler_test::*;
 
 #[test]
 fn left_newline()                        { expect( "\n1"                                          ).to_yield(1) }

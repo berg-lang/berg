@@ -1,21 +1,21 @@
-use error::{BergError, BergResult, TakeError};
-use eval::{Expression, RootRef, ScopeRef};
+use crate::error::{BergError, BergResult, TakeError};
+use crate::eval::{Expression, RootRef, ScopeRef};
 use std::borrow::Cow;
 use std::io;
 use std::rc::Rc;
 use std::u32;
-use syntax::char_data::CharData;
-use syntax::identifiers;
-use syntax::OperandPosition::*;
-use syntax::{
+use crate::syntax::char_data::CharData;
+use crate::syntax::identifiers;
+use crate::syntax::OperandPosition::*;
+use crate::syntax::{
     AstBlock, BlockIndex, ByteRange, Field, FieldIndex, SourceOpenError, SourceReconstruction,
     SourceReconstructionReader, SourceRef, Token,
 };
-use util::indexed_vec::IndexedVec;
-use util::intern_pool::{InternPool, StringPool};
-use util::try_from::TryFrom;
-use util::type_name::TypeName;
-use value::{BergVal, BergValue};
+use crate::util::indexed_vec::IndexedVec;
+use crate::util::intern_pool::{InternPool, StringPool};
+use crate::util::try_from::TryFrom;
+use crate::util::type_name::TypeName;
+use crate::value::{BergVal, BergValue};
 
 index_type! {
     pub struct AstIndex(pub u32) with Display,Debug <= u32::MAX;

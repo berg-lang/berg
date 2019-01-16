@@ -1,5 +1,5 @@
 pub mod compiler_test;
-use compiler_test::*;
+use crate::compiler_test::*;
 
 #[test]
 fn comma_sequence()       { expect( "1,2"         ).to_yield_tuple(&[1,2]) }

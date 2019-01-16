@@ -1,5 +1,5 @@
-use syntax::Precedence::*;
-use syntax::{IdentifierIndex, Token};
+use crate::syntax::Precedence::*;
+use crate::syntax::{IdentifierIndex, Token};
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum Precedence {
@@ -26,7 +26,7 @@ impl Default for Precedence {
 
 impl From<IdentifierIndex> for Precedence {
     fn from(from: IdentifierIndex) -> Self {
-        use syntax::identifiers::*;
+        use crate::syntax::identifiers::*;
         match from {
             DOT => Dot,
             STAR | SLASH => TimesDivide,
@@ -103,7 +103,7 @@ impl Precedence {
 
 impl From<Token> for Precedence {
     fn from(from: Token) -> Precedence {
-        use syntax::Precedence::*;
+        use crate::syntax::Precedence::*;
         match from {
             Token::InfixOperator(operator) => operator.into(),
             Token::InfixAssignment(_) => Assign,

@@ -1,15 +1,15 @@
-use error::{Error, ErrorCode};
-use eval::RootRef;
-use parser;
+use crate::error::{Error, ErrorCode};
+use crate::eval::RootRef;
+use crate::parser;
 use std::fmt;
 use std::io;
 use std::ops::Range;
-use syntax::{AstRef, ByteIndex, ByteRange, LineColumnRange, SourceRef};
-use util::from_range::BoundedRange;
-use util::from_range::IntoRange;
-use util::try_from::TryFrom;
-use util::type_name::TypeName;
-use value::BergVal;
+use crate::syntax::{AstRef, ByteIndex, ByteRange, LineColumnRange, SourceRef};
+use crate::util::from_range::BoundedRange;
+use crate::util::from_range::IntoRange;
+use crate::util::try_from::TryFrom;
+use crate::util::type_name::TypeName;
+use crate::value::BergVal;
 
 pub fn expect<T: AsRef<[u8]> + ?Sized>(source: &T) -> ExpectBerg {
     ExpectBerg(source.as_ref())

@@ -1,6 +1,6 @@
-use syntax::IdentifierIndex;
-use util::try_from::TryFrom;
-use value::*;
+use crate::syntax::IdentifierIndex;
+use crate::util::try_from::TryFrom;
+use crate::value::*;
 
 impl TypeName for IdentifierIndex {
     const TYPE_NAME: &'static str = "identifier";
@@ -14,7 +14,7 @@ impl<'a> BergValue<'a> for IdentifierIndex {
         right: Operand,
         ast: &AstRef<'a>,
     ) -> EvalResult<'a> {
-        use syntax::identifiers::EQUAL_TO;
+        use crate::syntax::identifiers::EQUAL_TO;
         match operator {
             EQUAL_TO => match right.execute(scope, ast)?.downcast::<IdentifierIndex>() {
                 Ok(identifier) if identifier == self => true.ok(),

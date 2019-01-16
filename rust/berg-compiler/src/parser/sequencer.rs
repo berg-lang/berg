@@ -1,13 +1,13 @@
-use error::ErrorCode;
-use parser::sequencer::ByteType::*;
-use parser::sequencer::CharType::*;
-use parser::tokenizer::Tokenizer;
+use crate::error::ErrorCode;
+use crate::parser::sequencer::ByteType::*;
+use crate::parser::sequencer::CharType::*;
+use crate::parser::tokenizer::Tokenizer;
 use std::str;
-use syntax::ExpressionBoundary::*;
-use syntax::Token::*;
-use syntax::{AstData, ByteIndex, ByteSlice, IdentifierIndex};
-use util::indexed_vec::Delta;
-use util::intern_pool::Pool;
+use crate::syntax::ExpressionBoundary::*;
+use crate::syntax::Token::*;
+use crate::syntax::{AstData, ByteIndex, ByteSlice, IdentifierIndex};
+use crate::util::indexed_vec::Delta;
+use crate::util::intern_pool::Pool;
 
 ///
 /// Chunks up the source into sequences: space, newlines, operators, etc.

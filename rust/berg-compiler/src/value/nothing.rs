@@ -1,7 +1,7 @@
 use std::fmt;
-use syntax::IdentifierIndex;
-use util::try_from::TryFrom;
-use value::*;
+use crate::syntax::IdentifierIndex;
+use crate::util::try_from::TryFrom;
+use crate::value::*;
 
 #[derive(Debug, Copy, Clone, PartialEq, Default)]
 pub struct Nothing;
@@ -18,7 +18,7 @@ impl<'a> BergValue<'a> for Nothing {
         right: Operand,
         ast: &AstRef<'a>,
     ) -> EvalResult<'a> {
-        use syntax::identifiers::EQUAL_TO;
+        use crate::syntax::identifiers::EQUAL_TO;
         match operator {
             EQUAL_TO => right
                 .execute(scope, ast)?

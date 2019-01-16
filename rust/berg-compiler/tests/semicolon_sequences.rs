@@ -1,5 +1,5 @@
 pub mod compiler_test;
-use compiler_test::*;
+use crate::compiler_test::*;
 
 #[test]
 fn right_semicolon()          { expect( "1;"          ).to_yield(Nothing) }

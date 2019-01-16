@@ -10,12 +10,12 @@ pub use self::berg_val::BergVal;
 pub use self::nothing::Nothing;
 pub use self::tuple::Tuple;
 
-use error::{BergError, BergResult, EvalResult};
-use eval::{Operand, ScopeRef};
+use crate::error::{BergError, BergResult, EvalResult};
+use crate::eval::{Operand, ScopeRef};
 use std::fmt;
-use syntax::{AstRef, Fixity, IdentifierIndex};
-use util::try_from::TryFrom;
-use util::type_name::TypeName;
+use crate::syntax::{AstRef, Fixity, IdentifierIndex};
+use crate::util::try_from::TryFrom;
+use crate::util::type_name::TypeName;
 
 ///
 /// A value that can participate in Berg expressions.
@@ -69,7 +69,7 @@ pub fn default_infix<'a, T: BergValue<'a>>(
     right: Operand,
     ast: &AstRef<'a>,
 ) -> EvalResult<'a> {
-    use syntax::identifiers::{DOT, COMMA, EQUAL_TO, EXCLAMATION_POINT, NEWLINE, NOT_EQUAL_TO, SEMICOLON};
+    use crate::syntax::identifiers::{DOT, COMMA, EQUAL_TO, EXCLAMATION_POINT, NEWLINE, NOT_EQUAL_TO, SEMICOLON};
     match operator {
         SEMICOLON | NEWLINE => Ok(right.evaluate(scope, ast)?),
         COMMA => unreachable!(),
@@ -98,7 +98,7 @@ pub fn default_prefix<'a, T: BergValue<'a>>(
     operator: IdentifierIndex,
     scope: &mut ScopeRef<'a>,
 ) -> EvalResult<'a> {
-    use syntax::identifiers::{DOUBLE_EXCLAMATION_POINT, EXCLAMATION_POINT};
+    use crate::syntax::identifiers::{DOUBLE_EXCLAMATION_POINT, EXCLAMATION_POINT};
     match operator {
         DOUBLE_EXCLAMATION_POINT => operand
             .prefix(EXCLAMATION_POINT, scope)?

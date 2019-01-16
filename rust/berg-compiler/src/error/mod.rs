@@ -2,13 +2,13 @@ mod result;
 pub use self::result::{BergResult, EvalResult, TakeError, UnwindFrame};
 pub use self::EvalError::Raw;
 
-use eval::{BlockRef, Expression};
+use crate::eval::{BlockRef, Expression};
 use std::fmt;
-use syntax::{
+use crate::syntax::{
     AstRef, ByteRange, FieldIndex, Fixity, IdentifierIndex, LineColumnRange, LiteralIndex,
     OperandPosition, RawLiteralIndex,
 };
-use value::*;
+use crate::value::*;
 
 #[derive(Debug, Clone)]
 pub struct Error<'a> {

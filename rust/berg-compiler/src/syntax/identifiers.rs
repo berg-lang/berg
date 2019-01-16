@@ -1,5 +1,5 @@
-use syntax::IdentifierIndex;
-use util::intern_pool::*;
+use crate::syntax::IdentifierIndex;
+use crate::util::intern_pool::*;
 
 const ALL_IDENTIFIERS: [(IdentifierIndex, &str); LEN] = [
     (NOT_AN_IDENTIFIER, "<not an identifier>"),

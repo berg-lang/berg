@@ -8,7 +8,7 @@ use std::ops::{
     RangeTo, RangeToInclusive, Sub, SubAssign,
 };
 use std::slice::{Iter, IterMut};
-use util::from_range::IntoRange;
+use crate::util::from_range::IntoRange;
 
 // index_type and util::indexed_vec work together to let you use a custom type
 // (like TokenIndex) to index the vector, and disallow any other type (like usize
@@ -21,7 +21,7 @@ use util::from_range::IntoRange;
 #[macro_export]
 macro_rules! index_type {
     ($(pub struct $name:ident(pub $($type:tt)*) $(with $($trait:tt),*)* <= $max:expr ;)*) => {
-        use util::indexed_vec::{Delta,IndexType};
+        use crate::util::indexed_vec::{Delta,IndexType};
         use std::fmt;
         use std::ops::{Add,AddAssign,Sub,SubAssign};
         use std::cmp::Ordering;
