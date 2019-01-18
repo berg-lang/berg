@@ -1,13 +1,12 @@
-use crate::eval::OperandEval;
-use crate::syntax::IdentifierIndex;
-use crate::util::try_from::TryFrom;
-use crate::value::*;
+use error::Error;
+use util::try_from::TryFrom;
+use value::*;
 
-impl TypeName for IdentifierIndex {
-    const TYPE_NAME: &'static str = "identifier";
+impl<'a> TypeName for Box<Error<'a>> {
+    const TYPE_NAME: &'static str = "Error";
 }
 
-impl<'a> BergValue<'a> for IdentifierIndex {
+impl<'a> BergValue<'a> for Box<Error<'a>> {
     fn infix(
         self,
         operator: IdentifierIndex,
@@ -15,14 +14,8 @@ impl<'a> BergValue<'a> for IdentifierIndex {
         right: Operand,
         ast: &AstRef<'a>,
     ) -> EvalResult<'a> {
-        use crate::syntax::identifiers::EQUAL_TO;
-        match operator {
-            EQUAL_TO => match right.result(scope, ast)?.downcast::<IdentifierIndex>() {
-                Ok(identifier) if identifier == self => true.ok(),
-                _ => false.ok(),
-            },
-            _ => default_infix(self, operator, scope, right, ast),
-        }
+        // TODO add EQUAL_TO
+        default_infix(self, operator, scope, right, ast)
     }
 
     fn postfix(self, operator: IdentifierIndex, scope: &mut ScopeRef<'a>) -> EvalResult<'a> {
@@ -45,17 +38,33 @@ impl<'a> BergValue<'a> for IdentifierIndex {
     }
 }
 
-impl<'a> From<IdentifierIndex> for BergVal<'a> {
-    fn from(value: IdentifierIndex) -> Self {
-        BergVal::Identifier(value)
+impl<'a> From<Box<Error<'a>>> for BergVal<'a> {
+    fn from(value: Box<Error<'a>>) -> Self {
+        BergVal::Error(value)
     }
 }
 
-impl<'a> TryFrom<BergVal<'a>> for IdentifierIndex {
+impl<'a> TryFrom<BergVal<'a>> for Box<Error<'a>> {
     type Error = BergVal<'a>;
     fn try_from(from: BergVal<'a>) -> Result<Self, Self::Error> {
         match from {
-            BergVal::Identifier(value) => Ok(value),
+            BergVal::Error(value) => Ok(value),
+            _ => Err(from),
+        }
+    }
+}
+
+impl<'a> From<Error<'a>> for BergVal<'a> {
+    fn from(value: Error<'a>) -> Self {
+        BergVal::Error(Box::new(value))
+    }
+}
+
+impl<'a> TryFrom<BergVal<'a>> for Error<'a> {
+    type Error = BergVal<'a>;
+    fn try_from(from: BergVal<'a>) -> Result<Self, Self::Error> {
+        match from {
+            BergVal::Error(value) => Ok(*value),
             _ => Err(from),
         }
     }

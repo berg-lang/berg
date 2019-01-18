@@ -2,9 +2,9 @@ mod result;
 pub use self::result::{BergResult, EvalResult, TakeError, UnwindFrame};
 pub use self::EvalError::Raw;
 
-use crate::eval::{BlockRef, Expression};
+use crate::eval::BlockRef;
 use crate::syntax::{
-    AstRef, ByteRange, FieldIndex, Fixity, IdentifierIndex, LineColumnRange, LiteralIndex,
+    AstRef, ByteRange, Expression, FieldIndex, Fixity, IdentifierIndex, LineColumnRange, LiteralIndex,
     OperandPosition, RawLiteralIndex,
 };
 use crate::value::*;

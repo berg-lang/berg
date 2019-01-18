@@ -1,6 +1,6 @@
 use crate::error::{BergResult, EvalResult};
-use crate::eval::{BlockRef, Expression};
-use crate::syntax::{AstRef, BlockIndex, FieldIndex, IdentifierIndex};
+use crate::eval::BlockRef;
+use crate::syntax::{AstRef, BlockIndex, Expression, FieldIndex, IdentifierIndex};
 use crate::value::BergValue;
 use std::fmt;
 

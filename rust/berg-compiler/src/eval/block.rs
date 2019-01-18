@@ -1,6 +1,6 @@
 use crate::error::{BergError, BergResult, ErrorCode, EvalError, EvalResult, Raw, TakeError};
-use crate::eval::{Expression, Operand, ScopeRef};
-use crate::syntax::{AstRef, BlockIndex, FieldIndex, IdentifierIndex};
+use crate::eval::{ExpressionEval, OperandEval, ScopeRef};
+use crate::syntax::{AstRef, BlockIndex, Expression, Operand, FieldIndex, IdentifierIndex};
 use crate::util::try_from::TryFrom;
 use crate::value::{BergVal, BergValue};
 use std::cell::RefCell;
@@ -203,7 +203,7 @@ impl<'a> BergValue<'a> for BlockRef<'a> {
 
         match operator {
             DOT => {
-                let identifier = right.execute_to::<IdentifierIndex>(scope, ast)?;
+                let identifier = right.result_to::<IdentifierIndex>(scope, ast)?;
                 self.field(identifier)
             }
             APPLY => {

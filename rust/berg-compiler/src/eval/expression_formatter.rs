@@ -1,6 +1,5 @@
-use crate::eval::Expression;
 use crate::syntax::identifiers::SEMICOLON;
-use crate::syntax::{AstRef, ExpressionBoundary, Fixity, Token};
+use crate::syntax::{AstRef, Expression, ExpressionBoundary, Fixity, Token};
 use std::fmt;
 
 pub struct ExpressionFormatter<'p, 'a: 'p>(pub Expression, pub &'p AstRef<'a>);

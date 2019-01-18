@@ -1,5 +1,5 @@
 use crate::error::{Error, ErrorCode};
-use crate::eval::RootRef;
+use crate::eval::{evaluate_ast, evaluate_ast_to, RootRef};
 use crate::parser;
 use crate::syntax::{AstRef, ByteIndex, ByteRange, LineColumnRange, SourceRef};
 use crate::util::from_range::BoundedRange;
@@ -99,7 +99,7 @@ impl<'a> ExpectBerg<'a> {
     #[allow(clippy::needless_pass_by_value, clippy::wrong_self_convention)]
     pub fn to_yield<V: ExpectedValue<'a> + Clone>(self, expected_value: V) {
         let ast = self.parse();
-        let result = ast.result_to::<V>();
+        let result = evaluate_ast_to::<V>(ast);
         assert!(
             result.is_ok(),
             "Unexpected error {} in {}: expected {}",
@@ -120,7 +120,7 @@ impl<'a> ExpectBerg<'a> {
         Vec<V>: TypeName + TryFrom<BergVal<'a>, Error = BergVal<'a>>,
     {
         let ast = self.parse();
-        let result = ast.result_to::<Vec<V>>();
+        let result = evaluate_ast_to::<Vec<V>>(ast);
 
         assert!(
             result.is_ok(),
@@ -154,7 +154,7 @@ impl<'a> ExpectBerg<'a> {
         let expected_range = ast
             .char_data()
             .range(&expected_range.into_error_range(ast.char_data().size));
-        let result = ast.result();
+        let result = evaluate_ast(ast);
         assert!(
             result.is_err(),
             "No error produced by {}: expected {}, got value {}",

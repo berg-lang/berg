@@ -1,17 +1,14 @@
-use crate::error::{BergError, BergResult, TakeError};
-use crate::eval::{Expression, RootRef, ScopeRef};
+use crate::error::BergError;
+use crate::eval::RootRef;
 use crate::syntax::char_data::CharData;
 use crate::syntax::identifiers;
 use crate::syntax::OperandPosition::*;
 use crate::syntax::{
-    AstBlock, BlockIndex, ByteRange, Field, FieldIndex, SourceOpenError, SourceReconstruction,
+    AstBlock, BlockIndex, ByteRange, Expression, Field, FieldIndex, SourceOpenError, SourceReconstruction,
     SourceReconstructionReader, SourceRef, Token,
 };
 use crate::util::indexed_vec::IndexedVec;
 use crate::util::intern_pool::{InternPool, StringPool};
-use crate::util::try_from::TryFrom;
-use crate::util::type_name::TypeName;
-use crate::value::{BergVal, BergValue};
 use std::borrow::Cow;
 use std::io;
 use std::rc::Rc;
@@ -113,26 +110,6 @@ impl<'a> AstRef<'a> {
     }
     pub fn to_string(&self) -> String {
         SourceReconstruction::new(self, 0.into()..self.char_data().size).to_string()
-    }
-
-    // TODO no more evaluation in syntax!
-    pub fn result(self) -> BergResult<'a> {
-        let (value, mut scope) = self.evaluate()?;
-        value.result(&mut scope)
-    }
-    pub fn result_to<T: TypeName + TryFrom<BergVal<'a>, Error = BergVal<'a>>>(
-        self,
-    ) -> BergResult<'a, T> {
-        let (value, mut scope) = self.evaluate()?;
-        value
-            .result_to::<T>(&mut scope)
-            .take_error(&self, self.expression())
-    }
-    pub fn evaluate(&self) -> BergResult<'a, (BergVal<'a>, ScopeRef<'a>)> {
-        let mut scope = ScopeRef::AstRef(self.clone());
-        let expression = self.expression();
-        let value = expression.evaluate(&mut scope, self)?;
-        Ok((value, scope))
     }
 
     pub fn char_data(&self) -> &CharData {

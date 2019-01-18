@@ -1,6 +1,5 @@
 use crate::error::{BergError, Error, EvalError};
-use crate::eval::Expression;
-use crate::syntax::AstRef;
+use crate::syntax::{AstRef, Expression};
 use crate::value::BergVal;
 
 pub type BergResult<'a, T = BergVal<'a>> = Result<T, Error<'a>>;

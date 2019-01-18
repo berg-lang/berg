@@ -1,3 +1,4 @@
+use crate::eval::OperandEval;
 use crate::syntax::IdentifierIndex;
 use crate::util::try_from::TryFrom;
 use crate::value::*;
@@ -21,7 +22,7 @@ impl<'a> BergValue<'a> for Nothing {
         use crate::syntax::identifiers::EQUAL_TO;
         match operator {
             EQUAL_TO => right
-                .execute(scope, ast)?
+                .result(scope, ast)?
                 .downcast::<Nothing>()
                 .is_ok()
                 .ok(),

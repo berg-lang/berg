@@ -1,4 +1,5 @@
 use crate::error::EvalResult;
+use crate::eval::OperandEval;
 use crate::syntax::identifiers::*;
 use crate::util::try_from::TryFrom;
 use crate::value::*;
@@ -17,9 +18,9 @@ impl<'a> BergValue<'a> for bool {
         ast: &AstRef<'a>,
     ) -> EvalResult<'a> {
         match operator {
-            AND_AND => (self && right.execute_to(scope, ast)?).ok(),
-            OR_OR => (self || right.execute_to(scope, ast)?).ok(),
-            EQUAL_TO => match right.execute(scope, ast)?.downcast::<bool>() {
+            AND_AND => (self && right.result_to(scope, ast)?).ok(),
+            OR_OR => (self || right.result_to(scope, ast)?).ok(),
+            EQUAL_TO => match right.result(scope, ast)?.downcast::<bool>() {
                 Ok(value) if self == value => true.ok(),
                 _ => false.ok(),
             },

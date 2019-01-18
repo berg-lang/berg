@@ -1,7 +1,7 @@
 use crate::error::{BergError, BergResult, EvalResult};
-use crate::eval::{Operand, ScopeRef};
+use crate::eval::{ScopeRef};
 use crate::syntax::identifiers::*;
-use crate::syntax::{AstRef, IdentifierIndex};
+use crate::syntax::{AstRef, IdentifierIndex, Operand};
 use crate::util::try_from::TryFrom;
 use crate::util::type_name::TypeName;
 use crate::value::*;
@@ -21,25 +21,25 @@ impl<'a> BergValue<'a> for BigRational {
         ast: &AstRef<'a>,
     ) -> EvalResult<'a> {
         match operator {
-            PLUS => (self + right.execute_to::<BigRational>(scope, ast)?).ok(),
-            DASH => (self - right.execute_to::<BigRational>(scope, ast)?).ok(),
+            PLUS => (self + right.result_to::<BigRational>(scope, ast)?).ok(),
+            DASH => (self - right.result_to::<BigRational>(scope, ast)?).ok(),
             SLASH => {
-                let right = right.execute_to::<BigRational>(scope, ast)?;
+                let right = right.result_to::<BigRational>(scope, ast)?;
                 if right.is_zero() {
                     BergError::DivideByZero.err()
                 } else {
                     (self / right).ok()
                 }
             }
-            STAR => (self * right.execute_to::<BigRational>(scope, ast)?).ok(),
-            EQUAL_TO => match right.execute(scope, ast)?.downcast::<BigRational>() {
+            STAR => (self * right.result_to::<BigRational>(scope, ast)?).ok(),
+            EQUAL_TO => match right.result(scope, ast)?.downcast::<BigRational>() {
                 Ok(ref value) if self == *value => true.ok(),
                 _ => false.ok(),
             },
-            GREATER_THAN => (self > right.execute_to::<BigRational>(scope, ast)?).ok(),
-            LESS_THAN => (self < right.execute_to::<BigRational>(scope, ast)?).ok(),
-            GREATER_EQUAL => (self >= right.execute_to::<BigRational>(scope, ast)?).ok(),
-            LESS_EQUAL => (self <= right.execute_to::<BigRational>(scope, ast)?).ok(),
+            GREATER_THAN => (self > right.result_to::<BigRational>(scope, ast)?).ok(),
+            LESS_THAN => (self < right.result_to::<BigRational>(scope, ast)?).ok(),
+            GREATER_EQUAL => (self >= right.result_to::<BigRational>(scope, ast)?).ok(),
+            LESS_EQUAL => (self <= right.result_to::<BigRational>(scope, ast)?).ok(),
             _ => default_infix(self, operator, scope, right, ast),
         }
     }

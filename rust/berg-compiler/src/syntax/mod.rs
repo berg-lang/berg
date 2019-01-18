@@ -4,6 +4,7 @@ pub(crate) use self::ast::{
 };
 pub(crate) use self::block::{AstBlock, BlockIndex, Field, FieldIndex};
 pub use self::char_data::LineColumnRange;
+pub use self::expression::{Expression, Operand};
 use self::precedence::Precedence;
 pub(crate) use self::source::{
     ByteIndex, ByteRange, ByteSlice, SourceBuffer, SourceOpenError, SourceRef,
@@ -15,6 +16,7 @@ pub mod identifiers;
 mod ast;
 mod block;
 mod char_data;
+mod expression;
 mod precedence;
 mod source;
 mod source_reconstruction;

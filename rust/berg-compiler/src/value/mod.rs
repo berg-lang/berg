@@ -11,8 +11,8 @@ pub use self::nothing::Nothing;
 pub use self::tuple::Tuple;
 
 use crate::error::{BergError, BergResult, EvalResult};
-use crate::eval::{Operand, ScopeRef};
-use crate::syntax::{AstRef, Fixity, IdentifierIndex};
+use crate::eval::{OperandEval, ScopeRef};
+use crate::syntax::{AstRef, Fixity, IdentifierIndex, Operand};
 use crate::util::try_from::TryFrom;
 use crate::util::type_name::TypeName;
 use std::fmt;
@@ -80,7 +80,7 @@ pub fn default_infix<'a, T: BergValue<'a>>(
             .infix(EQUAL_TO, scope, right, ast)?
             .prefix(EXCLAMATION_POINT, scope),
         DOT => {
-            let identifier = right.execute_to::<IdentifierIndex>(scope, ast)?;
+            let identifier = right.result_to::<IdentifierIndex>(scope, ast)?;
             left.field(identifier)
         }
         _ => BergError::UnsupportedOperator(Box::new(left.into()), Fixity::Infix, operator).err(),
