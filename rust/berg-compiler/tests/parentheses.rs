@@ -53,11 +53,11 @@ fn nested_parens_with_neg_between() {
 
 #[test]
 fn empty_parens() {
-    expect("()").to_yield(Nothing)
+    expect("()").to_yield(tuple!())
 }
 #[test]
 fn nested_empty_parens() {
-    expect("(())").to_yield(Nothing)
+    expect("(())").to_yield(tuple!())
 }
 #[test]
 fn add_empty_parens_left() {

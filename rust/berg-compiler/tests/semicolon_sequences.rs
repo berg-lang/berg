@@ -3,7 +3,7 @@ use crate::compiler_test::*;
 
 #[test]
 fn right_semicolon() {
-    expect("1;").to_yield(Nothing)
+    expect("1;").to_yield(tuple!())
 }
 #[test]
 fn semicolon_right_space() {
@@ -50,7 +50,7 @@ fn left_double_semicolon() {
 }
 #[test]
 fn right_double_semicolon() {
-    expect("1;;").to_error(MissingOperand, 2)
+    expect("1;;").to_error(MissingOperand, 1)
 }
 #[test]
 fn both_double_semicolon() {
@@ -58,7 +58,7 @@ fn both_double_semicolon() {
 }
 #[test]
 fn between_double_semicolon() {
-    expect("1;;2").to_error(MissingOperand, 2)
+    expect("1;;2").to_error(MissingOperand, 1)
 }
 
 #[test]

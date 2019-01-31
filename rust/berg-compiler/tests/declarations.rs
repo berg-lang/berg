@@ -126,52 +126,52 @@ fn bare_declaration() {
 }
 #[test]
 fn assign() {
-    expect(":a = 1").to_yield(Nothing)
+    expect(":a = 1").to_yield(tuple!())
 }
 #[test]
 fn reassign() {
-    expect(":a = 1;  a = 2").to_yield(Nothing)
+    expect(":a = 1;  a = 2").to_yield(tuple!())
 }
 
 #[test]
 fn assign_plus() {
-    expect(":a = 1;  a += 2").to_yield(Nothing)
+    expect(":a = 1;  a += 2").to_yield(tuple!())
 }
 #[test]
 fn assign_minus() {
-    expect(":a = 3;  a -= 2").to_yield(Nothing)
+    expect(":a = 3;  a -= 2").to_yield(tuple!())
 }
 #[test]
 fn assign_times() {
-    expect(":a = 2;  a *= 3").to_yield(Nothing)
+    expect(":a = 2;  a *= 3").to_yield(tuple!())
 }
 #[test]
 fn assign_divide() {
-    expect(":a = 12; a /= 4").to_yield(Nothing)
+    expect(":a = 12; a /= 4").to_yield(tuple!())
 }
 #[test]
 fn assign_and() {
-    expect(":a = true;  a &&= false").to_yield(Nothing)
+    expect(":a = true;  a &&= false").to_yield(tuple!())
 }
 #[test]
 fn assign_or() {
-    expect(":a = false; a ||= true").to_yield(Nothing)
+    expect(":a = false; a ||= true").to_yield(tuple!())
 }
 #[test]
 fn increment_post() {
-    expect(":a = 1;  a++").to_yield(Nothing)
+    expect(":a = 1;  a++").to_yield(tuple!())
 }
 #[test]
 fn increment_pre() {
-    expect(":a = 1;  ++a").to_yield(Nothing)
+    expect(":a = 1;  ++a").to_yield(tuple!())
 }
 #[test]
 fn decrement_post() {
-    expect(":a = 1;  a--").to_yield(Nothing)
+    expect(":a = 1;  a--").to_yield(tuple!())
 }
 #[test]
 fn decrement_pre() {
-    expect(":a = 1;  --a").to_yield(Nothing)
+    expect(":a = 1;  --a").to_yield(tuple!())
 }
 
 //
@@ -406,35 +406,35 @@ fn decrement_pre_non_field_expr() {
 
 #[test]
 fn assign_error() {
-    expect(":a = 1 + true").to_yield(Nothing)
+    expect(":a = 1 + true").to_yield(tuple!())
 }
 #[test]
 fn reassign_error() {
-    expect(":a = 1; a  = 1 + true").to_yield(Nothing)
+    expect(":a = 1; a  = 1 + true").to_yield(tuple!())
 }
 #[test]
 fn assign_plus_error() {
-    expect(":a = 1; a += 1 + true").to_yield(Nothing)
+    expect(":a = 1; a += 1 + true").to_yield(tuple!())
 }
 #[test]
 fn assign_minus_error() {
-    expect(":a = 1; a -= 1 + true").to_yield(Nothing)
+    expect(":a = 1; a -= 1 + true").to_yield(tuple!())
 }
 #[test]
 fn assign_times_error() {
-    expect(":a = 1; a *= 1 + true").to_yield(Nothing)
+    expect(":a = 1; a *= 1 + true").to_yield(tuple!())
 }
 #[test]
 fn assign_divide_error() {
-    expect(":a = 1; a /= 1 + true").to_yield(Nothing)
+    expect(":a = 1; a /= 1 + true").to_yield(tuple!())
 }
 #[test]
 fn assign_and_error() {
-    expect(":a = true; a &&= true && 1").to_yield(Nothing)
+    expect(":a = true; a &&= true && 1").to_yield(tuple!())
 }
 #[test]
 fn assign_or_error() {
-    expect(":a = true; a ||= false && 1").to_yield(Nothing)
+    expect(":a = true; a ||= false && 1").to_yield(tuple!())
 }
 
 #[test]
@@ -481,7 +481,7 @@ fn assign_error_ref_twice() {
 
 #[test]
 fn assign_undeclared() {
-    expect("a = 1").to_yield(Nothing)
+    expect("a = 1").to_yield(tuple!())
 }
 #[test]
 fn assign_plus_undeclared() {

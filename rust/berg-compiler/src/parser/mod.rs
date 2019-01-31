@@ -4,8 +4,7 @@ mod sequencer;
 mod tokenizer;
 
 use self::sequencer::Sequencer;
-use crate::eval::ExpressionTreeFormatter;
-use crate::syntax::{AstData, AstRef, SourceBuffer, SourceRef};
+use crate::syntax::{AstData, AstRef, ExpressionTreeFormatter, SourceBuffer, SourceRef};
 
 ///
 /// Opens and parses the source into an AST.

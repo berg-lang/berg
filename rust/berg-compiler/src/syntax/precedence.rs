@@ -1,5 +1,5 @@
-use crate::syntax::Precedence::*;
 use crate::syntax::{IdentifierIndex, Token};
+use crate::syntax::precedence::Precedence::*;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum Precedence {
@@ -68,9 +68,8 @@ impl Precedence {
                 Dot | TimesDivide | PlusMinus | Comparison | And => true,
                 _ => false,
             },
-            // Comma sequences are right-associative: 1,2,3 -> 1, 2,3
             CommaSequence => match right {
-                Dot | TimesDivide | PlusMinus | Comparison | And | Or | CommaSequence => true,
+                Dot | TimesDivide | PlusMinus | Comparison | And | Or => true,
                 _ => false,
             },
             Assign => match right {
@@ -103,7 +102,7 @@ impl Precedence {
 
 impl From<Token> for Precedence {
     fn from(from: Token) -> Precedence {
-        use crate::syntax::Precedence::*;
+        use Precedence::*;
         match from {
             Token::InfixOperator(operator) => operator.into(),
             Token::InfixAssignment(_) => Assign,

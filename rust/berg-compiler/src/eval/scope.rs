@@ -1,7 +1,6 @@
-use crate::error::{BergResult, EvalResult};
 use crate::eval::BlockRef;
 use crate::syntax::{AstRef, BlockIndex, Expression, FieldIndex, IdentifierIndex};
-use crate::value::BergValue;
+use crate::value::{BergResult, BergValue, EvalResult};
 use std::fmt;
 
 #[derive(Clone)]
@@ -12,7 +11,7 @@ pub enum ScopeRef<'a> {
 
 impl<'a> ScopeRef<'a> {
     pub fn create_child_block(
-        &mut self,
+        &self,
         expression: Expression,
         index: BlockIndex,
     ) -> BlockRef<'a> {
@@ -34,36 +33,36 @@ impl<'a> ScopeRef<'a> {
         }
     }
     pub fn bring_local_field_into_scope(
-        &mut self,
+        &self,
         index: FieldIndex,
         ast: &AstRef,
     ) -> EvalResult<'a, ()> {
         match self {
-            ScopeRef::BlockRef(ref mut block) => block.bring_local_field_into_scope(index, ast),
+            ScopeRef::BlockRef(block) => block.bring_local_field_into_scope(index, ast),
             ScopeRef::AstRef(_) => ast.source().root().bring_local_field_into_scope(index),
         }
     }
-    pub fn declare_field(&mut self, index: FieldIndex, ast: &AstRef) -> EvalResult<'a, ()> {
+    pub fn declare_field(&self, index: FieldIndex, ast: &AstRef) -> EvalResult<'a, ()> {
         match self {
-            ScopeRef::BlockRef(ref mut block) => block.declare_field(index, ast),
+            ScopeRef::BlockRef(block) => block.declare_field(index, ast),
             ScopeRef::AstRef(_) => ast.source().root().declare_field(index),
         }
     }
     pub fn set_local_field(
-        &mut self,
+        &self,
         index: FieldIndex,
         value: BergResult<'a>,
         ast: &AstRef,
     ) -> EvalResult<'a, ()> {
         match self {
-            ScopeRef::BlockRef(ref mut block) => block.set_local_field(index, value, ast),
-            ScopeRef::AstRef(ref ast) => ast.source().root().set_local_field(index, value),
+            ScopeRef::BlockRef(block) => block.set_local_field(index, value, ast),
+            ScopeRef::AstRef(ast) => ast.source().root().set_local_field(index, value),
         }
     }
     pub fn ast(&self) -> AstRef<'a> {
         match self {
-            ScopeRef::BlockRef(ref block) => block.ast(),
-            ScopeRef::AstRef(ref ast) => ast.clone(),
+            ScopeRef::BlockRef(block) => block.ast(),
+            ScopeRef::AstRef(ast) => ast.clone(),
         }
     }
 }

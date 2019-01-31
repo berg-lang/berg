@@ -1,8 +1,7 @@
-use crate::error::{BergError, BergResult, EvalResult};
 use crate::syntax::identifiers;
 use crate::syntax::{FieldIndex, IdentifierIndex};
 use crate::util::intern_pool::InternPool;
-use crate::value::BergValue;
+use crate::value::{BergError, BergResult, BergValue, EvalResult};
 use std;
 use std::env;
 use std::fmt;

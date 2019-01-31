@@ -3,6 +3,7 @@ use crate::syntax::{
     AstIndex, AstRef, ByteRange, ExpressionBoundary, Fixity,
     OperandPosition, SourceReconstruction, Token,
 };
+use crate::value::{BergError, Error, TakeError};
 use std::fmt;
 
 #[derive(Copy, Clone, PartialEq)]
@@ -21,17 +22,17 @@ impl fmt::Debug for Expression {
 }
 
 impl Expression {
-    pub(crate) fn range(self, ast: &AstRef) -> ByteRange {
+    pub fn range(self, ast: &AstRef) -> ByteRange {
         let start = ast.token_ranges()[self.first_index(ast)].start;
         let end = ast.token_ranges()[self.last_index(ast)].end;
         start..end
     }
 
-    pub(crate) fn operator(self) -> AstIndex {
+    pub fn operator(self) -> AstIndex {
         self.0
     }
 
-    pub(crate) fn first_index(self, ast: &AstRef) -> AstIndex {
+    pub fn first_index(self, ast: &AstRef) -> AstIndex {
         let token = self.token(ast);
         match *token {
             Token::Close { delta, .. } | Token::CloseBlock { delta, .. } => self.operator() - delta,
@@ -45,7 +46,7 @@ impl Expression {
         }
     }
 
-    pub(crate) fn last_index(self, ast: &AstRef) -> AstIndex {
+    pub fn last_index(self, ast: &AstRef) -> AstIndex {
         let token = self.token(ast);
         match *token {
             Token::Open { delta, .. } | Token::OpenBlock { delta, .. } => self.operator() + delta,
@@ -59,33 +60,33 @@ impl Expression {
         }
     }
 
-    pub(crate) fn token<'p>(&self, ast: &'p AstRef) -> &'p Token {
+    pub fn token<'p>(&self, ast: &'p AstRef) -> &'p Token {
         &ast.tokens()[self.operator()]
     }
 
-    pub(crate) fn open_token<'p>(&self, ast: &'p AstRef) -> &'p Token {
+    pub fn open_token<'p>(&self, ast: &'p AstRef) -> &'p Token {
         &ast.tokens()[self.open_operator(ast)]
     }
 
-    pub(crate) fn close_token<'p>(&self, ast: &'p AstRef) -> &'p Token {
+    pub fn close_token<'p>(&self, ast: &'p AstRef) -> &'p Token {
         &ast.tokens()[self.close_operator(ast)]
     }
 
-    pub(crate) fn open_operator(self, ast: &AstRef) -> AstIndex {
+    pub fn open_operator(self, ast: &AstRef) -> AstIndex {
         match *self.token(ast) {
             Token::Close { delta, .. } | Token::CloseBlock { delta, .. } => self.operator() - delta,
             _ => self.operator(),
         }
     }
 
-    pub(crate) fn close_operator(self, ast: &AstRef) -> AstIndex {
+    pub fn close_operator(self, ast: &AstRef) -> AstIndex {
         match *self.token(ast) {
             Token::Open { delta, .. } | Token::OpenBlock { delta, .. } => self.operator() + delta,
             _ => self.operator(),
         }
     }
 
-    pub(crate) fn boundary(self, ast: &AstRef) -> ExpressionBoundary {
+    pub fn boundary(self, ast: &AstRef) -> ExpressionBoundary {
         match *self.open_token(ast) {
             Token::Open { boundary, .. } => boundary,
             Token::OpenBlock { index, .. } => ast.blocks()[index].boundary,
@@ -93,7 +94,7 @@ impl Expression {
         }
     }
 
-    pub(crate) fn left_expression(self, ast: &AstRef) -> Self {
+    pub fn left_expression(self, ast: &AstRef) -> Self {
         // Grab the term immediately to our left.
         let allow_infix_children = match self.token(ast).fixity() {
             Fixity::Close | Fixity::Infix => true,
@@ -138,7 +139,7 @@ impl Expression {
         Expression(start)
     }
 
-    pub(crate) fn right_expression(self, ast: &AstRef) -> Self {
+    pub fn right_expression(self, ast: &AstRef) -> Self {
         let start = self.operator() + 1;
 
         match self.token(ast).fixity() {
@@ -177,7 +178,7 @@ impl Expression {
         Expression(start)
     }
 
-    pub(crate) fn parent(self, ast: &AstRef) -> Self {
+    pub fn parent(self, ast: &AstRef) -> Self {
         // Grab the next and previous expression.
         let first_index = self.first_index(ast);
         let last_index = self.last_index(ast);
@@ -208,7 +209,7 @@ impl Expression {
         }
     }
 
-    pub(crate) fn operand_position(self, ast: &AstRef) -> OperandPosition {
+    pub fn operand_position(self, ast: &AstRef) -> OperandPosition {
         use self::OperandPosition::*;
         let parent = self.parent(ast);
         match parent.token(ast).fixity() {
@@ -220,12 +221,40 @@ impl Expression {
         }
     }
 
-    pub(crate) fn inner_expression<'a>(self, ast: &AstRef<'a>) -> Self {
+    pub fn inner_expression<'a>(self, ast: &AstRef<'a>) -> Self {
         Expression(self.close_operator(ast)).left_expression(ast)
     }
 
-    pub(crate) fn to_string<'p, 'a: 'p>(self, ast: &'p AstRef<'a>) -> String {
+    pub fn to_string<'p, 'a: 'p>(self, ast: &'p AstRef<'a>) -> String {
         SourceReconstruction::new(ast, self.range(ast)).to_string()
+    }
+
+    pub fn operand<'a>(
+        self,
+        position: OperandPosition,
+        ast: &AstRef<'a>,
+    ) -> Result<Operand, Error<'a>> {
+        let expression = position.get(self, ast);
+        match *expression.token(ast) {
+            Token::MissingExpression => BergError::MissingExpression.take_error(ast, self),
+            _ => Ok(Operand {
+                expression,
+                position,
+            }),
+        }
+    }
+
+    pub fn left_operand<'a>(self, ast: &AstRef<'a>) -> Result<Operand, Error<'a>> {
+        self.operand(OperandPosition::Left, ast)
+    }
+    pub fn right_operand<'a>(self, ast: &AstRef<'a>) -> Result<Operand, Error<'a>> {
+        self.operand(OperandPosition::Right, ast)
+    }
+    pub fn prefix_operand<'a>(self, ast: &AstRef<'a>) -> Result<Operand, Error<'a>> {
+        self.operand(OperandPosition::PrefixOperand, ast)
+    }
+    pub fn postfix_operand<'a>(self, ast: &AstRef<'a>) -> Result<Operand, Error<'a>> {
+        self.operand(OperandPosition::PostfixOperand, ast)
     }
 }
 
@@ -235,5 +264,14 @@ impl Operand {
     }
     pub fn operator(self) -> AstIndex {
         self.expression.operator()
+    }
+    pub fn to_string<'p, 'a: 'p>(self, ast: &'p AstRef<'a>) -> String {
+        self.expression.to_string(ast)
+    }
+    pub fn left_operand<'a>(self, ast: &AstRef<'a>) -> Result<Operand, Error<'a>> {
+        self.expression.left_operand(ast)
+    }
+    pub fn right_operand<'a>(self, ast: &AstRef<'a>) -> Result<Operand, Error<'a>> {
+        self.expression.right_operand(ast)
     }
 }

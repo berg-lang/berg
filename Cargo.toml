@@ -4,9 +4,3 @@ members = [
 #    "rust/berg",
     "rust/berg-compiler",
 ]
-
-[dependencies]
-clippy = {version = "*", optional = true}
-
-[dev-dependencies]
-clippy = {version = "*"}

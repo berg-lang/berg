@@ -1,4 +1,3 @@
-use crate::eval::OperandEval;
 use crate::syntax::IdentifierIndex;
 use crate::util::try_from::TryFrom;
 use crate::value::*;
@@ -12,41 +11,33 @@ impl TypeName for Nothing {
 }
 
 impl<'a> BergValue<'a> for Nothing {
-    fn infix(
+    fn infix<T: BergValue<'a>>(
         self,
         operator: IdentifierIndex,
-        scope: &mut ScopeRef<'a>,
-        right: Operand,
-        ast: &AstRef<'a>,
+        _right: T,
     ) -> EvalResult<'a> {
-        use crate::syntax::identifiers::EQUAL_TO;
-        match operator {
-            EQUAL_TO => right
-                .result(scope, ast)?
-                .downcast::<Nothing>()
-                .is_ok()
-                .ok(),
-            _ => default_infix(self, operator, scope, right, ast),
-        }
+        panic!("infix({}) called on nothing! Nothing values should never appear in Berg itself--they are sentinels for native code.", operator);
     }
 
-    fn postfix(self, operator: IdentifierIndex, scope: &mut ScopeRef<'a>) -> EvalResult<'a> {
-        default_postfix(self, operator, scope)
+    fn postfix(self, operator: IdentifierIndex) -> EvalResult<'a> {
+        panic!("postfix({}) called on nothing! Nothing values should never appear in Berg itself--they are sentinels for native code.", operator);
     }
-    fn prefix(self, operator: IdentifierIndex, scope: &mut ScopeRef<'a>) -> EvalResult<'a> {
-        default_prefix(self, operator, scope)
-    }
-
-    // Evaluation: values which need further work to resolve, like blocks, implement this.
-    fn result(self, scope: &mut ScopeRef<'a>) -> BergResult<'a> {
-        default_result(self, scope)
+    fn prefix(self, operator: IdentifierIndex) -> EvalResult<'a> {
+        panic!("prefix({}) called on nothing! Nothing values should never appear in Berg itself--they are sentinels for native code.", operator);
     }
 
     fn field(&self, name: IdentifierIndex) -> EvalResult<'a> {
-        default_field(self, name)
+        panic!("field({}) called on nothing! Nothing values should never appear in Berg itself--they are sentinels for native code.", name);
     }
-    fn set_field(&mut self, name: IdentifierIndex, value: BergResult<'a>) -> EvalResult<'a, ()> {
-        default_set_field(self, name, value)
+    fn set_field(&mut self, name: IdentifierIndex, _value: BergResult<'a>) -> EvalResult<'a, ()> {
+        panic!("set_field({}) called on nothing! Nothing values should never appear in Berg itself--they are sentinels for native code.", name);
+    }
+
+    fn into_val(self) -> BergResult<'a> {
+        Ok(self.into())
+    }
+    fn next_val(self) -> BergResult<'a, NextVal<'a>> {
+        Ok(NextVal::none())
     }
 }
 

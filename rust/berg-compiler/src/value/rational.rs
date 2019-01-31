@@ -1,7 +1,5 @@
-use crate::error::{BergError, BergResult, EvalResult};
-use crate::eval::{ScopeRef};
 use crate::syntax::identifiers::*;
-use crate::syntax::{AstRef, IdentifierIndex, Operand};
+use crate::syntax::{IdentifierIndex};
 use crate::util::try_from::TryFrom;
 use crate::util::type_name::TypeName;
 use crate::value::*;
@@ -13,58 +11,48 @@ impl TypeName for BigRational {
 }
 
 impl<'a> BergValue<'a> for BigRational {
-    fn infix(
+    fn infix<T: BergValue<'a>>(
         self,
         operator: IdentifierIndex,
-        scope: &mut ScopeRef<'a>,
-        right: Operand,
-        ast: &AstRef<'a>,
+        right: T,
     ) -> EvalResult<'a> {
         match operator {
-            PLUS => (self + right.result_to::<BigRational>(scope, ast)?).ok(),
-            DASH => (self - right.result_to::<BigRational>(scope, ast)?).ok(),
+            PLUS => (self + right.into_native::<BigRational>()??).ok(),
+            DASH => (self - right.into_native::<BigRational>()??).ok(),
             SLASH => {
-                let right = right.result_to::<BigRational>(scope, ast)?;
+                let right = right.into_native::<BigRational>()??;
                 if right.is_zero() {
                     BergError::DivideByZero.err()
                 } else {
                     (self / right).ok()
                 }
             }
-            STAR => (self * right.result_to::<BigRational>(scope, ast)?).ok(),
-            EQUAL_TO => match right.result(scope, ast)?.downcast::<BigRational>() {
-                Ok(ref value) if self == *value => true.ok(),
-                _ => false.ok(),
-            },
-            GREATER_THAN => (self > right.result_to::<BigRational>(scope, ast)?).ok(),
-            LESS_THAN => (self < right.result_to::<BigRational>(scope, ast)?).ok(),
-            GREATER_EQUAL => (self >= right.result_to::<BigRational>(scope, ast)?).ok(),
-            LESS_EQUAL => (self <= right.result_to::<BigRational>(scope, ast)?).ok(),
-            _ => default_infix(self, operator, scope, right, ast),
+            STAR => (self * right.into_native::<BigRational>()??).ok(),
+            EQUAL_TO => match right.into_native::<BigRational>()? { Ok(right) => self == right, Err(_) => false }.ok(),
+            GREATER_THAN => (self > right.into_native::<BigRational>()??).ok(),
+            LESS_THAN => (self < right.into_native::<BigRational>()??).ok(),
+            GREATER_EQUAL => (self >= right.into_native::<BigRational>()??).ok(),
+            LESS_EQUAL => (self <= right.into_native::<BigRational>()??).ok(),
+            _ => default_infix(self, operator, right),
         }
     }
 
-    fn prefix(self, operator: IdentifierIndex, scope: &mut ScopeRef<'a>) -> EvalResult<'a> {
+    fn prefix(self, operator: IdentifierIndex) -> EvalResult<'a> {
         match operator {
             PLUS => (self).ok(),
             DASH => (-self).ok(),
             PLUS_PLUS => (self + BigRational::one()).ok(),
             DASH_DASH => (self - BigRational::one()).ok(),
-            _ => default_prefix(self, operator, scope),
+            _ => default_prefix(self, operator),
         }
     }
 
-    fn postfix(self, operator: IdentifierIndex, scope: &mut ScopeRef<'a>) -> EvalResult<'a> {
+    fn postfix(self, operator: IdentifierIndex) -> EvalResult<'a> {
         match operator {
             PLUS_PLUS => (self + BigRational::one()).ok(),
             DASH_DASH => (self - BigRational::one()).ok(),
-            _ => default_postfix(self, operator, scope),
+            _ => default_postfix(self, operator),
         }
-    }
-
-    // Evaluation: values which need further work to resolve, like blocks, implement this.
-    fn result(self, scope: &mut ScopeRef<'a>) -> BergResult<'a> {
-        default_result(self, scope)
     }
 
     fn field(&self, name: IdentifierIndex) -> EvalResult<'a> {
@@ -73,11 +61,17 @@ impl<'a> BergValue<'a> for BigRational {
     fn set_field(&mut self, name: IdentifierIndex, value: BergResult<'a>) -> EvalResult<'a, ()> {
         default_set_field(self, name, value)
     }
+    fn into_val(self) -> BergResult<'a> {
+        Ok(self.into())
+    }
+    fn next_val(self) -> BergResult<'a, NextVal<'a>> {
+        Ok(NextVal::single(self.into()))
+    }
 }
 
 impl<'a> From<BigInt> for BergVal<'a> {
     fn from(from: BigInt) -> Self {
-        from.into()
+        BigRational::from(from).into()
     }
 }
 

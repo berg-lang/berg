@@ -4,7 +4,7 @@ use crate::compiler_test::*;
 // Declaration without reference (sets value, returns Nothing)
 #[test]
 fn declare() {
-    expect("a: 1").to_yield(Nothing)
+    expect("a: 1").to_yield(tuple!())
 }
 
 // Test declare laziness
@@ -120,7 +120,7 @@ fn declare_non_field_expr() {
 
 #[test]
 fn declare_error() {
-    expect("a: 1 + true").to_yield(Nothing)
+    expect("a: 1 + true").to_yield(tuple!())
 }
 #[test]
 fn declare_error_ref() {

@@ -1,12 +1,11 @@
-use crate::error::{Error, ErrorCode};
-use crate::eval::{evaluate_ast, evaluate_ast_to, RootRef};
+use crate::eval::{evaluate_ast, RootRef};
 use crate::parser;
 use crate::syntax::{AstRef, ByteIndex, ByteRange, LineColumnRange, SourceRef};
+use crate::syntax::identifiers::*;
 use crate::util::from_range::BoundedRange;
 use crate::util::from_range::IntoRange;
 use crate::util::try_from::TryFrom;
-use crate::util::type_name::TypeName;
-use crate::value::BergVal;
+use crate::value::{BergVal, BergValue, BergResult, Error, ErrorCode, EvalResult, NextVal};
 use std::fmt;
 use std::io;
 use std::ops::Range;
@@ -40,22 +39,6 @@ impl<'a> fmt::Display for ExpectBerg<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "test '{}'", String::from_utf8_lossy(self.0))
     }
-}
-
-pub trait ExpectedValue<'a>:
-    TypeName + TryFrom<BergVal<'a>, Error = BergVal<'a>> + PartialEq<Self> + fmt::Display + fmt::Debug
-{
-}
-
-impl<
-        'a,
-        V: TypeName
-            + TryFrom<BergVal<'a>, Error = BergVal<'a>>
-            + PartialEq<V>
-            + fmt::Display
-            + fmt::Debug,
-    > ExpectedValue<'a> for V
-{
 }
 
 pub trait ExpectedErrorRange {
@@ -96,65 +79,41 @@ impl<'a> ExpectBerg<'a> {
         ast
     }
 
-    #[allow(clippy::needless_pass_by_value, clippy::wrong_self_convention)]
-    pub fn to_yield<V: ExpectedValue<'a> + Clone>(self, expected_value: V) {
-        let ast = self.parse();
-        let result = evaluate_ast_to::<V>(ast);
-        assert!(
-            result.is_ok(),
-            "Unexpected error {} in {}: expected {}",
-            result.unwrap_err(),
-            self,
-            expected_value
-        );
-        let value = result.unwrap();
-        assert_eq!(
-            expected_value, value,
-            "Wrong result from {}! Expected {}, got {}",
-            self, expected_value, value
-        );
+    pub fn bergvals_equal(expected: BergVal<'a>, actual: BergVal<'a>) -> EvalResult<'a, bool> {
+        let result = expected.infix(EQUAL_TO, actual)?;
+        result.into_native::<bool>()?
     }
-    #[allow(clippy::needless_pass_by_value, clippy::wrong_self_convention)]
-    pub fn to_yield_tuple<V: ExpectedValue<'a> + Clone>(self, expected_value: &[V])
-    where
-        Vec<V>: TypeName + TryFrom<BergVal<'a>, Error = BergVal<'a>>,
-    {
-        let ast = self.parse();
-        let result = evaluate_ast_to::<Vec<V>>(ast);
 
-        assert!(
-            result.is_ok(),
-            "Unexpected error {} in {}: expected [{}]",
-            result.unwrap_err(),
-            self,
-            {
-                let i: Vec<String> = expected_value.iter().map(|v| format!("{}", v)).collect();
-                i.join(",")
-            }
-        );
-        let value = result.unwrap();
-        assert_eq!(
-            Vec::from(expected_value),
-            value,
-            "Wrong result from {}! Expected [{}], got [{}]",
-            self,
-            {
-                let i: Vec<String> = expected_value.iter().map(|v| format!("{}", v)).collect();
-                i.join(",")
-            },
-            {
-                let i: Vec<String> = value.iter().map(|v| format!("{}", v)).collect();
-                i.join(",")
-            }
-        );
+    #[allow(clippy::needless_pass_by_value, clippy::wrong_self_convention)]
+    pub fn to_yield<V: Into<BergVal<'a>>+fmt::Display>(self, expected: V) where BergVal<'a>: From<V> {
+        let actual = evaluate_ast(self.parse()).unwrap_or_else(|error| panic!("Unexpected error: {}", error));
+        let expected = BergVal::from(expected);
+        println!("actual: {}, expected: {}", actual, expected);
+        assert!(Self::bergvals_equal(expected.clone(), actual.clone()).unwrap_or(false), "Wrong value returned! expected: {}, actual: {}", expected, actual);
     }
+
+    fn consume_all(value: BergVal<'a>) -> BergResult<'a> {
+        let mut values = vec![];
+        let mut next = Some(value);
+        while let Some(tail) = next {
+            if let NextVal(Some((head, tail))) = tail.next_val()? {
+                values.push(head);
+                next = tail;
+            } else {
+                next = None;
+            }
+        }
+        Ok(values.into())
+    }
+
     #[allow(clippy::wrong_self_convention)]
     pub fn to_error(self, code: ErrorCode, expected_range: impl ExpectedErrorRange) {
         let ast = parser::parse(test_source(self.0));
         let expected_range = ast
             .char_data()
             .range(&expected_range.into_error_range(ast.char_data().size));
-        let result = evaluate_ast(ast);
+        let result = evaluate_ast(ast.clone());
+        let result = result.and_then(Self::consume_all);
         assert!(
             result.is_err(),
             "No error produced by {}: expected {}, got value {}",
@@ -162,32 +121,32 @@ impl<'a> ExpectBerg<'a> {
             error_string(code, expected_range),
             result.as_ref().unwrap()
         );
-        let value = Error::try_from(result.unwrap_err());
+        let actual = Error::try_from(result.unwrap_err());
         assert!(
-            value.is_ok(),
+            actual.is_ok(),
             "Result of {} is an error, but of an unexpected type! Expected {}, got {}",
             self,
             error_string(code, expected_range),
-            value.as_ref().unwrap_err()
+            actual.as_ref().unwrap_err()
         );
-        let error = value.unwrap();
+        let actual = actual.unwrap();
         assert_eq!(
             code,
-            error.code(),
+            actual.code(),
             "Wrong error code from {}! Expected {}, got {} at {}",
             self,
             error_string(code, expected_range),
-            error.code(),
-            error.location().range()
+            actual.code(),
+            actual.location().range()
         );
         assert_eq!(
             expected_range,
-            error.location().range(),
+            actual.location().range(),
             "Wrong error range from {}! Expected {}, got {} at {}",
             self,
             error_string(code, expected_range),
-            error.code(),
-            error.location().range()
+            actual.code(),
+            actual.location().range()
         );
     }
 }
@@ -195,3 +154,21 @@ impl<'a> ExpectBerg<'a> {
 fn error_string(code: ErrorCode, range: LineColumnRange) -> String {
     format!("{} at {}", code, range)
 }
+
+// struct DisplayResults<'p, 'a: 'p>(&'p Vec<BergResult<'a>>);
+
+// impl<'p, 'a: 'p> fmt::Display for DisplayResults<'p, 'a> {
+//     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+//         match self.0.len() {
+//             0 => write!(f, "()"),
+//             1 => match &self.0[0] { Ok(v) => write!(f, "{}", v), Err(e) => write!(f, "{}", e) },
+//             _ => {
+//                 match &self.0[0] { Ok(v) => write!(f, "({}", v)?, Err(e) => write!(f, "({}", e)? };
+//                 for result in &self.0[1..] {
+//                     match result { Ok(v) => write!(f, ",{}", v)?, Err(e) => write!(f, ",{}", e)? }
+//                 }
+//                 write!(f, ")")
+//             }
+//         }
+//     }
+// }

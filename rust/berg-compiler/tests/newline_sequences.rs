@@ -33,7 +33,7 @@ fn double_newline_between() {
 
 #[test]
 fn paren_newline_all_over() {
-    expect("\n(\n(\n)\n)\n").to_yield(Nothing)
+    expect("\n(\n(\n)\n)\n").to_yield(tuple!())
 }
 
 #[test]

@@ -1,5 +1,3 @@
-use crate::error::BergError;
-use crate::eval::BlockRef;
 use crate::syntax::{AstRef, ExpressionBoundary, IdentifierIndex};
 use std::u32;
 
@@ -60,16 +58,5 @@ impl AstBlock {
         }
 
         Err(FieldError::NoSuchPublicField(name))
-    }
-}
-
-impl FieldError {
-    pub fn in_block<'a>(self, block: &BlockRef<'a>) -> BergError<'a> {
-        match self {
-            FieldError::NoSuchPublicField(index) => {
-                BergError::NoSuchPublicField(block.clone(), index)
-            }
-            FieldError::PrivateField(index) => BergError::PrivateField(block.clone(), index),
-        }
     }
 }

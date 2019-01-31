@@ -3,8 +3,7 @@
 extern crate fnv;
 extern crate num;
 
-pub use crate::error::{BergResult, Error, ErrorCode};
-pub use crate::value::{BergVal, BergValue, Nothing};
+pub use crate::value::{BergVal, BergValue, BergResult, Error, ErrorCode, Nothing};
 
 use crate::eval::{RootRef, evaluate_ast};
 use crate::syntax::SourceRef;
@@ -14,7 +13,6 @@ use std::path::Path;
 
 #[macro_use]
 pub(crate) mod util;
-pub(crate) mod error;
 pub(crate) mod eval;
 pub(crate) mod parser;
 pub(crate) mod syntax;

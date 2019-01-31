@@ -1,4 +1,3 @@
-use crate::error::BergError;
 use crate::eval::RootRef;
 use crate::syntax::char_data::CharData;
 use crate::syntax::identifiers;
@@ -9,6 +8,7 @@ use crate::syntax::{
 };
 use crate::util::indexed_vec::IndexedVec;
 use crate::util::intern_pool::{InternPool, StringPool};
+use crate::value::BergError;
 use std::borrow::Cow;
 use std::io;
 use std::rc::Rc;

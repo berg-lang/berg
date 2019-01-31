@@ -1,4 +1,3 @@
-use crate::eval::OperandEval;
 use crate::syntax::IdentifierIndex;
 use crate::util::try_from::TryFrom;
 use crate::value::*;
@@ -8,33 +7,26 @@ impl TypeName for IdentifierIndex {
 }
 
 impl<'a> BergValue<'a> for IdentifierIndex {
-    fn infix(
+    fn infix<T: BergValue<'a>>(
         self,
         operator: IdentifierIndex,
-        scope: &mut ScopeRef<'a>,
-        right: Operand,
-        ast: &AstRef<'a>,
+        right: T,
     ) -> EvalResult<'a> {
         use crate::syntax::identifiers::EQUAL_TO;
         match operator {
-            EQUAL_TO => match right.result(scope, ast)?.downcast::<IdentifierIndex>() {
-                Ok(identifier) if identifier == self => true.ok(),
+            EQUAL_TO => match right.into_native::<IdentifierIndex>()? {
+                Ok(value) if self == value => true.ok(),
                 _ => false.ok(),
             },
-            _ => default_infix(self, operator, scope, right, ast),
+            _ => default_infix(self, operator, right),
         }
     }
 
-    fn postfix(self, operator: IdentifierIndex, scope: &mut ScopeRef<'a>) -> EvalResult<'a> {
-        default_postfix(self, operator, scope)
+    fn postfix(self, operator: IdentifierIndex) -> EvalResult<'a> {
+        default_postfix(self, operator)
     }
-    fn prefix(self, operator: IdentifierIndex, scope: &mut ScopeRef<'a>) -> EvalResult<'a> {
-        default_prefix(self, operator, scope)
-    }
-
-    // Evaluation: values which need further work to resolve, like blocks, implement this.
-    fn result(self, scope: &mut ScopeRef<'a>) -> BergResult<'a> {
-        default_result(self, scope)
+    fn prefix(self, operator: IdentifierIndex) -> EvalResult<'a> {
+        default_prefix(self, operator)
     }
 
     fn field(&self, name: IdentifierIndex) -> EvalResult<'a> {
@@ -42,6 +34,13 @@ impl<'a> BergValue<'a> for IdentifierIndex {
     }
     fn set_field(&mut self, name: IdentifierIndex, value: BergResult<'a>) -> EvalResult<'a, ()> {
         default_set_field(self, name, value)
+    }
+
+    fn into_val(self) -> BergResult<'a> {
+        Ok(self.into())
+    }
+    fn next_val(self) -> BergResult<'a, NextVal<'a>> {
+        Ok(NextVal::single(self.into()))
     }
 }
 

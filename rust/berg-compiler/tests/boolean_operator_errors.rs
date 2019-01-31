@@ -64,8 +64,16 @@ fn and_true_nothing() {
     expect("true&&()").to_error(BadType, 6..=7)
 }
 #[test]
+fn and_true_multiple() {
+    expect("true&&(1,2)").to_error(BadType, 6..=10)
+}
+#[test]
 fn and_false_nothing() {
     expect("false&&()").to_yield(false)
+}
+#[test]
+fn and_false_multiple() {
+    expect("false&&(1,2)").to_yield(false)
 }
 #[test]
 fn and_nothing_true() {
@@ -151,8 +159,16 @@ fn or_true_nothing() {
     expect("true||()").to_yield(true)
 }
 #[test]
+fn or_true_multiple() {
+    expect("true||(1,2)").to_yield(true)
+}
+#[test]
 fn or_false_nothing() {
     expect("false||()").to_error(BadType, 7..=8)
+}
+#[test]
+fn or_false_multiple() {
+    expect("false||(1,2)").to_error(BadType, 7..=11)
 }
 #[test]
 fn or_nothing_true() {

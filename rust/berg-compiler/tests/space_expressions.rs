@@ -29,7 +29,7 @@ fn both_double_space_1() {
 
 #[test]
 fn paren_space_all_over() {
-    expect(" ( ( ) ) ").to_yield(Nothing)
+    expect(" ( ( ) ) ").to_yield(tuple!())
 }
 
 #[test]

@@ -1,6 +1,6 @@
-use crate::error::{BergError, EvalResult};
 use crate::eval::RootRef;
 use crate::util::indexed_vec::{to_indexed_cow, IndexedSlice};
+use crate::value::{BergError, EvalResult};
 use std::borrow::Cow;
 use std::fs::File;
 use std::io;
