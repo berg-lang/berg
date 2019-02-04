@@ -63,7 +63,6 @@ Developer Getting Started
 2. Go to a command prompt, and run:
 
 ```
-cd rust
 cargo build
 ```
 
