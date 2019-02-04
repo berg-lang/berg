@@ -1,5 +1,4 @@
-pub mod compiler_test;
-use crate::compiler_test::*;
+use crate::*;
 
 #[test]
 fn field_access() {

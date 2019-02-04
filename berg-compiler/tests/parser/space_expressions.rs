@@ -1,5 +1,4 @@
-pub mod compiler_test;
-use crate::compiler_test::*;
+use crate::*;
 
 #[test]
 fn left_space_1() {

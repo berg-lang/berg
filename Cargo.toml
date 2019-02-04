@@ -1,6 +1,6 @@
 [workspace]
 
 members = [
-#    "rust/berg",
-    "rust/berg-compiler",
+#    "berg",
+    "berg-compiler",
 ]

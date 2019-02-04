@@ -3,7 +3,7 @@
 extern crate fnv;
 extern crate num;
 
-pub use crate::value::{BergVal, BergValue, BergResult, Error, ErrorCode, Nothing};
+pub use crate::value::{BergVal, BergValue, BergResult, Error, ErrorCode};
 
 use crate::eval::{RootRef, evaluate_ast};
 use crate::syntax::SourceRef;
