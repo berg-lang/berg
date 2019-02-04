@@ -61,7 +61,13 @@ impl<'a> BlockRef<'a> {
     pub fn apply(&self, input: impl BergValue<'a>) -> BergResult<'a> {
         let block = self.0.borrow();
         let input = input.into_val()?;
-        Self::new(block.expression, block.index, block.parent.clone(), Some(input)).ok()
+        // Evaluate immediately and take the result.
+        let new_block = Self::new(block.expression, block.index, block.parent.clone(), Some(input));
+        let value = new_block.take_result(BlockState::Complete(Ok(None)))?;
+        match value {
+            Some(value) => Ok(value),
+            None => Ok(BergVal::empty_tuple()),
+        }
     }
 
     fn take_result(&self, replace_with: BlockState<'a>) -> BergResult<'a, Option<BergVal<'a>>> {
