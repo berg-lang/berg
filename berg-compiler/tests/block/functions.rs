@@ -28,3 +28,7 @@ fn function_result_and_field() {
 fn functions_evaluate_immediately() {
     expect(":X = 1; F = { X = :Y }; :OldX = X; F(2); OldX,X").to_yield(tuple!(1,2))
 }
+#[test]
+fn functions_evaluate_only_one_level_immediately() {
+    expect(":X = 1; F = { X = :Y; { X = Y + 10 } }; :OldX = X; F(2); OldX,X").to_yield(tuple!(1,2))
+}

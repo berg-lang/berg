@@ -138,6 +138,7 @@ impl<'a> BlockRef<'a> {
                 Err(error) => Err(error),
             },
         };
+        println!("result: {}", match &result { Ok(Some(v))=>format!("{}",v), Ok(None)=>"none".to_string(), Err(v)=>format!("{}",v)});
         let mut block = self.0.borrow_mut();
         block.state = BlockState::Complete(result);
         Ok(())
@@ -324,6 +325,8 @@ impl<'a> BergValue<'a> for BlockRef<'a> {
         match operator {
             DOT => self.field(right.into_native::<IdentifierIndex>()??),
             APPLY => Ok(self.apply(right)?),
+            // Blocks do not evaluate when used as statements.
+            SEMICOLON|NEWLINE => Ok(right.into_val()?),
             _ => self.clone_result()?.infix(operator, right)
         }
     }

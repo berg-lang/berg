@@ -6,7 +6,7 @@ fn child_references_parent() {
 }
 #[test]
 fn child_references_parent_too_early_error() {
-    expect("{ a + 2 }; a = 1").to_error(NoSuchField, 2)
+    expect("{ a + 2 }(); a = 1").to_error(NoSuchField, 2)
 }
 // TODO make circular reference detection work again
 // #[test]
@@ -19,11 +19,11 @@ fn child_defines_value_early() {
 }
 #[test]
 fn child_updates_parent() {
-    expect("a = 1; { a += 2 }; a + 3").to_yield(6)
+    expect("a = 1; { a += 2 }(); a + 3").to_yield(6)
 }
 #[test]
 fn child_overwrites_parent() {
-    expect("a = 1; { a = 2 }; a + 3").to_yield(5)
+    expect("a = 1; { a = 2 }(); a + 3").to_yield(5)
 }
 #[test]
 fn child_overwrites_and_references_parent() {
@@ -63,7 +63,7 @@ fn lazy_field_never_executed() {
 }
 #[test]
 fn lazy_block_closes_over_scope() {
-    expect("a = 1; { b = 2; a = { b + 4 } }; a").to_yield(6)
+    expect("a = 1; { b = 2; a = { b + 4 } }(); a").to_yield(6)
 }
 #[test]
 fn lazy_block_closes_over_scope_writeable() {
