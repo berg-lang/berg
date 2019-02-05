@@ -9,6 +9,10 @@ fn function_multiple_args() {
     expect("Multiply: :A*:B; Multiply(2,3)").to_yield(6)
 }
 #[test]
+fn function_multiple_args_space() {
+    expect("Multiply: :A*:B; Multiply 2,3").to_yield(6)
+}
+#[test]
 fn function_result() {
     expect("F: { X: 1; Y: 2; X+Y }; F").to_yield(3)
 }

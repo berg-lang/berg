@@ -12,6 +12,7 @@ pub enum Precedence {
     CommaSequence,
     Assign,
     ColonDeclaration,
+    Apply,
     SemicolonSequence,
     NewlineSequence,
 }
@@ -38,7 +39,9 @@ impl From<IdentifierIndex> for Precedence {
             OR_OR => Or,
             COMMA => CommaSequence,
             COLON => ColonDeclaration,
+            APPLY => Apply,
             SEMICOLON => SemicolonSequence,
+            NEWLINE => NewlineSequence,
             _ => DEFAULT_PRECEDENCE,
         }
     }
@@ -82,14 +85,20 @@ impl Precedence {
                 }
                 _ => false,
             },
+            Apply => match right {
+                Dot | TimesDivide | PlusMinus | Comparison | And | Or | CommaSequence | Assign | ColonDeclaration => {
+                    true
+                }
+                _ => false
+            },
             SemicolonSequence => match right {
                 Dot | TimesDivide | PlusMinus | Comparison | And | Or | CommaSequence | Assign
-                | ColonDeclaration => true,
+                | ColonDeclaration | Apply => true,
                 _ => false,
             },
             NewlineSequence => match right {
                 Dot | TimesDivide | PlusMinus | Comparison | And | Or | CommaSequence | Assign
-                | ColonDeclaration | SemicolonSequence => true,
+                | ColonDeclaration | SemicolonSequence | Apply  => true,
                 _ => false,
             },
         }
@@ -102,12 +111,13 @@ impl Precedence {
 
 impl From<Token> for Precedence {
     fn from(from: Token) -> Precedence {
+        use crate::syntax::identifiers::*;
         use Precedence::*;
         match from {
             Token::InfixOperator(operator) => operator.into(),
             Token::InfixAssignment(_) => Assign,
-            Token::NewlineSequence => Precedence::NewlineSequence,
-            Token::Apply => Precedence::default(),
+            Token::NewlineSequence => NEWLINE.into(),
+            Token::Apply => APPLY.into(),
             // Should only ever be called for infix
             _ => unreachable!(),
         }

@@ -131,6 +131,7 @@ impl<'a> BlockRef<'a> {
         // Run the block and stash the result
         let scope = ScopeRef::BlockRef(self.clone());
         let expression = ExpressionEvaluator::new(&scope, &ast, expression);
+        println!("Evaluating block {}", self);
         let result = match expression.token() {
             Token::MissingExpression => Ok(None),
             _ => match expression.into_val() {
@@ -387,26 +388,36 @@ impl<'a> fmt::Display for BlockRef<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let block = self.0.borrow();
         let ast = self.ast();
-        write!(f, "block({{ {} }}, {}, fields: {{", block.expression.to_string(&ast), block.state)?;
-        let mut is_first_field = true;
-        let scope_start = ast.blocks()[block.index].scope_start;
-        for (index, field_value) in block.fields.iter().enumerate() {
-            if is_first_field {
-                is_first_field = false;
-            } else {
-                write!(f, ", ")?;
-            }
-
-            let field = &ast.fields()[scope_start + index];
-            let name = &ast.identifiers()[field.name];
-
-            match field_value {
-                Ok(value) => write!(f, "{}: {}", name, value)?,
-                Err(Raw(BergError::NoSuchField(..))) => {}
-                Err(error) => write!(f, "{}: {}", name, error)?,
-            }
+        write!(f, "block({}", block.state)?;
+        match &block.input {
+            Ok(Some(value)) => write!(f, ", input: {}", value)?,
+            Ok(None) => {},
+            Err(error) => write!(f, ", input: {:?}", error)?,
         }
-        write!(f, "}})")
+        if !block.fields.is_empty() {
+            write!(f, ", fields: {{")?;
+            let mut is_first_field = true;
+            let scope_start = ast.blocks()[block.index].scope_start;
+            for (index, field_value) in block.fields.iter().enumerate() {
+                if is_first_field {
+                    is_first_field = false;
+                } else {
+                    write!(f, ", ")?;
+                }
+
+                let field = &ast.fields()[scope_start + index];
+                let name = &ast.identifiers()[field.name];
+
+                match field_value {
+                    Ok(value) => write!(f, "{}: {}", name, value)?,
+                    Err(Raw(BergError::NoSuchField(..))) => {}
+                    Err(error) => write!(f, "{}: {}", name, error)?,
+                }
+            }
+            write!(f, "}}")?;
+        }
+        write!(f, ", expression: {}", block.expression.to_string(&ast))?;
+        write!(f, ")")
     }
 }
 
@@ -427,7 +438,13 @@ impl<'a> fmt::Debug for BlockRef<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let block = self.0.borrow();
         let ast = self.ast();
-        write!(f, "BlockRef {{ state: {:?}, expression: {}, fields: {{", block.state, block.expression.to_string(&ast))?;
+        write!(f, "BlockRef {{ state: {:?}, ", block.state)?;
+        match &block.input {
+            Ok(Some(value)) => write!(f, ", input: {}", value)?,
+            Ok(None) => {},
+            Err(error) => write!(f, ", input: {:?}", error)?,
+        }
+        write!(f, "fields: {{")?;
         let mut is_first_field = true;
         let scope_start = ast.blocks()[block.index].scope_start;
         for (index, field_value) in block.fields.iter().enumerate() {
@@ -446,12 +463,8 @@ impl<'a> fmt::Debug for BlockRef<'a> {
                 Err(error) => write!(f, "{}: {}", name, error)?,
             }
         }
-        write!(f, "}}, parent: {:?}", block.parent)?;
-        match &block.input {
-            Ok(Some(value)) => write!(f, ", input: {} }}", value),
-            Ok(None) => write!(f, ", input: <nothing> }}"),
-            Err(error) => write!(f, ", input: {:?} }}", error),
-        }
+        write!(f, ", expression: {}, parent: {:?}", block.expression.to_string(&ast), block.parent)?;
+        write!(f, "}}")
     }
 }
 
