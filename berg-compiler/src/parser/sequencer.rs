@@ -5,7 +5,6 @@ use crate::syntax::ExpressionBoundary::*;
 use crate::syntax::Token::*;
 use crate::syntax::{AstData, ByteIndex, ByteSlice, IdentifierIndex};
 use crate::util::indexed_vec::Delta;
-use crate::util::intern_pool::Pool;
 use crate::value::ErrorCode;
 use std::str;
 
@@ -94,7 +93,7 @@ impl<'a> Sequencer<'a> {
         scanner: &Scanner,
     ) {
         let string = unsafe { str::from_utf8_unchecked(&buffer[start..scanner.index]) };
-        let literal = self.ast_mut().literals.add(string);
+        let literal = self.ast_mut().literals.get_or_intern(string);
         self.tokenizer
             .on_term_token(ErrorTerm(error, literal), start..scanner.index);
     }
@@ -125,7 +124,7 @@ impl<'a> Sequencer<'a> {
             );
         }
         let string = unsafe { str::from_utf8_unchecked(&buffer[start..scanner.index]) };
-        let literal = self.ast_mut().literals.add(string);
+        let literal = self.ast_mut().literals.get_or_intern(string);
         self.tokenizer
             .on_term_token(IntegerLiteral(literal), start..scanner.index)
     }
@@ -133,14 +132,14 @@ impl<'a> Sequencer<'a> {
     fn identifier(&mut self, buffer: &ByteSlice, start: ByteIndex, scanner: &mut Scanner) {
         scanner.next_while_identifier(buffer);
         let string = unsafe { str::from_utf8_unchecked(&buffer[start..scanner.index]) };
-        let identifier = self.ast_mut().identifiers.add(string);
+        let identifier = self.ast_mut().intern_identifier(string);
         self.tokenizer
             .on_term_token(RawIdentifier(identifier), start..scanner.index)
     }
 
     fn make_identifier(&mut self, slice: &[u8]) -> IdentifierIndex {
         let string = unsafe { str::from_utf8_unchecked(slice) };
-        self.ast_mut().identifiers.add(string)
+        self.ast_mut().intern_identifier(string)
     }
 
     fn operator(&mut self, buffer: &ByteSlice, start: ByteIndex, scanner: &mut Scanner) {

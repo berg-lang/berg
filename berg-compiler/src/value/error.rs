@@ -288,7 +288,7 @@ impl<'a> fmt::Display for Error<'a> {
             ),
             InvalidUtf8(raw_literal) => {
                 write!(f, "Invalid UTF-8 bytes! Perhaps this isn't a Berg UTF-8 source file? Invalid bytes: '")?;
-                let bytes = &ast.raw_literals()[raw_literal];
+                let bytes = ast.raw_literal_string(raw_literal);
                 // Only print up to the first 12 bytes to prevent the error message from being ridiculous
                 let print_max = 12.min(bytes.len());
                 for byte in &bytes[0..print_max] {
@@ -299,7 +299,7 @@ impl<'a> fmt::Display for Error<'a> {
                 }
                 write!(f, "'")
             }
-            UnsupportedCharacters(literal) => write!(f, "Unsupported Unicode characters! Perhaps this isn't a Berg source file? Unsupported characters: '{}'", &ast.literals()[literal]),
+            UnsupportedCharacters(literal) => write!(f, "Unsupported Unicode characters! Perhaps this isn't a Berg source file? Unsupported characters: '{}'", ast.literal_string(literal)),
             OpenWithoutClose => write!(
                 f,
                 "Open '{}' found without a matching close '{}'.",
@@ -337,27 +337,27 @@ impl<'a> fmt::Display for Error<'a> {
             NoSuchPublicField(ref block, name) => write!(
                 f,
                 "No field '{}' exists on '{}'! Perhaps it's a misspelling?",
-                &ast.identifiers()[name],
+                ast.identifier_string(name),
                 block
             ),
             NoSuchPublicFieldOnValue(ref value, name) => write!(
                 f,
                 "No field '{}' exists on '{}'! Perhaps it's a misspelling?",
-                &ast.identifiers()[name],
+                ast.identifier_string(name),
                 value
             ),
             NoSuchPublicFieldOnRoot(name) => write!(
                 f,
                 "No field '{}' exists on the root! Also, how did you manage to do '.' on the root?",
-                &ast.identifiers()[name]
+                ast.identifier_string(name)
             ),
             PrivateField(ref value, name) => write!(
                 f,
                 "Field '{}' on '{}' is private and cannot be accessed with '.'! Perhaps you meant to declare the field with ':{}' instead of '{}'?",
-                &ast.identifiers()[name],
+                ast.identifier_string(name),
                 value,
-                &ast.identifiers()[name],
-                &ast.identifiers()[name]
+                ast.identifier_string(name),
+                ast.identifier_string(name)
             ),
             ImmutableFieldOnRoot(field_index) => write!(
                 f,
@@ -367,7 +367,7 @@ impl<'a> fmt::Display for Error<'a> {
             IdentifierStartsWithNumber(literal) => write!(
                 f,
                 "Field names must start with letters or '_', but '{}' starts with a number! You may have mistyped the field name, or missed an operator?",
-                &ast.literals()[literal]
+                ast.literal_string(literal)
             ),
             CircularDependency => write!(
                 f,

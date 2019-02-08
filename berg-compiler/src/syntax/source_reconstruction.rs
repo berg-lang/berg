@@ -117,7 +117,7 @@ impl<'p, 'a: 'p> Iterator for SourceReconstructionIterator<'p, 'a> {
             .next_token()
             .or_else(|| self.next_whitespace_range())
             .or_else(|| self.next_newline())
-            .unwrap_or_else(|| (self.index, identifier_string(SPACE).as_bytes()));
+            .unwrap_or_else(|| (self.index, SPACE.well_known_str().as_bytes()));
 
         // Clip the beginning of the string if it starts earlier than index.
         match start.cmp(&self.index) {
@@ -196,7 +196,7 @@ impl<'p, 'a: 'p> SourceReconstructionIterator<'p, 'a> {
             && self.index == line_starts[self.line_index + 1] - 1
         {
             self.line_index += 1;
-            let string = identifier_string(NEWLINE).as_bytes();
+            let string = NEWLINE.well_known_str().as_bytes();
             assert!(string.len() == 1);
             Some((self.index, string))
         } else {
@@ -208,22 +208,22 @@ impl<'p, 'a: 'p> SourceReconstructionIterator<'p, 'a> {
         use crate::syntax::token::Token::*;
         let bytes = match token {
             IntegerLiteral(literal) | ErrorTerm(.., literal) => {
-                self.ast.literals()[literal].as_bytes()
+                self.ast.literal_string(literal).as_bytes()
             }
             RawErrorTerm(.., raw_literal) => &self.ast.raw_literals()[raw_literal],
 
             FieldReference(field) => {
-                self.ast.identifiers()[self.ast.fields()[field].name].as_bytes()
+                self.ast.identifier_string(self.ast.fields()[field].name).as_bytes()
             }
 
             RawIdentifier(identifier)
             | InfixOperator(identifier)
             | PostfixOperator(identifier)
-            | PrefixOperator(identifier) => self.ast.identifiers()[identifier].as_bytes(),
+            | PrefixOperator(identifier) => self.ast.identifier_string(identifier).as_bytes(),
 
             InfixAssignment(identifier) => {
                 // Because of how InfixAssignment works, we store the str for the "+" and assume the "="
-                let bytes = self.ast.identifiers()[identifier].as_bytes();
+                let bytes = self.ast.identifier_string(identifier).as_bytes();
                 if self.index == token_start + bytes.len() {
                     return Some((token_start + bytes.len(), b"="));
                 } else {

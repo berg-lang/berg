@@ -2,6 +2,7 @@
 
 extern crate fnv;
 extern crate num;
+extern crate string_interner;
 
 pub use crate::value::{BergVal, BergValue, BergResult, Error, ErrorCode};
 

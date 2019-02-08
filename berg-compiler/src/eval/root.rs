@@ -1,6 +1,5 @@
 use crate::syntax::identifiers;
 use crate::syntax::{FieldIndex, IdentifierIndex};
-use crate::util::intern_pool::InternPool;
 use crate::value::{BergError, BergResult, BergValue, EvalResult};
 use std;
 use std::env;
@@ -9,6 +8,7 @@ use std::io;
 use std::io::Write;
 use std::path::PathBuf;
 use std::rc::Rc;
+use string_interner::StringInterner;
 
 #[derive(Clone)]
 pub struct RootRef(Rc<RootData>);
@@ -59,11 +59,11 @@ impl RootRef {
         RootRef::new(root_path, out, err)
     }
 
-    pub fn identifiers(&self) -> InternPool<IdentifierIndex> {
+    pub fn identifiers(&self) -> StringInterner<IdentifierIndex> {
         identifiers::intern_all()
     }
 
-    pub fn field_names(&self) -> std::slice::Iter<'static, IdentifierIndex> {
+    pub fn field_names(&self) -> impl ExactSizeIterator<Item=&IdentifierIndex>+fmt::Debug {
         root_fields::NAMES.iter()
     }
 

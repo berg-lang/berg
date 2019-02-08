@@ -406,7 +406,7 @@ impl<'a> fmt::Display for BlockRef<'a> {
                 }
 
                 let field = &ast.fields()[scope_start + index];
-                let name = &ast.identifiers()[field.name];
+                let name = ast.identifier_string(field.name);
 
                 match field_value {
                     Ok(value) => write!(f, "{}: {}", name, value)?,
@@ -455,7 +455,7 @@ impl<'a> fmt::Debug for BlockRef<'a> {
             }
 
             let field = &ast.fields()[scope_start + index];
-            let name = &ast.identifiers()[field.name];
+            let name = ast.identifier_string(field.name);
 
             match field_value {
                 Ok(value) => write!(f, "{}: {}", name, value)?,

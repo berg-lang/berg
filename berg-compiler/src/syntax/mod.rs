@@ -3,8 +3,9 @@ pub use self::expression::{Expression, Operand};
 pub use self::expression_formatter::{ExpressionFormatter, ExpressionTreeFormatter};
 pub mod identifiers;
 
+pub(crate) use self::identifiers::IdentifierIndex;
 pub(crate) use self::ast::{
-    AstData, AstDelta, AstIndex, AstRef, IdentifierIndex, LiteralIndex, OperandPosition,
+    AstData, AstDelta, AstIndex, AstRef, LiteralIndex, OperandPosition,
     RawLiteralIndex,
 };
 pub(crate) use self::block::{AstBlock, BlockIndex, Field, FieldError, FieldIndex};

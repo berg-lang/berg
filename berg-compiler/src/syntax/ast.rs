@@ -1,13 +1,12 @@
 use crate::eval::RootRef;
 use crate::syntax::char_data::CharData;
-use crate::syntax::identifiers;
 use crate::syntax::OperandPosition::*;
 use crate::syntax::{
-    AstBlock, BlockIndex, ByteRange, Expression, Field, FieldIndex, SourceOpenError, SourceReconstruction,
+    AstBlock, BlockIndex, ByteRange, Expression, Field, FieldIndex, IdentifierIndex, SourceOpenError, SourceReconstruction,
     SourceReconstructionReader, SourceRef, Token,
 };
 use crate::util::indexed_vec::IndexedVec;
-use crate::util::intern_pool::{InternPool, StringPool};
+use string_interner::{StringInterner, Sym};
 use crate::value::BergError;
 use std::borrow::Cow;
 use std::io;
@@ -16,10 +15,10 @@ use std::u32;
 
 index_type! {
     pub struct AstIndex(pub u32) with Display,Debug <= u32::MAX;
-    pub struct IdentifierIndex(pub u32) <= u32::MAX;
-    pub struct LiteralIndex(pub u32) with Display,Debug <= u32::MAX;
     pub struct RawLiteralIndex(pub u32) with Display,Debug <= u32::MAX;
 }
+
+pub type LiteralIndex = Sym;
 
 pub type Tokens = IndexedVec<Token, AstIndex>;
 pub type TokenRanges = IndexedVec<ByteRange, AstIndex>;
@@ -35,8 +34,8 @@ pub struct AstRef<'a>(Rc<AstData<'a>>);
 pub struct AstData<'a> {
     pub source: SourceRef<'a>,
     pub char_data: CharData,
-    pub identifiers: InternPool<IdentifierIndex>, // NOTE: if needed we can save space by removing or clearing the StringPool after making this readonly.
-    pub literals: StringPool<LiteralIndex>,
+    pub identifiers: StringInterner<IdentifierIndex>,
+    pub literals: StringInterner<LiteralIndex>,
     pub raw_literals: IndexedVec<Vec<u8>, RawLiteralIndex>,
     pub tokens: Tokens,
     pub token_ranges: TokenRanges,
@@ -115,10 +114,10 @@ impl<'a> AstRef<'a> {
     pub fn char_data(&self) -> &CharData {
         &self.0.char_data
     }
-    pub fn identifiers(&self) -> &InternPool<IdentifierIndex> {
+    pub fn identifiers(&self) -> &StringInterner<IdentifierIndex> {
         &self.0.identifiers
     }
-    pub fn literals(&self) -> &StringPool<LiteralIndex> {
+    pub fn literals(&self) -> &StringInterner<Sym> {
         &self.0.literals
     }
     pub fn raw_literals(&self) -> &IndexedVec<Vec<u8>, RawLiteralIndex> {
@@ -147,10 +146,13 @@ impl<'a> AstRef<'a> {
         self.0.token_ranges[index].clone()
     }
     pub fn identifier_string(&self, index: IdentifierIndex) -> &str {
-        &self.0.identifiers[index]
+        self.0.identifiers.resolve(index).unwrap()
     }
     pub fn literal_string(&self, index: LiteralIndex) -> &str {
-        &self.0.literals[index]
+        self.0.literals.resolve(index).unwrap()
+    }
+    pub fn raw_literal_string(&self, index: RawLiteralIndex) -> &[u8] {
+        &self.0.raw_literals[index]
     }
     pub fn open_error(&self) -> &BergError<'a> {
         &self.0.source_open_error.as_ref().unwrap().0
@@ -183,6 +185,10 @@ impl<'a> AstData<'a> {
     pub fn next_index(&self) -> AstIndex {
         self.tokens.next_index()
     }
+
+    pub fn intern_identifier(&mut self, string: impl Into<String>+AsRef<str>) -> IdentifierIndex {
+        self.identifiers.get_or_intern(string)
+    }
 }
 
 impl<'a> fmt::Display for AstRef<'a> {
@@ -201,25 +207,6 @@ impl<'a> fmt::Display for AstRef<'a> {
             index += 1;
         }
         Ok(())
-    }
-}
-
-impl fmt::Display for IdentifierIndex {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        if self.0 < identifiers::LEN as u32 {
-            write!(f, "{}", identifiers::identifier_string(*self))
-        } else {
-            write!(f, "#{}", self.0)
-        }
-    }
-}
-impl fmt::Debug for IdentifierIndex {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        if self.0 < identifiers::LEN as u32 {
-            write!(f, "{}", identifiers::identifier_string(*self))
-        } else {
-            write!(f, "#{}", self.0)
-        }
     }
 }
 

@@ -112,26 +112,10 @@ impl Token {
             InfixAssignment(identifier) => format!("{}=", ast.identifier_string(identifier)).into(),
 
             NewlineSequence => "\\n".into(),
-            Open { boundary, .. } => match boundary {
-                Parentheses => ast.identifier_string(OPEN_PAREN).into(),
-                CurlyBraces => ast.identifier_string(OPEN_CURLY).into(),
-                CompoundTerm | PrecedenceGroup | AutoBlock | Source | Root => "".into(),
-            },
-            OpenBlock { index, .. } => match ast.blocks()[index].boundary {
-                Parentheses => ast.identifier_string(OPEN_PAREN).into(),
-                CurlyBraces => ast.identifier_string(OPEN_CURLY).into(),
-                CompoundTerm | PrecedenceGroup | AutoBlock | Source | Root => "".into(),
-            },
-            Close { boundary, .. } => match boundary {
-                Parentheses => ast.identifier_string(CLOSE_PAREN).into(),
-                CurlyBraces => ast.identifier_string(CLOSE_CURLY).into(),
-                CompoundTerm | PrecedenceGroup | AutoBlock | Source | Root => "".into(),
-            },
-            CloseBlock { index, .. } => match ast.blocks()[index].boundary {
-                Parentheses => ast.identifier_string(CLOSE_PAREN).into(),
-                CurlyBraces => ast.identifier_string(CLOSE_CURLY).into(),
-                CompoundTerm | PrecedenceGroup | AutoBlock | Source | Root => "".into(),
-            },
+            Open { boundary, .. } => boundary.open_string().into(),
+            OpenBlock { index, .. } => ast.blocks()[index].boundary.open_string().into(),
+            Close { boundary, .. } => boundary.close_string().into(),
+            CloseBlock { index, .. } => ast.blocks()[index].boundary.close_string().into(),
             MissingExpression | Apply => "".into(),
         }
     }
@@ -216,15 +200,15 @@ impl ExpressionBoundary {
     }
     pub(crate) fn open_string(self) -> &'static str {
         match self {
-            CurlyBraces => identifier_string(OPEN_CURLY),
-            Parentheses => identifier_string(OPEN_PAREN),
+            CurlyBraces => OPEN_CURLY.well_known_str(),
+            Parentheses => OPEN_PAREN.well_known_str(),
             PrecedenceGroup | AutoBlock | CompoundTerm | Source | Root => "",
         }
     }
     pub(crate) fn close_string(self) -> &'static str {
         match self {
-            CurlyBraces => identifier_string(CLOSE_CURLY),
-            Parentheses => identifier_string(CLOSE_PAREN),
+            CurlyBraces => CLOSE_CURLY.well_known_str(),
+            Parentheses => CLOSE_PAREN.well_known_str(),
             PrecedenceGroup | AutoBlock | CompoundTerm | Source | Root => "",
         }
     }

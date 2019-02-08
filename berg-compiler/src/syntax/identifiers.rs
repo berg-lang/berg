@@ -1,25 +1,33 @@
-use crate::syntax::IdentifierIndex;
-use crate::util::intern_pool::*;
+use std::fmt;
+use std::num::NonZeroU32;
+use std::ops::Range;
+use std::u32;
+use string_interner::{StringInterner, Symbol};
+
+#[derive(Copy,Clone,PartialEq,Eq,Ord,PartialOrd)]
+pub struct IdentifierIndex(NonZeroU32);
 
 macro_rules! identifiers {
     { $($name:ident = $str:expr),* } => {
-        const ALL_IDENTIFIERS: [(IdentifierIndex, &str); IdentifierIndices::LEN as usize] = [
+        const ALL_IDENTIFIERS: [(IdentifierIndex, &str); IdentifierIndices::COUNT as usize] = [
             $( ($name, $str) ),*
         ];
         // We use this enum to determine the indices
         #[allow(non_camel_case_types)]
         enum IdentifierIndices {
             $($name),*,
-            LEN
+            COUNT
         }
         $(
-            pub const $name: IdentifierIndex = IdentifierIndex(IdentifierIndices::$name as u32);
+            pub const $name: IdentifierIndex = IdentifierIndex(unsafe { NonZeroU32::new_unchecked(IdentifierIndices::$name as u32 + 1) });
         )*
-        pub const LEN: usize = IdentifierIndices::LEN as usize;
+        const IDENTIFIER_RANGE: Range<IdentifierIndex> = Range {
+            start: IdentifierIndex(unsafe { NonZeroU32::new_unchecked(1) }),
+            end: IdentifierIndex(unsafe { NonZeroU32::new_unchecked(IdentifierIndices::COUNT as u32 + 1) })
+        };
     }
 }
 identifiers! {
-    NOT_AN_IDENTIFIER = "<not an identifier>",
     EMPTY_STRING = "",
     STAR = "*",
     SLASH = "/",
@@ -58,17 +66,60 @@ identifiers! {
     COMMA = ","
 }
 
-pub(crate) fn intern_all() -> InternPool<IdentifierIndex> {
-    let mut identifiers = InternPool::default();
-    for operator in ALL_IDENTIFIERS.iter() {
-        let (operator, string) = *operator;
-        let actual_identifier = identifiers.add(string);
+pub(crate) fn intern_all() -> StringInterner<IdentifierIndex> {
+    let mut identifiers = StringInterner::new();
+    for &(operator, string) in ALL_IDENTIFIERS.iter() {
+        let actual_identifier = identifiers.get_or_intern(string);
         assert_eq!(actual_identifier, operator);
     }
     assert_eq!(identifiers.len(), ALL_IDENTIFIERS.len());
     identifiers
 }
 
-pub fn identifier_string(identifier: IdentifierIndex) -> &'static str {
-    ALL_IDENTIFIERS[identifier.0 as usize].1
+impl IdentifierIndex {
+    pub fn well_known_str(self) -> &'static str {
+        self.as_str().unwrap()
+    }
+    pub(crate) fn as_str(self) -> Option<&'static str> {
+        if self >= IDENTIFIER_RANGE.start && self < IDENTIFIER_RANGE.end {
+            Some(ALL_IDENTIFIERS[self.to_usize()].1)
+        } else {
+            None
+        }
+    }
+}
+
+impl Symbol for IdentifierIndex {
+	/// Creates a `IdentifierIndex` from the given `usize`.
+	///
+	/// # Panics
+	///
+	/// If the given `usize` is greater than `u32::MAX - 1`.
+	fn from_usize(val: usize) -> Self {
+		assert!(val < u32::MAX as usize);
+        IdentifierIndex(unsafe { NonZeroU32::new_unchecked((val+1) as u32) })
+	}
+
+	fn to_usize(self) -> usize {
+		(self.0.get() as usize) - 1
+	}
+}
+
+impl fmt::Display for IdentifierIndex {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        if let Some(string) = self.as_str() {
+            write!(f, "{}", string)
+        } else {
+            write!(f, "#{}", self.to_usize())
+        }
+    }
+}
+impl fmt::Debug for IdentifierIndex {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        if let Some(string) = self.as_str() {
+            write!(f, "{}", string)
+        } else {
+            write!(f, "#{}", self.to_usize())
+        }
+    }
 }
