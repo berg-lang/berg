@@ -28,42 +28,40 @@ macro_rules! identifiers {
     }
 }
 identifiers! {
-    EMPTY_STRING = "",
-    STAR = "*",
-    SLASH = "/",
-    PLUS = "+",
-    DASH = "-",
     OPEN_PAREN = "(",
     CLOSE_PAREN = ")",
     OPEN_CURLY = "{",
     CLOSE_CURLY = "}",
     SEMICOLON = ";",
+    NEWLINE = "\n",
+    COLON = ":",
+    DOT = ".",
+    COMMA = ",",
+    APPLY = "<apply>",
+    EMPTY_STRING = "",
+
     AND_AND = "&&",
     OR_OR = "||",
     EXCLAMATION_POINT = "!",
     DOUBLE_EXCLAMATION_POINT = "!!",
+
     EQUAL_TO = "==",
     NOT_EQUAL_TO = "!=",
     GREATER_THAN = ">",
     LESS_THAN = "<",
     GREATER_EQUAL = ">=",
     LESS_EQUAL = "<=",
+
+    STAR = "*",
+    SLASH = "/",
+    PLUS = "+",
+    DASH = "-",
     PLUS_PLUS = "++",
     DASH_DASH = "--",
-    COLON = ":",
+
     TRUE = "true",
     FALSE = "false",
-    FIELDS = "Fields",
-    OPERATORS = "Operators",
-    PREFIX_OPERATORS = "PrefixOperators",
-    SUFFIX_OPERATORS = "SuffixOperators",
-    APPLY = "Call",
-    NEWLINE = "\n",
-    NOTHING = "nothing",
-    NEXT = "Next",
-    DOT = ".",
-    SPACE = " ",
-    COMMA = ","
+    IF = "if"
 }
 
 pub(crate) fn intern_all() -> StringInterner<IdentifierIndex> {

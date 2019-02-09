@@ -123,7 +123,7 @@ impl<'p, 'a: 'p> Iterator for SourceReconstructionIterator<'p, 'a> {
             .next_token()
             .or_else(|| self.next_whitespace_range())
             .or_else(|| self.next_newline())
-            .unwrap_or_else(|| (self.index, SPACE.well_known_str().as_bytes()));
+            .unwrap_or_else(|| (self.index, b" "));
 
         // Clip the beginning of the string if it starts earlier than index.
         match start.cmp(&self.index) {
