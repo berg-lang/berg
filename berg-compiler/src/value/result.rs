@@ -1,42 +1,42 @@
-use crate::syntax::{AstRef, Expression};
 use crate::value::{BergVal, BergError, Error, EvalError};
+use crate::syntax::{ExpressionRef};
 
 pub type BergResult<'a, T = BergVal<'a>> = Result<T, Error<'a>>;
 pub type EvalResult<'a, T = BergVal<'a>> = Result<T, EvalError<'a>>;
 
-pub trait TakeError<'a, T, Expr>: Sized {
-    fn take_error(self, ast: &AstRef<'a>, expression: Expr) -> BergResult<'a, T>;
+pub trait TakeError<'a, T>: Sized {
+    fn take_error(self, expression: impl Into<ExpressionRef<'a>>) -> BergResult<'a, T>;
 }
 
 pub trait UnwindFrame<'a, T>: Sized {
-    fn unwind_frame(self, ast: &AstRef<'a>, expression: Expression) -> BergResult<'a, T>;
+    fn unwind_frame(self, expression: impl Into<ExpressionRef<'a>>) -> BergResult<'a, T>;
 }
 
 impl<'a, T> UnwindFrame<'a, T> for BergResult<'a, T> {
-    fn unwind_frame(self, ast: &AstRef<'a>, expression: Expression) -> BergResult<'a, T> {
+    fn unwind_frame(self, expression: impl Into<ExpressionRef<'a>>) -> BergResult<'a, T> {
         match self {
             Ok(value) => Ok(value),
-            Err(error) => Err(error.push_frame(ast, expression)),
+            Err(error) => Err(error.push_frame(expression.into())),
         }
     }
 }
 impl<'a, T> UnwindFrame<'a, T> for Error<'a> {
-    fn unwind_frame(self, ast: &AstRef<'a>, expression: Expression) -> BergResult<'a, T> {
-        Err(self.push_frame(ast, expression))
+    fn unwind_frame(self, expression: impl Into<ExpressionRef<'a>>) -> BergResult<'a, T> {
+        Err(self.push_frame(expression.into()))
     }
 }
 
-impl<'a, T> TakeError<'a, T, Expression> for EvalResult<'a, T> {
-    fn take_error(self, ast: &AstRef<'a>, expression: Expression) -> BergResult<'a, T> {
+impl<'a, T> TakeError<'a, T> for EvalResult<'a, T> {
+    fn take_error(self, expression: impl Into<ExpressionRef<'a>>) -> BergResult<'a, T> {
         match self {
             Ok(value) => Ok(value),
-            Err(EvalError::Raw(raw)) => raw.take_error(ast, expression),
-            Err(EvalError::Error(error)) => error.unwind_frame(ast, expression),
+            Err(EvalError::Raw(raw)) => raw.take_error(expression),
+            Err(EvalError::Error(error)) => error.unwind_frame(expression),
         }
     }
 }
-impl<'a, T> TakeError<'a, T, Expression> for BergError<'a> {
-    fn take_error(self, ast: &AstRef<'a>, expression: Expression) -> BergResult<'a, T> {
-        Err(Error::new(self, ast, expression))
+impl<'a, T> TakeError<'a, T> for BergError<'a> {
+    fn take_error(self, location: impl Into<ExpressionRef<'a>>) -> BergResult<'a, T> {
+        Err(Error::new(self, location.into()))
     }
 }

@@ -1,9 +1,9 @@
 use crate::eval::{ExpressionEvaluator, ScopeRef};
-use crate::syntax::{AstRef, BlockIndex, Expression, FieldError, FieldIndex, IdentifierIndex, Token};
+use crate::syntax::{Ast, AstIndex, AstRef, BlockIndex, ExpressionRef, FieldError, FieldIndex, IdentifierIndex, Token};
 use crate::util::try_from::TryFrom;
 use crate::util::type_name::TypeName;
 use crate::value::{BergError, BergResult, NextVal, BergVal, BergValue, ErrorCode, EvalResult, EvalError::Raw, TakeError};
-use std::cell::RefCell;
+use std::cell::{Ref, RefCell, RefMut};
 use std::fmt;
 use std::mem;
 use std::rc::Rc;
@@ -17,7 +17,7 @@ use std::rc::Rc;
 pub struct BlockRef<'a>(Rc<RefCell<BlockData<'a>>>);
 
 struct BlockData<'a> {
-    expression: Expression,
+    expression: AstIndex,
     state: BlockState<'a>,
     index: BlockIndex,
     fields: Vec<EvalResult<'a>>,
@@ -39,7 +39,7 @@ impl<'a> BlockRef<'a> {
     /// given scope and input.
     ///
     pub fn new(
-        expression: Expression,
+        expression: AstIndex,
         index: BlockIndex,
         parent: ScopeRef<'a>,
         input: Option<BergVal<'a>>,
@@ -54,7 +54,7 @@ impl<'a> BlockRef<'a> {
         })))
     }
 
-    pub fn create_child_block(&self, expression: Expression, index: BlockIndex) -> Self {
+    pub fn create_child_block(&self, expression: AstIndex, index: BlockIndex) -> Self {
         Self::new(expression, index, ScopeRef::BlockRef(self.clone()), None)
     }
 
@@ -74,7 +74,7 @@ impl<'a> BlockRef<'a> {
         self.ensure_evaluated()?;
         let mut block = self.0.borrow_mut();
         match block.state {
-            BlockState::Running | BlockState::NextVal => BergError::CircularDependency.take_error(&self.ast(), block.expression),
+            BlockState::Running | BlockState::NextVal => BergError::CircularDependency.take_error(self.expression()),
             BlockState::Complete(_) => {
                 if let BlockState::Complete(result) = mem::replace(&mut block.state, replace_with) {
                     result
@@ -100,7 +100,7 @@ impl<'a> BlockRef<'a> {
         self.ensure_evaluated()?;
         let block = self.0.borrow();
         match &block.state {
-            BlockState::Running | BlockState::NextVal => BergError::CircularDependency.take_error(&self.ast(), block.expression),
+            BlockState::Running | BlockState::NextVal => BergError::CircularDependency.take_error(block),
             BlockState::Complete(Ok(Some(ref result))) => Ok(Some(f(result))),
             BlockState::Complete(Ok(None)) => Ok(None),
             BlockState::Complete(Err(error)) => Err(error.clone()),
@@ -117,20 +117,19 @@ impl<'a> BlockRef<'a> {
 
     fn ensure_evaluated(&self) -> BergResult<'a, ()> {
         // Check if the block has already been run (and don't re-run)
-        let ast = self.ast();
-        let expression = {
+        let (ast, expression) = {
             let mut block = self.0.borrow_mut();
             match block.state {
-                BlockState::Running | BlockState::NextVal => return BergError::CircularDependency.take_error(&ast, block.expression),
+                BlockState::Running | BlockState::NextVal => return BergError::CircularDependency.take_error(block),
                 BlockState::Complete(_) => return Ok(()),
                 BlockState::Ready => {}
             }
             block.state = BlockState::Running;
-            block.expression
+            (block.ast(), block.expression)
         };
         // Run the block and stash the result
         let scope = ScopeRef::BlockRef(self.clone());
-        let expression = ExpressionEvaluator::new(&scope, &ast, expression);
+        let expression = ExpressionEvaluator::new(&scope, &ast, expression, None);
         println!("Evaluating block {}", self);
         let result = match expression.token() {
             Token::MissingExpression => Ok(None),
@@ -145,7 +144,7 @@ impl<'a> BlockRef<'a> {
         Ok(())
     }
 
-    pub fn local_field(&self, index: FieldIndex, ast: &AstRef) -> EvalResult<'a> {
+    pub fn local_field(&self, index: FieldIndex, ast: &Ast) -> EvalResult<'a> {
         let scope_start = ast.blocks()[self.0.borrow().index].scope_start;
         let block = self.0.borrow();
         if index >= scope_start {
@@ -159,7 +158,7 @@ impl<'a> BlockRef<'a> {
         }
     }
 
-    pub fn declare_field(&self, field_index: FieldIndex, ast: &AstRef) -> EvalResult<'a, ()> {
+    pub fn declare_field(&self, field_index: FieldIndex, ast: &Ast) -> EvalResult<'a, ()> {
         // Make sure we have enough spots to put the field
         let (input, block_field_index) = {
             let mut block = self.0.borrow_mut();
@@ -208,7 +207,7 @@ impl<'a> BlockRef<'a> {
         &self,
         field_index: FieldIndex,
         value: BergResult<'a>,
-        ast: &AstRef,
+        ast: &Ast,
     ) -> EvalResult<'a, ()> {
         let scope_start = ast.blocks()[self.0.borrow().index].scope_start;
         if field_index < scope_start {
@@ -233,7 +232,7 @@ impl<'a> BlockRef<'a> {
     pub fn bring_local_field_into_scope(
         &self,
         field_index: FieldIndex,
-        ast: &AstRef,
+        ast: &Ast,
     ) -> EvalResult<'a, ()> {
         let scope_start = ast.blocks()[self.0.borrow().index].scope_start;
         let mut block = self.0.borrow_mut();
@@ -252,7 +251,12 @@ impl<'a> BlockRef<'a> {
     }
 
     pub fn ast(&self) -> AstRef<'a> {
-        self.0.borrow().parent.ast().clone()
+        self.0.borrow().ast()
+    }
+
+    pub fn expression(&self) -> ExpressionRef<'a> {
+        let block = self.0.borrow();
+        ExpressionRef::new(block.ast(), block.expression)
     }
 
     pub fn field_error<T>(&self, error: FieldError) -> EvalResult<'a, T> {
@@ -261,6 +265,22 @@ impl<'a> BlockRef<'a> {
             NoSuchPublicField(index) => BergError::NoSuchPublicField(self.clone(), index).err(),
             PrivateField(index) => BergError::PrivateField(self.clone(), index).err(),
         }
+    }
+}
+
+impl<'a> From<&BlockData<'a>> for ExpressionRef<'a> {
+    fn from(from: &BlockData<'a>) -> Self {
+        ExpressionRef::new(from.ast(), from.expression)
+    }
+}
+impl<'p, 'a: 'p> From<Ref<'p, BlockData<'a>>> for ExpressionRef<'a> {
+    fn from(from: Ref<'p, BlockData<'a>>) -> Self {
+        ExpressionRef::new(from.ast(), from.expression)
+    }
+}
+impl<'p, 'a: 'p> From<RefMut<'p, BlockData<'a>>> for ExpressionRef<'a> {
+    fn from(from: RefMut<'p, BlockData<'a>>) -> Self {
+        ExpressionRef::new(from.ast(), from.expression)
     }
 }
 
@@ -384,6 +404,12 @@ impl<'a> BergValue<'a> for BlockRef<'a> {
     }
 }
 
+impl<'a> BlockData<'a> {
+    pub fn ast(&self) -> AstRef<'a> {
+        self.parent.ast()
+    }
+}
+
 impl<'a> fmt::Display for BlockRef<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let block = self.0.borrow();
@@ -416,7 +442,7 @@ impl<'a> fmt::Display for BlockRef<'a> {
             }
             write!(f, "}}")?;
         }
-        write!(f, ", expression: {}", block.expression.to_string(&ast))?;
+        write!(f, ", expression: {}", block.expression)?;
         write!(f, ")")
     }
 }
@@ -463,7 +489,7 @@ impl<'a> fmt::Debug for BlockRef<'a> {
                 Err(error) => write!(f, "{}: {}", name, error)?,
             }
         }
-        write!(f, ", expression: {}, parent: {:?}", block.expression.to_string(&ast), block.parent)?;
+        write!(f, ", expression: {}, parent: {:?}", block.expression, block.parent)?;
         write!(f, "}}")
     }
 }

@@ -1,7 +1,7 @@
 use crate::parser::grouper::Grouper;
 use crate::syntax::Token;
 use crate::syntax::Token::*;
-use crate::syntax::{AstData, ByteIndex, ByteRange, ExpressionBoundary, ExpressionBoundaryError};
+use crate::syntax::{Ast, ByteIndex, ByteRange, ExpressionBoundary, ExpressionBoundaryError};
 
 // This builds up a valid expression from the incoming sequences, doing two things:
 // 1. Inserting apply, newline sequence, and missing expression as appropriate
@@ -17,7 +17,7 @@ pub struct Tokenizer<'a> {
 }
 
 impl<'a> Tokenizer<'a> {
-    pub fn new(ast: AstData<'a>) -> Self {
+    pub fn new(ast: Ast<'a>) -> Self {
         Tokenizer {
             grouper: Grouper::new(ast),
             in_term: false,
@@ -27,10 +27,10 @@ impl<'a> Tokenizer<'a> {
         }
     }
 
-    pub fn ast(&self) -> &AstData<'a> {
+    pub fn ast(&self) -> &Ast<'a> {
         self.grouper.ast()
     }
-    pub fn ast_mut(&mut self) -> &mut AstData<'a> {
+    pub fn ast_mut(&mut self) -> &mut Ast<'a> {
         self.grouper.ast_mut()
     }
 
@@ -56,7 +56,7 @@ impl<'a> Tokenizer<'a> {
     }
 
     // The end of the source closes any open terms, just like space. Also emits "close source."
-    pub fn on_source_end(mut self, end: ByteIndex) -> AstData<'a> {
+    pub fn on_source_end(mut self, end: ByteIndex) -> Ast<'a> {
         let close_token = ExpressionBoundary::Source.placeholder_close_token(self.source_error());
         self.close_term(end);
         self.emit_token(close_token, end..end);

@@ -1,7 +1,7 @@
 use crate::syntax::identifiers::*;
 use crate::syntax::Token::*;
 use crate::syntax::{
-    AstBlock, AstData, AstDelta, AstIndex, BlockIndex, ByteRange, ExpressionBoundary,
+    AstBlock, Ast, AstDelta, AstIndex, BlockIndex, ByteRange, ExpressionBoundary,
     ExpressionBoundaryError, Field, FieldIndex, IdentifierIndex, Token,
 };
 use crate::util::indexed_vec::Delta;
@@ -11,7 +11,7 @@ use crate::util::indexed_vec::Delta;
 // groups where it can.
 #[derive(Debug)]
 pub struct Binder<'a> {
-    pub ast: AstData<'a>,
+    pub ast: Ast<'a>,
     open_scopes: Vec<OpenScope>,
     scope: Vec<FieldIndex>,
 }
@@ -24,7 +24,7 @@ pub struct OpenScope {
 }
 
 impl<'a> Binder<'a> {
-    pub fn new(ast: AstData<'a>) -> Self {
+    pub fn new(ast: Ast<'a>) -> Self {
         // Grab the root field names
         let scope = (0..ast.source.root().field_names().len())
             .map(|i| i.into())
@@ -55,7 +55,7 @@ impl<'a> Binder<'a> {
         result
     }
 
-    pub fn on_source_end(self) -> AstData<'a> {
+    pub fn on_source_end(self) -> Ast<'a> {
         self.ast
     }
 

@@ -1,12 +1,12 @@
 use crate::syntax::identifiers::*;
-use crate::syntax::{AstIndex, AstRef, ByteIndex, ByteRange, Token};
+use crate::syntax::{Ast, AstIndex, ByteIndex, ByteRange, Expression, Token};
 use std::cmp;
 use std::fmt;
 use std::io;
 use std::io::Read;
 
 pub struct SourceReconstruction<'p, 'a: 'p> {
-    ast: &'p AstRef<'a>,
+    ast: &'p Ast<'a>,
     range: ByteRange,
 }
 
@@ -17,7 +17,7 @@ pub struct SourceReconstructionReader<'p, 'a: 'p> {
 
 /// Iterates through tokens and space, yielding &str's that reconstruct the file.
 struct SourceReconstructionIterator<'p, 'a: 'p> {
-    ast: &'p AstRef<'a>,
+    ast: &'p Ast<'a>,
     index: ByteIndex,
     end: ByteIndex,
     ast_index: AstIndex,
@@ -25,8 +25,14 @@ struct SourceReconstructionIterator<'p, 'a: 'p> {
     line_index: usize,
 }
 
+impl<'p, 'a: 'p, Context: Copy+Clone+fmt::Debug> Expression<'p, 'a, Context> {
+    pub fn reconstruct_source(self) -> SourceReconstruction<'p, 'a> {
+        SourceReconstruction::new(self.ast(), self.range())
+    }
+}
+
 impl<'p, 'a: 'p> SourceReconstruction<'p, 'a> {
-    pub fn new(ast: &'p AstRef<'a>, range: ByteRange) -> Self {
+    pub fn new(ast: &'p Ast<'a>, range: ByteRange) -> Self {
         SourceReconstruction { ast, range }
     }
     pub fn to_string(&self) -> String {
@@ -57,7 +63,7 @@ impl<'p, 'a: 'p> fmt::Display for SourceReconstruction<'p, 'a> {
 }
 
 impl<'p, 'a: 'p> SourceReconstructionReader<'p, 'a> {
-    pub fn new(ast: &'p AstRef<'a>, range: ByteRange) -> Self {
+    pub fn new(ast: &'p Ast<'a>, range: ByteRange) -> Self {
         SourceReconstructionReader {
             iterator: SourceReconstructionIterator::new(ast, range),
             buffered: None,
@@ -91,7 +97,7 @@ impl<'p, 'a: 'p> io::Read for SourceReconstructionReader<'p, 'a> {
 }
 
 impl<'p, 'a: 'p> SourceReconstructionIterator<'p, 'a> {
-    fn new(ast: &'p AstRef<'a>, range: ByteRange) -> Self {
+    fn new(ast: &'p Ast<'a>, range: ByteRange) -> Self {
         assert!(ast.tokens().len() > 0);
         let index = range.start;
         SourceReconstructionIterator {
@@ -242,7 +248,7 @@ impl<'p, 'a: 'p> SourceReconstructionIterator<'p, 'a> {
     }
 }
 
-fn find_ast_index(ast: &AstRef, index: ByteIndex) -> AstIndex {
+fn find_ast_index(ast: &Ast, index: ByteIndex) -> AstIndex {
     let ast_index = ast
         .token_ranges()
         .iter()
@@ -250,7 +256,7 @@ fn find_ast_index(ast: &AstRef, index: ByteIndex) -> AstIndex {
     ast_index.unwrap_or_else(|| ast.token_ranges().last_index())
 }
 
-fn find_whitespace_indices(ast: &AstRef, index: ByteIndex) -> Vec<usize> {
+fn find_whitespace_indices(ast: &Ast, index: ByteIndex) -> Vec<usize> {
     ast.char_data()
         .whitespace
         .char_ranges

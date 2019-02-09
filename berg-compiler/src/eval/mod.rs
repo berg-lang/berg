@@ -12,11 +12,10 @@ pub use self::scope::ScopeRef;
 use crate::syntax::AstRef;
 use crate::value::BergResult;
 
-#[allow(clippy::needless_pass_by_value)]
 pub fn evaluate_ast(ast: AstRef) -> BergResult {
-    let scope = ScopeRef::AstRef(ast);
+    let scope = ScopeRef::AstRef(ast.clone());
     if let ScopeRef::AstRef(ref ast) = scope {
-        ExpressionEvaluator::new(&scope, ast, ast.expression()).evaluate()
+        ast.expression().with_context(&scope).evaluate()
     } else {
         unreachable!()
     }

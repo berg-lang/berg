@@ -10,6 +10,7 @@ use string_interner::{StringInterner, Sym};
 use crate::value::BergError;
 use std::borrow::Cow;
 use std::io;
+use std::ops::Deref;
 use std::rc::Rc;
 use std::u32;
 
@@ -26,12 +27,12 @@ pub type TokenRanges = IndexedVec<ByteRange, AstIndex>;
 // So we can signify that something is meant to be a *difference* between indices.
 pub type AstDelta = Delta<AstIndex>;
 
-// TODO stuff AstData into SourceData, and don't have AstRef anymore.
+// TODO stuff Ast into SourceData, and don't have AstRef anymore.
 #[derive(Clone)]
-pub struct AstRef<'a>(Rc<AstData<'a>>);
+pub struct AstRef<'a>(Rc<Ast<'a>>);
 
 #[derive(Debug)]
-pub struct AstData<'a> {
+pub struct Ast<'a> {
     pub source: SourceRef<'a>,
     pub char_data: CharData,
     pub identifiers: StringInterner<IdentifierIndex>,
@@ -52,11 +53,11 @@ pub enum OperandPosition {
     PostfixOperand,
 }
 
-impl<'a> AstData<'a> {
+impl<'a> Ast<'a> {
     pub fn new(
         source: SourceRef<'a>,
         source_open_error: Option<SourceOpenError<'a>>,
-    ) -> AstData<'a> {
+    ) -> Ast<'a> {
         let identifiers = source.root().identifiers();
         let fields = source
             .root()
@@ -66,7 +67,7 @@ impl<'a> AstData<'a> {
                 is_public: false,
             })
             .collect();
-        AstData {
+        Ast {
             source,
             identifiers,
             fields,
@@ -83,21 +84,89 @@ impl<'a> AstData<'a> {
 }
 
 impl<'a> AstRef<'a> {
-    pub fn new(data: AstData<'a>) -> Self {
+    pub fn new(data: Ast<'a>) -> Self {
         AstRef(Rc::new(data))
     }
+}
 
+impl<'a> fmt::Debug for AstRef<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Ast({:?})", self.source().name())
+    }
+}
+
+impl<'a> Deref for AstRef<'a> {
+    type Target = Ast<'a>;
+    fn deref(&self) -> &Ast<'a> {
+        &self.0
+    }
+}
+
+impl<'a> Ast<'a> {
     pub fn source(&self) -> &SourceRef<'a> {
-        &self.0.source
+        &self.source
     }
     pub fn root(&self) -> &RootRef {
         self.source().root()
     }
-
-    pub fn expression(&self) -> Expression {
-        assert_ne!(self.0.tokens.len(), 0);
-        Expression(AstIndex(0))
+    pub fn char_data(&self) -> &CharData {
+        &self.char_data
     }
+    pub fn identifiers(&self) -> &StringInterner<IdentifierIndex> {
+        &self.identifiers
+    }
+    pub fn literals(&self) -> &StringInterner<Sym> {
+        &self.literals
+    }
+    pub fn raw_literals(&self) -> &IndexedVec<Vec<u8>, RawLiteralIndex> {
+        &self.raw_literals
+    }
+    pub fn tokens(&self) -> &IndexedVec<Token, AstIndex> {
+        &self.tokens
+    }
+    pub fn token_ranges(&self) -> &IndexedVec<ByteRange, AstIndex> {
+        &self.token_ranges
+    }
+    pub fn fields(&self) -> &IndexedVec<Field, FieldIndex> {
+        &self.fields
+    }
+    pub fn blocks(&self) -> &IndexedVec<AstBlock, BlockIndex> {
+        &self.blocks
+    }
+
+    pub fn token(&self, index: AstIndex) -> &Token {
+        &self.tokens[index]
+    }
+    pub fn token_string(&self, index: AstIndex) -> Cow<str> {
+        self.tokens[index].to_string(self)
+    }
+    pub fn token_range(&self, index: AstIndex) -> ByteRange {
+        self.token_ranges[index].clone()
+    }
+    pub fn identifier_string(&self, index: IdentifierIndex) -> &str {
+        self.identifiers.resolve(index).unwrap()
+    }
+    pub fn literal_string(&self, index: LiteralIndex) -> &str {
+        self.literals.resolve(index).unwrap()
+    }
+    pub fn raw_literal_string(&self, index: RawLiteralIndex) -> &[u8] {
+        &self.raw_literals[index]
+    }
+    pub fn open_error(&self) -> &BergError<'a> {
+        &self.source_open_error.as_ref().unwrap().0
+    }
+    pub fn open_io_error(&self) -> &io::Error {
+        &self.source_open_error.as_ref().unwrap().1
+    }
+    pub fn field_name(&self, index: FieldIndex) -> &str {
+        self.identifier_string(self.fields()[index].name)
+    }
+
+    pub fn expression<'p>(&'p self) -> Expression<'p, 'a> {
+        assert_ne!(self.tokens.len(), 0);
+        Expression::new((), self, AstIndex(0), None)
+    }
+
     pub fn read_bytes<'p>(&'p self) -> SourceReconstructionReader<'p, 'a>
     where
         'a: 'p,
@@ -111,67 +180,6 @@ impl<'a> AstRef<'a> {
         SourceReconstruction::new(self, 0.into()..self.char_data().size).to_string()
     }
 
-    pub fn char_data(&self) -> &CharData {
-        &self.0.char_data
-    }
-    pub fn identifiers(&self) -> &StringInterner<IdentifierIndex> {
-        &self.0.identifiers
-    }
-    pub fn literals(&self) -> &StringInterner<Sym> {
-        &self.0.literals
-    }
-    pub fn raw_literals(&self) -> &IndexedVec<Vec<u8>, RawLiteralIndex> {
-        &self.0.raw_literals
-    }
-    pub fn tokens(&self) -> &IndexedVec<Token, AstIndex> {
-        &self.0.tokens
-    }
-    pub fn token_ranges(&self) -> &IndexedVec<ByteRange, AstIndex> {
-        &self.0.token_ranges
-    }
-    pub fn fields(&self) -> &IndexedVec<Field, FieldIndex> {
-        &self.0.fields
-    }
-    pub fn blocks(&self) -> &IndexedVec<AstBlock, BlockIndex> {
-        &self.0.blocks
-    }
-
-    pub fn token(&self, index: AstIndex) -> &Token {
-        &self.0.tokens[index]
-    }
-    pub fn token_string(&self, index: AstIndex) -> Cow<str> {
-        self.0.tokens[index].to_string(self)
-    }
-    pub fn token_range(&self, index: AstIndex) -> ByteRange {
-        self.0.token_ranges[index].clone()
-    }
-    pub fn identifier_string(&self, index: IdentifierIndex) -> &str {
-        self.0.identifiers.resolve(index).unwrap()
-    }
-    pub fn literal_string(&self, index: LiteralIndex) -> &str {
-        self.0.literals.resolve(index).unwrap()
-    }
-    pub fn raw_literal_string(&self, index: RawLiteralIndex) -> &[u8] {
-        &self.0.raw_literals[index]
-    }
-    pub fn open_error(&self) -> &BergError<'a> {
-        &self.0.source_open_error.as_ref().unwrap().0
-    }
-    pub fn open_io_error(&self) -> &io::Error {
-        &self.0.source_open_error.as_ref().unwrap().1
-    }
-    pub fn field_name(&self, index: FieldIndex) -> &str {
-        self.identifier_string(self.fields()[index].name)
-    }
-}
-
-impl<'a> fmt::Debug for AstRef<'a> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Ast({:?})", self.source().name())
-    }
-}
-
-impl<'a> AstData<'a> {
     pub fn push_token(&mut self, token: Token, range: ByteRange) -> AstIndex {
         self.tokens.push(token);
         self.token_ranges.push(range)
@@ -207,15 +215,6 @@ impl<'a> fmt::Display for AstRef<'a> {
             index += 1;
         }
         Ok(())
-    }
-}
-
-impl OperandPosition {
-    pub(crate) fn get(self, expression: Expression, ast: &AstRef) -> Expression {
-        match self {
-            Left | PostfixOperand => expression.left_expression(ast),
-            Right | PrefixOperand => expression.right_expression(ast),
-        }
     }
 }
 

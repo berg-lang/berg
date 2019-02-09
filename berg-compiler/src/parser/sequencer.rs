@@ -3,7 +3,7 @@ use crate::parser::sequencer::CharType::*;
 use crate::parser::tokenizer::Tokenizer;
 use crate::syntax::ExpressionBoundary::*;
 use crate::syntax::Token::*;
-use crate::syntax::{AstData, ByteIndex, ByteSlice, IdentifierIndex};
+use crate::syntax::{Ast, ByteIndex, ByteSlice, IdentifierIndex};
 use crate::util::indexed_vec::Delta;
 use crate::value::ErrorCode;
 use std::str;
@@ -39,13 +39,13 @@ pub struct Sequencer<'a> {
 }
 
 impl<'a> Sequencer<'a> {
-    pub fn new(ast: AstData<'a>) -> Self {
+    pub fn new(ast: Ast<'a>) -> Self {
         Sequencer {
             tokenizer: Tokenizer::new(ast),
         }
     }
 
-    pub fn parse_buffer(mut self, buffer: &ByteSlice) -> AstData<'a> {
+    pub fn parse_buffer(mut self, buffer: &ByteSlice) -> Ast<'a> {
         let mut scanner = Scanner::default();
         let mut start = scanner.index;
 
@@ -81,7 +81,7 @@ impl<'a> Sequencer<'a> {
         self.tokenizer.on_source_end(scanner.index)
     }
 
-    pub fn ast_mut(&mut self) -> &mut AstData<'a> {
+    pub fn ast_mut(&mut self) -> &mut Ast<'a> {
         self.tokenizer.ast_mut()
     }
 

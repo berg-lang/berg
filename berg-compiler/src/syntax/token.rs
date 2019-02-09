@@ -2,7 +2,7 @@ use crate::syntax::identifiers::*;
 use crate::syntax::token::Token::*;
 use crate::syntax::ExpressionBoundary::*;
 use crate::syntax::precedence::Precedence;
-use crate::syntax::{AstDelta, AstRef, BlockIndex, FieldIndex, IdentifierIndex, LiteralIndex, RawLiteralIndex};
+use crate::syntax::{Ast, AstDelta, BlockIndex, FieldIndex, IdentifierIndex, LiteralIndex, RawLiteralIndex};
 use crate::value::ErrorCode;
 use std::borrow::Cow;
 use std::fmt;
@@ -97,7 +97,7 @@ impl Token {
     pub fn has_right_operand(self) -> bool {
         self.fixity().has_right_operand()
     }
-    pub fn to_string<'p, 'a: 'p>(&'p self, ast: &'p AstRef<'a>) -> Cow<'p, str> {
+    pub fn to_string<'p, 'a: 'p>(&self, ast: &'p Ast<'a>) -> Cow<'p, str> {
         match *self {
             IntegerLiteral(literal) => ast.literal_string(literal).into(),
             ErrorTerm(code, ..) | RawErrorTerm(code, ..) => format!("error({:?})", code).into(),

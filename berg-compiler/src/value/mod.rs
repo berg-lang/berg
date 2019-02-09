@@ -8,7 +8,7 @@ mod result;
 mod tuple;
 
 pub use self::berg_val::{BergVal, NextVal};
-pub use self::error::{BergError, Error, ErrorCode, EvalError};
+pub use self::error::{BergError, Error, ErrorCode, ErrorLocation, EvalError};
 pub use self::result::{BergResult, EvalResult, TakeError, UnwindFrame};
 pub use self::nothing::Nothing;
 pub use self::tuple::Tuple;

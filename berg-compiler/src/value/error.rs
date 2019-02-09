@@ -1,6 +1,6 @@
 use crate::eval::BlockRef;
 use crate::syntax::{
-    AstRef, ByteRange, Expression, FieldIndex, Fixity, IdentifierIndex, LineColumnRange, LiteralIndex,
+    AstRef, AstIndex, ByteRange, Expression, ExpressionRef, FieldIndex, Fixity, IdentifierIndex, LineColumnRange, LiteralIndex,
     OperandPosition, RawLiteralIndex,
 };
 use crate::value::*;
@@ -9,7 +9,7 @@ use std::fmt;
 #[derive(Debug, Clone)]
 pub struct Error<'a> {
     pub error: BergError<'a>,
-    pub stack: Vec<(AstRef<'a>, Expression)>,
+    pub stack: Vec<ExpressionRef<'a>>,
 }
 
 ///
@@ -92,9 +92,11 @@ pub enum ErrorCode {
     ImmutableField,
 }
 
+#[derive(Debug, Clone)]
 pub enum ErrorLocation<'a> {
     Generic,
     SourceOnly(AstRef<'a>),
+    SourceExpression(AstRef<'a>, AstIndex),
     SourceRange(AstRef<'a>, ByteRange),
 }
 
@@ -112,30 +114,31 @@ impl<'a> From<Error<'a>> for EvalError<'a> {
 
 impl<'a> ErrorLocation<'a> {
     pub fn range(&self) -> LineColumnRange {
-        match *self {
-            ErrorLocation::SourceRange(ref ast, ref range) => ast.char_data().range(range),
+        match self {
+            ErrorLocation::SourceExpression(ast, _) | ErrorLocation::SourceRange(ast, _) => ast.char_data().range(&self.byte_range()),
             _ => unreachable!(),
         }
     }
-    pub fn byte_range(&self) -> &ByteRange {
-        match *self {
-            ErrorLocation::SourceRange(_, ref range) => range,
+    pub fn byte_range(&self) -> ByteRange {
+        match self {
+            ErrorLocation::SourceExpression(ast, index) => Expression::new((), ast, *index, None).range(),
+            ErrorLocation::SourceRange(_, range) => range.clone(),
             _ => unreachable!(),
         }
     }
 }
 
 impl<'a> Error<'a> {
-    pub fn new(error: BergError<'a>, ast: &AstRef<'a>, expression: Expression) -> Self {
+    pub fn new(error: BergError<'a>, expression: ExpressionRef<'a>) -> Self {
         Error {
             error,
             stack: Default::default(),
         }
-        .push_frame(ast, expression)
+        .push_frame(expression)
     }
 
-    pub fn push_frame(mut self, ast: &AstRef<'a>, expression: Expression) -> Self {
-        self.stack.push((ast.clone(), expression));
+    pub fn push_frame(mut self, expression: ExpressionRef<'a>) -> Self {
+        self.stack.push(expression);
         self
     }
 
@@ -143,39 +146,44 @@ impl<'a> Error<'a> {
         self.error.code()
     }
 
+    pub fn expression(&self) -> ExpressionRef<'a> {
+        self.stack.first().unwrap().clone()
+    }
+
     pub fn location(&self) -> ErrorLocation<'a> {
         use self::BergError::*;
         use self::ErrorLocation::*;
-        let ast = self.ast();
+        let expression = self.expression();
         match self.error {
             // File open errors
             CurrentDirectoryError => ErrorLocation::Generic,
             SourceNotFound | IoOpenError | IoReadError | SourceTooLarge(..) => {
-                SourceOnly(ast.clone())
+                SourceOnly(expression.ast)
             }
 
-            MissingExpression | UnsupportedOperator(..) => SourceRange(
-                ast.clone(),
-                ast.token_ranges()[self.expression().operator()].clone(),
-            ),
+            MissingExpression | UnsupportedOperator(..) => {
+                let range = expression.ast.token_ranges()[expression.expression().operator()].clone();
+                SourceRange(expression.ast, range)
+            },
             BadOperandType(position, ..) => {
-                SourceRange(ast.clone(), position.get(self.expression(), ast).range(ast))
+                let operand = expression.expression().child(position).index();
+                SourceExpression(expression.ast, operand)
             }
 
-            DivideByZero => SourceRange(
-                ast.clone(),
-                self.expression().right_expression(ast).range(ast),
-            ),
+            DivideByZero => {
+                let operand = expression.expression().right_expression().range();
+                SourceRange(expression.ast, operand)
+            }
 
-            OpenWithoutClose => SourceRange(
-                ast.clone(),
-                ast.token_ranges()[self.expression().open_operator(ast)].clone(),
-            ),
+            OpenWithoutClose => {
+                let range = expression.ast.token_ranges()[expression.expression().open_operator()].clone();
+                SourceRange(expression.ast, range)
+            }
 
-            CloseWithoutOpen => SourceRange(
-                ast.clone(),
-                ast.token_ranges()[self.expression().close_operator(ast)].clone(),
-            ),
+            CloseWithoutOpen => {
+                let range = expression.ast.token_ranges()[expression.expression().close_operator()].clone();
+                SourceRange(expression.ast, range)
+            }
 
             // Expression errors
             InvalidUtf8(..)
@@ -190,20 +198,8 @@ impl<'a> Error<'a> {
             | CircularDependency
             | ImmutableFieldOnRoot(..)
             | PrivateField(..)
-            | BadType(..) => ErrorLocation::SourceRange(ast.clone(), self.expression().range(ast)),
+            | BadType(..) => ErrorLocation::SourceExpression(expression.ast, expression.index),
         }
-    }
-
-    fn ast_location(&self) -> &(AstRef<'a>, Expression) {
-        self.stack.first().unwrap()
-    }
-
-    fn ast(&self) -> &AstRef<'a> {
-        &self.ast_location().0
-    }
-
-    fn expression(&self) -> Expression {
-        self.ast_location().1
     }
 }
 
@@ -251,44 +247,43 @@ impl<'a> fmt::Display for Error<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         use BergError::*;
         let expression = self.expression();
-        let ast = self.ast();
         match self.error {
             SourceNotFound => write!(
                 f,
                 "I/O error getting current directory path {:?} ({}): {}",
-                ast.source().absolute_path().unwrap(),
-                ast.source().name(),
-                ast.open_io_error()
+                expression.ast.source().absolute_path().unwrap(),
+                expression.ast.source().name(),
+                expression.ast.open_io_error()
             ),
             IoOpenError => write!(
                 f,
                 "I/O error opening {:?} ({}): {}",
-                ast.source().absolute_path().unwrap(),
-                ast.source().name(),
-                ast.open_io_error()
+                expression.ast.source().absolute_path().unwrap(),
+                expression.ast.source().name(),
+                expression.ast.open_io_error()
             ),
             IoReadError => write!(
                 f,
                 "I/O error reading {:?} ({}): {}",
-                ast.source().absolute_path().unwrap(),
-                ast.source().name(),
-                ast.open_io_error()
+                expression.ast.source().absolute_path().unwrap(),
+                expression.ast.source().name(),
+                expression.ast.open_io_error()
             ),
             CurrentDirectoryError => write!(
                 f,
                 "I/O error getting current directory to determine path of {:?}: {}",
-                ast.source().name(),
-                ast.root().root_path().as_ref().unwrap_err()
+                expression.ast.source().name(),
+                expression.ast.root().root_path().as_ref().unwrap_err()
             ),
             SourceTooLarge(size) => write!(
                 f,
                 "SourceRef file {} too large ({} bytes): source files greater than 4GB are unsupported.",
-                ast.source().name(),
+                expression.ast.source().name(),
                 size
             ),
             InvalidUtf8(raw_literal) => {
                 write!(f, "Invalid UTF-8 bytes! Perhaps this isn't a Berg UTF-8 source file? Invalid bytes: '")?;
-                let bytes = ast.raw_literal_string(raw_literal);
+                let bytes = expression.ast.raw_literal_string(raw_literal);
                 // Only print up to the first 12 bytes to prevent the error message from being ridiculous
                 let print_max = 12.min(bytes.len());
                 for byte in &bytes[0..print_max] {
@@ -299,107 +294,107 @@ impl<'a> fmt::Display for Error<'a> {
                 }
                 write!(f, "'")
             }
-            UnsupportedCharacters(literal) => write!(f, "Unsupported Unicode characters! Perhaps this isn't a Berg source file? Unsupported characters: '{}'", ast.literal_string(literal)),
+            UnsupportedCharacters(literal) => write!(f, "Unsupported Unicode characters! Perhaps this isn't a Berg source file? Unsupported characters: '{}'", expression.ast.literal_string(literal)),
             OpenWithoutClose => write!(
                 f,
                 "Open '{}' found without a matching close '{}'.",
-                expression.open_token(ast).to_string(ast),
-                expression.boundary(ast).close_string()
+                expression.expression().open_token().to_string(&expression.ast),
+                expression.expression().boundary().close_string()
             ),
             CloseWithoutOpen => write!(
                 f,
                 "Close '{}' found without a matching open '{}'.",
-                expression.close_token(ast).to_string(ast),
-                expression.boundary(ast).open_string()
+                expression.expression().close_token().to_string(&expression.ast),
+                expression.expression().boundary().open_string()
             ),
             UnsupportedOperator(ref value, fixity, identifier) => write!(
                 f,
                 "Unsupported {} operator {} on value {}",
                 fixity,
-                ast.identifier_string(identifier),
+                expression.ast.identifier_string(identifier),
                 value
             ),
             DivideByZero => write!(
                 f,
                 "Division by zero is illegal. Perhaps you meant a different number on the right hand side of the '{}'?",
-                expression.token(ast).to_string(ast)
+                expression.expression().token().to_string(&expression.ast)
             ),
             NoSuchField(field_index) => write!(
                 f,
                 "No such field: '{}'",
-                ast.field_name(field_index)
+                expression.ast.field_name(field_index)
             ),
             FieldNotSet(field_index) => write!(
                 f,
                 "Field '{}' was declared, but never set to a value!",
-                ast.field_name(field_index)
+                expression.ast.field_name(field_index)
             ),
             NoSuchPublicField(ref block, name) => write!(
                 f,
                 "No field '{}' exists on '{}'! Perhaps it's a misspelling?",
-                ast.identifier_string(name),
+                expression.ast.identifier_string(name),
                 block
             ),
             NoSuchPublicFieldOnValue(ref value, name) => write!(
                 f,
                 "No field '{}' exists on '{}'! Perhaps it's a misspelling?",
-                ast.identifier_string(name),
+                expression.ast.identifier_string(name),
                 value
             ),
             NoSuchPublicFieldOnRoot(name) => write!(
                 f,
                 "No field '{}' exists on the root! Also, how did you manage to do '.' on the root?",
-                ast.identifier_string(name)
+                expression.ast.identifier_string(name)
             ),
             PrivateField(ref value, name) => write!(
                 f,
                 "Field '{}' on '{}' is private and cannot be accessed with '.'! Perhaps you meant to declare the field with ':{}' instead of '{}'?",
-                ast.identifier_string(name),
+                expression.ast.identifier_string(name),
                 value,
-                ast.identifier_string(name),
-                ast.identifier_string(name)
+                expression.ast.identifier_string(name),
+                expression.ast.identifier_string(name)
             ),
             ImmutableFieldOnRoot(field_index) => write!(
                 f,
                 "'{}' cannot be modified!",
-                ast.field_name(field_index)
+                expression.ast.field_name(field_index)
             ),
             IdentifierStartsWithNumber(literal) => write!(
                 f,
                 "Field names must start with letters or '_', but '{}' starts with a number! You may have mistyped the field name, or missed an operator?",
-                ast.literal_string(literal)
+                expression.ast.literal_string(literal)
             ),
             CircularDependency => write!(
                 f,
                 "Circular dependency at '{}'!",
-                expression.to_string(ast)
+                expression
             ),
             MissingExpression => write!(
                 f,
                 "Operator {} has no value on {} to operate on!",
-                expression.token(ast).to_string(ast),
-                expression.operand_position(ast)
+                expression.expression().token().to_string(&expression.ast),
+                expression.expression().operand_position()
             ),
             AssignmentTargetMustBeIdentifier => write!(
                 f,
                 "The assignment operator '{operator}' must have a field declaration or name on {position} (like \":foo {operator} ...\" or \"foo {operator} ...\": {position} is currently {operand}.",
-                operator = expression.parent(ast).token(ast).to_string(ast),
-                position = expression.operand_position(ast),
-                operand = expression.to_string(ast),
+                operator = expression.expression().parent().token().to_string(&expression.ast),
+                position = expression.expression().operand_position(),
+                operand = expression,
             ),
             BadOperandType(position,ref actual_value,expected_type) => write!(
                 f,
                 "The value of '{operand}' is {actual_value}, but {position} '{operator}' must be an {expected_type}!",
-                operand = position.get(expression, ast).to_string(ast),
+                operand = expression.expression().child(position),
                 actual_value = actual_value,
                 position = position,
-                operator = expression.token(ast).to_string(ast),
+                operator = expression.expression().token_string(),
                 expected_type = expected_type
             ),
             BadType(ref actual_value,expected_type) => write!(
                 f,
                 "The value of '{}' is {}, but we expected {}!",
-                expression.to_string(ast),
+                expression,
                 actual_value,
                 expected_type
             ),
@@ -408,8 +403,8 @@ impl<'a> fmt::Display for Error<'a> {
 }
 
 impl<'a> BergError<'a> {
-    pub fn push_frame(self, ast: &AstRef<'a>, expression: Expression) -> Error<'a> {
-        Error::new(self, ast, expression)
+    pub fn push_frame(self, expression: ExpressionRef<'a>) -> Error<'a> {
+        Error::new(self, expression)
     }
 
     pub fn err<T>(self) -> Result<T, EvalError<'a>> {

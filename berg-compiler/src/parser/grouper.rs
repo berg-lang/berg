@@ -3,7 +3,7 @@ use crate::syntax::identifiers::COLON;
 use crate::syntax::ExpressionBoundary::*;
 use crate::syntax::Token::*;
 use crate::syntax::{
-    AstData, AstIndex, ByteRange, ExpressionBoundary, ExpressionBoundaryError, Fixity, Token,
+    Ast, AstIndex, ByteRange, ExpressionBoundary, ExpressionBoundaryError, Fixity, Token,
 };
 
 // Handles nesting and precedence: balances (), {}, and compound terms, and
@@ -23,17 +23,17 @@ struct OpenExpression {
 }
 
 impl<'a> Grouper<'a> {
-    pub fn new(ast: AstData<'a>) -> Self {
+    pub fn new(ast: Ast<'a>) -> Self {
         Grouper {
             binder: Binder::new(ast),
             open_expressions: Default::default(),
         }
     }
 
-    pub fn ast(&self) -> &AstData<'a> {
+    pub fn ast(&self) -> &Ast<'a> {
         &self.binder.ast
     }
-    pub fn ast_mut(&mut self) -> &mut AstData<'a> {
+    pub fn ast_mut(&mut self) -> &mut Ast<'a> {
         &mut self.binder.ast
     }
 
@@ -84,7 +84,7 @@ impl<'a> Grouper<'a> {
         }
     }
 
-    pub fn on_source_end(self) -> AstData<'a> {
+    pub fn on_source_end(self) -> Ast<'a> {
         self.binder.on_source_end()
     }
 

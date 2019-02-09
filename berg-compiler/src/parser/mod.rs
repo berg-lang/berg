@@ -4,7 +4,7 @@ mod sequencer;
 mod tokenizer;
 
 use self::sequencer::Sequencer;
-use crate::syntax::{AstData, AstRef, ExpressionTreeFormatter, SourceBuffer, SourceRef};
+use crate::syntax::{Ast, AstRef, SourceBuffer, SourceRef};
 
 ///
 /// Opens and parses the source into an AST.
@@ -22,10 +22,10 @@ pub fn parse(source: SourceRef) -> AstRef {
         buffer,
         source_open_error,
     } = source.open();
-    let sequencer = Sequencer::new(AstData::new(source, source_open_error));
+    let sequencer = Sequencer::new(Ast::new(source, source_open_error));
     let ast = AstRef::new(sequencer.parse_buffer(&buffer));
     println!();
     println!("Parsed:");
-    print!("{}", ExpressionTreeFormatter(ast.expression(), &ast, 1));
+    print!("{}", ast.expression().format_tree());
     ast
 }
