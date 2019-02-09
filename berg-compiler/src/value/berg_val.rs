@@ -1,7 +1,7 @@
 use crate::eval::BlockRef;
 use crate::value::*;
-use std::fmt;
 use num::BigRational;
+use std::fmt;
 
 ///
 /// A concrete type that can hold any `BergValue`, and delegates operations to the concrete type.
@@ -65,12 +65,21 @@ impl<'a> NextVal<'a> {
         NextVal(None)
     }
     pub fn single(value: BergVal<'a>) -> NextVal<'a> {
-        assert!(match value { BergVal::Nothing => false, _ => true });
+        assert!(match value {
+            BergVal::Nothing => false,
+            _ => true,
+        });
         NextVal(Some((value, None)))
     }
     pub fn head_tail(head: BergVal<'a>, tail: BergVal<'a>) -> NextVal<'a> {
-        assert!(match head { BergVal::Nothing => false, _ => true });
-        assert!(match tail { BergVal::Nothing => false, _ => true });
+        assert!(match head {
+            BergVal::Nothing => false,
+            _ => true,
+        });
+        assert!(match tail {
+            BergVal::Nothing => false,
+            _ => true,
+        });
         NextVal(Some((head, Some(tail))))
     }
 }
@@ -98,9 +107,10 @@ impl<'a> BergValue<'a> for BergVal<'a> {
         Ok(self)
     }
 
-    fn into_native<T: TypeName + TryFrom<BergVal<'a>>> (
-        self
-    ) -> BergResult<'a, EvalResult<'a, T>> where <T as TryFrom<BergVal<'a>>>::Error: Into<BergVal<'a>> {
+    fn into_native<T: TypeName + TryFrom<BergVal<'a>>>(self) -> BergResult<'a, EvalResult<'a, T>>
+    where
+        <T as TryFrom<BergVal<'a>>>::Error: Into<BergVal<'a>>,
+    {
         use BergVal::*;
         match self {
             // Blocks have to evaluate before they can into_native()
@@ -109,16 +119,14 @@ impl<'a> BergValue<'a> for BergVal<'a> {
             Tuple(value) => value.into_native(),
             _ => match T::try_from(self) {
                 Ok(value) => Ok(Ok(value)),
-                Err(original) => Ok(BergError::BadType(Box::new(original.into()), T::TYPE_NAME).err()),
-            }
+                Err(original) => {
+                    Ok(BergError::BadType(Box::new(original.into()), T::TYPE_NAME).err())
+                }
+            },
         }
     }
 
-    fn infix<T: BergValue<'a>>(
-        self,
-        operator: IdentifierIndex,
-        right: T,
-    ) -> EvalResult<'a> {
+    fn infix<T: BergValue<'a>>(self, operator: IdentifierIndex, right: T) -> EvalResult<'a> {
         use BergVal::*;
         match self {
             Boolean(value) => value.infix(operator, right),

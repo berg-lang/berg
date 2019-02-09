@@ -1,8 +1,10 @@
 use crate::syntax::identifiers::*;
+use crate::syntax::precedence::Precedence;
 use crate::syntax::token::Token::*;
 use crate::syntax::ExpressionBoundary::*;
-use crate::syntax::precedence::Precedence;
-use crate::syntax::{Ast, AstDelta, BlockIndex, FieldIndex, IdentifierIndex, LiteralIndex, RawLiteralIndex};
+use crate::syntax::{
+    Ast, AstDelta, BlockIndex, FieldIndex, IdentifierIndex, LiteralIndex, RawLiteralIndex,
+};
 use crate::value::ErrorCode;
 use std::borrow::Cow;
 use std::fmt;

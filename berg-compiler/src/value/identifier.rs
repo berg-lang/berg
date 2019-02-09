@@ -7,11 +7,7 @@ impl TypeName for IdentifierIndex {
 }
 
 impl<'a> BergValue<'a> for IdentifierIndex {
-    fn infix<T: BergValue<'a>>(
-        self,
-        operator: IdentifierIndex,
-        right: T,
-    ) -> EvalResult<'a> {
+    fn infix<T: BergValue<'a>>(self, operator: IdentifierIndex, right: T) -> EvalResult<'a> {
         use crate::syntax::identifiers::EQUAL_TO;
         match operator {
             EQUAL_TO => match right.into_native::<IdentifierIndex>()? {

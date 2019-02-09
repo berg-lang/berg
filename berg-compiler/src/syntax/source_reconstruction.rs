@@ -25,7 +25,7 @@ struct SourceReconstructionIterator<'p, 'a: 'p> {
     line_index: usize,
 }
 
-impl<'p, 'a: 'p, Context: Copy+Clone+fmt::Debug> Expression<'p, 'a, Context> {
+impl<'p, 'a: 'p, Context: Copy + Clone + fmt::Debug> Expression<'p, 'a, Context> {
     pub fn reconstruct_source(self) -> SourceReconstruction<'p, 'a> {
         SourceReconstruction::new(self.ast(), self.range())
     }
@@ -218,9 +218,10 @@ impl<'p, 'a: 'p> SourceReconstructionIterator<'p, 'a> {
             }
             RawErrorTerm(.., raw_literal) => &self.ast.raw_literals[raw_literal],
 
-            FieldReference(field) => {
-                self.ast.identifier_string(self.ast.fields[field].name).as_bytes()
-            }
+            FieldReference(field) => self
+                .ast
+                .identifier_string(self.ast.fields[field].name)
+                .as_bytes(),
 
             RawIdentifier(identifier)
             | InfixOperator(identifier)
@@ -249,10 +250,7 @@ impl<'p, 'a: 'p> SourceReconstructionIterator<'p, 'a> {
 }
 
 fn find_ast_index(ast: &Ast, index: ByteIndex) -> AstIndex {
-    let ast_index = ast
-        .token_ranges
-        .iter()
-        .position(|range| range.end > index);
+    let ast_index = ast.token_ranges.iter().position(|range| range.end > index);
     ast_index.unwrap_or_else(|| ast.token_ranges.last_index())
 }
 

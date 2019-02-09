@@ -2,17 +2,17 @@ use crate::eval::RootRef;
 use crate::syntax::char_data::CharData;
 use crate::syntax::OperandPosition::*;
 use crate::syntax::{
-    AstBlock, BlockIndex, ByteRange, Expression, Field, FieldIndex, IdentifierIndex, SourceOpenError, SourceReconstruction,
-    SourceReconstructionReader, SourceRef, Token,
+    AstBlock, BlockIndex, ByteRange, Expression, Field, FieldIndex, IdentifierIndex,
+    SourceOpenError, SourceReconstruction, SourceReconstructionReader, SourceRef, Token,
 };
 use crate::util::indexed_vec::IndexedVec;
-use string_interner::{StringInterner, Sym};
 use crate::value::BergError;
 use std::borrow::Cow;
 use std::io;
 use std::ops::Deref;
 use std::rc::Rc;
 use std::u32;
+use string_interner::{StringInterner, Sym};
 
 index_type! {
     pub struct AstIndex(pub u32) with Display,Debug <= u32::MAX;
@@ -53,10 +53,7 @@ pub enum OperandPosition {
 }
 
 impl<'a> Ast<'a> {
-    pub fn new(
-        source: SourceRef<'a>,
-        source_open_error: Option<SourceOpenError<'a>>,
-    ) -> Ast<'a> {
+    pub fn new(source: SourceRef<'a>, source_open_error: Option<SourceOpenError<'a>>) -> Ast<'a> {
         let identifiers = source.root().identifiers();
         let fields = source
             .root()
@@ -159,7 +156,7 @@ impl<'a> Ast<'a> {
         self.tokens.next_index()
     }
 
-    pub fn intern_identifier(&mut self, string: impl Into<String>+AsRef<str>) -> IdentifierIndex {
+    pub fn intern_identifier(&mut self, string: impl Into<String> + AsRef<str>) -> IdentifierIndex {
         self.identifiers.get_or_intern(string)
     }
 }

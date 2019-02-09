@@ -8,15 +8,15 @@ impl<'a> TypeName for bool {
 
 // Implementations for common types
 impl<'a> BergValue<'a> for bool {
-    fn infix<T: BergValue<'a>>(
-        self,
-        operator: IdentifierIndex,
-        right: T,
-    ) -> EvalResult<'a> {
+    fn infix<T: BergValue<'a>>(self, operator: IdentifierIndex, right: T) -> EvalResult<'a> {
         match operator {
             AND_AND => (self && right.into_native()??).ok(),
             OR_OR => (self || right.into_native()??).ok(),
-            EQUAL_TO => match right.into_native::<bool>()? { Ok(right) => self == right, Err(_) => false }.ok(),
+            EQUAL_TO => match right.into_native::<bool>()? {
+                Ok(right) => self == right,
+                Err(_) => false,
+            }
+            .ok(),
             _ => default_infix(self, operator, right),
         }
     }

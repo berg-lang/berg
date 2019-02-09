@@ -5,18 +5,18 @@ use std::iter::FromIterator;
 
 ///
 /// A discrete series of values.
-/// 
+///
 /// Note: Tuples are generally stored in *reverse* order, since the typical
 /// operation for a tuple is to take the first value and return the next.
-/// 
+///
 #[derive(Debug, Clone)]
 pub struct Tuple<'a>(Vec<BergVal<'a>>);
 
 impl<'a> Tuple<'a> {
-    pub fn from_values(iter: impl DoubleEndedIterator<Item=BergVal<'a>>) -> Self {
+    pub fn from_values(iter: impl DoubleEndedIterator<Item = BergVal<'a>>) -> Self {
         Self::from_reversed(iter.rev())
     }
-    pub fn from_reversed(iter: impl Iterator<Item=BergVal<'a>>) -> Self {
+    pub fn from_reversed(iter: impl Iterator<Item = BergVal<'a>>) -> Self {
         Tuple(iter.collect())
     }
     pub fn from_reversed_vec(vec: Vec<BergVal<'a>>) -> Self {
@@ -35,7 +35,7 @@ impl<'a> IntoIterator for Tuple<'a> {
 impl<'a> FromIterator<BergVal<'a>> for Tuple<'a> {
     // Sadly, I don't think there is a way to specialize this for ExactSizeIterators.
     // So we have to build it the old fashioned way.
-    fn from_iter<I: IntoIterator<Item=BergVal<'a>>>(iter: I) -> Self {
+    fn from_iter<I: IntoIterator<Item = BergVal<'a>>>(iter: I) -> Self {
         Tuple::from(iter.into_iter().collect::<Vec<BergVal<'a>>>())
     }
 }
@@ -59,11 +59,7 @@ impl<'a> TypeName for Tuple<'a> {
 }
 
 impl<'a> BergValue<'a> for Tuple<'a> {
-    fn infix<T: BergValue<'a>>(
-        self,
-        operator: IdentifierIndex,
-        right: T,
-    ) -> EvalResult<'a> {
+    fn infix<T: BergValue<'a>>(self, operator: IdentifierIndex, right: T) -> EvalResult<'a> {
         default_infix(self, operator, right)
     }
 
@@ -83,16 +79,23 @@ impl<'a> BergValue<'a> for Tuple<'a> {
 
     fn next_val(mut self) -> BergResult<'a, NextVal<'a>> {
         match self.0.pop() {
-            Some(value) => Ok(if self.0.is_empty() { NextVal::single(value) } else { NextVal::head_tail(value, self.0.into()) }),
-            None => Ok(NextVal::none())
+            Some(value) => Ok(if self.0.is_empty() {
+                NextVal::single(value)
+            } else {
+                NextVal::head_tail(value, self.0.into())
+            }),
+            None => Ok(NextVal::none()),
         }
     }
     fn into_val(self) -> BergResult<'a> {
         Ok(self.into())
     }
-    fn into_native<T: TypeName + TryFrom<BergVal<'a>>> (
-        mut self
-    ) -> BergResult<'a, EvalResult<'a, T>> where <T as TryFrom<BergVal<'a>>>::Error: Into<BergVal<'a>> {
+    fn into_native<T: TypeName + TryFrom<BergVal<'a>>>(
+        mut self,
+    ) -> BergResult<'a, EvalResult<'a, T>>
+    where
+        <T as TryFrom<BergVal<'a>>>::Error: Into<BergVal<'a>>,
+    {
         if self.0.len() == 1 {
             self.0.pop().unwrap().into_native()
         } else {
@@ -129,7 +132,6 @@ impl<'a> From<Tuple<'a>> for Vec<BergVal<'a>> {
     }
 }
 
-
 impl<T: TypeName> TypeName for Vec<T> {
     const TYPE_NAME: &'static str = "Vec<T>";
 }
@@ -150,7 +152,7 @@ impl<'a> TryFrom<BergVal<'a>> for Tuple<'a> {
 
 impl<'a> FromIterator<BergVal<'a>> for BergVal<'a> {
     // Sadly, it doesn't seem we can specialize this for the happy case where iter is an ExactSizeIterator.
-    fn from_iter<I: IntoIterator<Item=BergVal<'a>>>(iter: I) -> Self {
+    fn from_iter<I: IntoIterator<Item = BergVal<'a>>>(iter: I) -> Self {
         BergVal::Tuple(Tuple::from_iter(iter))
     }
 }

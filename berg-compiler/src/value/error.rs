@@ -1,7 +1,7 @@
 use crate::eval::BlockRef;
 use crate::syntax::{
-    AstRef, AstIndex, ByteRange, Expression, ExpressionRef, FieldIndex, Fixity, IdentifierIndex, LineColumnRange, LiteralIndex,
-    OperandPosition, RawLiteralIndex,
+    AstIndex, AstRef, ByteRange, Expression, ExpressionRef, FieldIndex, Fixity, IdentifierIndex,
+    LineColumnRange, LiteralIndex, OperandPosition, RawLiteralIndex,
 };
 use crate::value::*;
 use std::fmt;
@@ -115,13 +115,17 @@ impl<'a> From<Error<'a>> for EvalError<'a> {
 impl<'a> ErrorLocation<'a> {
     pub fn range(&self) -> LineColumnRange {
         match self {
-            ErrorLocation::SourceExpression(ast, _) | ErrorLocation::SourceRange(ast, _) => ast.char_data.range(&self.byte_range()),
+            ErrorLocation::SourceExpression(ast, _) | ErrorLocation::SourceRange(ast, _) => {
+                ast.char_data.range(&self.byte_range())
+            }
             _ => unreachable!(),
         }
     }
     pub fn byte_range(&self) -> ByteRange {
         match self {
-            ErrorLocation::SourceExpression(ast, index) => Expression::new((), ast, *index, None).range(),
+            ErrorLocation::SourceExpression(ast, index) => {
+                Expression::new((), ast, *index, None).range()
+            }
             ErrorLocation::SourceRange(_, range) => range.clone(),
             _ => unreachable!(),
         }
@@ -164,7 +168,7 @@ impl<'a> Error<'a> {
             MissingExpression | UnsupportedOperator(..) => {
                 let range = expression.ast.token_ranges[expression.expression().operator()].clone();
                 SourceRange(expression.ast, range)
-            },
+            }
             BadOperandType(position, ..) => {
                 let operand = expression.expression().child(position).index();
                 SourceExpression(expression.ast, operand)
@@ -176,12 +180,14 @@ impl<'a> Error<'a> {
             }
 
             OpenWithoutClose => {
-                let range = expression.ast.token_ranges[expression.expression().open_operator()].clone();
+                let range =
+                    expression.ast.token_ranges[expression.expression().open_operator()].clone();
                 SourceRange(expression.ast, range)
             }
 
             CloseWithoutOpen => {
-                let range = expression.ast.token_ranges[expression.expression().close_operator()].clone();
+                let range =
+                    expression.ast.token_ranges[expression.expression().close_operator()].clone();
                 SourceRange(expression.ast, range)
             }
 

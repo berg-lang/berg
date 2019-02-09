@@ -11,11 +11,7 @@ impl TypeName for Nothing {
 }
 
 impl<'a> BergValue<'a> for Nothing {
-    fn infix<T: BergValue<'a>>(
-        self,
-        operator: IdentifierIndex,
-        _right: T,
-    ) -> EvalResult<'a> {
+    fn infix<T: BergValue<'a>>(self, operator: IdentifierIndex, _right: T) -> EvalResult<'a> {
         panic!("infix({}) called on nothing! Nothing values should never appear in Berg itself--they are sentinels for native code.", operator);
     }
 

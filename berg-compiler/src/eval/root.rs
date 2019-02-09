@@ -63,7 +63,7 @@ impl RootRef {
         identifiers::intern_all()
     }
 
-    pub fn field_names(&self) -> impl ExactSizeIterator<Item=&IdentifierIndex>+fmt::Debug {
+    pub fn field_names(&self) -> impl ExactSizeIterator<Item = &IdentifierIndex> + fmt::Debug {
         root_fields::NAMES.iter()
     }
 

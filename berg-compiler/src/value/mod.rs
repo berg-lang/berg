@@ -9,8 +9,8 @@ mod tuple;
 
 pub use self::berg_val::{BergVal, NextVal};
 pub use self::error::{BergError, Error, ErrorCode, ErrorLocation, EvalError};
-pub use self::result::{BergResult, EvalResult, TakeError, UnwindFrame};
 pub use self::nothing::Nothing;
+pub use self::result::{BergResult, EvalResult, TakeError, UnwindFrame};
 pub use self::tuple::Tuple;
 
 use crate::syntax::{Fixity, IdentifierIndex};
@@ -30,7 +30,9 @@ pub trait BergValue<'a>: Sized + fmt::Debug {
     fn set_field(&mut self, name: IdentifierIndex, value: BergResult<'a>) -> EvalResult<'a, ()>;
 
     // Helpers provided to make working with values a little easier.
-    fn ok<T, E>(self) -> Result<T, E> where Self: Into<T>
+    fn ok<T, E>(self) -> Result<T, E>
+    where
+        Self: Into<T>,
     {
         Ok(self.into())
     }
@@ -39,7 +41,7 @@ pub trait BergValue<'a>: Sized + fmt::Debug {
 
     ///
     /// Convert this to a BergVal.
-    /// 
+    ///
     /// This largely exists because expressions must be evaluated immediately
     /// and cannot be treated as lazy; therefore, ExpressionEvaluator must
     /// completely evaluate when it converts to a val.
@@ -50,15 +52,16 @@ pub trait BergValue<'a>: Sized + fmt::Debug {
     /// Get the result of this value as a particular native type.
     /// If it's a *block,* it evaluates the value and tries to convert it.
     ///
-    fn into_native<T: TypeName + TryFrom<BergVal<'a>>> (
-        self
-    ) -> BergResult<'a, EvalResult<'a, T>> where <T as TryFrom<BergVal<'a>>>::Error: Into<BergVal<'a>> {
+    fn into_native<T: TypeName + TryFrom<BergVal<'a>>>(self) -> BergResult<'a, EvalResult<'a, T>>
+    where
+        <T as TryFrom<BergVal<'a>>>::Error: Into<BergVal<'a>>,
+    {
         // NOTE: this means BergVal must implement its own into_native()
         self.into_val()?.into_native()
     }
 }
 
-pub fn default_infix<'a, L: BergValue<'a>+Into<BergVal<'a>>, R: BergValue<'a>>(
+pub fn default_infix<'a, L: BergValue<'a> + Into<BergVal<'a>>, R: BergValue<'a>>(
     left: L,
     operator: IdentifierIndex,
     right: R,
@@ -80,13 +83,21 @@ pub fn default_infix<'a, L: BergValue<'a>+Into<BergVal<'a>>, R: BergValue<'a>>(
                         (Some((left, left_tail)), Some((right, right_tail))) => {
                             // If they are the same, grab the next values and loop.
                             if left.infix(EQUAL_TO, right)?.into_native::<bool>()?? {
-                                left_next = if let Some(left_tail) = left_tail { left_tail.next_val()? } else { NextVal::none() };
-                                right_next = if let Some(right_tail) = right_tail { right_tail.next_val()? } else { NextVal::none() };
+                                left_next = if let Some(left_tail) = left_tail {
+                                    left_tail.next_val()?
+                                } else {
+                                    NextVal::none()
+                                };
+                                right_next = if let Some(right_tail) = right_tail {
+                                    right_tail.next_val()?
+                                } else {
+                                    NextVal::none()
+                                };
                             } else {
-                                return false.ok()
+                                return false.ok();
                             }
                         }
-                    }
+                    },
                 }
             }
         }
@@ -96,34 +107,35 @@ pub fn default_infix<'a, L: BergValue<'a>+Into<BergVal<'a>>, R: BergValue<'a>>(
     }
 }
 
-pub fn default_postfix<'a, T: BergValue<'a>+Into<BergVal<'a>>>(
+pub fn default_postfix<'a, T: BergValue<'a> + Into<BergVal<'a>>>(
     operand: T,
     operator: IdentifierIndex,
 ) -> EvalResult<'a> {
     BergError::UnsupportedOperator(Box::new(operand.into()), Fixity::Postfix, operator).err()
 }
 
-pub fn default_prefix<'a, T: BergValue<'a>+Into<BergVal<'a>>>(
+pub fn default_prefix<'a, T: BergValue<'a> + Into<BergVal<'a>>>(
     operand: T,
     operator: IdentifierIndex,
 ) -> EvalResult<'a> {
     use crate::syntax::identifiers::{DOUBLE_EXCLAMATION_POINT, EXCLAMATION_POINT};
     match operator {
-        DOUBLE_EXCLAMATION_POINT => operand
-            .prefix(EXCLAMATION_POINT)?
-            .prefix(EXCLAMATION_POINT),
+        DOUBLE_EXCLAMATION_POINT => operand.prefix(EXCLAMATION_POINT)?.prefix(EXCLAMATION_POINT),
         _ => {
             BergError::UnsupportedOperator(Box::new(operand.into()), Fixity::Prefix, operator).err()
         }
     }
 }
 
-pub fn default_field<'a, T: BergValue<'a>+Into<BergVal<'a>>+Clone>(object: &T, name: IdentifierIndex) -> EvalResult<'a> {
+pub fn default_field<'a, T: BergValue<'a> + Into<BergVal<'a>> + Clone>(
+    object: &T,
+    name: IdentifierIndex,
+) -> EvalResult<'a> {
     BergError::NoSuchPublicFieldOnValue(Box::new(object.clone().into()), name).err()
 }
 
 #[allow(clippy::needless_pass_by_value)]
-pub fn default_set_field<'a, T: BergValue<'a>+Into<BergVal<'a>>+Clone>(
+pub fn default_set_field<'a, T: BergValue<'a> + Into<BergVal<'a>> + Clone>(
     object: &mut T,
     name: IdentifierIndex,
     _value: BergResult<'a>,

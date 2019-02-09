@@ -4,11 +4,11 @@ extern crate fnv;
 extern crate num;
 extern crate string_interner;
 
-pub use crate::value::{BergVal, BergValue, BergResult, Error, ErrorCode};
+pub use crate::value::{BergResult, BergVal, BergValue, Error, ErrorCode};
 
-use crate::eval::{RootRef, evaluate_ast};
-use crate::syntax::SourceRef;
+use crate::eval::{evaluate_ast, RootRef};
 use crate::parser::parse;
+use crate::syntax::SourceRef;
 use std::borrow::Cow;
 use std::path::Path;
 

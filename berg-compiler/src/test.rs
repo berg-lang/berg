@@ -1,11 +1,11 @@
 use crate::eval::{evaluate_ast, RootRef};
 use crate::parser;
-use crate::syntax::{AstRef, ByteIndex, ByteRange, LineColumnRange, SourceRef};
 use crate::syntax::identifiers::*;
+use crate::syntax::{AstRef, ByteIndex, ByteRange, LineColumnRange, SourceRef};
 use crate::util::from_range::BoundedRange;
 use crate::util::from_range::IntoRange;
 use crate::util::try_from::TryFrom;
-use crate::value::{BergVal, BergValue, BergResult, Error, ErrorCode, EvalResult, NextVal};
+use crate::value::{BergResult, BergVal, BergValue, Error, ErrorCode, EvalResult, NextVal};
 use std::fmt;
 use std::io;
 use std::ops::Range;
@@ -85,11 +85,20 @@ impl<'a> ExpectBerg<'a> {
     }
 
     #[allow(clippy::needless_pass_by_value, clippy::wrong_self_convention)]
-    pub fn to_yield<V: Into<BergVal<'a>>+fmt::Display>(self, expected: V) where BergVal<'a>: From<V> {
-        let actual = evaluate_ast(self.parse()).unwrap_or_else(|error| panic!("Unexpected error: {}", error));
+    pub fn to_yield<V: Into<BergVal<'a>> + fmt::Display>(self, expected: V)
+    where
+        BergVal<'a>: From<V>,
+    {
+        let actual = evaluate_ast(self.parse())
+            .unwrap_or_else(|error| panic!("Unexpected error: {}", error));
         let expected = BergVal::from(expected);
         println!("actual: {}, expected: {}", actual, expected);
-        assert!(Self::bergvals_equal(expected.clone(), actual.clone()).unwrap_or(false), "Wrong value returned! expected: {}, actual: {}", expected, actual);
+        assert!(
+            Self::bergvals_equal(expected.clone(), actual.clone()).unwrap_or(false),
+            "Wrong value returned! expected: {}, actual: {}",
+            expected,
+            actual
+        );
     }
 
     fn consume_all(value: BergVal<'a>) -> BergResult<'a> {

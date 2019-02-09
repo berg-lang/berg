@@ -1,5 +1,5 @@
-use crate::syntax::{IdentifierIndex, Token};
 use crate::syntax::precedence::Precedence::*;
+use crate::syntax::{IdentifierIndex, Token};
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum Precedence {
@@ -86,10 +86,9 @@ impl Precedence {
                 _ => false,
             },
             Apply => match right {
-                Dot | TimesDivide | PlusMinus | Comparison | And | Or | CommaSequence | Assign | ColonDeclaration => {
-                    true
-                }
-                _ => false
+                Dot | TimesDivide | PlusMinus | Comparison | And | Or | CommaSequence | Assign
+                | ColonDeclaration => true,
+                _ => false,
             },
             SemicolonSequence => match right {
                 Dot | TimesDivide | PlusMinus | Comparison | And | Or | CommaSequence | Assign
@@ -98,7 +97,7 @@ impl Precedence {
             },
             NewlineSequence => match right {
                 Dot | TimesDivide | PlusMinus | Comparison | And | Or | CommaSequence | Assign
-                | ColonDeclaration | SemicolonSequence | Apply  => true,
+                | ColonDeclaration | SemicolonSequence | Apply => true,
                 _ => false,
             },
         }

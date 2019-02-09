@@ -1,8 +1,14 @@
 use crate::eval::{ExpressionEvaluator, ScopeRef};
-use crate::syntax::{Ast, AstIndex, AstRef, BlockIndex, ExpressionRef, FieldError, FieldIndex, IdentifierIndex, Token};
+use crate::syntax::{
+    Ast, AstIndex, AstRef, BlockIndex, ExpressionRef, FieldError, FieldIndex, IdentifierIndex,
+    Token,
+};
 use crate::util::try_from::TryFrom;
 use crate::util::type_name::TypeName;
-use crate::value::{BergError, BergResult, NextVal, BergVal, BergValue, ErrorCode, EvalResult, EvalError::Raw, TakeError};
+use crate::value::{
+    BergError, BergResult, BergVal, BergValue, ErrorCode, EvalError::Raw, EvalResult, NextVal,
+    TakeError,
+};
 use std::cell::{Ref, RefCell, RefMut};
 use std::fmt;
 use std::mem;
@@ -50,7 +56,7 @@ impl<'a> BlockRef<'a> {
             state: BlockState::Ready,
             fields: Default::default(),
             parent,
-            input: Ok(input)
+            input: Ok(input),
         })))
     }
 
@@ -62,7 +68,12 @@ impl<'a> BlockRef<'a> {
         let block = self.0.borrow();
         let input = input.into_val()?;
         // Evaluate immediately and take the result.
-        let new_block = Self::new(block.expression, block.index, block.parent.clone(), Some(input));
+        let new_block = Self::new(
+            block.expression,
+            block.index,
+            block.parent.clone(),
+            Some(input),
+        );
         let value = new_block.take_result(BlockState::Complete(Ok(None)))?;
         match value {
             Some(value) => Ok(value),
@@ -74,14 +85,16 @@ impl<'a> BlockRef<'a> {
         self.ensure_evaluated()?;
         let mut block = self.0.borrow_mut();
         match block.state {
-            BlockState::Running | BlockState::NextVal => BergError::CircularDependency.take_error(self.expression()),
+            BlockState::Running | BlockState::NextVal => {
+                BergError::CircularDependency.take_error(self.expression())
+            }
             BlockState::Complete(_) => {
                 if let BlockState::Complete(result) = mem::replace(&mut block.state, replace_with) {
                     result
                 } else {
                     unreachable!()
                 }
-            },
+            }
             BlockState::Ready => unreachable!(),
         }
     }
@@ -91,8 +104,11 @@ impl<'a> BlockRef<'a> {
         match block.state {
             BlockState::NextVal => {
                 block.state = BlockState::Complete(result);
-            },
-            _ => unreachable!("Block didn't stay in NextVal state by itself: {:?}", block.state),
+            }
+            _ => unreachable!(
+                "Block didn't stay in NextVal state by itself: {:?}",
+                block.state
+            ),
         }
     }
 
@@ -100,7 +116,9 @@ impl<'a> BlockRef<'a> {
         self.ensure_evaluated()?;
         let block = self.0.borrow();
         match &block.state {
-            BlockState::Running | BlockState::NextVal => BergError::CircularDependency.take_error(block),
+            BlockState::Running | BlockState::NextVal => {
+                BergError::CircularDependency.take_error(block)
+            }
             BlockState::Complete(Ok(Some(ref result))) => Ok(Some(f(result))),
             BlockState::Complete(Ok(None)) => Ok(None),
             BlockState::Complete(Err(error)) => Err(error.clone()),
@@ -120,7 +138,9 @@ impl<'a> BlockRef<'a> {
         let (ast, expression) = {
             let mut block = self.0.borrow_mut();
             match block.state {
-                BlockState::Running | BlockState::NextVal => return BergError::CircularDependency.take_error(block),
+                BlockState::Running | BlockState::NextVal => {
+                    return BergError::CircularDependency.take_error(block);
+                }
                 BlockState::Complete(_) => return Ok(()),
                 BlockState::Ready => {}
             }
@@ -138,7 +158,14 @@ impl<'a> BlockRef<'a> {
                 Err(error) => Err(error),
             },
         };
-        println!("result: {}", match &result { Ok(Some(v))=>format!("{}",v), Ok(None)=>"none".to_string(), Err(v)=>format!("{}",v)});
+        println!(
+            "result: {}",
+            match &result {
+                Ok(Some(v)) => format!("{}", v),
+                Ok(None) => "none".to_string(),
+                Err(v) => format!("{}", v),
+            }
+        );
         let mut block = self.0.borrow_mut();
         block.state = BlockState::Complete(result);
         Ok(())
@@ -166,13 +193,16 @@ impl<'a> BlockRef<'a> {
             // The index we intend to insert this at
             let block_field_index: usize = (field_index - scope_start).into();
             while block_field_index >= block.fields.len() {
-                let no_such_field = BergError::NoSuchField(scope_start+block.fields.len());
+                let no_such_field = BergError::NoSuchField(scope_start + block.fields.len());
                 block.fields.push(no_such_field.err());
             }
             if let Err(Raw(BergError::NoSuchField(..))) = block.fields[block_field_index] {
                 // The only known way to declare a field in an object (right now) is to set it while
                 // running.
-                assert!(match block.state { BlockState::Running => true, _ => false });
+                assert!(match block.state {
+                    BlockState::Running => true,
+                    _ => false,
+                });
                 // Steal the input value so we can next_val() it without fear.
                 if let Err(ref error) = block.input {
                     return Err(error.clone());
@@ -180,7 +210,7 @@ impl<'a> BlockRef<'a> {
                 let input = mem::replace(&mut block.input, Err(Raw(BergError::CircularDependency)));
                 (input.unwrap(), block_field_index)
             } else {
-                return Ok(())
+                return Ok(());
             }
         };
 
@@ -211,9 +241,20 @@ impl<'a> BlockRef<'a> {
     ) -> EvalResult<'a, ()> {
         let scope_start = ast.blocks[self.0.borrow().index].scope_start;
         if field_index < scope_start {
-            return self.0.borrow().parent.set_local_field(field_index, value, ast);
+            return self
+                .0
+                .borrow()
+                .parent
+                .set_local_field(field_index, value, ast);
         }
-        println!("Set {} to {}", ast.identifier_string(ast.fields[field_index].name), match &value { Ok(v)=>format!("{}",v),Err(v)=>format!("{}",v)});
+        println!(
+            "Set {} to {}",
+            ast.identifier_string(ast.fields[field_index].name),
+            match &value {
+                Ok(v) => format!("{}", v),
+                Err(v) => format!("{}", v),
+            }
+        );
         {
             let mut block = self.0.borrow_mut();
             let index: usize = (field_index - scope_start).into();
@@ -320,8 +361,8 @@ impl<'a> BergValue<'a> for BlockRef<'a> {
                     self.replace_result(Ok(tail));
                     Ok(NextVal::head_tail(head, self.into()))
                 }
-                Err(error) => Err(error)
-            }
+                Err(error) => Err(error),
+            },
         }
     }
 
@@ -329,26 +370,23 @@ impl<'a> BergValue<'a> for BlockRef<'a> {
         Ok(self.into())
     }
 
-    fn into_native<T: TypeName + TryFrom<BergVal<'a>>> (
-        self
-    ) -> BergResult<'a, EvalResult<'a, T>> where <T as TryFrom<BergVal<'a>>>::Error: Into<BergVal<'a>> {
+    fn into_native<T: TypeName + TryFrom<BergVal<'a>>>(self) -> BergResult<'a, EvalResult<'a, T>>
+    where
+        <T as TryFrom<BergVal<'a>>>::Error: Into<BergVal<'a>>,
+    {
         println!("into_native({})", self);
         self.clone_result()?.into_native()
     }
 
-    fn infix<T: BergValue<'a>>(
-        self,
-        operator: IdentifierIndex,
-        right: T
-    ) -> EvalResult<'a> {
+    fn infix<T: BergValue<'a>>(self, operator: IdentifierIndex, right: T) -> EvalResult<'a> {
         use crate::syntax::identifiers::*;
 
         match operator {
             DOT => self.field(right.into_native::<IdentifierIndex>()??),
             APPLY => Ok(self.apply(right)?),
             // Blocks do not evaluate when used as statements.
-            SEMICOLON|NEWLINE => Ok(right.into_val()?),
-            _ => self.clone_result()?.infix(operator, right)
+            SEMICOLON | NEWLINE => Ok(right.into_val()?),
+            _ => self.clone_result()?.infix(operator, right),
         }
     }
 
@@ -362,7 +400,11 @@ impl<'a> BergValue<'a> for BlockRef<'a> {
     }
 
     fn field(&self, name: IdentifierIndex) -> EvalResult<'a> {
-        println!("====> get {} on {}", self.ast().identifier_string(name), self);
+        println!(
+            "====> get {} on {}",
+            self.ast().identifier_string(name),
+            self
+        );
         // Always try to get the field from the inner result first
         let current = self.clone_result();
         println!("got from {}", self);
@@ -417,7 +459,7 @@ impl<'a> fmt::Display for BlockRef<'a> {
         write!(f, "block({}", block.state)?;
         match &block.input {
             Ok(Some(value)) => write!(f, ", input: {}", value)?,
-            Ok(None) => {},
+            Ok(None) => {}
             Err(error) => write!(f, ", input: {:?}", error)?,
         }
         if !block.fields.is_empty() {
@@ -453,7 +495,7 @@ impl<'a> fmt::Display for BlockState<'a> {
             BlockState::Complete(Err(error)) => write!(f, "Complete({})", error),
             BlockState::Complete(Ok(Some(value))) => write!(f, "Complete({})", value),
             BlockState::Complete(Ok(None)) => write!(f, "Complete(<nothing>)"),
-            BlockState::Ready => write!(f, "Ready", ),
+            BlockState::Ready => write!(f, "Ready",),
             BlockState::Running => write!(f, "Running"),
             BlockState::NextVal => write!(f, "NextVal"),
         }
@@ -467,7 +509,7 @@ impl<'a> fmt::Debug for BlockRef<'a> {
         write!(f, "BlockRef {{ state: {:?}, ", block.state)?;
         match &block.input {
             Ok(Some(value)) => write!(f, ", input: {}", value)?,
-            Ok(None) => {},
+            Ok(None) => {}
             Err(error) => write!(f, ", input: {:?}", error)?,
         }
         write!(f, "fields: {{")?;
@@ -489,7 +531,11 @@ impl<'a> fmt::Debug for BlockRef<'a> {
                 Err(error) => write!(f, "{}: {}", name, error)?,
             }
         }
-        write!(f, ", expression: {}, parent: {:?}", block.expression, block.parent)?;
+        write!(
+            f,
+            ", expression: {}, parent: {:?}",
+            block.expression, block.parent
+        )?;
         write!(f, "}}")
     }
 }

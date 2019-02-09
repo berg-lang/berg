@@ -1,7 +1,6 @@
 use crate::syntax::Fixity::*;
 use crate::syntax::{
-    AstIndex, Ast, AstRef, ByteRange, ExpressionBoundary, Fixity,
-    OperandPosition, Token,
+    Ast, AstIndex, AstRef, ByteRange, ExpressionBoundary, Fixity, OperandPosition, Token,
 };
 use crate::value::{BergError, BergResult, TakeError};
 use std::borrow::Cow;
@@ -10,17 +9,17 @@ use std::fmt;
 ///
 /// Implements Expression navigation: left operand, right operand, open/close
 /// parens, etc.
-/// 
+///
 /// Expressions are *not* meant to be kept around! Holding an expression means
 /// holding a reference to an AstData, so someone else must be responsible for
 /// holding the AstRef.
-/// 
+///
 /// The Context parameter is convenience so that our navigation methods, like inner_expression(),
 /// left_operand(), etc., will carry the context along for the ride. This
 /// is used for ExpressionEvaluator.
 ///
 #[derive(Copy, Clone)]
-pub struct Expression<'p, 'a: 'p, Context: Copy+Clone+fmt::Debug = ()> {
+pub struct Expression<'p, 'a: 'p, Context: Copy + Clone + fmt::Debug = ()> {
     context: Context,
     ast: &'p Ast<'a>,
     index: AstIndex,
@@ -52,7 +51,7 @@ impl<'a> fmt::Display for ExpressionRef<'a> {
     }
 }
 
-impl<'p, 'a: 'p, Context: Copy+Clone+fmt::Debug> fmt::Debug for Expression<'p, 'a, Context> {
+impl<'p, 'a: 'p, Context: Copy + Clone + fmt::Debug> fmt::Debug for Expression<'p, 'a, Context> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self.reconstruct_source())
     }
@@ -69,18 +68,43 @@ impl<'p, 'a: 'p> Expression<'p, 'a, ()> {
         Expression::new((), ast, index, None)
     }
 }
-impl<'p, 'a: 'p, Context: Copy+Clone+fmt::Debug> Expression<'p, 'a, Context> {
-    pub fn new(context: Context, ast: &'p Ast<'a>, index: AstIndex, position: Option<OperandPosition>) -> Self {
-        Expression { context, ast, index, position }
+impl<'p, 'a: 'p, Context: Copy + Clone + fmt::Debug> Expression<'p, 'a, Context> {
+    pub fn new(
+        context: Context,
+        ast: &'p Ast<'a>,
+        index: AstIndex,
+        position: Option<OperandPosition>,
+    ) -> Self {
+        Expression {
+            context,
+            ast,
+            index,
+            position,
+        }
     }
-    pub fn with_context<C: Copy+Clone+fmt::Debug>(self, context: C) -> Expression<'p, 'a, C> {
-        Expression { context, ast: self.ast, index: self.index, position: self.position }
+    pub fn with_context<C: Copy + Clone + fmt::Debug>(self, context: C) -> Expression<'p, 'a, C> {
+        Expression {
+            context,
+            ast: self.ast,
+            index: self.index,
+            position: self.position,
+        }
     }
     pub fn with_operand(self, index: AstIndex, position: OperandPosition) -> Self {
-        Expression { context: self.context, ast: self.ast, index, position: Some(position) }
+        Expression {
+            context: self.context,
+            ast: self.ast,
+            index,
+            position: Some(position),
+        }
     }
     pub fn with_index(self, index: AstIndex) -> Self {
-        Expression { context: self.context, ast: self.ast, index, position: None }
+        Expression {
+            context: self.context,
+            ast: self.ast,
+            index,
+            position: None,
+        }
     }
     pub fn context(self) -> Context {
         self.context
@@ -213,7 +237,10 @@ impl<'p, 'a: 'p, Context: Copy+Clone+fmt::Debug> Expression<'p, 'a, Context> {
         }
 
         // Check for an infix.
-        if position != PostfixOperand && start > 0 && self.ast.tokens[start - 1].fixity() == Fixity::Infix {
+        if position != PostfixOperand
+            && start > 0
+            && self.ast.tokens[start - 1].fixity() == Fixity::Infix
+        {
             return self.with_operand(start - 1, position);
         }
 
@@ -251,7 +278,9 @@ impl<'p, 'a: 'p, Context: Copy+Clone+fmt::Debug> Expression<'p, 'a, Context> {
             _ => {}
         }
         let mut has_postfix = false;
-        while end < self.ast.tokens.last_index() && self.ast.tokens[end + 1].fixity() == Fixity::Postfix {
+        while end < self.ast.tokens.last_index()
+            && self.ast.tokens[end + 1].fixity() == Fixity::Postfix
+        {
             end += 1;
             has_postfix = true;
         }
@@ -312,20 +341,17 @@ impl<'p, 'a: 'p, Context: Copy+Clone+fmt::Debug> Expression<'p, 'a, Context> {
         self.with_index(self.close_operator()).left_expression()
     }
 
-    pub fn child(
-        self,
-        position: OperandPosition,
-    ) -> Expression<'p, 'a, Context> {
+    pub fn child(self, position: OperandPosition) -> Expression<'p, 'a, Context> {
         use OperandPosition::*;
         match position {
             Left | PostfixOperand => self.left_expression(),
             Right | PrefixOperand => self.right_expression(),
         }
     }
-    pub fn operand(
-        self,
-        position: OperandPosition,
-    ) -> BergResult<'a, Expression<'p, 'a, Context>> where Self: Into<ExpressionRef<'a>> {
+    pub fn operand(self, position: OperandPosition) -> BergResult<'a, Expression<'p, 'a, Context>>
+    where
+        Self: Into<ExpressionRef<'a>>,
+    {
         let operand = self.child(position);
         match operand.token() {
             Token::MissingExpression => BergError::MissingExpression.take_error(self),
@@ -333,16 +359,28 @@ impl<'p, 'a: 'p, Context: Copy+Clone+fmt::Debug> Expression<'p, 'a, Context> {
         }
     }
 
-    pub fn left_operand(self) -> BergResult<'a, Self> where Self: Into<ExpressionRef<'a>> {
+    pub fn left_operand(self) -> BergResult<'a, Self>
+    where
+        Self: Into<ExpressionRef<'a>>,
+    {
         self.operand(OperandPosition::Left)
     }
-    pub fn right_operand(self) -> BergResult<'a, Self> where Self: Into<ExpressionRef<'a>> {
+    pub fn right_operand(self) -> BergResult<'a, Self>
+    where
+        Self: Into<ExpressionRef<'a>>,
+    {
         self.operand(OperandPosition::Right)
     }
-    pub fn prefix_operand(self) -> BergResult<'a, Self> where Self: Into<ExpressionRef<'a>> {
+    pub fn prefix_operand(self) -> BergResult<'a, Self>
+    where
+        Self: Into<ExpressionRef<'a>>,
+    {
         self.operand(OperandPosition::PrefixOperand)
     }
-    pub fn postfix_operand(self) -> BergResult<'a, Self> where Self: Into<ExpressionRef<'a>> {
+    pub fn postfix_operand(self) -> BergResult<'a, Self>
+    where
+        Self: Into<ExpressionRef<'a>>,
+    {
         self.operand(OperandPosition::PostfixOperand)
     }
 }

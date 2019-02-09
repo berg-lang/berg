@@ -3,12 +3,11 @@ pub use self::expression::{Expression, ExpressionRef};
 pub use self::expression_formatter::{ExpressionFormatter, ExpressionTreeFormatter};
 pub mod identifiers;
 
-pub(crate) use self::identifiers::IdentifierIndex;
 pub(crate) use self::ast::{
-    Ast, AstDelta, AstIndex, AstRef, LiteralIndex, OperandPosition,
-    RawLiteralIndex,
+    Ast, AstDelta, AstIndex, AstRef, LiteralIndex, OperandPosition, RawLiteralIndex,
 };
 pub(crate) use self::block::{AstBlock, BlockIndex, Field, FieldError, FieldIndex};
+pub(crate) use self::identifiers::IdentifierIndex;
 pub(crate) use self::source::{
     ByteIndex, ByteRange, ByteSlice, SourceBuffer, SourceOpenError, SourceRef,
 };

@@ -1,5 +1,5 @@
 use crate::syntax::identifiers::*;
-use crate::syntax::{IdentifierIndex};
+use crate::syntax::IdentifierIndex;
 use crate::util::try_from::TryFrom;
 use crate::util::type_name::TypeName;
 use crate::value::*;
@@ -11,11 +11,7 @@ impl TypeName for BigRational {
 }
 
 impl<'a> BergValue<'a> for BigRational {
-    fn infix<T: BergValue<'a>>(
-        self,
-        operator: IdentifierIndex,
-        right: T,
-    ) -> EvalResult<'a> {
+    fn infix<T: BergValue<'a>>(self, operator: IdentifierIndex, right: T) -> EvalResult<'a> {
         match operator {
             PLUS => (self + right.into_native::<BigRational>()??).ok(),
             DASH => (self - right.into_native::<BigRational>()??).ok(),
@@ -28,7 +24,11 @@ impl<'a> BergValue<'a> for BigRational {
                 }
             }
             STAR => (self * right.into_native::<BigRational>()??).ok(),
-            EQUAL_TO => match right.into_native::<BigRational>()? { Ok(right) => self == right, Err(_) => false }.ok(),
+            EQUAL_TO => match right.into_native::<BigRational>()? {
+                Ok(right) => self == right,
+                Err(_) => false,
+            }
+            .ok(),
             GREATER_THAN => (self > right.into_native::<BigRational>()??).ok(),
             LESS_THAN => (self < right.into_native::<BigRational>()??).ok(),
             GREATER_EQUAL => (self >= right.into_native::<BigRational>()??).ok(),

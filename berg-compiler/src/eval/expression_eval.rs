@@ -3,12 +3,13 @@ use crate::syntax::identifiers::{
     APPLY, COLON, COMMA, DASH_DASH, DOT, EMPTY_STRING, NEWLINE, PLUS_PLUS, SEMICOLON,
 };
 use crate::syntax::{
-    Expression, ExpressionRef, ExpressionBoundaryError, FieldIndex,
-    IdentifierIndex, Token,
+    Expression, ExpressionBoundaryError, ExpressionRef, FieldIndex, IdentifierIndex, Token,
 };
 use crate::util::try_from::TryFrom;
 use crate::util::type_name::TypeName;
-use crate::value::{BergError, BergResult, BergVal, BergValue, EvalResult, EvalError, NextVal, Tuple, TakeError};
+use crate::value::{
+    BergError, BergResult, BergVal, BergValue, EvalError, EvalResult, NextVal, TakeError, Tuple,
+};
 use num::BigRational;
 use std::fmt;
 use std::str::FromStr;
@@ -95,9 +96,15 @@ impl<'p, 'a: 'p> ExpressionEvaluator<'p, 'a> {
             //
             // Syntax errors
             //
-            ErrorTerm(IdentifierStartsWithNumber, literal) => BergError::IdentifierStartsWithNumber(literal).take_error(self),
-            ErrorTerm(UnsupportedCharacters, literal) => BergError::UnsupportedCharacters(literal).take_error(self),
-            RawErrorTerm(InvalidUtf8, raw_literal) => BergError::InvalidUtf8(raw_literal).take_error(self),
+            ErrorTerm(IdentifierStartsWithNumber, literal) => {
+                BergError::IdentifierStartsWithNumber(literal).take_error(self)
+            }
+            ErrorTerm(UnsupportedCharacters, literal) => {
+                BergError::UnsupportedCharacters(literal).take_error(self)
+            }
+            RawErrorTerm(InvalidUtf8, raw_literal) => {
+                BergError::InvalidUtf8(raw_literal).take_error(self)
+            }
             // ( and { syntax errors
             Open {
                 error: OpenError, ..
@@ -132,14 +139,22 @@ impl<'p, 'a: 'p> ExpressionEvaluator<'p, 'a> {
             // {...}, indent group
             OpenBlock {
                 error: None, index, ..
-            } => Ok(self.scope()
+            } => Ok(self
+                .scope()
                 .create_child_block(self.inner_expression().index(), index)
                 .into()),
 
             // Tokens that should have been handled elsewhere in the stack
             Close { .. } | CloseBlock { .. } | ErrorTerm(..) | RawErrorTerm(..) => unreachable!(),
         };
-        println!("{}Evaluated to {}", indent, match &result { Ok(value) => format!("{}", value), Err(error) => format!("{}", error) });
+        println!(
+            "{}Evaluated to {}",
+            indent,
+            match &result {
+                Ok(value) => format!("{}", value),
+                Err(error) => format!("{}", error),
+            }
+        );
         result
     }
 
@@ -213,7 +228,10 @@ impl<'p, 'a: 'p> ExpressionEvaluator<'p, 'a> {
             // If the rightmost comma has no operand, we ignore it: 1,2, == 1,2
             Token::MissingExpression => left.evaluate_comma_left(0)?,
             // Check for malformed tree
-            Token::InfixOperator(COMMA) => panic!("comma on the right hand side of a comma is unexpected: right hand side of {}!", self),
+            Token::InfixOperator(COMMA) => panic!(
+                "comma on the right hand side of a comma is unexpected: right hand side of {}!",
+                self
+            ),
             // Grab the left hand side of the vec and then insert this value.
             _ => {
                 let mut vec = left.evaluate_comma_left(1)?;
@@ -245,12 +263,18 @@ impl<'p, 'a: 'p> ExpressionEvaluator<'p, 'a> {
 
     fn evaluate_colon(self) -> BergResult<'a> {
         // Declare the variable so it can self-reference if needed.
-        let mut target = self.left_operand()?.into_assignment_target()?.in_declaration();
+        let mut target = self
+            .left_operand()?
+            .into_assignment_target()?
+            .in_declaration();
         target.declare()?;
 
         // Because the right operand of colon is *always* a block, the MissingExpression will be inside it (if any).
         let right = self.right_operand()?;
-        assert!(match right.token() { Token::OpenBlock { .. } => true, _ => false, });
+        assert!(match right.token() {
+            Token::OpenBlock { .. } => true,
+            _ => false,
+        });
         if let Token::MissingExpression = right.inner_expression().token() {
             return BergError::MissingExpression.take_error(self);
         }
@@ -269,7 +293,7 @@ impl<'p, 'a: 'p> ExpressionEvaluator<'p, 'a> {
         operand.postfix(operator).take_error(self)
     }
 
-    fn evaluate_prefix_assign(self, operator: IdentifierIndex,) -> BergResult<'a> {
+    fn evaluate_prefix_assign(self, operator: IdentifierIndex) -> BergResult<'a> {
         let mut target = self.prefix_operand()?.into_assignment_target()?;
         target.initialize()?;
         let value = target.get()?.prefix(operator).take_error(self);
@@ -296,8 +320,10 @@ impl<'p, 'a: 'p> ExpressionEvaluator<'p, 'a> {
             PrefixOperator(COLON) => {
                 let colon_operand = self.prefix_operand()?;
                 match colon_operand.token() {
-                    FieldReference(field) => Ok(AssignmentTarget::DeclareLocal(colon_operand, field)),
-                    _ => BergError::AssignmentTargetMustBeIdentifier.take_error(colon_operand)
+                    FieldReference(field) => {
+                        Ok(AssignmentTarget::DeclareLocal(colon_operand, field))
+                    }
+                    _ => BergError::AssignmentTargetMustBeIdentifier.take_error(colon_operand),
                 }
             }
             Open {
@@ -324,10 +350,15 @@ impl<'p, 'a: 'p> ExpressionEvaluator<'p, 'a> {
             Token::InfixOperator(COMMA) => {
                 let mut vec = self.left_operand()?.evaluate_comma_left(index + 1)?;
                 let right = self.right_operand()?;
-                assert_ne!(right.token(), Token::InfixOperator(COMMA), "comma on the right hand side of a comma is unexpected: right hand side of {}!", self.to_string());
+                assert_ne!(
+                    right.token(),
+                    Token::InfixOperator(COMMA),
+                    "comma on the right hand side of a comma is unexpected: right hand side of {}!",
+                    self.to_string()
+                );
                 vec[index] = right.evaluate()?;
                 vec
-            },
+            }
             // Create the vector with just enough to put our left and right operands in.
             _ => {
                 let mut vec = vec![BergVal::Nothing; index + 1];
@@ -370,11 +401,18 @@ impl<'p, 'a: 'p> BergValue<'a> for ExpressionEvaluator<'p, 'a> {
     fn next_val(self) -> BergResult<'a, NextVal<'a>> {
         self.evaluate()?.next_val()
     }
-    fn into_native<T: TypeName + TryFrom<BergVal<'a>>> (
-        self
-    ) -> BergResult<'a, EvalResult<'a, T>> where <T as TryFrom<BergVal<'a>>>::Error: Into<BergVal<'a>> {
+    fn into_native<T: TypeName + TryFrom<BergVal<'a>>>(self) -> BergResult<'a, EvalResult<'a, T>>
+    where
+        <T as TryFrom<BergVal<'a>>>::Error: Into<BergVal<'a>>,
+    {
         match (self.evaluate()?.into_native(), self.position()) {
-            (Ok(Err(EvalError::Raw(BergError::BadType(value, expected_type)))), Some(position)) => Ok(Err(EvalError::Raw(BergError::BadOperandType(position, value, expected_type)))),
+            (Ok(Err(EvalError::Raw(BergError::BadType(value, expected_type)))), Some(position)) => {
+                Ok(Err(EvalError::Raw(BergError::BadOperandType(
+                    position,
+                    value,
+                    expected_type,
+                ))))
+            }
             (result, _) => result,
         }
     }
@@ -399,17 +437,23 @@ impl<'p, 'a: 'p> AssignmentTarget<'p, 'a> {
     fn initialize(&self) -> BergResult<'a, ()> {
         use AssignmentTarget::*;
         match self {
-            Local(expression, field) | DeclareLocal(expression, field) => expression.scope().bring_local_field_into_scope(*field, expression.ast()).take_error(*expression),
+            Local(expression, field) | DeclareLocal(expression, field) => expression
+                .scope()
+                .bring_local_field_into_scope(*field, expression.ast())
+                .take_error(*expression),
             Object(..) => Ok(()),
         }
     }
 
     fn get(&mut self) -> BergResult<'a> {
-        use AssignmentTarget::*;
         use crate::syntax::identifiers::DOT;
+        use AssignmentTarget::*;
         self.initialize()?;
         match self {
-            Local(expression, field) | DeclareLocal(expression, field) => expression.scope().local_field(*field, expression.ast()).take_error(*expression),
+            Local(expression, field) | DeclareLocal(expression, field) => expression
+                .scope()
+                .local_field(*field, expression.ast())
+                .take_error(*expression),
             // Infix consumes values, but we still need the object around, so we clone the obj (it's cheap at the moment, a reference or primitive)
             Object(expression, object, _) => {
                 let right = expression.right_operand()?;
@@ -421,8 +465,13 @@ impl<'p, 'a: 'p> AssignmentTarget<'p, 'a> {
     fn set(&mut self, value: BergResult<'a>) -> BergResult<'a> {
         use AssignmentTarget::*;
         match self {
-            Local(expression, field) | DeclareLocal(expression, field) => expression.scope().set_local_field(*field, value, expression.ast()).take_error(*expression)?,
-            Object(expression, object, name) => object.set_field(*name, value).take_error(*expression)?,
+            Local(expression, field) | DeclareLocal(expression, field) => expression
+                .scope()
+                .set_local_field(*field, value, expression.ast())
+                .take_error(*expression)?,
+            Object(expression, object, name) => {
+                object.set_field(*name, value).take_error(*expression)?
+            }
         }
         // If it's a declaration, declare it public now that it's been set.
         self.declare()?;
@@ -432,7 +481,10 @@ impl<'p, 'a: 'p> AssignmentTarget<'p, 'a> {
     fn declare(&mut self) -> BergResult<'a> {
         use AssignmentTarget::*;
         match self {
-            DeclareLocal(expression, field) => expression.scope().declare_field(*field, expression.ast()).take_error(*expression)?,
+            DeclareLocal(expression, field) => expression
+                .scope()
+                .declare_field(*field, expression.ast())
+                .take_error(*expression)?,
             Local(..) | Object(..) => {}
         }
         Ok(BergVal::empty_tuple())

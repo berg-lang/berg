@@ -2,18 +2,22 @@ use crate::syntax::identifiers::SEMICOLON;
 use crate::syntax::{Expression, ExpressionBoundary, Fixity, Token};
 use std::fmt;
 
-#[derive(Copy,Clone,Debug)]
+#[derive(Copy, Clone, Debug)]
 pub struct ExpressionFormatter;
 
-#[derive(Copy,Clone,Debug)]
-pub struct ExpressionTreeFormatter { starting_depth: usize }
+#[derive(Copy, Clone, Debug)]
+pub struct ExpressionTreeFormatter {
+    starting_depth: usize,
+}
 
-impl<'p, 'a: 'p, Context: Copy+Clone+fmt::Debug> Expression<'p, 'a, Context> {
+impl<'p, 'a: 'p, Context: Copy + Clone + fmt::Debug> Expression<'p, 'a, Context> {
     pub fn format(self) -> Expression<'p, 'a, ExpressionFormatter> {
         self.with_context(ExpressionFormatter)
     }
     pub fn format_tree(self) -> Expression<'p, 'a, ExpressionTreeFormatter> {
-        self.with_context(ExpressionTreeFormatter { starting_depth: self.depth() })
+        self.with_context(ExpressionTreeFormatter {
+            starting_depth: self.depth(),
+        })
     }
 }
 

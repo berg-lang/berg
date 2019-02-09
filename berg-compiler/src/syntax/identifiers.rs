@@ -4,7 +4,7 @@ use std::ops::Range;
 use std::u32;
 use string_interner::{StringInterner, Symbol};
 
-#[derive(Copy,Clone,PartialEq,Eq,Ord,PartialOrd)]
+#[derive(Copy, Clone, PartialEq, Eq, Ord, PartialOrd)]
 pub struct IdentifierIndex(NonZeroU32);
 
 macro_rules! identifiers {
@@ -90,19 +90,19 @@ impl IdentifierIndex {
 }
 
 impl Symbol for IdentifierIndex {
-	/// Creates a `IdentifierIndex` from the given `usize`.
-	///
-	/// # Panics
-	///
-	/// If the given `usize` is greater than `u32::MAX - 1`.
-	fn from_usize(val: usize) -> Self {
-		assert!(val < u32::MAX as usize);
-        IdentifierIndex(unsafe { NonZeroU32::new_unchecked((val+1) as u32) })
-	}
+    /// Creates a `IdentifierIndex` from the given `usize`.
+    ///
+    /// # Panics
+    ///
+    /// If the given `usize` is greater than `u32::MAX - 1`.
+    fn from_usize(val: usize) -> Self {
+        assert!(val < u32::MAX as usize);
+        IdentifierIndex(unsafe { NonZeroU32::new_unchecked((val + 1) as u32) })
+    }
 
-	fn to_usize(self) -> usize {
-		(self.0.get() as usize) - 1
-	}
+    fn to_usize(self) -> usize {
+        (self.0.get() as usize) - 1
+    }
 }
 
 impl fmt::Display for IdentifierIndex {

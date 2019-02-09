@@ -1,7 +1,7 @@
 use crate::syntax::identifiers::*;
 use crate::syntax::Token::*;
 use crate::syntax::{
-    AstBlock, Ast, AstDelta, AstIndex, BlockIndex, ByteRange, ExpressionBoundary,
+    Ast, AstBlock, AstDelta, AstIndex, BlockIndex, ByteRange, ExpressionBoundary,
     ExpressionBoundaryError, Field, FieldIndex, IdentifierIndex, Token,
 };
 use crate::util::indexed_vec::Delta;

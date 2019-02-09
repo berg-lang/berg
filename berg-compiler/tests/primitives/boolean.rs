@@ -517,7 +517,7 @@ mod operators_logical {
 
 mod operators_math {
     use crate::*;
-    
+
     #[test]
     fn add_false_1() {
         expect("false+1").to_error(UnsupportedOperator, 5)

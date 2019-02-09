@@ -10,11 +10,7 @@ pub enum ScopeRef<'a> {
 }
 
 impl<'a> ScopeRef<'a> {
-    pub fn create_child_block(
-        &self,
-        expression: AstIndex,
-        index: BlockIndex,
-    ) -> BlockRef<'a> {
+    pub fn create_child_block(&self, expression: AstIndex, index: BlockIndex) -> BlockRef<'a> {
         match self {
             ScopeRef::BlockRef(ref block) => block.create_child_block(expression, index),
             ScopeRef::AstRef(_) => BlockRef::new(expression, index, self.clone(), None),
@@ -32,11 +28,7 @@ impl<'a> ScopeRef<'a> {
             ScopeRef::AstRef(ref ast) => ast.source.root().field(name),
         }
     }
-    pub fn bring_local_field_into_scope(
-        &self,
-        index: FieldIndex,
-        ast: &Ast,
-    ) -> EvalResult<'a, ()> {
+    pub fn bring_local_field_into_scope(&self, index: FieldIndex, ast: &Ast) -> EvalResult<'a, ()> {
         match self {
             ScopeRef::BlockRef(block) => block.bring_local_field_into_scope(index, ast),
             ScopeRef::AstRef(_) => ast.source.root().bring_local_field_into_scope(index),

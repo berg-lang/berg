@@ -24,7 +24,7 @@ mod literals {
 
     #[test]
     fn comma_sequence_bare_parentheses() {
-        expect("(1,2)").to_yield(tuple!(1,2));
+        expect("(1,2)").to_yield(tuple!(1, 2));
     }
 
     #[test]
@@ -49,7 +49,7 @@ mod literals {
     }
     #[test]
     fn right_comma_nested_multiple() {
-        expect("(1,2),").to_yield(tuple!([1,2]))
+        expect("(1,2),").to_yield(tuple!([1, 2]))
     }
     #[test]
     fn left_comma() {
@@ -84,23 +84,23 @@ mod literals {
 
     #[test]
     fn nested_comma() {
-        expect("1,(2,3)").to_yield(tuple!(1, [2,3]));
+        expect("1,(2,3)").to_yield(tuple!(1, [2, 3]));
     }
 
     #[test]
     fn nested_comma_first() {
-        expect("(1,2),3").to_yield(tuple!([1,2], 3));
+        expect("(1,2),3").to_yield(tuple!([1, 2], 3));
     }
 
     #[test]
     fn nested_comma_single() {
-        expect("(1,2),").to_yield(tuple!([1,2]));
+        expect("(1,2),").to_yield(tuple!([1, 2]));
     }
 
     #[test]
     #[should_panic]
     fn comma_trailing_comma_is_not_same_as_nested_tuple() {
-        expect("(1,2),").to_yield(tuple!(1,2));
+        expect("(1,2),").to_yield(tuple!(1, 2));
     }
 
     #[test]
@@ -111,13 +111,13 @@ mod literals {
     #[test]
     #[should_panic]
     fn comma_multiple_values_is_not_same_as_nested_tuple() {
-        expect("1,2").to_yield(tuple!([1,2]));
+        expect("1,2").to_yield(tuple!([1, 2]));
     }
 
     #[test]
     #[should_panic]
     fn comma_bare_parentheses_is_not_same_as_nested_tuple() {
-        expect("(1,2)").to_yield(tuple!([1,2]));
+        expect("(1,2)").to_yield(tuple!([1, 2]));
     }
 }
 
