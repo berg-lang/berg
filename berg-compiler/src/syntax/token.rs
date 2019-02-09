@@ -102,7 +102,7 @@ impl Token {
             IntegerLiteral(literal) => ast.literal_string(literal).into(),
             ErrorTerm(code, ..) | RawErrorTerm(code, ..) => format!("error({:?})", code).into(),
 
-            FieldReference(field) => ast.identifier_string(ast.fields()[field].name).into(),
+            FieldReference(field) => ast.identifier_string(ast.fields[field].name).into(),
 
             RawIdentifier(identifier)
             | InfixOperator(identifier)
@@ -113,9 +113,9 @@ impl Token {
 
             NewlineSequence => "\\n".into(),
             Open { boundary, .. } => boundary.open_string().into(),
-            OpenBlock { index, .. } => ast.blocks()[index].boundary.open_string().into(),
+            OpenBlock { index, .. } => ast.blocks[index].boundary.open_string().into(),
             Close { boundary, .. } => boundary.close_string().into(),
-            CloseBlock { index, .. } => ast.blocks()[index].boundary.close_string().into(),
+            CloseBlock { index, .. } => ast.blocks[index].boundary.close_string().into(),
             MissingExpression | Apply => "".into(),
         }
     }

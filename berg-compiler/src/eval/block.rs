@@ -145,7 +145,7 @@ impl<'a> BlockRef<'a> {
     }
 
     pub fn local_field(&self, index: FieldIndex, ast: &Ast) -> EvalResult<'a> {
-        let scope_start = ast.blocks()[self.0.borrow().index].scope_start;
+        let scope_start = ast.blocks[self.0.borrow().index].scope_start;
         let block = self.0.borrow();
         if index >= scope_start {
             let scope_index: usize = (index - scope_start).into();
@@ -162,7 +162,7 @@ impl<'a> BlockRef<'a> {
         // Make sure we have enough spots to put the field
         let (input, block_field_index) = {
             let mut block = self.0.borrow_mut();
-            let scope_start = ast.blocks()[block.index].scope_start;
+            let scope_start = ast.blocks[block.index].scope_start;
             // The index we intend to insert this at
             let block_field_index: usize = (field_index - scope_start).into();
             while block_field_index >= block.fields.len() {
@@ -209,11 +209,11 @@ impl<'a> BlockRef<'a> {
         value: BergResult<'a>,
         ast: &Ast,
     ) -> EvalResult<'a, ()> {
-        let scope_start = ast.blocks()[self.0.borrow().index].scope_start;
+        let scope_start = ast.blocks[self.0.borrow().index].scope_start;
         if field_index < scope_start {
             return self.0.borrow().parent.set_local_field(field_index, value, ast);
         }
-        println!("Set {} to {}", ast.identifier_string(ast.fields()[field_index].name), match &value { Ok(v)=>format!("{}",v),Err(v)=>format!("{}",v)});
+        println!("Set {} to {}", ast.identifier_string(ast.fields[field_index].name), match &value { Ok(v)=>format!("{}",v),Err(v)=>format!("{}",v)});
         {
             let mut block = self.0.borrow_mut();
             let index: usize = (field_index - scope_start).into();
@@ -234,7 +234,7 @@ impl<'a> BlockRef<'a> {
         field_index: FieldIndex,
         ast: &Ast,
     ) -> EvalResult<'a, ()> {
-        let scope_start = ast.blocks()[self.0.borrow().index].scope_start;
+        let scope_start = ast.blocks[self.0.borrow().index].scope_start;
         let mut block = self.0.borrow_mut();
         if field_index < scope_start {
             return Ok(());
@@ -375,7 +375,7 @@ impl<'a> BergValue<'a> for BlockRef<'a> {
                 // If the inner result doesn't have it, get our own local field
                 let index = {
                     let block = self.0.borrow();
-                    let ast_block = &ast.blocks()[block.index];
+                    let ast_block = &ast.blocks[block.index];
                     ast_block
                         .public_field_index(block.index, name, &ast)
                         .or_else(|error| self.field_error(error))?
@@ -393,7 +393,7 @@ impl<'a> BergValue<'a> for BlockRef<'a> {
         let ast = self.ast();
         let index = {
             let block = self.0.borrow();
-            let ast_block = &ast.blocks()[block.index];
+            let ast_block = &ast.blocks[block.index];
             ast_block
                 .public_field_index(block.index, name, &ast)
                 .or_else(|error| self.field_error(error))?
@@ -423,7 +423,7 @@ impl<'a> fmt::Display for BlockRef<'a> {
         if !block.fields.is_empty() {
             write!(f, ", fields: {{")?;
             let mut is_first_field = true;
-            let scope_start = ast.blocks()[block.index].scope_start;
+            let scope_start = ast.blocks[block.index].scope_start;
             for (index, field_value) in block.fields.iter().enumerate() {
                 if is_first_field {
                     is_first_field = false;
@@ -431,7 +431,7 @@ impl<'a> fmt::Display for BlockRef<'a> {
                     write!(f, ", ")?;
                 }
 
-                let field = &ast.fields()[scope_start + index];
+                let field = &ast.fields[scope_start + index];
                 let name = ast.identifier_string(field.name);
 
                 match field_value {
@@ -472,7 +472,7 @@ impl<'a> fmt::Debug for BlockRef<'a> {
         }
         write!(f, "fields: {{")?;
         let mut is_first_field = true;
-        let scope_start = ast.blocks()[block.index].scope_start;
+        let scope_start = ast.blocks[block.index].scope_start;
         for (index, field_value) in block.fields.iter().enumerate() {
             if is_first_field {
                 is_first_field = false;
@@ -480,7 +480,7 @@ impl<'a> fmt::Debug for BlockRef<'a> {
                 write!(f, ", ")?;
             }
 
-            let field = &ast.fields()[scope_start + index];
+            let field = &ast.fields[scope_start + index];
             let name = ast.identifier_string(field.name);
 
             match field_value {

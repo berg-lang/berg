@@ -115,7 +115,7 @@ impl<'a> From<Error<'a>> for EvalError<'a> {
 impl<'a> ErrorLocation<'a> {
     pub fn range(&self) -> LineColumnRange {
         match self {
-            ErrorLocation::SourceExpression(ast, _) | ErrorLocation::SourceRange(ast, _) => ast.char_data().range(&self.byte_range()),
+            ErrorLocation::SourceExpression(ast, _) | ErrorLocation::SourceRange(ast, _) => ast.char_data.range(&self.byte_range()),
             _ => unreachable!(),
         }
     }
@@ -162,7 +162,7 @@ impl<'a> Error<'a> {
             }
 
             MissingExpression | UnsupportedOperator(..) => {
-                let range = expression.ast.token_ranges()[expression.expression().operator()].clone();
+                let range = expression.ast.token_ranges[expression.expression().operator()].clone();
                 SourceRange(expression.ast, range)
             },
             BadOperandType(position, ..) => {
@@ -176,12 +176,12 @@ impl<'a> Error<'a> {
             }
 
             OpenWithoutClose => {
-                let range = expression.ast.token_ranges()[expression.expression().open_operator()].clone();
+                let range = expression.ast.token_ranges[expression.expression().open_operator()].clone();
                 SourceRange(expression.ast, range)
             }
 
             CloseWithoutOpen => {
-                let range = expression.ast.token_ranges()[expression.expression().close_operator()].clone();
+                let range = expression.ast.token_ranges[expression.expression().close_operator()].clone();
                 SourceRange(expression.ast, range)
             }
 
@@ -251,34 +251,34 @@ impl<'a> fmt::Display for Error<'a> {
             SourceNotFound => write!(
                 f,
                 "I/O error getting current directory path {:?} ({}): {}",
-                expression.ast.source().absolute_path().unwrap(),
-                expression.ast.source().name(),
+                expression.ast.source.absolute_path().unwrap(),
+                expression.ast.source.name(),
                 expression.ast.open_io_error()
             ),
             IoOpenError => write!(
                 f,
                 "I/O error opening {:?} ({}): {}",
-                expression.ast.source().absolute_path().unwrap(),
-                expression.ast.source().name(),
+                expression.ast.source.absolute_path().unwrap(),
+                expression.ast.source.name(),
                 expression.ast.open_io_error()
             ),
             IoReadError => write!(
                 f,
                 "I/O error reading {:?} ({}): {}",
-                expression.ast.source().absolute_path().unwrap(),
-                expression.ast.source().name(),
+                expression.ast.source.absolute_path().unwrap(),
+                expression.ast.source.name(),
                 expression.ast.open_io_error()
             ),
             CurrentDirectoryError => write!(
                 f,
                 "I/O error getting current directory to determine path of {:?}: {}",
-                expression.ast.source().name(),
+                expression.ast.source.name(),
                 expression.ast.root().root_path().as_ref().unwrap_err()
             ),
             SourceTooLarge(size) => write!(
                 f,
                 "SourceRef file {} too large ({} bytes): source files greater than 4GB are unsupported.",
-                expression.ast.source().name(),
+                expression.ast.source.name(),
                 size
             ),
             InvalidUtf8(raw_literal) => {

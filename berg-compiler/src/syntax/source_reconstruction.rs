@@ -98,7 +98,7 @@ impl<'p, 'a: 'p> io::Read for SourceReconstructionReader<'p, 'a> {
 
 impl<'p, 'a: 'p> SourceReconstructionIterator<'p, 'a> {
     fn new(ast: &'p Ast<'a>, range: ByteRange) -> Self {
-        assert!(ast.tokens().len() > 0);
+        assert!(ast.tokens.len() > 0);
         let index = range.start;
         SourceReconstructionIterator {
             ast,
@@ -145,11 +145,11 @@ impl<'p, 'a: 'p> Iterator for SourceReconstructionIterator<'p, 'a> {
 
 impl<'p, 'a: 'p> SourceReconstructionIterator<'p, 'a> {
     fn next_token(&mut self) -> Option<(ByteIndex, &'p [u8])> {
-        let token_ranges = self.ast.token_ranges();
-        let token_range = &token_ranges[self.ast_index];
+        let token_ranges = &self.ast.token_ranges;
+        let token_range = &self.ast.token_ranges[self.ast_index];
         if self.index >= token_range.start && self.index < token_range.end {
             // Grab the string we are returning this time.
-            let result = self.token_bytes(token_range.start, self.ast.tokens()[self.ast_index]);
+            let result = self.token_bytes(token_range.start, self.ast.tokens[self.ast_index]);
             let end = match result {
                 Some((start, bytes)) => start + bytes.len(),
                 None => token_range.end,
@@ -174,7 +174,7 @@ impl<'p, 'a: 'p> SourceReconstructionIterator<'p, 'a> {
 
     fn next_whitespace_range(&mut self) -> Option<(ByteIndex, &'p [u8])> {
         // Go through our catalogue of whitespace, and find out if any are in our range.
-        let char_ranges = &self.ast.char_data().whitespace.char_ranges;
+        let char_ranges = &self.ast.char_data.whitespace.char_ranges;
         for (index, &(ref space_char, ref ranges)) in char_ranges.iter().enumerate() {
             // If this space char's next range is at our index, return it.
             let range_index = self.whitespace_indices[index];
@@ -196,7 +196,7 @@ impl<'p, 'a: 'p> SourceReconstructionIterator<'p, 'a> {
     }
 
     fn next_newline(&mut self) -> Option<(ByteIndex, &'p [u8])> {
-        let line_starts = &self.ast.char_data().line_starts;
+        let line_starts = &self.ast.char_data.line_starts;
         // If we are looking for the character just before the end of the line, it's \n.
         if self.line_index + 1 < line_starts.len()
             && self.index == line_starts[self.line_index + 1] - 1
@@ -216,10 +216,10 @@ impl<'p, 'a: 'p> SourceReconstructionIterator<'p, 'a> {
             IntegerLiteral(literal) | ErrorTerm(.., literal) => {
                 self.ast.literal_string(literal).as_bytes()
             }
-            RawErrorTerm(.., raw_literal) => &self.ast.raw_literals()[raw_literal],
+            RawErrorTerm(.., raw_literal) => &self.ast.raw_literals[raw_literal],
 
             FieldReference(field) => {
-                self.ast.identifier_string(self.ast.fields()[field].name).as_bytes()
+                self.ast.identifier_string(self.ast.fields[field].name).as_bytes()
             }
 
             RawIdentifier(identifier)
@@ -238,9 +238,9 @@ impl<'p, 'a: 'p> SourceReconstructionIterator<'p, 'a> {
             }
 
             Open { boundary, .. } => boundary.open_string().as_bytes(),
-            OpenBlock { index, .. } => self.ast.blocks()[index].boundary.open_string().as_bytes(),
+            OpenBlock { index, .. } => self.ast.blocks[index].boundary.open_string().as_bytes(),
             Close { boundary, .. } => boundary.close_string().as_bytes(),
-            CloseBlock { index, .. } => self.ast.blocks()[index].boundary.close_string().as_bytes(),
+            CloseBlock { index, .. } => self.ast.blocks[index].boundary.close_string().as_bytes(),
             NewlineSequence => return None,
             MissingExpression | Apply => unreachable!(),
         };
@@ -250,14 +250,14 @@ impl<'p, 'a: 'p> SourceReconstructionIterator<'p, 'a> {
 
 fn find_ast_index(ast: &Ast, index: ByteIndex) -> AstIndex {
     let ast_index = ast
-        .token_ranges()
+        .token_ranges
         .iter()
         .position(|range| range.end > index);
-    ast_index.unwrap_or_else(|| ast.token_ranges().last_index())
+    ast_index.unwrap_or_else(|| ast.token_ranges.last_index())
 }
 
 fn find_whitespace_indices(ast: &Ast, index: ByteIndex) -> Vec<usize> {
-    ast.char_data()
+    ast.char_data
         .whitespace
         .char_ranges
         .iter()

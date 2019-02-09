@@ -95,8 +95,8 @@ impl<'p, 'a: 'p, Context: Copy+Clone+fmt::Debug> Expression<'p, 'a, Context> {
         self.position
     }
     pub fn range(self) -> ByteRange {
-        let start = self.ast.token_ranges()[self.first_index()].start;
-        let end = self.ast.token_ranges()[self.last_index()].end;
+        let start = self.ast.token_ranges[self.first_index()].start;
+        let end = self.ast.token_ranges[self.last_index()].end;
         start..end
     }
 
@@ -133,7 +133,7 @@ impl<'p, 'a: 'p, Context: Copy+Clone+fmt::Debug> Expression<'p, 'a, Context> {
     }
 
     pub fn token(&self) -> Token {
-        self.ast.tokens()[self.operator()]
+        self.ast.tokens[self.operator()]
     }
     pub fn token_string(self) -> Cow<'p, str> {
         let token = self.token();
@@ -141,11 +141,11 @@ impl<'p, 'a: 'p, Context: Copy+Clone+fmt::Debug> Expression<'p, 'a, Context> {
     }
 
     pub fn open_token(&self) -> Token {
-        self.ast.tokens()[self.open_operator()]
+        self.ast.tokens[self.open_operator()]
     }
 
     pub fn close_token(&self) -> Token {
-        self.ast.tokens()[self.close_operator()]
+        self.ast.tokens[self.close_operator()]
     }
 
     pub fn open_operator(&self) -> AstIndex {
@@ -175,7 +175,7 @@ impl<'p, 'a: 'p, Context: Copy+Clone+fmt::Debug> Expression<'p, 'a, Context> {
     pub fn boundary(self) -> ExpressionBoundary {
         match self.open_token() {
             Token::Open { boundary, .. } => boundary,
-            Token::OpenBlock { index, .. } => self.ast.blocks()[index].boundary,
+            Token::OpenBlock { index, .. } => self.ast.blocks[index].boundary,
             _ => unreachable!(),
         }
     }
@@ -192,13 +192,13 @@ impl<'p, 'a: 'p, Context: Copy+Clone+fmt::Debug> Expression<'p, 'a, Context> {
 
         // Pass any postfixes to find the term.
         let mut has_postfix = false;
-        while self.ast.tokens()[start].fixity() == Fixity::Postfix {
+        while self.ast.tokens[start].fixity() == Fixity::Postfix {
             start -= 1;
             has_postfix = true;
         }
 
         // Jump to the open token if it's a group term (parens, curlies, etc.)
-        match self.ast.tokens()[start] {
+        match self.ast.tokens[start] {
             Token::Close { delta, .. } | Token::CloseBlock { delta, .. } => {
                 start -= delta;
             }
@@ -207,13 +207,13 @@ impl<'p, 'a: 'p, Context: Copy+Clone+fmt::Debug> Expression<'p, 'a, Context> {
 
         // Pass any prefixes if there is no postfix or infix.
         if position == PostfixOperand || !has_postfix {
-            while start > 0 && self.ast.tokens()[start - 1].fixity() == Fixity::Prefix {
+            while start > 0 && self.ast.tokens[start - 1].fixity() == Fixity::Prefix {
                 start -= 1;
             }
         }
 
         // Check for an infix.
-        if position != PostfixOperand && start > 0 && self.ast.tokens()[start - 1].fixity() == Fixity::Infix {
+        if position != PostfixOperand && start > 0 && self.ast.tokens[start - 1].fixity() == Fixity::Infix {
             return self.with_operand(start - 1, position);
         }
 
@@ -241,17 +241,17 @@ impl<'p, 'a: 'p, Context: Copy+Clone+fmt::Debug> Expression<'p, 'a, Context> {
 
         // Check whether there is a postfix by skipping prefix and term.
         let mut end = start;
-        while self.ast.tokens()[end].fixity() == Fixity::Prefix {
+        while self.ast.tokens[end].fixity() == Fixity::Prefix {
             end += 1;
         }
-        match self.ast.tokens()[end] {
+        match self.ast.tokens[end] {
             Token::Open { delta, .. } | Token::OpenBlock { delta, .. } => {
                 end += delta;
             }
             _ => {}
         }
         let mut has_postfix = false;
-        while end < self.ast.tokens().last_index() && self.ast.tokens()[end + 1].fixity() == Fixity::Postfix {
+        while end < self.ast.tokens.last_index() && self.ast.tokens[end + 1].fixity() == Fixity::Postfix {
             end += 1;
             has_postfix = true;
         }
@@ -271,11 +271,11 @@ impl<'p, 'a: 'p, Context: Copy+Clone+fmt::Debug> Expression<'p, 'a, Context> {
         let last_index = self.last_index();
         let next = self.with_index(last_index + 1);
         if first_index == 0 {
-            assert!(next.index <= next.ast.tokens().last_index());
+            assert!(next.index <= next.ast.tokens.last_index());
             return next;
         }
         let prev = next.with_index(first_index - 1);
-        if last_index >= prev.ast.tokens().last_index() {
+        if last_index >= prev.ast.tokens.last_index() {
             return prev;
         }
 

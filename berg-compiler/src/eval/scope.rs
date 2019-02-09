@@ -23,13 +23,13 @@ impl<'a> ScopeRef<'a> {
     pub fn local_field(&self, index: FieldIndex, ast: &Ast) -> EvalResult<'a> {
         match self {
             ScopeRef::BlockRef(ref block) => block.local_field(index, ast),
-            ScopeRef::AstRef(ref ast) => ast.source().root().local_field(index),
+            ScopeRef::AstRef(ref ast) => ast.source.root().local_field(index),
         }
     }
     pub fn field(&self, name: IdentifierIndex) -> EvalResult<'a> {
         match self {
             ScopeRef::BlockRef(ref block) => block.field(name),
-            ScopeRef::AstRef(ref ast) => ast.source().root().field(name),
+            ScopeRef::AstRef(ref ast) => ast.source.root().field(name),
         }
     }
     pub fn bring_local_field_into_scope(
@@ -39,13 +39,13 @@ impl<'a> ScopeRef<'a> {
     ) -> EvalResult<'a, ()> {
         match self {
             ScopeRef::BlockRef(block) => block.bring_local_field_into_scope(index, ast),
-            ScopeRef::AstRef(_) => ast.source().root().bring_local_field_into_scope(index),
+            ScopeRef::AstRef(_) => ast.source.root().bring_local_field_into_scope(index),
         }
     }
     pub fn declare_field(&self, index: FieldIndex, ast: &Ast) -> EvalResult<'a, ()> {
         match self {
             ScopeRef::BlockRef(block) => block.declare_field(index, ast),
-            ScopeRef::AstRef(_) => ast.source().root().declare_field(index),
+            ScopeRef::AstRef(_) => ast.source.root().declare_field(index),
         }
     }
     pub fn set_local_field(
@@ -56,7 +56,7 @@ impl<'a> ScopeRef<'a> {
     ) -> EvalResult<'a, ()> {
         match self {
             ScopeRef::BlockRef(block) => block.set_local_field(index, value, ast),
-            ScopeRef::AstRef(ast) => ast.source().root().set_local_field(index, value),
+            ScopeRef::AstRef(ast) => ast.source.root().set_local_field(index, value),
         }
     }
     pub fn ast(&self) -> AstRef<'a> {

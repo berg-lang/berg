@@ -28,10 +28,9 @@ pub type TokenRanges = IndexedVec<ByteRange, AstIndex>;
 pub type AstDelta = Delta<AstIndex>;
 
 // TODO stuff Ast into SourceData, and don't have AstRef anymore.
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct AstRef<'a>(Rc<Ast<'a>>);
 
-#[derive(Debug)]
 pub struct Ast<'a> {
     pub source: SourceRef<'a>,
     pub char_data: CharData,
@@ -89,12 +88,6 @@ impl<'a> AstRef<'a> {
     }
 }
 
-impl<'a> fmt::Debug for AstRef<'a> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Ast({:?})", self.source().name())
-    }
-}
-
 impl<'a> Deref for AstRef<'a> {
     type Target = Ast<'a>;
     fn deref(&self) -> &Ast<'a> {
@@ -103,39 +96,11 @@ impl<'a> Deref for AstRef<'a> {
 }
 
 impl<'a> Ast<'a> {
-    pub fn source(&self) -> &SourceRef<'a> {
-        &self.source
-    }
     pub fn root(&self) -> &RootRef {
-        self.source().root()
+        self.source.root()
     }
-    pub fn char_data(&self) -> &CharData {
-        &self.char_data
-    }
-    pub fn identifiers(&self) -> &StringInterner<IdentifierIndex> {
-        &self.identifiers
-    }
-    pub fn literals(&self) -> &StringInterner<Sym> {
-        &self.literals
-    }
-    pub fn raw_literals(&self) -> &IndexedVec<Vec<u8>, RawLiteralIndex> {
-        &self.raw_literals
-    }
-    pub fn tokens(&self) -> &IndexedVec<Token, AstIndex> {
-        &self.tokens
-    }
-    pub fn token_ranges(&self) -> &IndexedVec<ByteRange, AstIndex> {
-        &self.token_ranges
-    }
-    pub fn fields(&self) -> &IndexedVec<Field, FieldIndex> {
-        &self.fields
-    }
-    pub fn blocks(&self) -> &IndexedVec<AstBlock, BlockIndex> {
-        &self.blocks
-    }
-
-    pub fn token(&self, index: AstIndex) -> &Token {
-        &self.tokens[index]
+    pub fn token(&self, index: AstIndex) -> Token {
+        self.tokens[index]
     }
     pub fn token_string(&self, index: AstIndex) -> Cow<str> {
         self.tokens[index].to_string(self)
@@ -159,7 +124,7 @@ impl<'a> Ast<'a> {
         &self.source_open_error.as_ref().unwrap().1
     }
     pub fn field_name(&self, index: FieldIndex) -> &str {
-        self.identifier_string(self.fields()[index].name)
+        self.identifier_string(self.fields[index].name)
     }
 
     pub fn expression<'p>(&'p self) -> Expression<'p, 'a> {
@@ -171,13 +136,13 @@ impl<'a> Ast<'a> {
     where
         'a: 'p,
     {
-        SourceReconstructionReader::new(self, 0.into()..self.char_data().size)
+        SourceReconstructionReader::new(self, 0.into()..self.char_data.size)
     }
     pub fn to_bytes(&self) -> Vec<u8> {
-        SourceReconstruction::new(self, 0.into()..self.char_data().size).to_bytes()
+        SourceReconstruction::new(self, 0.into()..self.char_data.size).to_bytes()
     }
     pub fn to_string(&self) -> String {
-        SourceReconstruction::new(self, 0.into()..self.char_data().size).to_string()
+        SourceReconstruction::new(self, 0.into()..self.char_data.size).to_string()
     }
 
     pub fn push_token(&mut self, token: Token, range: ByteRange) -> AstIndex {
@@ -199,12 +164,18 @@ impl<'a> Ast<'a> {
     }
 }
 
-impl<'a> fmt::Display for AstRef<'a> {
+impl<'a> fmt::Debug for Ast<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Ast({:?})", self.source.name())
+    }
+}
+
+impl<'a> fmt::Display for Ast<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         writeln!(f, "Tokens:")?;
         let mut index = AstIndex(0);
-        while index < self.tokens().len() {
-            let range = self.char_data().range(&self.token_range(index));
+        while index < self.tokens.len() {
+            let range = self.char_data.range(&self.token_range(index));
             writeln!(
                 f,
                 "[{}] {} {:?}",

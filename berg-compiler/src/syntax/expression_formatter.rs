@@ -21,7 +21,7 @@ impl<'p, 'a: 'p> Expression<'p, 'a, ExpressionFormatter> {
     fn boundary_strings(self) -> (&'static str, &'static str) {
         let boundary = match self.open_token() {
             Token::Open { boundary, .. } => boundary,
-            Token::OpenBlock { index, .. } => self.ast().blocks()[index].boundary,
+            Token::OpenBlock { index, .. } => self.ast().blocks[index].boundary,
             _ => unreachable!(),
         };
         match boundary {
@@ -52,7 +52,7 @@ impl<'p, 'a: 'p> fmt::Display for Expression<'p, 'a, ExpressionFormatter> {
             }
             Fixity::Prefix => {
                 let right = self.right_expression();
-                if self.ast().tokens()[self.operator() - 1].has_left_operand() {
+                if self.ast().tokens[self.operator() - 1].has_left_operand() {
                     write!(f, " {}{}", string, right)
                 } else {
                     write!(f, "{}{}", string, right)
@@ -60,7 +60,7 @@ impl<'p, 'a: 'p> fmt::Display for Expression<'p, 'a, ExpressionFormatter> {
             }
             Fixity::Postfix => {
                 let left = self.left_expression();
-                if self.ast().tokens()[self.operator() + 1].has_right_operand() {
+                if self.ast().tokens[self.operator() + 1].has_right_operand() {
                     write!(f, " {}{}", left, string)
                 } else {
                     write!(f, "{}{}", left, string)

@@ -110,8 +110,8 @@ impl<'a> ExpectBerg<'a> {
     pub fn to_error(self, code: ErrorCode, expected_range: impl ExpectedErrorRange) {
         let ast = parser::parse(test_source(self.0));
         let expected_range = ast
-            .char_data()
-            .range(&expected_range.into_error_range(ast.char_data().size));
+            .char_data
+            .range(&expected_range.into_error_range(ast.char_data.size));
         let result = evaluate_ast(ast.clone());
         let result = result.and_then(Self::consume_all);
         assert!(
