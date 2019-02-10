@@ -1,5 +1,5 @@
 pub use self::char_data::LineColumnRange;
-pub use self::expression::{Expression, ExpressionRef};
+pub use self::expression::{AstExpression, Expression, ExpressionRef};
 pub use self::expression_formatter::{ExpressionFormatter, ExpressionTreeFormatter};
 pub mod identifiers;
 

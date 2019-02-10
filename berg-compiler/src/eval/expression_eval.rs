@@ -3,7 +3,7 @@ use crate::syntax::identifiers::{
     APPLY, COLON, COMMA, DASH_DASH, DOT, EMPTY_STRING, NEWLINE, PLUS_PLUS, SEMICOLON,
 };
 use crate::syntax::{
-    Expression, ExpressionBoundaryError, ExpressionRef, FieldIndex, IdentifierIndex, OperandPosition, Token,
+    Expression, ExpressionBoundaryError, ExpressionRef, FieldIndex, IdentifierIndex, Token,
 };
 use crate::util::try_from::TryFrom;
 use crate::util::type_name::TypeName;
@@ -377,30 +377,38 @@ impl<'p, 'a: 'p> ExpressionEvaluator<'p, 'a> {
             _ => left.infix(SEMICOLON, right).take_error(self)
         }
     }
-    pub fn operand(self, position: OperandPosition) -> BergResult<'a, Self>
+
+    pub fn left_operand(self) -> BergResult<'a, Self>
     {
-        let operand = self.child(position);
+        let operand = self.left_expression();
         match operand.token() {
             Token::MissingExpression => BergError::MissingExpression.take_error(self),
             _ => Ok(operand),
         }
     }
-
-    pub fn left_operand(self) -> BergResult<'a, Self>
-    {
-        self.operand(OperandPosition::Left)
-    }
     pub fn right_operand(self) -> BergResult<'a, Self>
     {
-        self.operand(OperandPosition::Right)
+        let operand = self.right_expression();
+        match operand.token() {
+            Token::MissingExpression => BergError::MissingExpression.take_error(self),
+            _ => Ok(operand),
+        }
     }
     pub fn prefix_operand(self) -> BergResult<'a, Self>
     {
-        self.operand(OperandPosition::PrefixOperand)
+        let operand = self.right_expression();
+        match operand.token() {
+            Token::MissingExpression => BergError::MissingExpression.take_error(self),
+            _ => Ok(operand),
+        }
     }
     pub fn postfix_operand(self) -> BergResult<'a, Self>
     {
-        self.operand(OperandPosition::PostfixOperand)
+        let operand = self.left_expression();
+        match operand.token() {
+            Token::MissingExpression => BergError::MissingExpression.take_error(self),
+            _ => Ok(operand),
+        }
     }
 }
 

@@ -124,7 +124,7 @@ impl<'a> ErrorLocation<'a> {
     pub fn byte_range(&self) -> ByteRange {
         match self {
             ErrorLocation::SourceExpression(ast, index) => {
-                Expression::new((), ast, *index).range()
+                Expression::new((), ast, *index).byte_range()
             }
             ErrorLocation::SourceRange(_, range) => range.clone(),
             _ => unreachable!(),
@@ -170,12 +170,12 @@ impl<'a> Error<'a> {
                 SourceRange(expression.ast, range)
             }
             BadOperandType(position, ..) => {
-                let operand = expression.expression().child(position).index();
+                let operand = expression.expression().child(position).root_index();
                 SourceExpression(expression.ast, operand)
             }
 
             DivideByZero => {
-                let operand = expression.expression().right_expression().range();
+                let operand = expression.expression().right_expression().byte_range();
                 SourceRange(expression.ast, operand)
             }
 
