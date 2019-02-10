@@ -124,7 +124,7 @@ impl<'a> ErrorLocation<'a> {
     pub fn byte_range(&self) -> ByteRange {
         match self {
             ErrorLocation::SourceExpression(ast, index) => {
-                Expression::new((), ast, *index, None).range()
+                Expression::new((), ast, *index).range()
             }
             ErrorLocation::SourceRange(_, range) => range.clone(),
             _ => unreachable!(),

@@ -126,7 +126,7 @@ impl<'a> Ast<'a> {
 
     pub fn expression<'p>(&'p self) -> Expression<'p, 'a> {
         assert_ne!(self.tokens.len(), 0);
-        Expression::new((), self, AstIndex(0), None)
+        Expression::new((), self, AstIndex(0))
     }
 
     pub fn read_bytes<'p>(&'p self) -> SourceReconstructionReader<'p, 'a>

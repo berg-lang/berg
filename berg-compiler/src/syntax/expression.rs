@@ -23,7 +23,6 @@ pub struct Expression<'p, 'a: 'p, Context: Copy + Clone + fmt::Debug = ()> {
     context: Context,
     ast: &'p Ast<'a>,
     index: AstIndex,
-    position: Option<OperandPosition>,
 }
 
 #[derive(Clone)]
@@ -65,7 +64,7 @@ impl<'p, 'a: 'p> fmt::Display for Expression<'p, 'a, ()> {
 
 impl<'p, 'a: 'p> Expression<'p, 'a, ()> {
     pub fn basic(ast: &'p Ast<'a>, index: AstIndex) -> Self {
-        Expression::new((), ast, index, None)
+        Expression::new((), ast, index)
     }
 }
 impl<'p, 'a: 'p, Context: Copy + Clone + fmt::Debug> Expression<'p, 'a, Context> {
@@ -73,13 +72,11 @@ impl<'p, 'a: 'p, Context: Copy + Clone + fmt::Debug> Expression<'p, 'a, Context>
         context: Context,
         ast: &'p Ast<'a>,
         index: AstIndex,
-        position: Option<OperandPosition>,
     ) -> Self {
         Expression {
             context,
             ast,
             index,
-            position,
         }
     }
     pub fn with_context<C: Copy + Clone + fmt::Debug>(self, context: C) -> Expression<'p, 'a, C> {
@@ -87,15 +84,6 @@ impl<'p, 'a: 'p, Context: Copy + Clone + fmt::Debug> Expression<'p, 'a, Context>
             context,
             ast: self.ast,
             index: self.index,
-            position: self.position,
-        }
-    }
-    pub fn with_operand(self, index: AstIndex, position: OperandPosition) -> Self {
-        Expression {
-            context: self.context,
-            ast: self.ast,
-            index,
-            position: Some(position),
         }
     }
     pub fn with_index(self, index: AstIndex) -> Self {
@@ -103,7 +91,6 @@ impl<'p, 'a: 'p, Context: Copy + Clone + fmt::Debug> Expression<'p, 'a, Context>
             context: self.context,
             ast: self.ast,
             index,
-            position: None,
         }
     }
     pub fn context(self) -> Context {
@@ -114,9 +101,6 @@ impl<'p, 'a: 'p, Context: Copy + Clone + fmt::Debug> Expression<'p, 'a, Context>
     }
     pub fn index(self) -> AstIndex {
         self.index
-    }
-    pub fn position(self) -> Option<OperandPosition> {
-        self.position
     }
     pub fn range(self) -> ByteRange {
         let start = self.ast.token_ranges[self.first_index()].start;
@@ -241,16 +225,16 @@ impl<'p, 'a: 'p, Context: Copy + Clone + fmt::Debug> Expression<'p, 'a, Context>
             && start > 0
             && self.ast.tokens[start - 1].fixity() == Fixity::Infix
         {
-            return self.with_operand(start - 1, position);
+            return self.with_index(start - 1);
         }
 
         // Pick postfix if there is one.
         if has_postfix {
-            return self.with_operand(end, position);
+            return self.with_index(end);
         }
 
         // Otherwise, it's the leftmost index (either a prefix or term).
-        self.with_operand(start, position)
+        self.with_index(start)
     }
 
     pub fn right_expression(self) -> Self {
@@ -258,7 +242,7 @@ impl<'p, 'a: 'p, Context: Copy + Clone + fmt::Debug> Expression<'p, 'a, Context>
 
         match self.token().fixity() {
             // If this is prefix, it cannot have postfix or infix children, so its immediate right is the child.
-            Fixity::Prefix => return self.with_operand(start, OperandPosition::PrefixOperand),
+            Fixity::Prefix => return self.with_index(start),
             // If this is a group term, APPLY inner() and return.
             Fixity::Open => return self.inner_expression(),
             // Otherwise, it's guaranteed to be infix.
@@ -287,11 +271,11 @@ impl<'p, 'a: 'p, Context: Copy + Clone + fmt::Debug> Expression<'p, 'a, Context>
 
         // If there is at least one postfix, return the outermost postfix.
         if has_postfix {
-            return self.with_operand(end, OperandPosition::Right);
+            return self.with_index(end);
         }
 
         // Otherwise, the right child is the immediate right term (or prefix).
-        self.with_operand(start, OperandPosition::Right)
+        self.with_index(start)
     }
 
     pub fn parent(self) -> Self {

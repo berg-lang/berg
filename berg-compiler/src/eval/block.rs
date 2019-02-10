@@ -149,7 +149,7 @@ impl<'a> BlockRef<'a> {
         };
         // Run the block and stash the result
         let scope = ScopeRef::BlockRef(self.clone());
-        let expression = ExpressionEvaluator::new(&scope, &ast, expression, None);
+        let expression = ExpressionEvaluator::new(&scope, &ast, expression);
         println!("Evaluating block {}", self);
         let result = match expression.token() {
             Token::MissingExpression => Ok(None),

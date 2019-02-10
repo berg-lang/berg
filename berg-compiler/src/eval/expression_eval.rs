@@ -405,15 +405,15 @@ impl<'p, 'a: 'p> BergValue<'a> for ExpressionEvaluator<'p, 'a> {
     where
         <T as TryFrom<BergVal<'a>>>::Error: Into<BergVal<'a>>,
     {
-        match (self.evaluate()?.into_native(), self.position()) {
-            (Ok(Err(EvalError::Raw(BergError::BadType(value, expected_type)))), Some(position)) => {
+        match self.evaluate()?.into_native() {
+            Ok(Err(EvalError::Raw(BergError::BadType(value, expected_type)))) => {
                 Ok(Err(EvalError::Raw(BergError::BadOperandType(
-                    position,
+                    self.operand_position(),
                     value,
                     expected_type,
                 ))))
             }
-            (result, _) => result,
+            result => result,
         }
     }
 }
