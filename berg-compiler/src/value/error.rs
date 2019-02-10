@@ -204,7 +204,7 @@ impl<'a> Error<'a> {
             | CircularDependency
             | ImmutableFieldOnRoot(..)
             | PrivateField(..)
-            | BadType(..) => ErrorLocation::SourceExpression(expression.ast, expression.index),
+            | BadType(..) => ErrorLocation::SourceExpression(expression.ast, expression.root),
         }
     }
 }

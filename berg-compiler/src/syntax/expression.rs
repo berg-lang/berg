@@ -21,21 +21,21 @@ use std::fmt;
 pub struct Expression<'p, 'a: 'p, Context: Copy + Clone + fmt::Debug = ()> {
     context: Context,
     ast: &'p Ast<'a>,
-    index: AstIndex,
+    root: AstIndex,
 }
 
 #[derive(Clone)]
 pub struct ExpressionRef<'a> {
     pub ast: AstRef<'a>,
-    pub index: AstIndex,
+    pub root: AstIndex,
 }
 
 impl<'a> ExpressionRef<'a> {
-    pub fn new(ast: AstRef<'a>, index: AstIndex) -> Self {
-        ExpressionRef { ast, index }
+    pub fn new(ast: AstRef<'a>, root: AstIndex) -> Self {
+        ExpressionRef { ast, root }
     }
     pub fn expression<'p>(&'p self) -> Expression<'p, 'a> {
-        Expression::basic(&self.ast, self.index)
+        Expression::basic(&self.ast, self.root)
     }
 }
 impl<'a> fmt::Debug for ExpressionRef<'a> {
@@ -70,26 +70,26 @@ impl<'p, 'a: 'p, Context: Copy + Clone + fmt::Debug> Expression<'p, 'a, Context>
     pub fn new(
         context: Context,
         ast: &'p Ast<'a>,
-        index: AstIndex,
+        root: AstIndex,
     ) -> Self {
         Expression {
             context,
             ast,
-            index,
+            root,
         }
     }
     pub fn with_context<C: Copy + Clone + fmt::Debug>(self, context: C) -> Expression<'p, 'a, C> {
         Expression {
             context,
             ast: self.ast,
-            index: self.index,
+            root: self.root,
         }
     }
-    pub fn with_index(self, index: AstIndex) -> Self {
+    pub fn with_root(self, root: AstIndex) -> Self {
         Expression {
             context: self.context,
             ast: self.ast,
-            index,
+            root,
         }
     }
     pub fn context(self) -> Context {
@@ -99,16 +99,16 @@ impl<'p, 'a: 'p, Context: Copy + Clone + fmt::Debug> Expression<'p, 'a, Context>
         self.ast
     }
     pub fn index(self) -> AstIndex {
-        self.index
+        self.root
     }
     pub fn range(self) -> ByteRange {
-        let start = self.ast.token_ranges[first_index(self.ast, self.index)].start;
-        let end = self.ast.token_ranges[last_index(self.ast, self.index)].end;
+        let start = self.ast.token_ranges[first_index(self.ast, self.root)].start;
+        let end = self.ast.token_ranges[last_index(self.ast, self.root)].end;
         start..end
     }
 
     pub fn token(&self) -> Token {
-        self.ast.tokens[self.index]
+        self.ast.tokens[self.root]
     }
     pub fn token_string(self) -> Cow<'p, str> {
         let token = self.token();
@@ -116,24 +116,24 @@ impl<'p, 'a: 'p, Context: Copy + Clone + fmt::Debug> Expression<'p, 'a, Context>
     }
 
     pub fn open_operator(&self) -> AstIndex {
-        open_operator_index(self.ast, self.index)
+        open_operator_index(self.ast, self.root)
     }
     pub fn close_operator(&self) -> AstIndex {
-        close_operator_index(self.ast, self.index)
+        close_operator_index(self.ast, self.root)
     }
 
     pub fn open_token(&self) -> Token {
-        self.ast.tokens[open_operator_index(self.ast, self.index)]
+        self.ast.tokens[open_operator_index(self.ast, self.root)]
     }
 
     pub fn close_token(&self) -> Token {
-        self.ast.tokens[close_operator_index(self.ast, self.index)]
+        self.ast.tokens[close_operator_index(self.ast, self.root)]
     }
 
     pub fn depth(self) -> usize {
         let mut depth = 0;
         let mut expression = self;
-        while expression.index != 0 {
+        while expression.root != 0 {
             depth += 1;
             expression = expression.parent();
         }
@@ -149,15 +149,15 @@ impl<'p, 'a: 'p, Context: Copy + Clone + fmt::Debug> Expression<'p, 'a, Context>
     }
 
     pub fn left_expression(self) -> Self {
-        self.with_index(left_operand_root(self.ast, self.index))
+        self.with_root(left_operand_root(self.ast, self.root))
     }
 
     pub fn right_expression(self) -> Self {
-        self.with_index(right_operand_root(self.ast, self.index))
+        self.with_root(right_operand_root(self.ast, self.root))
     }
 
     pub fn parent(self) -> Self {
-        self.with_index(parent_root(self.ast, self.index))
+        self.with_root(parent_root(self.ast, self.root))
     }
 
     pub fn operand_position(self) -> OperandPosition {
@@ -166,14 +166,14 @@ impl<'p, 'a: 'p, Context: Copy + Clone + fmt::Debug> Expression<'p, 'a, Context>
         match parent.token().fixity() {
             Prefix | Open => PrefixOperand,
             Postfix | Close => PostfixOperand,
-            Infix if self.index < parent.index => Left,
+            Infix if self.root < parent.root => Left,
             Infix => Right,
             Term => unreachable!(),
         }
     }
 
     pub fn inner_expression(self) -> Self {
-        self.with_index(inner_root(self.ast, self.index))
+        self.with_root(inner_root(self.ast, self.root))
     }
 
     pub fn child(self, position: OperandPosition) -> Expression<'p, 'a, Context> {
