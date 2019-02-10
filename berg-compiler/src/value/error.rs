@@ -166,7 +166,7 @@ impl<'a> Error<'a> {
             }
 
             MissingExpression | UnsupportedOperator(..) => {
-                let range = expression.ast.token_ranges[expression.expression().operator()].clone();
+                let range = expression.ast.token_ranges[expression.expression().index()].clone();
                 SourceRange(expression.ast, range)
             }
             BadOperandType(position, ..) => {
