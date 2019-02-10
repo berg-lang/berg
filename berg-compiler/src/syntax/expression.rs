@@ -2,7 +2,6 @@ use crate::syntax::Fixity::*;
 use crate::syntax::{
     Ast, AstIndex, AstRef, ByteRange, ExpressionBoundary, Fixity, OperandPosition, Token,
 };
-use crate::value::{BergError, BergResult, TakeError};
 use std::borrow::Cow;
 use std::fmt;
 
@@ -331,40 +330,5 @@ impl<'p, 'a: 'p, Context: Copy + Clone + fmt::Debug> Expression<'p, 'a, Context>
             Left | PostfixOperand => self.left_expression(),
             Right | PrefixOperand => self.right_expression(),
         }
-    }
-    pub fn operand(self, position: OperandPosition) -> BergResult<'a, Expression<'p, 'a, Context>>
-    where
-        Self: Into<ExpressionRef<'a>>,
-    {
-        let operand = self.child(position);
-        match operand.token() {
-            Token::MissingExpression => BergError::MissingExpression.take_error(self),
-            _ => Ok(operand),
-        }
-    }
-
-    pub fn left_operand(self) -> BergResult<'a, Self>
-    where
-        Self: Into<ExpressionRef<'a>>,
-    {
-        self.operand(OperandPosition::Left)
-    }
-    pub fn right_operand(self) -> BergResult<'a, Self>
-    where
-        Self: Into<ExpressionRef<'a>>,
-    {
-        self.operand(OperandPosition::Right)
-    }
-    pub fn prefix_operand(self) -> BergResult<'a, Self>
-    where
-        Self: Into<ExpressionRef<'a>>,
-    {
-        self.operand(OperandPosition::PrefixOperand)
-    }
-    pub fn postfix_operand(self) -> BergResult<'a, Self>
-    where
-        Self: Into<ExpressionRef<'a>>,
-    {
-        self.operand(OperandPosition::PostfixOperand)
     }
 }

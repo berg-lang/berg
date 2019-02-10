@@ -3,7 +3,7 @@ use crate::syntax::identifiers::{
     APPLY, COLON, COMMA, DASH_DASH, DOT, EMPTY_STRING, NEWLINE, PLUS_PLUS, SEMICOLON,
 };
 use crate::syntax::{
-    Expression, ExpressionBoundaryError, ExpressionRef, FieldIndex, IdentifierIndex, Token,
+    Expression, ExpressionBoundaryError, ExpressionRef, FieldIndex, IdentifierIndex, OperandPosition, Token,
 };
 use crate::util::try_from::TryFrom;
 use crate::util::type_name::TypeName;
@@ -376,6 +376,31 @@ impl<'p, 'a: 'p> ExpressionEvaluator<'p, 'a> {
             Token::InfixOperator(SEMICOLON) => panic!("semicolon on the right hand side of a semicolon is unexpected: right hand side of {}!", self),
             _ => left.infix(SEMICOLON, right).take_error(self)
         }
+    }
+    pub fn operand(self, position: OperandPosition) -> BergResult<'a, Self>
+    {
+        let operand = self.child(position);
+        match operand.token() {
+            Token::MissingExpression => BergError::MissingExpression.take_error(self),
+            _ => Ok(operand),
+        }
+    }
+
+    pub fn left_operand(self) -> BergResult<'a, Self>
+    {
+        self.operand(OperandPosition::Left)
+    }
+    pub fn right_operand(self) -> BergResult<'a, Self>
+    {
+        self.operand(OperandPosition::Right)
+    }
+    pub fn prefix_operand(self) -> BergResult<'a, Self>
+    {
+        self.operand(OperandPosition::PrefixOperand)
+    }
+    pub fn postfix_operand(self) -> BergResult<'a, Self>
+    {
+        self.operand(OperandPosition::PostfixOperand)
     }
 }
 
