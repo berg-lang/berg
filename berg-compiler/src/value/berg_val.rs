@@ -107,7 +107,7 @@ impl<'a> BergValue<'a> for BergVal<'a> {
         Ok(self)
     }
 
-    fn into_native<T: TypeName + TryFrom<BergVal<'a>>>(self) -> BergResult<'a, EvalResult<'a, T>>
+    fn into_native<T: TypeName + TryFrom<BergVal<'a>>>(self) -> BergResult<'a, BergResult<'a, T>>
     where
         <T as TryFrom<BergVal<'a>>>::Error: Into<BergVal<'a>>,
     {
@@ -126,7 +126,7 @@ impl<'a> BergValue<'a> for BergVal<'a> {
         }
     }
 
-    fn infix<T: BergValue<'a>>(self, operator: IdentifierIndex, right: T) -> EvalResult<'a> {
+    fn infix<T: BergValue<'a>>(self, operator: IdentifierIndex, right: T) -> BergResult<'a> {
         use BergVal::*;
         match self {
             Boolean(value) => value.infix(operator, right),
@@ -138,7 +138,7 @@ impl<'a> BergValue<'a> for BergVal<'a> {
         }
     }
 
-    fn postfix(self, operator: IdentifierIndex) -> EvalResult<'a> {
+    fn postfix(self, operator: IdentifierIndex) -> BergResult<'a> {
         use BergVal::*;
         match self {
             Boolean(value) => value.postfix(operator),
@@ -150,7 +150,7 @@ impl<'a> BergValue<'a> for BergVal<'a> {
         }
     }
 
-    fn prefix(self, operator: IdentifierIndex) -> EvalResult<'a> {
+    fn prefix(self, operator: IdentifierIndex) -> BergResult<'a> {
         use BergVal::*;
         match self {
             Boolean(value) => value.prefix(operator),
@@ -162,7 +162,7 @@ impl<'a> BergValue<'a> for BergVal<'a> {
         }
     }
 
-    fn field(&self, name: IdentifierIndex) -> EvalResult<'a> {
+    fn field(&self, name: IdentifierIndex) -> BergResult<'a> {
         use BergVal::*;
         match self {
             Boolean(value) => value.field(name),
@@ -178,7 +178,7 @@ impl<'a> BergValue<'a> for BergVal<'a> {
         &mut self,
         name: IdentifierIndex,
         field_value: BergResult<'a>,
-    ) -> EvalResult<'a, ()> {
+    ) -> BergResult<'a, ()> {
         use BergVal::*;
         match self {
             Boolean(ref mut value) => value.set_field(name, field_value),

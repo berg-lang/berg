@@ -7,7 +7,7 @@ impl TypeName for IdentifierIndex {
 }
 
 impl<'a> BergValue<'a> for IdentifierIndex {
-    fn infix<T: BergValue<'a>>(self, operator: IdentifierIndex, right: T) -> EvalResult<'a> {
+    fn infix<T: BergValue<'a>>(self, operator: IdentifierIndex, right: T) -> BergResult<'a> {
         use crate::syntax::identifiers::EQUAL_TO;
         match operator {
             EQUAL_TO => match right.into_native::<IdentifierIndex>()? {
@@ -18,17 +18,17 @@ impl<'a> BergValue<'a> for IdentifierIndex {
         }
     }
 
-    fn postfix(self, operator: IdentifierIndex) -> EvalResult<'a> {
+    fn postfix(self, operator: IdentifierIndex) -> BergResult<'a> {
         default_postfix(self, operator)
     }
-    fn prefix(self, operator: IdentifierIndex) -> EvalResult<'a> {
+    fn prefix(self, operator: IdentifierIndex) -> BergResult<'a> {
         default_prefix(self, operator)
     }
 
-    fn field(&self, name: IdentifierIndex) -> EvalResult<'a> {
+    fn field(&self, name: IdentifierIndex) -> BergResult<'a> {
         default_field(self, name)
     }
-    fn set_field(&mut self, name: IdentifierIndex, value: BergResult<'a>) -> EvalResult<'a, ()> {
+    fn set_field(&mut self, name: IdentifierIndex, value: BergResult<'a>) -> BergResult<'a, ()> {
         default_set_field(self, name, value)
     }
 

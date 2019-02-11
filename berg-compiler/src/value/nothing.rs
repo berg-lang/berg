@@ -11,21 +11,21 @@ impl TypeName for Nothing {
 }
 
 impl<'a> BergValue<'a> for Nothing {
-    fn infix<T: BergValue<'a>>(self, operator: IdentifierIndex, _right: T) -> EvalResult<'a> {
+    fn infix<T: BergValue<'a>>(self, operator: IdentifierIndex, _right: T) -> BergResult<'a> {
         panic!("infix({}) called on nothing! Nothing values should never appear in Berg itself--they are sentinels for native code.", operator);
     }
 
-    fn postfix(self, operator: IdentifierIndex) -> EvalResult<'a> {
+    fn postfix(self, operator: IdentifierIndex) -> BergResult<'a> {
         panic!("postfix({}) called on nothing! Nothing values should never appear in Berg itself--they are sentinels for native code.", operator);
     }
-    fn prefix(self, operator: IdentifierIndex) -> EvalResult<'a> {
+    fn prefix(self, operator: IdentifierIndex) -> BergResult<'a> {
         panic!("prefix({}) called on nothing! Nothing values should never appear in Berg itself--they are sentinels for native code.", operator);
     }
 
-    fn field(&self, name: IdentifierIndex) -> EvalResult<'a> {
+    fn field(&self, name: IdentifierIndex) -> BergResult<'a> {
         panic!("field({}) called on nothing! Nothing values should never appear in Berg itself--they are sentinels for native code.", name);
     }
-    fn set_field(&mut self, name: IdentifierIndex, _value: BergResult<'a>) -> EvalResult<'a, ()> {
+    fn set_field(&mut self, name: IdentifierIndex, _value: BergResult<'a>) -> BergResult<'a, ()> {
         panic!("set_field({}) called on nothing! Nothing values should never appear in Berg itself--they are sentinels for native code.", name);
     }
 

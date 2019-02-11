@@ -1,9 +1,10 @@
 use crate::parser::binder::Binder;
 use crate::syntax::identifiers::COLON;
 use crate::syntax::ExpressionBoundary::*;
-use crate::syntax::Token::*;
+use crate::syntax::ExpressionToken::*;
+use crate::syntax::OperatorToken::*;
 use crate::syntax::{
-    Ast, AstIndex, ByteRange, ExpressionBoundary, ExpressionBoundaryError, Fixity, Token,
+    Ast, AstIndex, ByteRange, ExpressionBoundary, ExpressionBoundaryError, Fixity, Token, OperatorToken, ExpressionToken,
 };
 
 // Handles nesting and precedence: balances (), {}, and compound terms, and
@@ -17,7 +18,7 @@ pub struct Grouper<'a> {
 
 #[derive(Debug)]
 struct OpenExpression {
-    infix: Option<(Token, AstIndex)>,
+    infix: Option<(OperatorToken, AstIndex)>,
     open_index: AstIndex,
     boundary: ExpressionBoundary,
 }
@@ -37,12 +38,8 @@ impl<'a> Grouper<'a> {
         &mut self.binder.ast
     }
 
-    pub fn on_token(&mut self, token: Token, range: ByteRange) {
+    pub fn on_operator_token(&mut self, token: OperatorToken, range: ByteRange) {
         match token {
-            // Push the newly opened group onto open_expressions
-            Open {
-                boundary, error, ..
-            } => self.on_open_token(boundary, error, range),
             // Delay the close token so that we can see the next infix.
             Close {
                 boundary, error, ..
@@ -77,10 +74,17 @@ impl<'a> Grouper<'a> {
                 }
             }
 
-            _ => {
-                assert!(token.fixity() != Fixity::Infix);
-                self.push_token(token, range);
-            }
+            CloseBlock { .. } | PostfixOperator(_) => { self.push_token(token, range); }
+        }
+    }
+    pub fn on_expression_token(&mut self, token: ExpressionToken, range: ByteRange) {
+        match token {
+            // Push the newly opened group onto open_expressions
+            Open {
+                boundary, error, ..
+            } => self.on_open_token(boundary, error, range),
+
+            IntegerLiteral(_) | FieldReference(_) | RawIdentifier(_) | ErrorTerm(..) | RawErrorTerm(..) | MissingExpression | PrefixOperator(_) | OpenBlock { .. } => { self.push_token(token, range); },
         }
     }
 
@@ -88,7 +92,7 @@ impl<'a> Grouper<'a> {
         self.binder.on_source_end()
     }
 
-    fn open_precedence_group_if_needed(&mut self, next_infix: Token) {
+    fn open_precedence_group_if_needed(&mut self, next_infix: OperatorToken) {
         // Close any parent precedence groups unless they want this infix as a child.
         // If we are a right child of the parent, we need to wrap ourselves
         // in an "invisible parentheses" (a precedence subexpression).
@@ -107,7 +111,7 @@ impl<'a> Grouper<'a> {
         }
     }
 
-    fn open_expression_wants_child(&self, next_infix: Token) -> bool {
+    fn open_expression_wants_child(&self, next_infix: impl Into<Token>) -> bool {
         use crate::syntax::ExpressionBoundary::*;
         let infix = match self.open_expression().boundary {
             // The autoblock wants whatever its *parent* infix wants.
@@ -189,7 +193,7 @@ impl<'a> Grouper<'a> {
         &mut self,
         open_index: AstIndex,
         boundary: ExpressionBoundary,
-        infix: Option<(Token, AstIndex)>,
+        infix: Option<(OperatorToken, AstIndex)>,
     ) {
         let open_expression = OpenExpression {
             open_index,
@@ -199,11 +203,11 @@ impl<'a> Grouper<'a> {
         self.open_expressions.push(open_expression);
     }
 
-    fn insert_token(&mut self, index: AstIndex, token: Token, range: ByteRange) {
+    fn insert_token(&mut self, index: AstIndex, token: impl Into<Token>, range: ByteRange) {
         self.binder.insert_token(index, token, range)
     }
 
-    fn push_token(&mut self, token: Token, range: ByteRange) -> AstIndex {
+    fn push_token(&mut self, token: impl Into<Token>, range: ByteRange) -> AstIndex {
         self.binder.push_token(token, range)
     }
 
@@ -230,20 +234,20 @@ impl<'a> Grouper<'a> {
         {
             let ast = self.ast_mut();
             match ast.tokens[expression.open_index] {
-                Open {
+                Token::Expression(Open {
                     boundary,
                     delta: ref mut open_delta,
                     error: ref mut open_error,
-                } => {
+                }) => {
                     assert_eq!(boundary, expression.boundary);
                     *open_delta = delta;
                     *open_error = error;
                 }
-                OpenBlock {
+                Token::Expression(OpenBlock {
                     index,
                     delta: ref mut open_delta,
                     error: ref mut open_error,
-                } => {
+                }) => {
                     assert_eq!(ast.blocks[index].boundary, expression.boundary);
                     *open_delta = delta;
                     *open_error = error;

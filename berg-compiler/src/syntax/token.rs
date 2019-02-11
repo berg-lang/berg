@@ -1,17 +1,20 @@
 use crate::syntax::identifiers::*;
 use crate::syntax::precedence::Precedence;
-use crate::syntax::token::Token::*;
 use crate::syntax::ExpressionBoundary::*;
 use crate::syntax::{
-    Ast, AstDelta, BlockIndex, FieldIndex, IdentifierIndex, LiteralIndex, RawLiteralIndex,
+    Ast, AstDelta, BlockIndex, FieldIndex, Fixity, ExpressionFixity, OperatorFixity, IdentifierIndex, LiteralIndex, RawLiteralIndex,
 };
 use crate::value::ErrorCode;
 use std::borrow::Cow;
-use std::fmt;
 
-// ExpressionType, String, LeftChild, RightChild
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub enum Token {
+    Expression(ExpressionToken),
+    Operator(OperatorToken)
+}
+
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub enum ExpressionToken {
     IntegerLiteral(LiteralIndex),
     FieldReference(FieldIndex),
     RawIdentifier(IdentifierIndex),
@@ -19,12 +22,8 @@ pub enum Token {
     RawErrorTerm(ErrorCode, RawLiteralIndex),
     MissingExpression,
 
-    InfixOperator(IdentifierIndex),
-    InfixAssignment(IdentifierIndex),
-    NewlineSequence,
-    Apply,
-
     PrefixOperator(IdentifierIndex),
+
     Open {
         delta: AstDelta,
         boundary: ExpressionBoundary,
@@ -35,6 +34,14 @@ pub enum Token {
         index: BlockIndex,
         error: ExpressionBoundaryError,
     },
+}
+
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub enum OperatorToken {
+    InfixOperator(IdentifierIndex),
+    InfixAssignment(IdentifierIndex),
+    NewlineSequence,
+    Apply,
 
     PostfixOperator(IdentifierIndex),
     Close {
@@ -57,22 +64,12 @@ pub enum ExpressionBoundaryError {
     None,
 }
 
-#[derive(Debug, Copy, Clone, PartialEq)]
-pub enum Fixity {
-    Term,
-    Infix,
-    Prefix,
-    Postfix,
-    Open,
-    Close,
-}
-
 #[derive(Debug, Copy, Clone, PartialEq, PartialOrd)]
 pub enum ExpressionBoundary {
     PrecedenceGroup,
-    AutoBlock,
     CompoundTerm,
     Parentheses,
+    AutoBlock,
     CurlyBraces,
     Source,
     Root,
@@ -81,13 +78,8 @@ pub enum ExpressionBoundary {
 impl Token {
     pub fn fixity(self) -> Fixity {
         match self {
-            IntegerLiteral(_) | RawIdentifier(_) | FieldReference(_) | ErrorTerm(..)
-            | RawErrorTerm(..) | MissingExpression => Fixity::Term,
-            InfixOperator(_) | InfixAssignment(_) | NewlineSequence | Apply => Fixity::Infix,
-            PrefixOperator(_) => Fixity::Prefix,
-            PostfixOperator(_) => Fixity::Postfix,
-            Open { .. } | OpenBlock { .. } => Fixity::Open,
-            Close { .. } | CloseBlock { .. } => Fixity::Close,
+            Token::Expression(token) => token.fixity().into(),
+            Token::Operator(token) => token.fixity().into(),
         }
     }
     pub fn num_operands(self) -> u8 {
@@ -101,61 +93,112 @@ impl Token {
     }
     pub fn to_string<'p, 'a: 'p>(&self, ast: &'p Ast<'a>) -> Cow<'p, str> {
         match *self {
+            Token::Expression(token) => token.to_string(ast),
+            Token::Operator(token) => token.to_string(ast),
+        }
+    }
+    pub fn takes_right_child(self, right: impl Into<Token>) -> bool {
+        match self {
+            Token::Operator(token) => token.takes_right_child(right),
+            Token::Expression(token) => token.takes_right_child(right),
+        }
+    }
+    pub fn delta(self) -> AstDelta {
+        match self {
+            Token::Expression(token) => token.delta(),
+            Token::Operator(token) => token.delta(),
+        }
+    }
+}
+
+impl ExpressionToken {
+    pub fn fixity(self) -> ExpressionFixity {
+        use ExpressionToken::*;
+        match self {
+            IntegerLiteral(_) | RawIdentifier(_) | FieldReference(_) | ErrorTerm(..)
+            | RawErrorTerm(..) | MissingExpression => ExpressionFixity::Term,
+            PrefixOperator(_) => ExpressionFixity::Prefix,
+            Open { .. } | OpenBlock { .. } => ExpressionFixity::Open,
+        }
+    }
+    pub fn num_operands(self) -> u8 {
+        self.fixity().num_operands()
+    }
+    pub fn has_right_operand(self) -> bool {
+        self.fixity().has_right_operand()
+    }
+    pub fn to_string<'p, 'a: 'p>(&self, ast: &'p Ast<'a>) -> Cow<'p, str> {
+        use ExpressionToken::*;
+        match *self {
             IntegerLiteral(literal) => ast.literal_string(literal).into(),
             ErrorTerm(code, ..) | RawErrorTerm(code, ..) => format!("error({:?})", code).into(),
 
             FieldReference(field) => ast.identifier_string(ast.fields[field].name).into(),
 
             RawIdentifier(identifier)
-            | InfixOperator(identifier)
-            | PostfixOperator(identifier)
             | PrefixOperator(identifier) => ast.identifier_string(identifier).into(),
+
+            Open { boundary, .. } => boundary.open_string().into(),
+            OpenBlock { index, .. } => ast.blocks[index].boundary.open_string().into(),
+            MissingExpression  => "".into(),
+        }
+    }
+    pub fn takes_right_child(self, right: impl Into<Token>) -> bool {
+        self.fixity().takes_right_child(right.into().fixity())
+    }
+    pub fn delta(self) -> AstDelta {
+        use ExpressionToken::*;
+        match self {
+            Open { delta, .. }
+            | OpenBlock { delta, .. } => delta,
+            _ => unreachable!(),
+        }
+    }
+}
+
+impl OperatorToken {
+    pub fn fixity(self) -> OperatorFixity {
+        use OperatorToken::*;
+        match self {
+            InfixOperator(_) | InfixAssignment(_) | Apply | NewlineSequence => OperatorFixity::Infix,
+            PostfixOperator(_) => OperatorFixity::Postfix,
+            Close { .. } | CloseBlock { .. } => OperatorFixity::Close,
+        }
+    }
+    pub fn num_operands(self) -> u8 {
+        self.fixity().num_operands()
+    }
+    pub fn has_left_operand(self) -> bool {
+        self.fixity().has_left_operand()
+    }
+    pub fn has_right_operand(self) -> bool {
+        self.fixity().has_right_operand()
+    }
+    pub fn to_string<'p, 'a: 'p>(&self, ast: &'p Ast<'a>) -> Cow<'p, str> {
+        use OperatorToken::*;
+        match *self {
+            InfixOperator(identifier)
+            | PostfixOperator(identifier) => ast.identifier_string(identifier).into(),
 
             InfixAssignment(identifier) => format!("{}=", ast.identifier_string(identifier)).into(),
 
             NewlineSequence => "\\n".into(),
-            Open { boundary, .. } => boundary.open_string().into(),
-            OpenBlock { index, .. } => ast.blocks[index].boundary.open_string().into(),
             Close { boundary, .. } => boundary.close_string().into(),
             CloseBlock { index, .. } => ast.blocks[index].boundary.close_string().into(),
-            MissingExpression | Apply => "".into(),
+            Apply => "".into(),
         }
     }
-    pub fn takes_right_child(self, right: Token) -> bool {
-        use crate::syntax::Fixity::*;
-        match self.fixity() {
-            Infix => match right.fixity() {
-                Infix => Precedence::from(self).takes_right_child(Precedence::from(right)),
-                _ => true,
-            },
-            Prefix => match right.fixity() {
-                Prefix | Term | Open | Close => true,
-                Infix | Postfix => false,
-            },
-            Term | Postfix => false,
-            Open | Close => unreachable!(),
-        }
-    }
-    pub fn takes_left_child(self, left: Token) -> bool {
-        use crate::syntax::Fixity::*;
-        match self.fixity() {
-            Infix => match left.fixity() {
-                Infix => Precedence::from(self).takes_left_child(Precedence::from(left)),
-                _ => true,
-            },
-            Postfix => match left.fixity() {
-                Prefix | Postfix | Term | Open | Close => true,
-                Infix => false,
-            },
-            Term | Prefix => false,
-            Open | Close => unreachable!(),
+    pub fn takes_right_child(self, right: impl Into<Token>) -> bool {
+        use OperatorFixity::*;
+        match (self.fixity(), right.into()) {
+            (Infix, Token::Operator(right)) if right.fixity() == Infix => Precedence::from(self).takes_right_child(Precedence::from(right)),
+            (left, right) => left.takes_right_child(right.fixity())
         }
     }
     pub fn delta(self) -> AstDelta {
+        use OperatorToken::*;
         match self {
-            Open { delta, .. }
-            | OpenBlock { delta, .. }
-            | Close { delta, .. }
+            Close { delta, .. }
             | CloseBlock { delta, .. } => delta,
             _ => unreachable!(),
         }
@@ -186,15 +229,15 @@ impl ExpressionBoundary {
             Root | Source | CurlyBraces | Parentheses => false,
         }
     }
-    pub(crate) fn placeholder_open_token(self, error: ExpressionBoundaryError) -> Token {
-        Open {
+    pub(crate) fn placeholder_open_token(self, error: ExpressionBoundaryError) -> ExpressionToken {
+        ExpressionToken::Open {
             boundary: self,
             delta: Default::default(),
             error,
         }
     }
-    pub(crate) fn placeholder_close_token(self, error: ExpressionBoundaryError) -> Token {
-        Close {
+    pub(crate) fn placeholder_close_token(self, error: ExpressionBoundaryError) -> OperatorToken {
+        OperatorToken::Close {
             boundary: self,
             delta: Default::default(),
             error,
@@ -216,42 +259,14 @@ impl ExpressionBoundary {
     }
 }
 
-impl Fixity {
-    pub fn num_operands(self) -> u8 {
-        use crate::syntax::Fixity::*;
-        match self {
-            Term => 0,
-            Prefix | Postfix | Open | Close => 1,
-            Infix => 2,
-        }
-    }
-    pub fn has_left_operand(self) -> bool {
-        use crate::syntax::Fixity::*;
-        match self {
-            Term | Prefix | Open => false,
-            Infix | Postfix | Close => true,
-        }
-    }
-    pub fn has_right_operand(self) -> bool {
-        use crate::syntax::Fixity::*;
-        match self {
-            Term | Postfix | Close => false,
-            Infix | Prefix | Open => true,
-        }
+impl From<ExpressionToken> for Token {
+    fn from(from: ExpressionToken) -> Token {
+        Token::Expression(from)
     }
 }
 
-impl fmt::Display for Fixity {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        use crate::syntax::Fixity::*;
-        let fixity = match *self {
-            Term => "term",
-            Prefix => "unary",
-            Infix => "binary",
-            Open => "open",
-            Close => "close",
-            Postfix => "postfix",
-        };
-        write!(f, "{}", fixity)
+impl From<OperatorToken> for Token {
+    fn from(from: OperatorToken) -> Token {
+        Token::Operator(from)
     }
 }

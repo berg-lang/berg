@@ -8,7 +8,7 @@ impl<'a> TypeName for bool {
 
 // Implementations for common types
 impl<'a> BergValue<'a> for bool {
-    fn infix<T: BergValue<'a>>(self, operator: IdentifierIndex, right: T) -> EvalResult<'a> {
+    fn infix<T: BergValue<'a>>(self, operator: IdentifierIndex, right: T) -> BergResult<'a> {
         match operator {
             AND_AND => (self && right.into_native()??).ok(),
             OR_OR => (self || right.into_native()??).ok(),
@@ -21,7 +21,7 @@ impl<'a> BergValue<'a> for bool {
         }
     }
 
-    fn prefix(self, operator: IdentifierIndex) -> EvalResult<'a> {
+    fn prefix(self, operator: IdentifierIndex) -> BergResult<'a> {
         match operator {
             EXCLAMATION_POINT => (!self).ok(),
             DOUBLE_EXCLAMATION_POINT => self.ok(),
@@ -29,14 +29,14 @@ impl<'a> BergValue<'a> for bool {
         }
     }
 
-    fn postfix(self, operator: IdentifierIndex) -> EvalResult<'a> {
+    fn postfix(self, operator: IdentifierIndex) -> BergResult<'a> {
         default_postfix(self, operator)
     }
 
-    fn field(&self, name: IdentifierIndex) -> EvalResult<'a> {
+    fn field(&self, name: IdentifierIndex) -> BergResult<'a> {
         default_field(self, name)
     }
-    fn set_field(&mut self, name: IdentifierIndex, value: BergResult<'a>) -> EvalResult<'a, ()> {
+    fn set_field(&mut self, name: IdentifierIndex, value: BergResult<'a>) -> BergResult<'a, ()> {
         default_set_field(self, name, value)
     }
 

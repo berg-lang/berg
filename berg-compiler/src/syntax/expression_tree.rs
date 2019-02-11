@@ -1,6 +1,6 @@
 use crate::syntax::Fixity::*;
 use crate::syntax::{
-    Ast, AstIndex, AstRef, ByteRange, ExpressionBoundary, Fixity, OperandPosition, Token,
+    Ast, AstIndex, AstRef, ByteRange, ExpressionBoundary, Fixity, ExpressionFixity, OperandPosition, Token, ExpressionToken, OperatorToken,
 };
 use std::borrow::Cow;
 use std::fmt;
@@ -19,13 +19,13 @@ use std::ops::RangeInclusive;
 /// is used for ExpressionEvaluator.
 ///
 #[derive(Copy, Clone)]
-pub struct Expression<'p, 'a: 'p, Context: Copy + Clone + fmt::Debug = ()> {
+pub struct ExpressionTreeWalker<'p, 'a: 'p, Context: Copy + Clone + fmt::Debug = ()> {
     context: Context,
-    expression: AstExpression<'p, 'a>,
+    expression: AstExpressionTree<'p, 'a>,
 }
 
 #[derive(Copy, Clone)]
-pub struct AstExpression<'p, 'a: 'p> {
+pub struct AstExpressionTree<'p, 'a: 'p> {
     ast: &'p Ast<'a>,
     root: AstIndex,
 }
@@ -40,8 +40,8 @@ impl<'a> ExpressionRef<'a> {
     pub fn new(ast: AstRef<'a>, root: AstIndex) -> Self {
         ExpressionRef { ast, root }
     }
-    pub fn expression<'p>(&'p self) -> Expression<'p, 'a> {
-        Expression::basic(&self.ast, self.root)
+    pub fn expression<'p>(&'p self) -> ExpressionTreeWalker<'p, 'a> {
+        ExpressionTreeWalker::basic(&self.ast, self.root)
     }
 }
 impl<'a> fmt::Debug for ExpressionRef<'a> {
@@ -55,53 +55,53 @@ impl<'a> fmt::Display for ExpressionRef<'a> {
     }
 }
 
-impl<'p, 'a: 'p, Context: Copy+Clone+fmt::Debug> fmt::Debug for Expression<'p, 'a, Context> {
+impl<'p, 'a: 'p, Context: Copy+Clone+fmt::Debug> fmt::Debug for ExpressionTreeWalker<'p, 'a, Context> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self.expression)
     }
 }
-impl<'p, 'a: 'p> fmt::Display for Expression<'p, 'a, ()> {
+impl<'p, 'a: 'p> fmt::Display for ExpressionTreeWalker<'p, 'a, ()> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self.expression)
     }
 }
 
-impl<'p, 'a: 'p> fmt::Debug for AstExpression<'p, 'a> {
+impl<'p, 'a: 'p> fmt::Debug for AstExpressionTree<'p, 'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self.reconstruct_source())
     }
 }
 
-impl<'p, 'a: 'p> fmt::Display for AstExpression<'p, 'a> {
+impl<'p, 'a: 'p> fmt::Display for AstExpressionTree<'p, 'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self.reconstruct_source())
     }
 }
 
-impl<'p, 'a: 'p> Expression<'p, 'a, ()> {
+impl<'p, 'a: 'p> ExpressionTreeWalker<'p, 'a, ()> {
     pub fn basic(ast: &'p Ast<'a>, index: AstIndex) -> Self {
-        Expression::new((), ast, index)
+        ExpressionTreeWalker::new((), ast, index)
     }
 }
-impl<'p, 'a: 'p, Context: Copy + Clone + fmt::Debug> Expression<'p, 'a, Context> {
+impl<'p, 'a: 'p, Context: Copy + Clone + fmt::Debug> ExpressionTreeWalker<'p, 'a, Context> {
     pub fn new(
         context: Context,
         ast: &'p Ast<'a>,
         root: AstIndex,
     ) -> Self {
-        Expression {
+        ExpressionTreeWalker {
             context,
-            expression: AstExpression::new(ast, root)
+            expression: AstExpressionTree::new(ast, root)
         }
     }
-    pub fn with_context<C: Copy + Clone + fmt::Debug>(self, context: C) -> Expression<'p, 'a, C> {
-        Expression {
+    pub fn with_context<C: Copy + Clone + fmt::Debug>(self, context: C) -> ExpressionTreeWalker<'p, 'a, C> {
+        ExpressionTreeWalker {
             context,
             expression: self.expression,
         }
     }
-    pub fn with_expression(self, expression: AstExpression<'p, 'a>) -> Self {
-        Expression {
+    pub fn with_expression(self, expression: AstExpressionTree<'p, 'a>) -> Self {
+        ExpressionTreeWalker {
             context: self.context,
             expression,
         }
@@ -126,16 +126,16 @@ impl<'p, 'a: 'p, Context: Copy + Clone + fmt::Debug> Expression<'p, 'a, Context>
     }
 }
 
-impl<'p, 'a: 'p, Context: Copy + Clone + fmt::Debug> std::ops::Deref for Expression<'p, 'a, Context> {
-    type Target=AstExpression<'p, 'a>;
-    fn deref(&self) -> &AstExpression<'p, 'a> {
+impl<'p, 'a: 'p, Context: Copy + Clone + fmt::Debug> std::ops::Deref for ExpressionTreeWalker<'p, 'a, Context> {
+    type Target=AstExpressionTree<'p, 'a>;
+    fn deref(&self) -> &AstExpressionTree<'p, 'a> {
         &self.expression
     }
 }
 
-impl<'p, 'a: 'p> AstExpression<'p, 'a> {
+impl<'p, 'a: 'p> AstExpressionTree<'p, 'a> {
     pub fn new(ast: &'p Ast<'a>, root: AstIndex) -> Self {
-        AstExpression { ast, root }
+        AstExpressionTree { ast, root }
     }
     pub fn ast(self) -> &'p Ast<'a> {
         self.ast
@@ -165,11 +165,11 @@ impl<'p, 'a: 'p> AstExpression<'p, 'a> {
     pub fn close_operator(&self) -> AstIndex {
         close_operator_index(self.ast, self.root)
     }
-    pub fn open_token(&self) -> Token {
-        self.ast.tokens[open_operator_index(self.ast, self.root)]
+    pub fn open_token(&self) -> ExpressionToken {
+        self.ast.expression_token(open_operator_index(self.ast, self.root))
     }
-    pub fn close_token(&self) -> Token {
-        self.ast.tokens[close_operator_index(self.ast, self.root)]
+    pub fn close_token(&self) -> OperatorToken {
+        self.ast.operator_token(close_operator_index(self.ast, self.root))
     }
 
     pub fn depth(self) -> usize {
@@ -184,22 +184,22 @@ impl<'p, 'a: 'p> AstExpression<'p, 'a> {
 
     pub fn boundary(self) -> ExpressionBoundary {
         match self.open_token() {
-            Token::Open { boundary, .. } => boundary,
-            Token::OpenBlock { index, .. } => self.ast.blocks[index].boundary,
+            ExpressionToken::Open { boundary, .. } => boundary,
+            ExpressionToken::OpenBlock { index, .. } => self.ast.blocks[index].boundary,
             _ => unreachable!(),
         }
     }
 
     pub fn left_expression(self) -> Self {
-        AstExpression::new(self.ast, left_operand_root(self.ast, self.root))
+        AstExpressionTree::new(self.ast, left_operand_root(self.ast, self.root))
     }
 
     pub fn right_expression(self) -> Self {
-        AstExpression::new(self.ast, right_operand_root(self.ast, self.root))
+        AstExpressionTree::new(self.ast, right_operand_root(self.ast, self.root))
     }
 
     pub fn parent(self) -> Self {
-        AstExpression::new(self.ast, parent_root(self.ast, self.root))
+        AstExpressionTree::new(self.ast, parent_root(self.ast, self.root))
     }
 
     pub fn operand_position(self) -> OperandPosition {
@@ -215,7 +215,7 @@ impl<'p, 'a: 'p> AstExpression<'p, 'a> {
     }
 
     pub fn inner_expression(self) -> Self {
-        AstExpression::new(self.ast, inner_root(self.ast, self.root))
+        AstExpressionTree::new(self.ast, inner_root(self.ast, self.root))
     }
 
     pub fn child(self, position: OperandPosition) -> Self {
@@ -233,7 +233,7 @@ impl<'p, 'a: 'p> AstExpression<'p, 'a> {
 fn first_index(ast: &Ast, root: AstIndex) -> AstIndex {
     let token = ast.tokens[root];
     match token {
-        Token::Close { delta, .. } | Token::CloseBlock { delta, .. } => root - delta,
+        Token::Operator(OperatorToken::Close { delta, .. }) | Token::Operator(OperatorToken::CloseBlock { delta, .. }) => root - delta,
         _ => {
             let mut left = root;
             while ast.tokens[left].has_left_operand() {
@@ -250,7 +250,7 @@ fn first_index(ast: &Ast, root: AstIndex) -> AstIndex {
 fn last_index(ast: &Ast, root: AstIndex) -> AstIndex {
     let token = ast.tokens[root];
     match token {
-        Token::Open { delta, .. } | Token::OpenBlock { delta, .. } => root + delta,
+        Token::Expression(ExpressionToken::Open { delta, .. }) | Token::Expression(ExpressionToken::OpenBlock { delta, .. }) => root + delta,
         _ => {
             let mut right = root;
             while ast.tokens[right].has_right_operand() {
@@ -280,11 +280,11 @@ fn right_operand_root(ast: &Ast, root: AstIndex) -> AstIndex {
 
     // Check whether there is a postfix by skipping prefix and term.
     let mut end = start;
-    while ast.tokens[end].fixity() == Fixity::Prefix {
+    while ast.expression_token(end).fixity() == ExpressionFixity::Prefix {
         end += 1;
     }
-    match ast.tokens[end] {
-        Token::Open { delta, .. } | Token::OpenBlock { delta, .. } => {
+    match ast.expression_token(end) {
+        ExpressionToken::Open { delta, .. } | ExpressionToken::OpenBlock { delta, .. } => {
             end += delta;
         }
         _ => {}
@@ -310,31 +310,32 @@ fn left_operand_root(ast: &Ast, root: AstIndex) -> AstIndex {
     use Fixity::*;
     let end = root - 1;
     let mut start = end;
+    let operator_fixity = ast.token(root).fixity();
 
     // Pass any postfixes to find the term.
     let mut has_postfix = false;
-    while ast.tokens[start].fixity() == Fixity::Postfix {
+    while ast.token(start).fixity() == Postfix {
         start -= 1;
         has_postfix = true;
     }
 
     // Jump to the open token if it's a group term (parens, curlies, etc.)
-    match ast.tokens[start] {
-        Token::Close { delta, .. } | Token::CloseBlock { delta, .. } => {
+    match ast.token(start) {
+        Token::Operator(OperatorToken::Close { delta, .. }) | Token::Operator(OperatorToken::CloseBlock { delta, .. }) => {
             start -= delta;
         }
         _ => {}
     }
 
     // Pass any prefixes if there is no postfix or infix.
-    if ast.tokens[root].fixity() == Postfix || !has_postfix {
+    if operator_fixity == Postfix || !has_postfix {
         while start > 0 && ast.tokens[start - 1].fixity() == Fixity::Prefix {
             start -= 1;
         }
     }
 
     // Check for an infix.
-    if ast.tokens[root].fixity() != Postfix
+    if operator_fixity != Postfix
         && start > 0
         && ast.tokens[start - 1].fixity() == Infix
     {
@@ -388,14 +389,14 @@ fn inner_root(ast: &Ast, index: AstIndex) -> AstIndex {
 
 fn open_operator_index(ast: &Ast, index: AstIndex) -> AstIndex {
     match ast.tokens[index] {
-        Token::Close { delta, .. } | Token::CloseBlock { delta, .. } => index - delta,
+        Token::Operator(OperatorToken::Close { delta, .. }) | Token::Operator(OperatorToken::CloseBlock { delta, .. }) => index - delta,
         _ => index,
     }
 }
 
 fn close_operator_index(ast: &Ast, index: AstIndex) -> AstIndex {
     match ast.tokens[index] {
-        Token::Open { delta, .. } | Token::OpenBlock { delta, .. } => index + delta,
+        Token::Expression(ExpressionToken::Open { delta, .. }) | Token::Expression(ExpressionToken::OpenBlock { delta, .. }) => index + delta,
         _ => index,
     }
 }

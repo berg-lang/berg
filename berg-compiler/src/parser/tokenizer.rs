@@ -1,7 +1,7 @@
 use crate::parser::grouper::Grouper;
-use crate::syntax::Token;
-use crate::syntax::Token::*;
-use crate::syntax::{Ast, ByteIndex, ByteRange, ExpressionBoundary, ExpressionBoundaryError};
+use crate::syntax::ExpressionToken::*;
+use crate::syntax::OperatorToken::*;
+use crate::syntax::{Ast, ByteIndex, ByteRange, ExpressionBoundary, ExpressionBoundaryError, Token, ExpressionToken, OperatorToken};
 
 // This builds up a valid expression from the incoming sequences, doing two things:
 // 1. Inserting apply, newline sequence, and missing expression as appropriate
@@ -11,7 +11,7 @@ use crate::syntax::{Ast, ByteIndex, ByteRange, ExpressionBoundary, ExpressionBou
 pub struct Tokenizer<'a> {
     pub grouper: Grouper<'a>,
     pub in_term: bool,
-    pub operator: bool,
+    pub prev_was_operator: bool,
     newline_start: ByteIndex,
     newline_length: u8,
 }
@@ -21,7 +21,7 @@ impl<'a> Tokenizer<'a> {
         Tokenizer {
             grouper: Grouper::new(ast),
             in_term: false,
-            operator: true,
+            prev_was_operator: true,
             newline_start: ByteIndex(0),
             newline_length: 0,
         }
@@ -52,22 +52,23 @@ impl<'a> Tokenizer<'a> {
                 unreachable!()
             }
         }
-        self.emit_token(open_token, start..start)
+        self.emit_expression_token(open_token, start..start)
     }
 
     // The end of the source closes any open terms, just like space. Also emits "close source."
     pub fn on_source_end(mut self, end: ByteIndex) -> Ast<'a> {
         let close_token = ExpressionBoundary::Source.placeholder_close_token(self.source_error());
         self.close_term(end);
-        self.emit_token(close_token, end..end);
+        self.emit_operator_token(close_token, end..end);
         self.grouper.on_source_end()
     }
 
-    // +, foo, 123. If a term hasn't started, this will start it.
-    pub fn on_term_token(&mut self, token: Token, range: ByteRange) {
+    // Signifies this token is inside a compound term with no spaces, like "1+2".
+    // If a term hasn't started, this will start it.
+    pub fn on_term_token(&mut self, token: impl Into<Token>, range: ByteRange) {
         assert!(range.start < range.end);
         self.open_term(range.start);
-        self.emit_token(token, range);
+        self.emit_token(token.into(), range);
     }
 
     // Space after a term closes it.
@@ -80,7 +81,7 @@ impl<'a> Tokenizer<'a> {
     // whether the next real line is an operator (continuation) or a new expression.
     pub fn on_newline(&mut self, start: ByteIndex, length: u8) {
         self.close_term(start);
-        if !self.operator && self.newline_length == 0 {
+        if !self.prev_was_operator && self.newline_length == 0 {
             self.newline_start = start;
             self.newline_length = length;
         }
@@ -92,7 +93,7 @@ impl<'a> Tokenizer<'a> {
         assert!(range.start < range.end);
         let token = boundary.placeholder_open_token(ExpressionBoundaryError::None);
         self.open_term(range.start);
-        self.emit_token(token, range);
+        self.emit_expression_token(token, range);
         self.in_term = false;
     }
 
@@ -102,23 +103,23 @@ impl<'a> Tokenizer<'a> {
         assert!(range.start < range.end);
         let token = boundary.placeholder_close_token(ExpressionBoundaryError::None);
         self.close_term(range.start);
-        self.emit_token(token, range);
+        self.emit_operator_token(token, range);
         self.in_term = true;
     }
 
     // ; , or :. If it is in a term, the term is closed before the separator.
     // Afterwards, we are looking to start a new term, so it's still closed.
-    pub fn on_separator(&mut self, token: Token, range: ByteRange) {
+    pub fn on_separator(&mut self, token: OperatorToken, range: ByteRange) {
         assert!(range.start < range.end);
         self.close_term(range.start);
-        self.emit_token(token, range);
+        self.emit_operator_token(token, range);
     }
 
     fn open_term(&mut self, index: ByteIndex) {
         if !self.in_term {
             let open_token = ExpressionBoundary::CompoundTerm
                 .placeholder_open_token(ExpressionBoundaryError::None);
-            self.emit_token(open_token, index..index);
+            self.emit_expression_token(open_token, index..index);
             self.in_term = true;
         }
     }
@@ -128,25 +129,34 @@ impl<'a> Tokenizer<'a> {
             self.in_term = false;
             let close_token = ExpressionBoundary::CompoundTerm
                 .placeholder_close_token(ExpressionBoundaryError::None);
-            self.emit_token(close_token, index..index)
+            self.emit_operator_token(close_token, index..index)
         }
     }
 
     fn emit_token(&mut self, token: Token, range: ByteRange) {
-        if self.operator {
-            if token.has_left_operand() {
-                self.emit_token(MissingExpression, range.start..range.start);
-            }
-        } else if !token.has_left_operand() {
+        match token {
+            Token::Expression(token) => self.emit_expression_token(token, range),
+            Token::Operator(token) => self.emit_operator_token(token, range),
+        }
+    }
+    fn emit_expression_token(&mut self, token: ExpressionToken, range: ByteRange) {
+        if !self.prev_was_operator {
             if self.newline_length > 0 {
                 let newline_start = self.newline_start;
                 let newline_end = newline_start + (self.newline_length as usize);
-                self.emit_token(NewlineSequence, newline_start..newline_end);
+                self.emit_operator_token(NewlineSequence, newline_start..newline_end);
             } else {
-                self.emit_token(Apply, range.start..range.start);
+                self.emit_operator_token(Apply, range.start..range.start);
             }
         }
-        self.grouper.on_token(token, range);
-        self.operator = token.has_right_operand();
+        self.grouper.on_expression_token(token, range);
+        self.prev_was_operator = token.has_right_operand();
+    }
+    fn emit_operator_token(&mut self, token: OperatorToken, range: ByteRange) {
+        if self.prev_was_operator {
+            self.emit_expression_token(MissingExpression, range.start..range.start);
+        }
+        self.grouper.on_operator_token(token, range);
+        self.prev_was_operator = token.has_right_operand();
     }
 }

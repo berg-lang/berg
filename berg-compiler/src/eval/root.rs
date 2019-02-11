@@ -1,6 +1,6 @@
 use crate::syntax::identifiers;
 use crate::syntax::{FieldIndex, IdentifierIndex};
-use crate::value::{BergError, BergResult, BergValue, EvalResult};
+use crate::value::{BergError, BergResult, BergValue};
 use std;
 use std::env;
 use std::fmt;
@@ -67,18 +67,18 @@ impl RootRef {
         root_fields::NAMES.iter()
     }
 
-    fn field_index<'a>(&self, name: IdentifierIndex) -> EvalResult<'a, FieldIndex> {
+    fn field_index<'a>(&self, name: IdentifierIndex) -> BergResult<'a, FieldIndex> {
         match self.field_names().enumerate().find(|&(_, n)| name == *n) {
             Some((index, _)) => Ok(FieldIndex(index as u32)),
             None => BergError::NoSuchPublicFieldOnRoot(name).err(),
         }
     }
 
-    pub fn field<'a>(&self, name: IdentifierIndex) -> EvalResult<'a> {
+    pub fn field<'a>(&self, name: IdentifierIndex) -> BergResult<'a> {
         self.local_field(self.field_index(name)?)
     }
 
-    pub fn local_field<'a>(&self, index: FieldIndex) -> EvalResult<'a> {
+    pub fn local_field<'a>(&self, index: FieldIndex) -> BergResult<'a> {
         use crate::eval::root_fields::*;
         match index {
             TRUE => true.ok(),
@@ -92,16 +92,16 @@ impl RootRef {
         &self,
         index: FieldIndex,
         _value: BergResult<'a>,
-    ) -> EvalResult<'a, ()> {
+    ) -> BergResult<'a, ()> {
         BergError::ImmutableFieldOnRoot(index).err()
     }
 
     // All valid fields are already initialized, nothing to do here.
-    pub fn bring_local_field_into_scope<'a>(&self, _index: FieldIndex) -> EvalResult<'a, ()> {
+    pub fn bring_local_field_into_scope<'a>(&self, _index: FieldIndex) -> BergResult<'a, ()> {
         Ok(())
     }
 
-    pub fn declare_field<'a>(&self, _index: FieldIndex) -> EvalResult<'a, ()> {
+    pub fn declare_field<'a>(&self, _index: FieldIndex) -> BergResult<'a, ()> {
         // This should not be possible to do. We can fill in an error here when we find a testcase that triggers it.
         unreachable!()
     }

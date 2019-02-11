@@ -4,8 +4,7 @@ use crate::syntax::identifiers::*;
 use crate::syntax::{AstRef, ByteIndex, ByteRange, LineColumnRange, SourceRef};
 use crate::util::from_range::BoundedRange;
 use crate::util::from_range::IntoRange;
-use crate::util::try_from::TryFrom;
-use crate::value::{BergResult, BergVal, BergValue, Error, ErrorCode, EvalResult, NextVal};
+use crate::value::{ControlVal, BergResult, BergVal, BergValue, ErrorCode, NextVal};
 use std::fmt;
 use std::io;
 use std::ops::Range;
@@ -79,7 +78,7 @@ impl<'a> ExpectBerg<'a> {
         ast
     }
 
-    pub fn bergvals_equal(expected: BergVal<'a>, actual: BergVal<'a>) -> EvalResult<'a, bool> {
+    pub fn bergvals_equal(expected: BergVal<'a>, actual: BergVal<'a>) -> BergResult<'a, bool> {
         let result = expected.infix(EQUAL_TO, actual)?;
         result.into_native::<bool>()?
     }
@@ -130,33 +129,34 @@ impl<'a> ExpectBerg<'a> {
             error_string(code, expected_range),
             result.as_ref().unwrap()
         );
-        let actual = Error::try_from(result.unwrap_err());
-        assert!(
-            actual.is_ok(),
-            "Result of {} is an error, but of an unexpected type! Expected {}, got {}",
-            self,
-            error_string(code, expected_range),
-            actual.as_ref().unwrap_err()
-        );
-        let actual = actual.unwrap();
-        assert_eq!(
-            code,
-            actual.code(),
-            "Wrong error code from {}! Expected {}, got {} at {}",
-            self,
-            error_string(code, expected_range),
-            actual.code(),
-            actual.location().range()
-        );
-        assert_eq!(
-            expected_range,
-            actual.location().range(),
-            "Wrong error range from {}! Expected {}, got {} at {}",
-            self,
-            error_string(code, expected_range),
-            actual.code(),
-            actual.location().range()
-        );
+        match result.unwrap_err() {
+            ControlVal::Error(actual) => {
+                assert_eq!(
+                    code,
+                    actual.code(),
+                    "Wrong error code from {}! Expected {}, got {} at {}",
+                    self,
+                    error_string(code, expected_range),
+                    actual.code(),
+                    actual.location().range()
+                );
+                assert_eq!(
+                    expected_range,
+                    actual.location().range(),
+                    "Wrong error range from {}! Expected {}, got {} at {}",
+                    self,
+                    error_string(code, expected_range),
+                    actual.code(),
+                    actual.location().range()
+                );
+            },
+            actual => panic!(
+                "Result of {} is an error, but of an unexpected type! Expected {}, got {}",
+                self,
+                error_string(code, expected_range),
+                actual
+            ),
+        }
     }
 }
 

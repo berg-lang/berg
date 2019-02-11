@@ -1,6 +1,6 @@
 use crate::eval::BlockRef;
 use crate::syntax::{
-    AstIndex, AstRef, ByteRange, Expression, ExpressionRef, FieldIndex, Fixity, IdentifierIndex,
+    AstIndex, AstRef, ByteRange, ExpressionTreeWalker, ExpressionRef, FieldIndex, Fixity, IdentifierIndex,
     LineColumnRange, LiteralIndex, OperandPosition, RawLiteralIndex,
 };
 use crate::value::*;
@@ -10,22 +10,6 @@ use std::fmt;
 pub struct Error<'a> {
     pub error: BergError<'a>,
     pub stack: Vec<ExpressionRef<'a>>,
-}
-
-///
-/// This is the error type that is sent throughout the code.
-///
-/// A *Stacked* value means the error has already been attached to at least one
-/// stack trace.
-///
-#[derive(Debug, Clone)]
-pub enum EvalError<'a> {
-    /// A *Raw* value means we've thrown an error from native code and don't yet
-    /// know what error triggered it so that a real error can be displayed.
-    Raw(BergError<'a>),
-    /// A *Error* value means the error has at least one stack frame attached
-    /// and is able to fully display itself.
-    Error(Error<'a>),
 }
 
 #[derive(Debug, Clone)]
@@ -100,18 +84,6 @@ pub enum ErrorLocation<'a> {
     SourceRange(AstRef<'a>, ByteRange),
 }
 
-impl<'a> From<BergError<'a>> for EvalError<'a> {
-    fn from(error: BergError<'a>) -> Self {
-        EvalError::Raw(error)
-    }
-}
-
-impl<'a> From<Error<'a>> for EvalError<'a> {
-    fn from(error: Error<'a>) -> Self {
-        EvalError::Error(error)
-    }
-}
-
 impl<'a> ErrorLocation<'a> {
     pub fn range(&self) -> LineColumnRange {
         match self {
@@ -124,7 +96,7 @@ impl<'a> ErrorLocation<'a> {
     pub fn byte_range(&self) -> ByteRange {
         match self {
             ErrorLocation::SourceExpression(ast, index) => {
-                Expression::new((), ast, *index).byte_range()
+                ExpressionTreeWalker::new((), ast, *index).byte_range()
             }
             ErrorLocation::SourceRange(_, range) => range.clone(),
             _ => unreachable!(),
@@ -236,16 +208,6 @@ impl fmt::Display for ErrorCode {
             ImmutableField => "ImmutableField",
         };
         write!(f, "{}", string)
-    }
-}
-
-impl<'a> fmt::Display for EvalError<'a> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        use EvalError::*;
-        match self {
-            Raw(error) => write!(f, "{:?}", error),
-            Error(error) => write!(f, "{}", error),
-        }
     }
 }
 
@@ -413,8 +375,8 @@ impl<'a> BergError<'a> {
         Error::new(self, expression)
     }
 
-    pub fn err<T>(self) -> Result<T, EvalError<'a>> {
-        Err(EvalError::Raw(self))
+    pub fn err<T>(self) -> BergResult<'a, T> {
+        Err(ControlVal::LocalError(self))
     }
 
     pub fn code(&self) -> ErrorCode {

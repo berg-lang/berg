@@ -2,6 +2,7 @@ use crate::syntax::IdentifierIndex;
 use crate::util::type_name::TypeName;
 use crate::value::*;
 use std::iter::FromIterator;
+use std::fmt;
 
 ///
 /// A discrete series of values.
@@ -59,21 +60,21 @@ impl<'a> TypeName for Tuple<'a> {
 }
 
 impl<'a> BergValue<'a> for Tuple<'a> {
-    fn infix<T: BergValue<'a>>(self, operator: IdentifierIndex, right: T) -> EvalResult<'a> {
+    fn infix<T: BergValue<'a>>(self, operator: IdentifierIndex, right: T) -> BergResult<'a> {
         default_infix(self, operator, right)
     }
 
-    fn postfix(self, operator: IdentifierIndex) -> EvalResult<'a> {
+    fn postfix(self, operator: IdentifierIndex) -> BergResult<'a> {
         default_postfix(self, operator)
     }
-    fn prefix(self, operator: IdentifierIndex) -> EvalResult<'a> {
+    fn prefix(self, operator: IdentifierIndex) -> BergResult<'a> {
         default_prefix(self, operator)
     }
 
-    fn field(&self, name: IdentifierIndex) -> EvalResult<'a> {
+    fn field(&self, name: IdentifierIndex) -> BergResult<'a> {
         default_field(self, name)
     }
-    fn set_field(&mut self, name: IdentifierIndex, value: BergResult<'a>) -> EvalResult<'a, ()> {
+    fn set_field(&mut self, name: IdentifierIndex, value: BergResult<'a>) -> BergResult<'a, ()> {
         default_set_field(self, name, value)
     }
 
@@ -92,7 +93,7 @@ impl<'a> BergValue<'a> for Tuple<'a> {
     }
     fn into_native<T: TypeName + TryFrom<BergVal<'a>>>(
         mut self,
-    ) -> BergResult<'a, EvalResult<'a, T>>
+    ) -> BergResult<'a, BergResult<'a, T>>
     where
         <T as TryFrom<BergVal<'a>>>::Error: Into<BergVal<'a>>,
     {

@@ -3,5 +3,5 @@ use crate::syntax::{
     AstRef, 
     IdentifierIndex, Operand
 };
-use crate::value::{BergResult, BergValue, EvalResult};
+use crate::value::{BergResult, BergValue, BergResult};
 

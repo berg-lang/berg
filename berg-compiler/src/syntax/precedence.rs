@@ -1,5 +1,6 @@
-use crate::syntax::precedence::Precedence::*;
-use crate::syntax::{IdentifierIndex, Token};
+use crate::syntax::identifiers::*;
+use crate::syntax::{IdentifierIndex, OperatorToken};
+use Precedence::*;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum Precedence {
@@ -102,21 +103,16 @@ impl Precedence {
             },
         }
     }
-
-    pub(crate) fn takes_left_child(self, left: Precedence) -> bool {
-        !left.takes_right_child(self)
-    }
 }
 
-impl From<Token> for Precedence {
-    fn from(from: Token) -> Precedence {
-        use crate::syntax::identifiers::*;
-        use Precedence::*;
+impl From<OperatorToken> for Precedence {
+    fn from(from: OperatorToken) -> Precedence {
+        use OperatorToken::*;
         match from {
-            Token::InfixOperator(operator) => operator.into(),
-            Token::InfixAssignment(_) => Assign,
-            Token::NewlineSequence => NEWLINE.into(),
-            Token::Apply => APPLY.into(),
+            InfixOperator(operator) => operator.into(),
+            InfixAssignment(_) => Precedence::Assign,
+            NewlineSequence => NEWLINE.into(),
+            Apply => APPLY.into(),
             // Should only ever be called for infix
             _ => unreachable!(),
         }

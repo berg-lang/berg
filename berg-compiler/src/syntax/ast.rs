@@ -2,8 +2,8 @@ use crate::eval::RootRef;
 use crate::syntax::char_data::CharData;
 use crate::syntax::OperandPosition::*;
 use crate::syntax::{
-    AstBlock, BlockIndex, ByteRange, Expression, Field, FieldIndex, IdentifierIndex,
-    SourceOpenError, SourceReconstruction, SourceReconstructionReader, SourceRef, Token,
+    AstBlock, BlockIndex, ByteRange, ExpressionTreeWalker, Field, FieldIndex, IdentifierIndex,
+    SourceOpenError, SourceReconstruction, SourceReconstructionReader, SourceRef, ExpressionToken, OperatorToken, Token,
 };
 use crate::util::indexed_vec::IndexedVec;
 use crate::value::BergError;
@@ -99,6 +99,18 @@ impl<'a> Ast<'a> {
     pub fn token(&self, index: AstIndex) -> Token {
         self.tokens[index]
     }
+    pub fn expression_token(&self, index: AstIndex) -> ExpressionToken {
+        match self.tokens[index] {
+            Token::Expression(token) => token,
+            Token::Operator(_) => unreachable!(),
+        }
+    }
+    pub fn operator_token(&self, index: AstIndex) -> OperatorToken {
+        match self.tokens[index] {
+            Token::Operator(token) => token,
+            Token::Expression(_) => unreachable!(),
+        }
+    }
     pub fn token_string(&self, index: AstIndex) -> Cow<str> {
         self.tokens[index].to_string(self)
     }
@@ -124,9 +136,9 @@ impl<'a> Ast<'a> {
         self.identifier_string(self.fields[index].name)
     }
 
-    pub fn expression<'p>(&'p self) -> Expression<'p, 'a> {
+    pub fn expression<'p>(&'p self) -> ExpressionTreeWalker<'p, 'a> {
         assert_ne!(self.tokens.len(), 0);
-        Expression::new((), self, AstIndex(0))
+        ExpressionTreeWalker::new((), self, AstIndex(0))
     }
 
     pub fn read_bytes<'p>(&'p self) -> SourceReconstructionReader<'p, 'a>
@@ -142,13 +154,13 @@ impl<'a> Ast<'a> {
         SourceReconstruction::new(self, 0.into()..self.char_data.size).to_string()
     }
 
-    pub fn push_token(&mut self, token: Token, range: ByteRange) -> AstIndex {
-        self.tokens.push(token);
+    pub fn push_token(&mut self, token: impl Into<Token>, range: ByteRange) -> AstIndex {
+        self.tokens.push(token.into());
         self.token_ranges.push(range)
     }
 
-    pub fn insert_token(&mut self, index: AstIndex, token: Token, range: ByteRange) {
-        self.tokens.insert(index, token);
+    pub fn insert_token(&mut self, index: AstIndex, token: impl Into<Token>, range: ByteRange) {
+        self.tokens.insert(index, token.into());
         self.token_ranges.insert(index, range);
     }
 

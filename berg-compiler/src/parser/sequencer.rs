@@ -2,7 +2,8 @@ use crate::parser::sequencer::ByteType::*;
 use crate::parser::sequencer::CharType::*;
 use crate::parser::tokenizer::Tokenizer;
 use crate::syntax::ExpressionBoundary::*;
-use crate::syntax::Token::*;
+use crate::syntax::OperatorToken::*;
+use crate::syntax::ExpressionToken::*;
 use crate::syntax::{Ast, ByteIndex, ByteSlice, IdentifierIndex};
 use crate::util::indexed_vec::Delta;
 use crate::value::ErrorCode;
@@ -153,14 +154,18 @@ impl<'a> Sequencer<'a> {
                 || (char_type == Colon && !scanner.peek_at(buffer, 1).is_always_right_operand())
         };
 
+        // If the term is about to end, this operator is postfix. i.e. "a? + 2"
         if self.tokenizer.in_term && term_is_about_to_end {
             let identifier = self.make_identifier(&buffer[start..scanner.index]);
             self.tokenizer
                 .on_term_token(PostfixOperator(identifier), start..scanner.index);
+        // If we're *not* in a term, and there is something else right after the
+        // operator, it is prefix. i.e. "+1"
         } else if !self.tokenizer.in_term && !term_is_about_to_end {
             let identifier = self.make_identifier(&buffer[start..scanner.index]);
             self.tokenizer
                 .on_term_token(PrefixOperator(identifier), start..scanner.index);
+        // Otherwise, it's infix. i.e. "1+2" or "1 + 2"
         } else {
             let token = if Self::is_assignment_operator(&buffer[start..scanner.index]) {
                 InfixAssignment(self.make_identifier(&buffer[start..scanner.index - 1]))
@@ -191,7 +196,7 @@ impl<'a> Sequencer<'a> {
     // relevant silliness to ensure "a+:b" means "(a) + (:b)".
     fn colon(&mut self, buffer: &ByteSlice, start: ByteIndex, scanner: &mut Scanner) {
         let identifier = self.make_identifier(&buffer[start..scanner.index]);
-        if (!self.tokenizer.in_term || self.tokenizer.operator)
+        if (!self.tokenizer.in_term || self.tokenizer.prev_was_operator)
             && scanner.peek(buffer).is_always_right_operand()
         {
             self.tokenizer

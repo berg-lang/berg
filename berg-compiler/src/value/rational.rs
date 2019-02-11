@@ -11,7 +11,7 @@ impl TypeName for BigRational {
 }
 
 impl<'a> BergValue<'a> for BigRational {
-    fn infix<T: BergValue<'a>>(self, operator: IdentifierIndex, right: T) -> EvalResult<'a> {
+    fn infix<T: BergValue<'a>>(self, operator: IdentifierIndex, right: T) -> BergResult<'a> {
         match operator {
             PLUS => (self + right.into_native::<BigRational>()??).ok(),
             DASH => (self - right.into_native::<BigRational>()??).ok(),
@@ -37,7 +37,7 @@ impl<'a> BergValue<'a> for BigRational {
         }
     }
 
-    fn prefix(self, operator: IdentifierIndex) -> EvalResult<'a> {
+    fn prefix(self, operator: IdentifierIndex) -> BergResult<'a> {
         match operator {
             PLUS => (self).ok(),
             DASH => (-self).ok(),
@@ -47,7 +47,7 @@ impl<'a> BergValue<'a> for BigRational {
         }
     }
 
-    fn postfix(self, operator: IdentifierIndex) -> EvalResult<'a> {
+    fn postfix(self, operator: IdentifierIndex) -> BergResult<'a> {
         match operator {
             PLUS_PLUS => (self + BigRational::one()).ok(),
             DASH_DASH => (self - BigRational::one()).ok(),
@@ -55,10 +55,10 @@ impl<'a> BergValue<'a> for BigRational {
         }
     }
 
-    fn field(&self, name: IdentifierIndex) -> EvalResult<'a> {
+    fn field(&self, name: IdentifierIndex) -> BergResult<'a> {
         default_field(self, name)
     }
-    fn set_field(&mut self, name: IdentifierIndex, value: BergResult<'a>) -> EvalResult<'a, ()> {
+    fn set_field(&mut self, name: IdentifierIndex, value: BergResult<'a>) -> BergResult<'a, ()> {
         default_set_field(self, name, value)
     }
     fn into_val(self) -> BergResult<'a> {

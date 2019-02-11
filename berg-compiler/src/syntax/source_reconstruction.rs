@@ -1,5 +1,5 @@
 use crate::syntax::identifiers::*;
-use crate::syntax::{Ast, AstIndex, ByteIndex, ByteRange, AstExpression, Token};
+use crate::syntax::{Ast, AstIndex, ByteIndex, ByteRange, AstExpressionTree, Token, ExpressionToken, OperatorToken};
 use std::cmp;
 use std::fmt;
 use std::io;
@@ -25,7 +25,7 @@ struct SourceReconstructionIterator<'p, 'a: 'p> {
     line_index: usize,
 }
 
-impl<'p, 'a: 'p> AstExpression<'p, 'a> {
+impl<'p, 'a: 'p> AstExpressionTree<'p, 'a> {
     pub fn reconstruct_source(self) -> SourceReconstruction<'p, 'a> {
         SourceReconstruction::new(self.ast(), self.byte_range())
     }
@@ -211,39 +211,48 @@ impl<'p, 'a: 'p> SourceReconstructionIterator<'p, 'a> {
     }
 
     fn token_bytes(&self, token_start: ByteIndex, token: Token) -> Option<(ByteIndex, &'p [u8])> {
-        use crate::syntax::token::Token::*;
+        use Token::*;
+        use ExpressionToken::*;
+        use OperatorToken::*;
+
         let bytes = match token {
-            IntegerLiteral(literal) | ErrorTerm(.., literal) => {
-                self.ast.literal_string(literal).as_bytes()
-            }
-            RawErrorTerm(.., raw_literal) => &self.ast.raw_literals[raw_literal],
-
-            FieldReference(field) => self
-                .ast
-                .identifier_string(self.ast.fields[field].name)
-                .as_bytes(),
-
-            RawIdentifier(identifier)
-            | InfixOperator(identifier)
-            | PostfixOperator(identifier)
-            | PrefixOperator(identifier) => self.ast.identifier_string(identifier).as_bytes(),
-
-            InfixAssignment(identifier) => {
-                // Because of how InfixAssignment works, we store the str for the "+" and assume the "="
-                let bytes = self.ast.identifier_string(identifier).as_bytes();
-                if self.index == token_start + bytes.len() {
-                    return Some((token_start + bytes.len(), b"="));
-                } else {
-                    bytes
+            Expression(token) => match token {
+                IntegerLiteral(literal) | ErrorTerm(.., literal) => {
+                    self.ast.literal_string(literal).as_bytes()
                 }
-            }
+                RawErrorTerm(.., raw_literal) => &self.ast.raw_literals[raw_literal],
 
-            Open { boundary, .. } => boundary.open_string().as_bytes(),
-            OpenBlock { index, .. } => self.ast.blocks[index].boundary.open_string().as_bytes(),
-            Close { boundary, .. } => boundary.close_string().as_bytes(),
-            CloseBlock { index, .. } => self.ast.blocks[index].boundary.close_string().as_bytes(),
-            NewlineSequence => return None,
-            MissingExpression | Apply => unreachable!(),
+                FieldReference(field) => self
+                    .ast
+                    .identifier_string(self.ast.fields[field].name)
+                    .as_bytes(),
+
+                RawIdentifier(identifier)
+                | PrefixOperator(identifier) => self.ast.identifier_string(identifier).as_bytes(),
+
+                Open { boundary, .. } => boundary.open_string().as_bytes(),
+                OpenBlock { index, .. } => self.ast.blocks[index].boundary.open_string().as_bytes(),
+                MissingExpression => unreachable!(),
+            }
+            Operator(token) => match token {
+                InfixOperator(identifier)
+                | PostfixOperator(identifier) => self.ast.identifier_string(identifier).as_bytes(),
+
+                InfixAssignment(identifier) => {
+                    // Because of how InfixAssignment works, we store the str for the "+" and assume the "="
+                    let bytes = self.ast.identifier_string(identifier).as_bytes();
+                    if self.index == token_start + bytes.len() {
+                        return Some((token_start + bytes.len(), b"="));
+                    } else {
+                        bytes
+                    }
+                }
+
+                Close { boundary, .. } => boundary.close_string().as_bytes(),
+                CloseBlock { index, .. } => self.ast.blocks[index].boundary.close_string().as_bytes(),
+                NewlineSequence => return None,
+                Apply => unreachable!(),
+            }
         };
         Some((token_start, bytes))
     }

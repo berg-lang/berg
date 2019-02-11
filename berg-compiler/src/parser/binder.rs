@@ -1,8 +1,8 @@
 use crate::syntax::identifiers::*;
-use crate::syntax::Token::*;
 use crate::syntax::{
     Ast, AstBlock, AstDelta, AstIndex, BlockIndex, ByteRange, ExpressionBoundary,
-    ExpressionBoundaryError, Field, FieldIndex, IdentifierIndex, Token,
+    ExpressionBoundaryError, Field, FieldIndex, IdentifierIndex, Token, ExpressionToken,
+    OperatorToken,
 };
 use crate::util::indexed_vec::Delta;
 
@@ -59,42 +59,46 @@ impl<'a> Binder<'a> {
         self.ast
     }
 
-    pub fn push_token(&mut self, token: Token, range: ByteRange) -> AstIndex {
+    pub fn push_token(&mut self, token: impl Into<Token>, range: ByteRange) -> AstIndex {
+        use Token::*;
+        use ExpressionToken::*;
+        use OperatorToken::*;
+        let token = token.into();
         match token {
             // Unless it's preceded by a ., raw identifier is always a local field access or declaration, so bind it and translate it.
-            RawIdentifier(name)
+            Expression(RawIdentifier(name))
                 if match self.ast.tokens.last() {
-                    Some(&InfixOperator(DOT)) => false,
+                    Some(&Token::Operator(OperatorToken::InfixOperator(DOT))) => false,
                     _ => true,
                 } =>
             {
                 self.push_field_reference(name, range)
             }
-            Open {
+            Expression(Open {
                 boundary,
                 error,
                 delta,
-            } if boundary.is_scope() => {
+            }) if boundary.is_scope() => {
                 let open_block_index = self.open_block_index();
                 let index = self.push_open_scope(boundary, Some(open_block_index));
 
                 // Push the token.
-                let token = Token::OpenBlock {
+                let token = OpenBlock {
                     index,
                     delta,
                     error,
                 };
                 self.ast.push_token(token, range)
             }
-            Close {
+            Operator(Close {
                 boundary,
                 error,
                 delta,
-            } if boundary.is_scope() => {
+            }) if boundary.is_scope() => {
                 let index = self.push_close_scope();
 
                 // Push the token.
-                let token = Token::CloseBlock {
+                let token = CloseBlock {
                     index,
                     delta,
                     error,
@@ -102,29 +106,34 @@ impl<'a> Binder<'a> {
                 self.ast.push_token(token, range)
             }
             // We are the one who generates these tokens; no one before us should be doing so.
-            FieldReference(_) | OpenBlock { .. } | CloseBlock { .. } => unreachable!(),
-            InfixOperator(COLON) => self.push_declaration_with_default(token, range),
+            Expression(FieldReference(_)) | Expression(OpenBlock { .. }) | Operator(CloseBlock { .. }) => unreachable!(),
+            Operator(InfixOperator(COLON)) => self.push_declaration_with_default(token, range),
             _ => self.ast.push_token(token, range),
         }
     }
 
-    pub fn insert_token(&mut self, index: AstIndex, token: Token, range: ByteRange) {
+    pub fn insert_token(&mut self, index: AstIndex, token: impl Into<Token>, range: ByteRange) {
+        use Token::*;
+        use ExpressionToken::*;
+        let token = token.into();
         match token {
-            Open {
+            Expression(Open {
                 boundary,
                 error,
                 delta,
-            } if boundary.is_scope() => {
+            }) if boundary.is_scope() => {
                 self.insert_open_scope(index, boundary, error, delta, range)
             }
-            Open { .. } => self.ast.insert_token(index, token, range),
+            Expression(Open { .. }) => self.ast.insert_token(index, token, range),
             _ => unreachable!(),
         }
     }
 
     fn push_field_reference(&mut self, name: IdentifierIndex, range: ByteRange) -> AstIndex {
+        use Token::*;
+        use ExpressionToken::*;
         let is_declaration = match self.ast.tokens.last() {
-            Some(&PrefixOperator(COLON)) => true,
+            Some(&Expression(PrefixOperator(COLON))) => true,
             _ => false,
         };
         let field = self
@@ -137,10 +146,12 @@ impl<'a> Binder<'a> {
     }
 
     fn push_declaration_with_default(&mut self, token: Token, range: ByteRange) -> AstIndex {
+        use Token::*;
+        use ExpressionToken::*;
         let prev_token_index = self.ast.tokens.last_index();
         let prev_token = self.ast.tokens[prev_token_index];
         // Flip the field public now that we know it's a declaration.
-        if let FieldReference(field) = prev_token {
+        if let Expression(FieldReference(field)) = prev_token {
             // If the field is from a parent block, we have misidentified this, because
             // a: b always refers to a local variable. Fix that up.
             // NOTE: This misidentification has no repercussions in the current code,
@@ -151,7 +162,7 @@ impl<'a> Binder<'a> {
             if field < self.open_scope().scope_start {
                 let name = self.ast.fields[field].name;
                 let new_field = self.create_field(name, true);
-                self.ast.tokens[prev_token_index] = FieldReference(new_field);
+                self.ast.tokens[prev_token_index] = FieldReference(new_field).into();
             } else {
                 self.ast.fields[field].is_public = true;
             }
@@ -221,7 +232,7 @@ impl<'a> Binder<'a> {
         }
 
         // Insert the token. No token adjustment necessary since everything does deltas.
-        let token = Token::OpenBlock {
+        let token = ExpressionToken::OpenBlock {
             index,
             delta,
             error,

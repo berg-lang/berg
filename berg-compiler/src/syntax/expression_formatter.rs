@@ -1,5 +1,5 @@
 use crate::syntax::identifiers::SEMICOLON;
-use crate::syntax::{Expression, ExpressionBoundary, Fixity, Token};
+use crate::syntax::{ExpressionTreeWalker, ExpressionBoundary, Fixity, Token, ExpressionToken, OperatorToken};
 use std::fmt;
 
 #[derive(Copy, Clone, Debug)]
@@ -10,22 +10,22 @@ pub struct ExpressionTreeFormatter {
     starting_depth: usize,
 }
 
-impl<'p, 'a: 'p, Context: Copy + Clone + fmt::Debug> Expression<'p, 'a, Context> {
-    pub fn format(self) -> Expression<'p, 'a, ExpressionFormatter> {
+impl<'p, 'a: 'p, Context: Copy + Clone + fmt::Debug> ExpressionTreeWalker<'p, 'a, Context> {
+    pub fn format(self) -> ExpressionTreeWalker<'p, 'a, ExpressionFormatter> {
         self.with_context(ExpressionFormatter)
     }
-    pub fn format_tree(self) -> Expression<'p, 'a, ExpressionTreeFormatter> {
+    pub fn format_tree(self) -> ExpressionTreeWalker<'p, 'a, ExpressionTreeFormatter> {
         self.with_context(ExpressionTreeFormatter {
             starting_depth: self.depth(),
         })
     }
 }
 
-impl<'p, 'a: 'p> Expression<'p, 'a, ExpressionFormatter> {
+impl<'p, 'a: 'p> ExpressionTreeWalker<'p, 'a, ExpressionFormatter> {
     fn boundary_strings(self) -> (&'static str, &'static str) {
         let boundary = match self.open_token() {
-            Token::Open { boundary, .. } => boundary,
-            Token::OpenBlock { index, .. } => self.ast().blocks[index].boundary,
+            ExpressionToken::Open { boundary, .. } => boundary,
+            ExpressionToken::OpenBlock { index, .. } => self.ast().blocks[index].boundary,
             _ => unreachable!(),
         };
         match boundary {
@@ -40,7 +40,7 @@ impl<'p, 'a: 'p> Expression<'p, 'a, ExpressionFormatter> {
     }
 }
 
-impl<'p, 'a: 'p> fmt::Display for Expression<'p, 'a, ExpressionFormatter> {
+impl<'p, 'a: 'p> fmt::Display for ExpressionTreeWalker<'p, 'a, ExpressionFormatter> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let token = self.token();
         let string = self.token_string();
@@ -49,8 +49,8 @@ impl<'p, 'a: 'p> fmt::Display for Expression<'p, 'a, ExpressionFormatter> {
                 let left = self.left_expression();
                 let right = self.right_expression();
                 match token {
-                    Token::InfixOperator(SEMICOLON) => write!(f, "{}{} {}", left, string, right),
-                    Token::NewlineSequence => write!(f, "{}\\n {}", left, right),
+                    Token::Operator(OperatorToken::InfixOperator(SEMICOLON)) => write!(f, "{}{} {}", left, string, right),
+                    Token::Operator(OperatorToken::NewlineSequence) => write!(f, "{}\\n {}", left, right),
                     _ => write!(f, "{} {} {}", left, string, right),
                 }
             }
@@ -80,7 +80,7 @@ impl<'p, 'a: 'p> fmt::Display for Expression<'p, 'a, ExpressionFormatter> {
     }
 }
 
-impl<'p, 'a: 'p> Expression<'p, 'a, ExpressionTreeFormatter> {
+impl<'p, 'a: 'p> ExpressionTreeWalker<'p, 'a, ExpressionTreeFormatter> {
     fn fmt_self(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let token = self.token();
         match token.fixity() {
@@ -99,7 +99,7 @@ impl<'p, 'a: 'p> Expression<'p, 'a, ExpressionTreeFormatter> {
     }
 }
 
-impl<'p, 'a: 'p> fmt::Display for Expression<'p, 'a, ExpressionTreeFormatter> {
+impl<'p, 'a: 'p> fmt::Display for ExpressionTreeWalker<'p, 'a, ExpressionTreeFormatter> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         self.fmt_self(f)?;
         match self.token().fixity() {
