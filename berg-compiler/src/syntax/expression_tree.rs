@@ -109,9 +109,20 @@ impl<'p, 'a: 'p, Context: Copy + Clone + fmt::Debug> ExpressionTreeWalker<'p, 'a
     pub fn context(self) -> Context {
         self.context
     }
-    pub fn index(self) -> AstIndex {
-        self.expression.root_index()
-    }
+    pub fn ast(self) -> &'p Ast<'a> { self.expression.ast() }
+    pub fn root_index(&self) -> AstIndex { self.expression.root_index() }
+    pub fn byte_range(&self) -> ByteRange { self.expression.byte_range() }
+    pub fn token_range(&self) -> RangeInclusive<AstIndex> { self.expression.token_range() }
+    pub fn token(&self) -> Token { self.expression.token() }
+    pub fn token_string(self) -> Cow<'p, str> { self.expression.token_string() }
+    pub fn open_operator(&self) -> AstIndex { self.expression.open_operator() }
+    pub fn close_operator(&self) -> AstIndex { self.expression.close_operator() }
+    pub fn open_token(&self) -> ExpressionToken { self.expression.open_token() }
+    pub fn close_token(&self) -> OperatorToken { self.expression.close_token() }
+    pub fn depth(self) -> usize { self.expression.depth() }
+    pub fn boundary(self) -> ExpressionBoundary { self.expression.boundary() }
+    pub fn operand_position(self) -> OperandPosition { self.expression.operand_position() }
+
     pub fn inner_expression(self) -> Self {
         self.with_expression(self.expression.inner_expression())
     }
@@ -121,15 +132,17 @@ impl<'p, 'a: 'p, Context: Copy + Clone + fmt::Debug> ExpressionTreeWalker<'p, 'a
     pub fn right_expression(self) -> Self {
         self.with_expression(self.expression.right_expression())
     }
-    pub fn parent(self) -> Self {
-        self.with_expression(self.expression.parent())
+    pub fn prev_expression(self) -> Self {
+        self.with_expression(self.expression.prev_expression())
     }
-}
-
-impl<'p, 'a: 'p, Context: Copy + Clone + fmt::Debug> std::ops::Deref for ExpressionTreeWalker<'p, 'a, Context> {
-    type Target=AstExpressionTree<'p, 'a>;
-    fn deref(&self) -> &AstExpressionTree<'p, 'a> {
-        &self.expression
+    pub fn next_expression(self) -> Self {
+        self.with_expression(self.expression.next_expression())
+    }
+    pub fn parent_expression(self) -> Self {
+        self.with_expression(self.expression.parent_expression())
+    }
+    pub fn child_expression(self, position: OperandPosition) -> Self {
+        self.with_expression(self.expression.child_expression(position))
     }
 }
 
@@ -177,7 +190,7 @@ impl<'p, 'a: 'p> AstExpressionTree<'p, 'a> {
         let mut expression = self;
         while expression.root != 0 {
             depth += 1;
-            expression = expression.parent();
+            expression = expression.parent_expression();
         }
         depth
     }
@@ -198,13 +211,21 @@ impl<'p, 'a: 'p> AstExpressionTree<'p, 'a> {
         AstExpressionTree::new(self.ast, right_operand_root(self.ast, self.root))
     }
 
-    pub fn parent(self) -> Self {
+    pub fn parent_expression(self) -> Self {
         AstExpressionTree::new(self.ast, parent_root(self.ast, self.root))
+    }
+
+    pub fn prev_expression(self) -> Self {
+        AstExpressionTree::new(self.ast, prev_index(self.ast, self.root))
+    }
+
+    pub fn next_expression(self) -> Self {
+        AstExpressionTree::new(self.ast, self.root+1)
     }
 
     pub fn operand_position(self) -> OperandPosition {
         use self::OperandPosition::*;
-        let parent = self.parent();
+        let parent = self.parent_expression();
         match parent.token().fixity() {
             Prefix | Open => PrefixOperand,
             Postfix | Close => PostfixOperand,
@@ -218,7 +239,7 @@ impl<'p, 'a: 'p> AstExpressionTree<'p, 'a> {
         AstExpressionTree::new(self.ast, inner_root(self.ast, self.root))
     }
 
-    pub fn child(self, position: OperandPosition) -> Self {
+    pub fn child_expression(self, position: OperandPosition) -> Self {
         use OperandPosition::*;
         match position {
             Left | PostfixOperand => self.left_expression(),
@@ -242,6 +263,10 @@ fn first_index(ast: &Ast, root: AstIndex) -> AstIndex {
             left
         }
     }
+}
+
+fn prev_index(ast: &Ast, root: AstIndex) -> AstIndex {
+    open_operator_index(ast, root - 1)    
 }
 
 ///

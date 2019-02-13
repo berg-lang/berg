@@ -224,11 +224,16 @@ impl<'a> Grouper<'a> {
     fn push_close_token(
         &mut self,
         expression: &OpenExpression,
-        error: ExpressionBoundaryError,
+        mut error: ExpressionBoundaryError,
         close_range: ByteRange,
     ) -> AstIndex {
         let close_index = self.ast().next_index();
         let delta = close_index - expression.open_index;
+
+        // Special case: if it's an empty autoblock, mark it as an error ({ a: } is an error)
+        if expression.boundary == ExpressionBoundary::AutoBlock && error == ExpressionBoundaryError::None && delta == 2 && self.ast().expression_token(close_index-1) == ExpressionToken::MissingExpression {
+            error = ExpressionBoundaryError::EmptyAutoBlock;
+        }
 
         // Update open index
         {

@@ -6,40 +6,75 @@ use crate::syntax::{
 use crate::value::*;
 use std::fmt;
 
+///
+/// Standard berg error.
+/// 
+/// Contains a BergError and a stack of error locations.
+///
 #[derive(Debug, Clone)]
 pub struct Error<'a> {
     pub error: BergError<'a>,
-    pub stack: Vec<ExpressionRef<'a>>,
+    pub expression: ExpressionRef<'a>,
 }
 
+///
+/// Standard berg error.
+/// 
+/// This class is generally used to determine the type of an error, or for
+/// implementors to create local errors without having to know an expression's
+/// location. An Error or EvalError is needed to give it a source location that
+/// can actually be reported.
+/// 
 #[derive(Debug, Clone)]
 pub enum BergError<'a> {
     // File open errors
+
+    ///
+    /// The source file to be read could not be found.
+    /// 
     SourceNotFound,
+
+    ///
+    /// There was an I/O error opening the source file. The file may or may not
+    /// exist (depending on the type of the IoOpenError).
+    /// 
     IoOpenError,
+
+    ///
+    /// There was an I/O error reading the source file.
+    ///
     IoReadError,
+
+    ///
+    /// There was an error determining the current directory.
+    ///
     CurrentDirectoryError,
+
+    ///
+    /// A source file was more than 32-bits (4GB).
+    /// 
     SourceTooLarge(usize),
 
     // Code errors
     InvalidUtf8(RawLiteralIndex),
     UnsupportedCharacters(LiteralIndex),
     IdentifierStartsWithNumber(LiteralIndex),
-    MissingExpression,
+    MissingOperand,
     AssignmentTargetMustBeIdentifier,
+    RightSideOfDotMustBeIdentifier,
     OpenWithoutClose,
     CloseWithoutOpen,
-    UnsupportedOperator(Box<BergVal<'a>>, Fixity, IdentifierIndex),
+    UnsupportedOperator(Box<BergResult<'a>>, Fixity, IdentifierIndex),
     DivideByZero,
     NoSuchField(FieldIndex),
     FieldNotSet(FieldIndex),
     CircularDependency,
     // TODO stop boxing BergVals
-    BadType(Box<BergVal<'a>>, &'static str),
-    BadOperandType(OperandPosition, Box<BergVal<'a>>, &'static str),
+    BadType(Box<BergResult<'a>>, &'static str),
+    BadOperandType(OperandPosition, Box<BergResult<'a>>, &'static str),
     PrivateField(BlockRef<'a>, IdentifierIndex),
     NoSuchPublicField(BlockRef<'a>, IdentifierIndex),
-    NoSuchPublicFieldOnValue(Box<BergVal<'a>>, IdentifierIndex),
+    NoSuchPublicFieldOnValue(Box<BergResult<'a>>, IdentifierIndex),
     NoSuchPublicFieldOnRoot(IdentifierIndex),
     ImmutableFieldOnRoot(FieldIndex),
 }
@@ -61,6 +96,7 @@ pub enum ErrorCode {
     // Compile errors related to structure (parser)
     MissingOperand = 301,
     AssignmentTargetMustBeIdentifier,
+    RightSideOfDotMustBeIdentifier,
     OpenWithoutClose,
     CloseWithoutOpen,
 
@@ -82,6 +118,14 @@ pub enum ErrorLocation<'a> {
     SourceOnly(AstRef<'a>),
     SourceExpression(AstRef<'a>, AstIndex),
     SourceRange(AstRef<'a>, ByteRange),
+}
+
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub enum ExpressionErrorPosition {
+    Expression,
+    ImmediateLeftOperand,
+    LeftOperand,
+    RightOperand,
 }
 
 impl<'a> ErrorLocation<'a> {
@@ -108,14 +152,12 @@ impl<'a> Error<'a> {
     pub fn new(error: BergError<'a>, expression: ExpressionRef<'a>) -> Self {
         Error {
             error,
-            stack: Default::default(),
+            expression,
         }
-        .push_frame(expression)
     }
 
-    pub fn push_frame(mut self, expression: ExpressionRef<'a>) -> Self {
-        self.stack.push(expression);
-        self
+    pub fn err<T, E: From<Self>>(self) -> Result<T, E> {
+        Err(E::from(self))
     }
 
     pub fn code(&self) -> ErrorCode {
@@ -123,7 +165,7 @@ impl<'a> Error<'a> {
     }
 
     pub fn expression(&self) -> ExpressionRef<'a> {
-        self.stack.first().unwrap().clone()
+        self.expression.clone()
     }
 
     pub fn location(&self) -> ErrorLocation<'a> {
@@ -137,18 +179,24 @@ impl<'a> Error<'a> {
                 SourceOnly(expression.ast)
             }
 
-            MissingExpression | UnsupportedOperator(..) => {
-                let range = expression.ast.token_ranges[expression.expression().index()].clone();
+            MissingOperand => {
+                let range = expression.ast.token_ranges[expression.expression().parent_expression().root_index()].clone();
+                SourceRange(expression.ast, range)
+            }
+
+            UnsupportedOperator(..) => {
+                let range = expression.ast.token_ranges[expression.expression().root_index()].clone();
                 SourceRange(expression.ast, range)
             }
             BadOperandType(position, ..) => {
-                let operand = expression.expression().child(position).root_index();
+                let operand = expression.expression().child_expression(position).root_index();
                 SourceExpression(expression.ast, operand)
             }
 
-            DivideByZero => {
-                let operand = expression.expression().right_expression().byte_range();
-                SourceRange(expression.ast, operand)
+
+            DivideByZero | RightSideOfDotMustBeIdentifier => {
+                let operand = expression.expression().right_expression().root_index();
+                SourceExpression(expression.ast, operand)
             }
 
             OpenWithoutClose => {
@@ -195,6 +243,7 @@ impl fmt::Display for ErrorCode {
             IdentifierStartsWithNumber => "IdentifierStartsWithNumber",
             MissingOperand => "MissingOperand",
             AssignmentTargetMustBeIdentifier => "AssignmentTargetMustBeIdentifier",
+            RightSideOfDotMustBeIdentifier => "RightSideOfDotMustBeIdentifier",
             OpenWithoutClose => "OpenWithoutClose",
             CloseWithoutOpen => "CloseWithoutOpen",
             UnsupportedOperator => "UnsupportedOperator",
@@ -280,7 +329,7 @@ impl<'a> fmt::Display for Error<'a> {
                 "Unsupported {} operator {} on value {}",
                 fixity,
                 expression.ast.identifier_string(identifier),
-                value
+                value.display()
             ),
             DivideByZero => write!(
                 f,
@@ -307,7 +356,7 @@ impl<'a> fmt::Display for Error<'a> {
                 f,
                 "No field '{}' exists on '{}'! Perhaps it's a misspelling?",
                 expression.ast.identifier_string(name),
-                value
+                value.display()
             ),
             NoSuchPublicFieldOnRoot(name) => write!(
                 f,
@@ -337,24 +386,31 @@ impl<'a> fmt::Display for Error<'a> {
                 "Circular dependency at '{}'!",
                 expression
             ),
-            MissingExpression => write!(
+            MissingOperand => write!(
                 f,
                 "Operator {} has no value on {} to operate on!",
-                expression.expression().token().to_string(&expression.ast),
+                expression.expression().parent_expression().token().to_string(&expression.ast),
                 expression.expression().operand_position()
             ),
             AssignmentTargetMustBeIdentifier => write!(
                 f,
                 "The assignment operator '{operator}' must have a field declaration or name on {position} (like \":foo {operator} ...\" or \"foo {operator} ...\": {position} is currently {operand}.",
-                operator = expression.expression().parent().token().to_string(&expression.ast),
+                operator = expression.expression().parent_expression().token().to_string(&expression.ast),
                 position = expression.expression().operand_position(),
                 operand = expression,
+            ),
+            RightSideOfDotMustBeIdentifier => write!(
+                f,
+                "The field access operator '{operator}' must have an identifier on the right side (like \"{left}.FieldName\"): currently it is '{right}'.",
+                operator = expression.expression().token().to_string(&expression.ast),
+                left = expression.expression().left_expression(),
+                right = expression.expression().right_expression(),
             ),
             BadOperandType(position,ref actual_value,expected_type) => write!(
                 f,
                 "The value of '{operand}' is {actual_value}, but {position} '{operator}' must be an {expected_type}!",
-                operand = expression.expression().child(position),
-                actual_value = actual_value,
+                operand = expression.expression().child_expression(position),
+                actual_value = actual_value.display(),
                 position = position,
                 operator = expression.expression().token_string(),
                 expected_type = expected_type
@@ -363,7 +419,7 @@ impl<'a> fmt::Display for Error<'a> {
                 f,
                 "The value of '{}' is {}, but we expected {}!",
                 expression,
-                actual_value,
+                actual_value.display(),
                 expected_type
             ),
         }
@@ -371,12 +427,16 @@ impl<'a> fmt::Display for Error<'a> {
 }
 
 impl<'a> BergError<'a> {
-    pub fn push_frame(self, expression: ExpressionRef<'a>) -> Error<'a> {
-        Error::new(self, expression)
+    pub fn at_location(self, expression: impl Into<ExpressionRef<'a>>) -> Error<'a> {
+        Error::new(self, expression.into())
     }
 
     pub fn err<T>(self) -> BergResult<'a, T> {
-        Err(ControlVal::LocalError(self))
+        Err(ControlVal::ExpressionError(self, ExpressionErrorPosition::Expression))
+    }
+
+    pub fn operand_err<T>(self, position: ExpressionErrorPosition) -> BergResult<'a, T> {
+        Err(ControlVal::ExpressionError(self, position))
     }
 
     pub fn code(&self) -> ErrorCode {
@@ -393,8 +453,9 @@ impl<'a> BergError<'a> {
             InvalidUtf8(..) => ErrorCode::InvalidUtf8,
             UnsupportedCharacters(..) => ErrorCode::UnsupportedCharacters,
             IdentifierStartsWithNumber(..) => ErrorCode::IdentifierStartsWithNumber,
-            MissingExpression => ErrorCode::MissingOperand,
+            MissingOperand => ErrorCode::MissingOperand,
             AssignmentTargetMustBeIdentifier => ErrorCode::AssignmentTargetMustBeIdentifier,
+            RightSideOfDotMustBeIdentifier => ErrorCode::RightSideOfDotMustBeIdentifier,
             OpenWithoutClose => ErrorCode::OpenWithoutClose,
             CloseWithoutOpen => ErrorCode::CloseWithoutOpen,
 

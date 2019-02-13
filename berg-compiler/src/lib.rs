@@ -20,12 +20,12 @@ pub(crate) mod syntax;
 pub mod test;
 pub(crate) mod value;
 
-pub fn evaluate_file<'a, P: Into<Cow<'a, Path>>>(path: P) -> BergResult<'a> {
+pub fn evaluate_file<'a, P: Into<Cow<'a, Path>>>(path: P) -> impl BergValue<'a> {
     let source = SourceRef::file(path.into(), RootRef::from_env());
     evaluate_ast(parse(source))
 }
 
-pub fn evaluate_bytes<'a>(name: &'a str, value: &'a [u8]) -> BergResult<'a> {
+pub fn evaluate_bytes<'a>(name: &'a str, value: &'a [u8]) -> impl BergValue<'a> {
     let source = SourceRef::memory(name, value, RootRef::from_env());
     evaluate_ast(parse(source))
 }

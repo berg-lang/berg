@@ -1,6 +1,6 @@
 use crate::syntax::identifiers;
 use crate::syntax::{FieldIndex, IdentifierIndex};
-use crate::value::{BergError, BergResult, BergValue};
+use crate::value::{BergError, BergValue, BergResult};
 use std;
 use std::env;
 use std::fmt;

@@ -4,7 +4,7 @@ use crate::syntax::identifiers::*;
 use crate::syntax::{AstRef, ByteIndex, ByteRange, LineColumnRange, SourceRef};
 use crate::util::from_range::BoundedRange;
 use crate::util::from_range::IntoRange;
-use crate::value::{ControlVal, BergResult, BergVal, BergValue, ErrorCode, NextVal};
+use crate::value::*;
 use std::fmt;
 use std::io;
 use std::ops::Range;
@@ -79,8 +79,7 @@ impl<'a> ExpectBerg<'a> {
     }
 
     pub fn bergvals_equal(expected: BergVal<'a>, actual: BergVal<'a>) -> BergResult<'a, bool> {
-        let result = expected.infix(EQUAL_TO, actual)?;
-        result.into_native::<bool>()?
+        Ok(expected.infix(EQUAL_TO, RightOperand::new(actual))?.into_native::<bool>()?)
     }
 
     #[allow(clippy::needless_pass_by_value, clippy::wrong_self_convention)]
@@ -92,23 +91,25 @@ impl<'a> ExpectBerg<'a> {
             .unwrap_or_else(|error| panic!("Unexpected error: {}", error));
         let expected = BergVal::from(expected);
         println!("actual: {}, expected: {}", actual, expected);
+        let equal = Self::bergvals_equal(expected.clone(), actual.clone());
         assert!(
-            Self::bergvals_equal(expected.clone(), actual.clone()).unwrap_or(false),
-            "Wrong value returned! expected: {}, actual: {}",
+            equal.clone().unwrap_or(false),
+            "Wrong value returned! expected: {}, actual: {}. Equal: {}",
             expected,
-            actual
+            actual,
+            equal.display()
         );
     }
 
-    fn consume_all(value: BergVal<'a>) -> BergResult<'a> {
+    fn consume_all(mut value: BergVal<'a>) -> BergResult<'a> {
         let mut values = vec![];
-        let mut next = Some(value);
-        while let Some(tail) = next {
-            if let NextVal(Some((head, tail))) = tail.next_val()? {
-                values.push(head);
-                next = tail;
-            } else {
-                next = None;
+        loop {
+            match value.next_val()? {
+                None => break,
+                Some(NextVal { head, tail }) => {
+                    values.push(head?);
+                    value = tail?;
+                }
             }
         }
         Ok(values.into())

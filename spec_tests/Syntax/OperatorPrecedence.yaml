@@ -316,24 +316,24 @@
 
 
     #
-    # Against precedence 10: ?? ||
+    # Against precedence 10: ? ||
     #
     #
     # prefix.:
     #
-    - Berg: "a ?? :b"
+    - Berg: "a ? :b"
       Ast -> InfixOperation:
         Left -> Bareword: a
-        Operator: "??"
+        Operator: "?"
         Right -> PrefixOperation:
           Operator: ":"
           Right -> Bareword: b
-    - Berg: ":a ?? b"
+    - Berg: ":a ? b"
       Ast -> InfixOperation:
         Left -> PrefixOperation:
           Operator: ":"
           Right -> Bareword: a
-        Operator: "??"
+        Operator: "?"
         Right -> Bareword: b
     - Berg: "a || :b"
       Ast -> InfixOperation:
@@ -374,7 +374,7 @@
 
 
     #
-    # Against precedence 12: += *= /= %= : -= &&= ||= ??= =
+    # Against precedence 12: += *= /= %= : -= &&= ||= ?= =
     #
     #
     # prefix.:
@@ -491,19 +491,19 @@
           Right -> Bareword: a
         Operator: "||="
         Right -> Bareword: b
-    - Berg: "a ??= :b"
+    - Berg: "a ?= :b"
       Ast -> InfixOperation:
         Left -> Bareword: a
-        Operator: "??="
+        Operator: "?="
         Right -> PrefixOperation:
           Operator: ":"
           Right -> Bareword: b
-    - Berg: ":a ??= b"
+    - Berg: ":a ?= b"
       Ast -> InfixOperation:
         Left -> PrefixOperation:
           Operator: ":"
           Right -> Bareword: a
-        Operator: "??="
+        Operator: "?="
         Right -> Bareword: b
     - Berg: "a = :b"
       Ast -> InfixOperation:
@@ -1658,23 +1658,23 @@
 
 
     #
-    # Against precedence 10: ?? ||
+    # Against precedence 10: ? ||
     #
     #
     # .
     #
-    - Berg: a . b ?? c
+    - Berg: a . b ? c
       Ast -> InfixOperation:
         Left -> InfixOperation:
           Left -> Bareword: a
           Operator: "."
           Right -> Bareword: b
-        Operator: "??"
+        Operator: "?"
         Right -> Bareword: c
-    - Berg: a ?? b . c
+    - Berg: a ? b . c
       Ast -> InfixOperation:
         Left -> Bareword: a
-        Operator: "??"
+        Operator: "?"
         Right -> InfixOperation:
           Left -> Bareword: b
           Operator: "."
@@ -1699,19 +1699,19 @@
     #
     # postfix.--
     #
-    - Berg: a ?? b--
+    - Berg: a ? b--
       Ast -> InfixOperation:
         Left -> Bareword: a
-        Operator: "??"
+        Operator: "?"
         Right -> PostfixOperation:
           Left -> Bareword: b
           Operator: --
-    - Berg: a-- ?? b
+    - Berg: a-- ? b
       Ast -> InfixOperation:
         Left -> PostfixOperation:
           Left -> Bareword: a
           Operator: --
-        Operator: "??"
+        Operator: "?"
         Right -> Bareword: b
     - Berg: a || b--
       Ast -> InfixOperation:
@@ -1731,19 +1731,19 @@
     #
     # postfix.++
     #
-    - Berg: a ?? b++
+    - Berg: a ? b++
       Ast -> InfixOperation:
         Left -> Bareword: a
-        Operator: "??"
+        Operator: "?"
         Right -> PostfixOperation:
           Left -> Bareword: b
           Operator: ++
-    - Berg: a++ ?? b
+    - Berg: a++ ? b
       Ast -> InfixOperation:
         Left -> PostfixOperation:
           Left -> Bareword: a
           Operator: ++
-        Operator: "??"
+        Operator: "?"
         Right -> Bareword: b
     - Berg: a || b++
       Ast -> InfixOperation:
@@ -1822,7 +1822,7 @@
 
 
     #
-    # Against precedence 12: += *= /= %= : -= &&= ||= ??= =
+    # Against precedence 12: += *= /= %= : -= &&= ||= ?= =
     #
     #
     # .
@@ -1955,18 +1955,18 @@
           Left -> Bareword: b
           Operator: "."
           Right -> Bareword: c
-    - Berg: a . b ??= c
+    - Berg: a . b ?= c
       Ast -> InfixOperation:
         Left -> InfixOperation:
           Left -> Bareword: a
           Operator: "."
           Right -> Bareword: b
-        Operator: "??="
+        Operator: "?="
         Right -> Bareword: c
-    - Berg: a ??= b . c
+    - Berg: a ?= b . c
       Ast -> InfixOperation:
         Left -> Bareword: a
-        Operator: "??="
+        Operator: "?="
         Right -> InfixOperation:
           Left -> Bareword: b
           Operator: "."
@@ -2103,19 +2103,19 @@
           Operator: --
         Operator: "||="
         Right -> Bareword: b
-    - Berg: a ??= b--
+    - Berg: a ?= b--
       Ast -> InfixOperation:
         Left -> Bareword: a
-        Operator: "??="
+        Operator: "?="
         Right -> PostfixOperation:
           Left -> Bareword: b
           Operator: --
-    - Berg: a-- ??= b
+    - Berg: a-- ?= b
       Ast -> InfixOperation:
         Left -> PostfixOperation:
           Left -> Bareword: a
           Operator: --
-        Operator: "??="
+        Operator: "?="
         Right -> Bareword: b
     - Berg: a = b--
       Ast -> InfixOperation:
@@ -2247,19 +2247,19 @@
           Operator: ++
         Operator: "||="
         Right -> Bareword: b
-    - Berg: a ??= b++
+    - Berg: a ?= b++
       Ast -> InfixOperation:
         Left -> Bareword: a
-        Operator: "??="
+        Operator: "?="
         Right -> PostfixOperation:
           Left -> Bareword: b
           Operator: ++
-    - Berg: a++ ??= b
+    - Berg: a++ ?= b
       Ast -> InfixOperation:
         Left -> PostfixOperation:
           Left -> Bareword: a
           Operator: ++
-        Operator: "??="
+        Operator: "?="
         Right -> Bareword: b
     - Berg: a = b++
       Ast -> InfixOperation:
@@ -4144,24 +4144,24 @@
 
 
     #
-    # Against precedence 10: ?? ||
+    # Against precedence 10: ? ||
     #
     #
     # prefix.--
     #
-    - Berg: a ?? --b
+    - Berg: a ? --b
       Ast -> InfixOperation:
         Left -> Bareword: a
-        Operator: "??"
+        Operator: "?"
         Right -> PrefixOperation:
           Operator: --
           Right -> Bareword: b
-    - Berg: --a ?? b
+    - Berg: --a ? b
       Ast -> InfixOperation:
         Left -> PrefixOperation:
           Operator: --
           Right -> Bareword: a
-        Operator: "??"
+        Operator: "?"
         Right -> Bareword: b
     - Berg: a || --b
       Ast -> InfixOperation:
@@ -4181,19 +4181,19 @@
     #
     # prefix.-
     #
-    - Berg: a ?? -b
+    - Berg: a ? -b
       Ast -> InfixOperation:
         Left -> Bareword: a
-        Operator: "??"
+        Operator: "?"
         Right -> PrefixOperation:
           Operator: "-"
           Right -> Bareword: b
-    - Berg: -a ?? b
+    - Berg: -a ? b
       Ast -> InfixOperation:
         Left -> PrefixOperation:
           Operator: "-"
           Right -> Bareword: a
-        Operator: "??"
+        Operator: "?"
         Right -> Bareword: b
     - Berg: a || -b
       Ast -> InfixOperation:
@@ -4213,19 +4213,19 @@
     #
     # prefix.+
     #
-    - Berg: a ?? +b
+    - Berg: a ? +b
       Ast -> InfixOperation:
         Left -> Bareword: a
-        Operator: "??"
+        Operator: "?"
         Right -> PrefixOperation:
           Operator: +
           Right -> Bareword: b
-    - Berg: +a ?? b
+    - Berg: +a ? b
       Ast -> InfixOperation:
         Left -> PrefixOperation:
           Operator: +
           Right -> Bareword: a
-        Operator: "??"
+        Operator: "?"
         Right -> Bareword: b
     - Berg: a || +b
       Ast -> InfixOperation:
@@ -4245,19 +4245,19 @@
     #
     # prefix.++
     #
-    - Berg: a ?? ++b
+    - Berg: a ? ++b
       Ast -> InfixOperation:
         Left -> Bareword: a
-        Operator: "??"
+        Operator: "?"
         Right -> PrefixOperation:
           Operator: ++
           Right -> Bareword: b
-    - Berg: ++a ?? b
+    - Berg: ++a ? b
       Ast -> InfixOperation:
         Left -> PrefixOperation:
           Operator: ++
           Right -> Bareword: a
-        Operator: "??"
+        Operator: "?"
         Right -> Bareword: b
     - Berg: a || ++b
       Ast -> InfixOperation:
@@ -4277,19 +4277,19 @@
     #
     # prefix.!
     #
-    - Berg: a ?? !b
+    - Berg: a ? !b
       Ast -> InfixOperation:
         Left -> Bareword: a
-        Operator: "??"
+        Operator: "?"
         Right -> PrefixOperation:
           Operator: "!"
           Right -> Bareword: b
-    - Berg: "!a ?? b"
+    - Berg: "!a ? b"
       Ast -> InfixOperation:
         Left -> PrefixOperation:
           Operator: "!"
           Right -> Bareword: a
-        Operator: "??"
+        Operator: "?"
         Right -> Bareword: b
     - Berg: a || !b
       Ast -> InfixOperation:
@@ -4402,7 +4402,7 @@
 
 
     #
-    # Against precedence 12: += *= /= %= : -= &&= ||= ??= =
+    # Against precedence 12: += *= /= %= : -= &&= ||= ?= =
     #
     #
     # prefix.--
@@ -4519,19 +4519,19 @@
           Right -> Bareword: a
         Operator: "||="
         Right -> Bareword: b
-    - Berg: a ??= --b
+    - Berg: a ?= --b
       Ast -> InfixOperation:
         Left -> Bareword: a
-        Operator: "??="
+        Operator: "?="
         Right -> PrefixOperation:
           Operator: --
           Right -> Bareword: b
-    - Berg: --a ??= b
+    - Berg: --a ?= b
       Ast -> InfixOperation:
         Left -> PrefixOperation:
           Operator: --
           Right -> Bareword: a
-        Operator: "??="
+        Operator: "?="
         Right -> Bareword: b
     - Berg: a = --b
       Ast -> InfixOperation:
@@ -4663,19 +4663,19 @@
           Right -> Bareword: a
         Operator: "||="
         Right -> Bareword: b
-    - Berg: a ??= -b
+    - Berg: a ?= -b
       Ast -> InfixOperation:
         Left -> Bareword: a
-        Operator: "??="
+        Operator: "?="
         Right -> PrefixOperation:
           Operator: "-"
           Right -> Bareword: b
-    - Berg: -a ??= b
+    - Berg: -a ?= b
       Ast -> InfixOperation:
         Left -> PrefixOperation:
           Operator: "-"
           Right -> Bareword: a
-        Operator: "??="
+        Operator: "?="
         Right -> Bareword: b
     - Berg: a = -b
       Ast -> InfixOperation:
@@ -4807,19 +4807,19 @@
           Right -> Bareword: a
         Operator: "||="
         Right -> Bareword: b
-    - Berg: a ??= +b
+    - Berg: a ?= +b
       Ast -> InfixOperation:
         Left -> Bareword: a
-        Operator: "??="
+        Operator: "?="
         Right -> PrefixOperation:
           Operator: +
           Right -> Bareword: b
-    - Berg: +a ??= b
+    - Berg: +a ?= b
       Ast -> InfixOperation:
         Left -> PrefixOperation:
           Operator: +
           Right -> Bareword: a
-        Operator: "??="
+        Operator: "?="
         Right -> Bareword: b
     - Berg: a = +b
       Ast -> InfixOperation:
@@ -4951,19 +4951,19 @@
           Right -> Bareword: a
         Operator: "||="
         Right -> Bareword: b
-    - Berg: a ??= ++b
+    - Berg: a ?= ++b
       Ast -> InfixOperation:
         Left -> Bareword: a
-        Operator: "??="
+        Operator: "?="
         Right -> PrefixOperation:
           Operator: ++
           Right -> Bareword: b
-    - Berg: ++a ??= b
+    - Berg: ++a ?= b
       Ast -> InfixOperation:
         Left -> PrefixOperation:
           Operator: ++
           Right -> Bareword: a
-        Operator: "??="
+        Operator: "?="
         Right -> Bareword: b
     - Berg: a = ++b
       Ast -> InfixOperation:
@@ -5095,19 +5095,19 @@
           Right -> Bareword: a
         Operator: "||="
         Right -> Bareword: b
-    - Berg: a ??= !b
+    - Berg: a ?= !b
       Ast -> InfixOperation:
         Left -> Bareword: a
-        Operator: "??="
+        Operator: "?="
         Right -> PrefixOperation:
           Operator: "!"
           Right -> Bareword: b
-    - Berg: "!a ??= b"
+    - Berg: "!a ?= b"
       Ast -> InfixOperation:
         Left -> PrefixOperation:
           Operator: "!"
           Right -> Bareword: a
-        Operator: "??="
+        Operator: "?="
         Right -> Bareword: b
     - Berg: a = !b
       Ast -> InfixOperation:
@@ -6690,23 +6690,23 @@
 
 
     #
-    # Against precedence 10: ?? ||
+    # Against precedence 10: ? ||
     #
     #
     # *
     #
-    - Berg: a * b ?? c
+    - Berg: a * b ? c
       Ast -> InfixOperation:
         Left -> InfixOperation:
           Left -> Bareword: a
           Operator: "*"
           Right -> Bareword: b
-        Operator: "??"
+        Operator: "?"
         Right -> Bareword: c
-    - Berg: a ?? b * c
+    - Berg: a ? b * c
       Ast -> InfixOperation:
         Left -> Bareword: a
-        Operator: "??"
+        Operator: "?"
         Right -> InfixOperation:
           Left -> Bareword: b
           Operator: "*"
@@ -6731,18 +6731,18 @@
     #
     # %
     #
-    - Berg: a % b ?? c
+    - Berg: a % b ? c
       Ast -> InfixOperation:
         Left -> InfixOperation:
           Left -> Bareword: a
           Operator: "%"
           Right -> Bareword: b
-        Operator: "??"
+        Operator: "?"
         Right -> Bareword: c
-    - Berg: a ?? b % c
+    - Berg: a ? b % c
       Ast -> InfixOperation:
         Left -> Bareword: a
-        Operator: "??"
+        Operator: "?"
         Right -> InfixOperation:
           Left -> Bareword: b
           Operator: "%"
@@ -6767,18 +6767,18 @@
     #
     # /
     #
-    - Berg: a / b ?? c
+    - Berg: a / b ? c
       Ast -> InfixOperation:
         Left -> InfixOperation:
           Left -> Bareword: a
           Operator: /
           Right -> Bareword: b
-        Operator: "??"
+        Operator: "?"
         Right -> Bareword: c
-    - Berg: a ?? b / c
+    - Berg: a ? b / c
       Ast -> InfixOperation:
         Left -> Bareword: a
-        Operator: "??"
+        Operator: "?"
         Right -> InfixOperation:
           Left -> Bareword: b
           Operator: /
@@ -6866,7 +6866,7 @@
 
 
     #
-    # Against precedence 12: += *= /= %= : -= &&= ||= ??= =
+    # Against precedence 12: += *= /= %= : -= &&= ||= ?= =
     #
     #
     # *
@@ -6999,18 +6999,18 @@
           Left -> Bareword: b
           Operator: "*"
           Right -> Bareword: c
-    - Berg: a * b ??= c
+    - Berg: a * b ?= c
       Ast -> InfixOperation:
         Left -> InfixOperation:
           Left -> Bareword: a
           Operator: "*"
           Right -> Bareword: b
-        Operator: "??="
+        Operator: "?="
         Right -> Bareword: c
-    - Berg: a ??= b * c
+    - Berg: a ?= b * c
       Ast -> InfixOperation:
         Left -> Bareword: a
-        Operator: "??="
+        Operator: "?="
         Right -> InfixOperation:
           Left -> Bareword: b
           Operator: "*"
@@ -7163,18 +7163,18 @@
           Left -> Bareword: b
           Operator: "%"
           Right -> Bareword: c
-    - Berg: a % b ??= c
+    - Berg: a % b ?= c
       Ast -> InfixOperation:
         Left -> InfixOperation:
           Left -> Bareword: a
           Operator: "%"
           Right -> Bareword: b
-        Operator: "??="
+        Operator: "?="
         Right -> Bareword: c
-    - Berg: a ??= b % c
+    - Berg: a ?= b % c
       Ast -> InfixOperation:
         Left -> Bareword: a
-        Operator: "??="
+        Operator: "?="
         Right -> InfixOperation:
           Left -> Bareword: b
           Operator: "%"
@@ -7327,18 +7327,18 @@
           Left -> Bareword: b
           Operator: /
           Right -> Bareword: c
-    - Berg: a / b ??= c
+    - Berg: a / b ?= c
       Ast -> InfixOperation:
         Left -> InfixOperation:
           Left -> Bareword: a
           Operator: /
           Right -> Bareword: b
-        Operator: "??="
+        Operator: "?="
         Right -> Bareword: c
-    - Berg: a ??= b / c
+    - Berg: a ?= b / c
       Ast -> InfixOperation:
         Left -> Bareword: a
-        Operator: "??="
+        Operator: "?="
         Right -> InfixOperation:
           Left -> Bareword: b
           Operator: /
@@ -8426,23 +8426,23 @@
 
 
     #
-    # Against precedence 10: ?? ||
+    # Against precedence 10: ? ||
     #
     #
     # -
     #
-    - Berg: a - b ?? c
+    - Berg: a - b ? c
       Ast -> InfixOperation:
         Left -> InfixOperation:
           Left -> Bareword: a
           Operator: "-"
           Right -> Bareword: b
-        Operator: "??"
+        Operator: "?"
         Right -> Bareword: c
-    - Berg: a ?? b - c
+    - Berg: a ? b - c
       Ast -> InfixOperation:
         Left -> Bareword: a
-        Operator: "??"
+        Operator: "?"
         Right -> InfixOperation:
           Left -> Bareword: b
           Operator: "-"
@@ -8467,18 +8467,18 @@
     #
     # +
     #
-    - Berg: a + b ?? c
+    - Berg: a + b ? c
       Ast -> InfixOperation:
         Left -> InfixOperation:
           Left -> Bareword: a
           Operator: +
           Right -> Bareword: b
-        Operator: "??"
+        Operator: "?"
         Right -> Bareword: c
-    - Berg: a ?? b + c
+    - Berg: a ? b + c
       Ast -> InfixOperation:
         Left -> Bareword: a
-        Operator: "??"
+        Operator: "?"
         Right -> InfixOperation:
           Left -> Bareword: b
           Operator: +
@@ -8546,7 +8546,7 @@
 
 
     #
-    # Against precedence 12: += *= /= %= : -= &&= ||= ??= =
+    # Against precedence 12: += *= /= %= : -= &&= ||= ?= =
     #
     #
     # -
@@ -8679,18 +8679,18 @@
           Left -> Bareword: b
           Operator: "-"
           Right -> Bareword: c
-    - Berg: a - b ??= c
+    - Berg: a - b ?= c
       Ast -> InfixOperation:
         Left -> InfixOperation:
           Left -> Bareword: a
           Operator: "-"
           Right -> Bareword: b
-        Operator: "??="
+        Operator: "?="
         Right -> Bareword: c
-    - Berg: a ??= b - c
+    - Berg: a ?= b - c
       Ast -> InfixOperation:
         Left -> Bareword: a
-        Operator: "??="
+        Operator: "?="
         Right -> InfixOperation:
           Left -> Bareword: b
           Operator: "-"
@@ -8843,18 +8843,18 @@
           Left -> Bareword: b
           Operator: +
           Right -> Bareword: c
-    - Berg: a + b ??= c
+    - Berg: a + b ?= c
       Ast -> InfixOperation:
         Left -> InfixOperation:
           Left -> Bareword: a
           Operator: +
           Right -> Bareword: b
-        Operator: "??="
+        Operator: "?="
         Right -> Bareword: c
-    - Berg: a ??= b + c
+    - Berg: a ?= b + c
       Ast -> InfixOperation:
         Left -> Bareword: a
-        Operator: "??="
+        Operator: "?="
         Right -> InfixOperation:
           Left -> Bareword: b
           Operator: +
@@ -9898,23 +9898,23 @@
 
 
     #
-    # Against precedence 10: ?? ||
+    # Against precedence 10: ? ||
     #
     #
     # >
     #
-    - Berg: a > b ?? c
+    - Berg: a > b ? c
       Ast -> InfixOperation:
         Left -> InfixOperation:
           Left -> Bareword: a
           Operator: ">"
           Right -> Bareword: b
-        Operator: "??"
+        Operator: "?"
         Right -> Bareword: c
-    - Berg: a ?? b > c
+    - Berg: a ? b > c
       Ast -> InfixOperation:
         Left -> Bareword: a
-        Operator: "??"
+        Operator: "?"
         Right -> InfixOperation:
           Left -> Bareword: b
           Operator: ">"
@@ -9939,18 +9939,18 @@
     #
     # <=
     #
-    - Berg: a <= b ?? c
+    - Berg: a <= b ? c
       Ast -> InfixOperation:
         Left -> InfixOperation:
           Left -> Bareword: a
           Operator: <=
           Right -> Bareword: b
-        Operator: "??"
+        Operator: "?"
         Right -> Bareword: c
-    - Berg: a ?? b <= c
+    - Berg: a ? b <= c
       Ast -> InfixOperation:
         Left -> Bareword: a
-        Operator: "??"
+        Operator: "?"
         Right -> InfixOperation:
           Left -> Bareword: b
           Operator: <=
@@ -9975,18 +9975,18 @@
     #
     # >=
     #
-    - Berg: a >= b ?? c
+    - Berg: a >= b ? c
       Ast -> InfixOperation:
         Left -> InfixOperation:
           Left -> Bareword: a
           Operator: ">="
           Right -> Bareword: b
-        Operator: "??"
+        Operator: "?"
         Right -> Bareword: c
-    - Berg: a ?? b >= c
+    - Berg: a ? b >= c
       Ast -> InfixOperation:
         Left -> Bareword: a
-        Operator: "??"
+        Operator: "?"
         Right -> InfixOperation:
           Left -> Bareword: b
           Operator: ">="
@@ -10011,18 +10011,18 @@
     #
     # <
     #
-    - Berg: a < b ?? c
+    - Berg: a < b ? c
       Ast -> InfixOperation:
         Left -> InfixOperation:
           Left -> Bareword: a
           Operator: <
           Right -> Bareword: b
-        Operator: "??"
+        Operator: "?"
         Right -> Bareword: c
-    - Berg: a ?? b < c
+    - Berg: a ? b < c
       Ast -> InfixOperation:
         Left -> Bareword: a
-        Operator: "??"
+        Operator: "?"
         Right -> InfixOperation:
           Left -> Bareword: b
           Operator: <
@@ -10130,7 +10130,7 @@
 
 
     #
-    # Against precedence 12: += *= /= %= : -= &&= ||= ??= =
+    # Against precedence 12: += *= /= %= : -= &&= ||= ?= =
     #
     #
     # >
@@ -10263,18 +10263,18 @@
           Left -> Bareword: b
           Operator: ">"
           Right -> Bareword: c
-    - Berg: a > b ??= c
+    - Berg: a > b ?= c
       Ast -> InfixOperation:
         Left -> InfixOperation:
           Left -> Bareword: a
           Operator: ">"
           Right -> Bareword: b
-        Operator: "??="
+        Operator: "?="
         Right -> Bareword: c
-    - Berg: a ??= b > c
+    - Berg: a ?= b > c
       Ast -> InfixOperation:
         Left -> Bareword: a
-        Operator: "??="
+        Operator: "?="
         Right -> InfixOperation:
           Left -> Bareword: b
           Operator: ">"
@@ -10427,18 +10427,18 @@
           Left -> Bareword: b
           Operator: <=
           Right -> Bareword: c
-    - Berg: a <= b ??= c
+    - Berg: a <= b ?= c
       Ast -> InfixOperation:
         Left -> InfixOperation:
           Left -> Bareword: a
           Operator: <=
           Right -> Bareword: b
-        Operator: "??="
+        Operator: "?="
         Right -> Bareword: c
-    - Berg: a ??= b <= c
+    - Berg: a ?= b <= c
       Ast -> InfixOperation:
         Left -> Bareword: a
-        Operator: "??="
+        Operator: "?="
         Right -> InfixOperation:
           Left -> Bareword: b
           Operator: <=
@@ -10591,18 +10591,18 @@
           Left -> Bareword: b
           Operator: ">="
           Right -> Bareword: c
-    - Berg: a >= b ??= c
+    - Berg: a >= b ?= c
       Ast -> InfixOperation:
         Left -> InfixOperation:
           Left -> Bareword: a
           Operator: ">="
           Right -> Bareword: b
-        Operator: "??="
+        Operator: "?="
         Right -> Bareword: c
-    - Berg: a ??= b >= c
+    - Berg: a ?= b >= c
       Ast -> InfixOperation:
         Left -> Bareword: a
-        Operator: "??="
+        Operator: "?="
         Right -> InfixOperation:
           Left -> Bareword: b
           Operator: ">="
@@ -10755,18 +10755,18 @@
           Left -> Bareword: b
           Operator: <
           Right -> Bareword: c
-    - Berg: a < b ??= c
+    - Berg: a < b ?= c
       Ast -> InfixOperation:
         Left -> InfixOperation:
           Left -> Bareword: a
           Operator: <
           Right -> Bareword: b
-        Operator: "??="
+        Operator: "?="
         Right -> Bareword: c
-    - Berg: a ??= b < c
+    - Berg: a ?= b < c
       Ast -> InfixOperation:
         Left -> Bareword: a
-        Operator: "??="
+        Operator: "?="
         Right -> InfixOperation:
           Left -> Bareword: b
           Operator: <
@@ -11850,23 +11850,23 @@
 
 
     #
-    # Against precedence 10: ?? ||
+    # Against precedence 10: ? ||
     #
     #
     # !=
     #
-    - Berg: a != b ?? c
+    - Berg: a != b ? c
       Ast -> InfixOperation:
         Left -> InfixOperation:
           Left -> Bareword: a
           Operator: "!="
           Right -> Bareword: b
-        Operator: "??"
+        Operator: "?"
         Right -> Bareword: c
-    - Berg: a ?? b != c
+    - Berg: a ? b != c
       Ast -> InfixOperation:
         Left -> Bareword: a
-        Operator: "??"
+        Operator: "?"
         Right -> InfixOperation:
           Left -> Bareword: b
           Operator: "!="
@@ -11891,18 +11891,18 @@
     #
     # ==
     #
-    - Berg: a == b ?? c
+    - Berg: a == b ? c
       Ast -> InfixOperation:
         Left -> InfixOperation:
           Left -> Bareword: a
           Operator: ==
           Right -> Bareword: b
-        Operator: "??"
+        Operator: "?"
         Right -> Bareword: c
-    - Berg: a ?? b == c
+    - Berg: a ? b == c
       Ast -> InfixOperation:
         Left -> Bareword: a
-        Operator: "??"
+        Operator: "?"
         Right -> InfixOperation:
           Left -> Bareword: b
           Operator: ==
@@ -11970,7 +11970,7 @@
 
 
     #
-    # Against precedence 12: += *= /= %= : -= &&= ||= ??= =
+    # Against precedence 12: += *= /= %= : -= &&= ||= ?= =
     #
     #
     # !=
@@ -12103,18 +12103,18 @@
           Left -> Bareword: b
           Operator: "!="
           Right -> Bareword: c
-    - Berg: a != b ??= c
+    - Berg: a != b ?= c
       Ast -> InfixOperation:
         Left -> InfixOperation:
           Left -> Bareword: a
           Operator: "!="
           Right -> Bareword: b
-        Operator: "??="
+        Operator: "?="
         Right -> Bareword: c
-    - Berg: a ??= b != c
+    - Berg: a ?= b != c
       Ast -> InfixOperation:
         Left -> Bareword: a
-        Operator: "??="
+        Operator: "?="
         Right -> InfixOperation:
           Left -> Bareword: b
           Operator: "!="
@@ -12267,18 +12267,18 @@
           Left -> Bareword: b
           Operator: ==
           Right -> Bareword: c
-    - Berg: a == b ??= c
+    - Berg: a == b ?= c
       Ast -> InfixOperation:
         Left -> InfixOperation:
           Left -> Bareword: a
           Operator: ==
           Right -> Bareword: b
-        Operator: "??="
+        Operator: "?="
         Right -> Bareword: c
-    - Berg: a ??= b == c
+    - Berg: a ?= b == c
       Ast -> InfixOperation:
         Left -> Bareword: a
-        Operator: "??="
+        Operator: "?="
         Right -> InfixOperation:
           Left -> Bareword: b
           Operator: ==
@@ -12882,24 +12882,24 @@
 
 
     #
-    # Against precedence 10: ?? ||
+    # Against precedence 10: ? ||
     #
     #
     # postfix.?
     #
-    - Berg: a ?? b?
+    - Berg: a ? b?
       Ast -> InfixOperation:
         Left -> Bareword: a
-        Operator: "??"
+        Operator: "?"
         Right -> PostfixOperation:
           Left -> Bareword: b
           Operator: 1@7 = ?
-    - Berg: a? ?? b
+    - Berg: a? ? b
       Ast -> InfixOperation:
         Left -> PostfixOperation:
           Left -> Bareword: a
           Operator: 1@2 = ?
-        Operator: "??"
+        Operator: "?"
         Right -> Bareword: b
     - Berg: a || b?
       Ast -> InfixOperation:
@@ -12919,19 +12919,19 @@
     #
     # postfix.+
     #
-    - Berg: a ?? b+
+    - Berg: a ? b+
       Ast -> InfixOperation:
         Left -> Bareword: a
-        Operator: "??"
+        Operator: "?"
         Right -> PostfixOperation:
           Left -> Bareword: b
           Operator: +
-    - Berg: a+ ?? b
+    - Berg: a+ ? b
       Ast -> InfixOperation:
         Left -> PostfixOperation:
           Left -> Bareword: a
           Operator: +
-        Operator: "??"
+        Operator: "?"
         Right -> Bareword: b
     - Berg: a || b+
       Ast -> InfixOperation:
@@ -12951,19 +12951,19 @@
     #
     # postfix.*
     #
-    - Berg: a ?? b*
+    - Berg: a ? b*
       Ast -> InfixOperation:
         Left -> Bareword: a
-        Operator: "??"
+        Operator: "?"
         Right -> PostfixOperation:
           Left -> Bareword: b
           Operator: "*"
-    - Berg: a* ?? b
+    - Berg: a* ? b
       Ast -> InfixOperation:
         Left -> PostfixOperation:
           Left -> Bareword: a
           Operator: "*"
-        Operator: "??"
+        Operator: "?"
         Right -> Bareword: b
     - Berg: a || b*
       Ast -> InfixOperation:
@@ -13040,7 +13040,7 @@
 
 
     #
-    # Against precedence 12: += *= /= %= : -= &&= ||= ??= =
+    # Against precedence 12: += *= /= %= : -= &&= ||= ?= =
     #
     #
     # postfix.?
@@ -13157,19 +13157,19 @@
           Operator: "?"
         Operator: "||="
         Right -> Bareword: b
-    - Berg: a ??= b?
+    - Berg: a ?= b?
       Ast -> InfixOperation:
         Left -> Bareword: a
-        Operator: "??="
+        Operator: "?="
         Right -> PostfixOperation:
           Left -> Bareword: b
           Operator: 1@8 = ?
-    - Berg: a? ??= b
+    - Berg: a? ?= b
       Ast -> InfixOperation:
         Left -> PostfixOperation:
           Left -> Bareword: a
           Operator: 1@2 = ?
-        Operator: "??="
+        Operator: "?="
         Right -> Bareword: b
     - Berg: a = b?
       Ast -> InfixOperation:
@@ -13301,19 +13301,19 @@
           Operator: +
         Operator: "||="
         Right -> Bareword: b
-    - Berg: a ??= b+
+    - Berg: a ?= b+
       Ast -> InfixOperation:
         Left -> Bareword: a
-        Operator: "??="
+        Operator: "?="
         Right -> PostfixOperation:
           Left -> Bareword: b
           Operator: +
-    - Berg: a+ ??= b
+    - Berg: a+ ?= b
       Ast -> InfixOperation:
         Left -> PostfixOperation:
           Left -> Bareword: a
           Operator: +
-        Operator: "??="
+        Operator: "?="
         Right -> Bareword: b
     - Berg: a = b+
       Ast -> InfixOperation:
@@ -13445,19 +13445,19 @@
           Operator: "*"
         Operator: "||="
         Right -> Bareword: b
-    - Berg: a ??= b*
+    - Berg: a ?= b*
       Ast -> InfixOperation:
         Left -> Bareword: a
-        Operator: "??="
+        Operator: "?="
         Right -> PostfixOperation:
           Left -> Bareword: b
           Operator: "*"
-    - Berg: a* ??= b
+    - Berg: a* ?= b
       Ast -> InfixOperation:
         Left -> PostfixOperation:
           Left -> Bareword: a
           Operator: "*"
-        Operator: "??="
+        Operator: "?="
         Right -> Bareword: b
     - Berg: a = b*
       Ast -> InfixOperation:
@@ -14042,23 +14042,23 @@
 
 
     #
-    # Against precedence 10: ?? ||
+    # Against precedence 10: ? ||
     #
     #
     # &&
     #
-    - Berg: a && b ?? c
+    - Berg: a && b ? c
       Ast -> InfixOperation:
         Left -> InfixOperation:
           Left -> Bareword: a
           Operator: "&&"
           Right -> Bareword: b
-        Operator: "??"
+        Operator: "?"
         Right -> Bareword: c
-    - Berg: a ?? b && c
+    - Berg: a ? b && c
       Ast -> InfixOperation:
         Left -> Bareword: a
-        Operator: "??"
+        Operator: "?"
         Right -> InfixOperation:
           Left -> Bareword: b
           Operator: "&&"
@@ -14106,7 +14106,7 @@
 
 
     #
-    # Against precedence 12: += *= /= %= : -= &&= ||= ??= =
+    # Against precedence 12: += *= /= %= : -= &&= ||= ?= =
     #
     #
     # &&
@@ -14239,18 +14239,18 @@
           Left -> Bareword: b
           Operator: "&&"
           Right -> Bareword: c
-    - Berg: a && b ??= c
+    - Berg: a && b ?= c
       Ast -> InfixOperation:
         Left -> InfixOperation:
           Left -> Bareword: a
           Operator: "&&"
           Right -> Bareword: b
-        Operator: "??="
+        Operator: "?="
         Right -> Bareword: c
-    - Berg: a ??= b && c
+    - Berg: a ?= b && c
       Ast -> InfixOperation:
         Left -> Bareword: a
-        Operator: "??="
+        Operator: "?="
         Right -> InfixOperation:
           Left -> Bareword: b
           Operator: "&&"
@@ -14511,37 +14511,37 @@
 
 
   #
-  # Precedence 10: ?? ||
+  # Precedence 10: ? ||
   #
     #
-    # Against precedence 10: ?? ||
+    # Against precedence 10: ? ||
     #
     #
-    # ??
+    # ?
     #
-    - Berg: a ?? b ?? c
+    - Berg: a ? b ? c
       Ast -> InfixOperation:
         Left -> InfixOperation:
           Left -> Bareword: a
-          Operator: 1@3-4 = ??
+          Operator: 1@3-4 = ?
           Right -> Bareword: b
-        Operator: 1@8-9 = ??
+        Operator: 1@8-9 = ?
         Right -> Bareword: c
-    - Berg: a ?? b || c
+    - Berg: a ? b || c
       Ast -> InfixOperation:
         Left -> InfixOperation:
           Left -> Bareword: a
-          Operator: "??"
+          Operator: "?"
           Right -> Bareword: b
         Operator: "||"
         Right -> Bareword: c
-    - Berg: a || b ?? c
+    - Berg: a || b ? c
       Ast -> InfixOperation:
         Left -> InfixOperation:
           Left -> Bareword: a
           Operator: "||"
           Right -> Bareword: b
-        Operator: "??"
+        Operator: "?"
         Right -> Bareword: c
 
     #
@@ -14561,23 +14561,23 @@
     # Against precedence 11: ->
     #
     #
-    # ??
+    # ?
     #
-    - Berg: a ?? b -> c
+    - Berg: a ? b -> c
       Ast -> InfixOperation:
         Left -> InfixOperation:
           Left -> Bareword: a
-          Operator: "??"
+          Operator: "?"
           Right -> Bareword: b
         Operator: ->
         Right -> Bareword: c
-    - Berg: a -> b ?? c
+    - Berg: a -> b ? c
       Ast -> InfixOperation:
         Left -> Bareword: a
         Operator: ->
         Right -> InfixOperation:
           Left -> Bareword: b
-          Operator: "??"
+          Operator: "?"
           Right -> Bareword: c
 
     #
@@ -14602,170 +14602,170 @@
 
 
     #
-    # Against precedence 12: += *= /= %= : -= &&= ||= ??= =
+    # Against precedence 12: += *= /= %= : -= &&= ||= ?= =
     #
     #
-    # ??
+    # ?
     #
-    - Berg: a ?? b += c
+    - Berg: a ? b += c
       Ast -> InfixOperation:
         Left -> InfixOperation:
           Left -> Bareword: a
-          Operator: "??"
+          Operator: "?"
           Right -> Bareword: b
         Operator: +=
         Right -> Bareword: c
-    - Berg: a += b ?? c
+    - Berg: a += b ? c
       Ast -> InfixOperation:
         Left -> Bareword: a
         Operator: +=
         Right -> InfixOperation:
           Left -> Bareword: b
-          Operator: "??"
+          Operator: "?"
           Right -> Bareword: c
-    - Berg: a ?? b *= c
+    - Berg: a ? b *= c
       Ast -> InfixOperation:
         Left -> InfixOperation:
           Left -> Bareword: a
-          Operator: "??"
+          Operator: "?"
           Right -> Bareword: b
         Operator: "*="
         Right -> Bareword: c
-    - Berg: a *= b ?? c
+    - Berg: a *= b ? c
       Ast -> InfixOperation:
         Left -> Bareword: a
         Operator: "*="
         Right -> InfixOperation:
           Left -> Bareword: b
-          Operator: "??"
+          Operator: "?"
           Right -> Bareword: c
-    - Berg: a ?? b /= c
+    - Berg: a ? b /= c
       Ast -> InfixOperation:
         Left -> InfixOperation:
           Left -> Bareword: a
-          Operator: "??"
+          Operator: "?"
           Right -> Bareword: b
         Operator: /=
         Right -> Bareword: c
-    - Berg: a /= b ?? c
+    - Berg: a /= b ? c
       Ast -> InfixOperation:
         Left -> Bareword: a
         Operator: /=
         Right -> InfixOperation:
           Left -> Bareword: b
-          Operator: "??"
+          Operator: "?"
           Right -> Bareword: c
-    - Berg: a ?? b %= c
+    - Berg: a ? b %= c
       Ast -> InfixOperation:
         Left -> InfixOperation:
           Left -> Bareword: a
-          Operator: "??"
+          Operator: "?"
           Right -> Bareword: b
         Operator: "%="
         Right -> Bareword: c
-    - Berg: a %= b ?? c
+    - Berg: a %= b ? c
       Ast -> InfixOperation:
         Left -> Bareword: a
         Operator: "%="
         Right -> InfixOperation:
           Left -> Bareword: b
-          Operator: "??"
+          Operator: "?"
           Right -> Bareword: c
-    - Berg: "a ?? b : c"
+    - Berg: "a ? b : c"
       Ast -> InfixOperation:
         Left -> InfixOperation:
           Left -> Bareword: a
-          Operator: "??"
+          Operator: "?"
           Right -> Bareword: b
         Operator: ":"
         Right -> Bareword: c
-    - Berg: "a : b ?? c"
+    - Berg: "a : b ? c"
       Ast -> InfixOperation:
         Left -> Bareword: a
         Operator: ":"
         Right -> InfixOperation:
           Left -> Bareword: b
-          Operator: "??"
+          Operator: "?"
           Right -> Bareword: c
-    - Berg: a ?? b -= c
+    - Berg: a ? b -= c
       Ast -> InfixOperation:
         Left -> InfixOperation:
           Left -> Bareword: a
-          Operator: "??"
+          Operator: "?"
           Right -> Bareword: b
         Operator: -=
         Right -> Bareword: c
-    - Berg: a -= b ?? c
+    - Berg: a -= b ? c
       Ast -> InfixOperation:
         Left -> Bareword: a
         Operator: -=
         Right -> InfixOperation:
           Left -> Bareword: b
-          Operator: "??"
+          Operator: "?"
           Right -> Bareword: c
-    - Berg: a ?? b &&= c
+    - Berg: a ? b &&= c
       Ast -> InfixOperation:
         Left -> InfixOperation:
           Left -> Bareword: a
-          Operator: "??"
+          Operator: "?"
           Right -> Bareword: b
         Operator: "&&="
         Right -> Bareword: c
-    - Berg: a &&= b ?? c
+    - Berg: a &&= b ? c
       Ast -> InfixOperation:
         Left -> Bareword: a
         Operator: "&&="
         Right -> InfixOperation:
           Left -> Bareword: b
-          Operator: "??"
+          Operator: "?"
           Right -> Bareword: c
-    - Berg: a ?? b ||= c
+    - Berg: a ? b ||= c
       Ast -> InfixOperation:
         Left -> InfixOperation:
           Left -> Bareword: a
-          Operator: "??"
+          Operator: "?"
           Right -> Bareword: b
         Operator: "||="
         Right -> Bareword: c
-    - Berg: a ||= b ?? c
+    - Berg: a ||= b ? c
       Ast -> InfixOperation:
         Left -> Bareword: a
         Operator: "||="
         Right -> InfixOperation:
           Left -> Bareword: b
-          Operator: "??"
+          Operator: "?"
           Right -> Bareword: c
-    - Berg: a ?? b ??= c
+    - Berg: a ? b ?= c
       Ast -> InfixOperation:
         Left -> InfixOperation:
           Left -> Bareword: a
-          Operator: 1@3-4 = ??
+          Operator: 1@3-4 = ?
           Right -> Bareword: b
-        Operator: "??="
+        Operator: "?="
         Right -> Bareword: c
-    - Berg: a ??= b ?? c
+    - Berg: a ?= b ? c
       Ast -> InfixOperation:
         Left -> Bareword: a
-        Operator: "??="
+        Operator: "?="
         Right -> InfixOperation:
           Left -> Bareword: b
-          Operator: 1@9-10 = ??
+          Operator: 1@9-10 = ?
           Right -> Bareword: c
-    - Berg: a ?? b = c
+    - Berg: a ? b = c
       Ast -> InfixOperation:
         Left -> InfixOperation:
           Left -> Bareword: a
-          Operator: "??"
+          Operator: "?"
           Right -> Bareword: b
         Operator: =
         Right -> Bareword: c
-    - Berg: a = b ?? c
+    - Berg: a = b ? c
       Ast -> InfixOperation:
         Left -> Bareword: a
         Operator: =
         Right -> InfixOperation:
           Left -> Bareword: b
-          Operator: "??"
+          Operator: "?"
           Right -> Bareword: c
 
     #
@@ -14899,18 +14899,18 @@
           Left -> Bareword: b
           Operator: 1@9-10 = ||
           Right -> Bareword: c
-    - Berg: a || b ??= c
+    - Berg: a || b ?= c
       Ast -> InfixOperation:
         Left -> InfixOperation:
           Left -> Bareword: a
           Operator: "||"
           Right -> Bareword: b
-        Operator: "??="
+        Operator: "?="
         Right -> Bareword: c
-    - Berg: a ??= b || c
+    - Berg: a ?= b || c
       Ast -> InfixOperation:
         Left -> Bareword: a
-        Operator: "??="
+        Operator: "?="
         Right -> InfixOperation:
           Left -> Bareword: b
           Operator: "||"
@@ -14937,37 +14937,37 @@
     # Against precedence 13: , postfix.,
     #
     #
-    # ??
+    # ?
     #
-    - Berg: a ?? b , c
+    - Berg: a ? b , c
       Ast -> InfixOperation:
         Left -> InfixOperation:
           Left -> Bareword: a
-          Operator: "??"
+          Operator: "?"
           Right -> Bareword: b
         Operator: ","
         Right -> Bareword: c
-    - Berg: a , b ?? c
+    - Berg: a , b ? c
       Ast -> InfixOperation:
         Left -> Bareword: a
         Operator: ","
         Right -> InfixOperation:
           Left -> Bareword: b
-          Operator: "??"
+          Operator: "?"
           Right -> Bareword: c
-    - Berg: a ?? b,
+    - Berg: a ? b,
       Ast -> PostfixOperation:
         Left -> InfixOperation:
           Left -> Bareword: a
-          Operator: "??"
+          Operator: "?"
           Right -> Bareword: b
         Operator: ","
-    - Berg: a, ?? b
+    - Berg: a, ? b
       Ast -> InfixOperation:
         Left -> PostfixOperation:
           Left -> Bareword: a
           Operator: ","
-        Operator: "??"
+        Operator: "?"
         Right -> Bareword: b
 
     #
@@ -15009,23 +15009,23 @@
     # Against precedence 14: &
     #
     #
-    # ??
+    # ?
     #
-    - Berg: a ?? b & c
+    - Berg: a ? b & c
       Ast -> InfixOperation:
         Left -> InfixOperation:
           Left -> Bareword: a
-          Operator: "??"
+          Operator: "?"
           Right -> Bareword: b
         Operator: "&"
         Right -> Bareword: c
-    - Berg: a & b ?? c
+    - Berg: a & b ? c
       Ast -> InfixOperation:
         Left -> Bareword: a
         Operator: "&"
         Right -> InfixOperation:
           Left -> Bareword: b
-          Operator: "??"
+          Operator: "?"
           Right -> Bareword: c
 
     #
@@ -15053,23 +15053,23 @@
     # Against precedence 15: |
     #
     #
-    # ??
+    # ?
     #
-    - Berg: a ?? b | c
+    - Berg: a ? b | c
       Ast -> InfixOperation:
         Left -> InfixOperation:
           Left -> Bareword: a
-          Operator: "??"
+          Operator: "?"
           Right -> Bareword: b
         Operator: "|"
         Right -> Bareword: c
-    - Berg: a | b ?? c
+    - Berg: a | b ? c
       Ast -> InfixOperation:
         Left -> Bareword: a
         Operator: "|"
         Right -> InfixOperation:
           Left -> Bareword: b
-          Operator: "??"
+          Operator: "?"
           Right -> Bareword: c
 
     #
@@ -15097,23 +15097,23 @@
     # Against precedence 16: call
     #
     #
-    # ??
+    # ?
     #
-    - Berg: a ?? b   c
+    - Berg: a ? b   c
       Ast -> InfixOperation:
         Left -> InfixOperation:
           Left -> Bareword: a
-          Operator: "??"
+          Operator: "?"
           Right -> Bareword: b
         Operator: "1@7+0 = "
         Right -> Bareword: c
-    - Berg: a   b ?? c
+    - Berg: a   b ? c
       Ast -> InfixOperation:
         Left -> Bareword: a
         Operator: "1@2+0 = "
         Right -> InfixOperation:
           Left -> Bareword: b
-          Operator: "??"
+          Operator: "?"
           Right -> Bareword: c
 
     #
@@ -15141,53 +15141,53 @@
     # Against precedence 17: "\n" postfix.; ;
     #
     #
-    # ??
+    # ?
     #
-    - Berg: "a ?? b \n c"
+    - Berg: "a ? b \n c"
       Ast -> InfixOperation:
         Left -> InfixOperation:
           Left -> Bareword: a
-          Operator: "??"
+          Operator: "?"
           Right -> Bareword: b
         Operator: "\n"
         Right -> Bareword: c
-    - Berg: "a \n b ?? c"
+    - Berg: "a \n b ? c"
       Ast -> InfixOperation:
         Left -> Bareword: a
         Operator: "\n"
         Right -> InfixOperation:
           Left -> Bareword: b
-          Operator: "??"
+          Operator: "?"
           Right -> Bareword: c
-    - Berg: a ?? b;
+    - Berg: a ? b;
       Ast -> PostfixOperation:
         Left -> InfixOperation:
           Left -> Bareword: a
-          Operator: "??"
+          Operator: "?"
           Right -> Bareword: b
         Operator: ;
-    - Berg: a; ?? b
+    - Berg: a; ? b
       Ast -> InfixOperation:
         Left -> PostfixOperation:
           Left -> Bareword: a
           Operator: ;
-        Operator: "??"
+        Operator: "?"
         Right -> Bareword: b
-    - Berg: a ?? b ; c
+    - Berg: a ? b ; c
       Ast -> InfixOperation:
         Left -> InfixOperation:
           Left -> Bareword: a
-          Operator: "??"
+          Operator: "?"
           Right -> Bareword: b
         Operator: ;
         Right -> Bareword: c
-    - Berg: a ; b ?? c
+    - Berg: a ; b ? c
       Ast -> InfixOperation:
         Left -> Bareword: a
         Operator: ;
         Right -> InfixOperation:
           Left -> Bareword: b
-          Operator: "??"
+          Operator: "?"
           Right -> Bareword: c
 
     #
@@ -15245,70 +15245,70 @@
     # Against precedence 18: open.{ open.indent open.(
     #
     #
-    # ??
+    # ?
     #
-    - Berg: "{a} ?? b"
+    - Berg: "{a} ? b"
       Ast -> InfixOperation:
         Left -> DelimitedOperation:
           Open: "{"
           Expression -> Bareword: a
           Close: "}"
-        Operator: "??"
+        Operator: "?"
         Right -> Bareword: b
-    - Berg: a ?? {b}
+    - Berg: a ? {b}
       Ast -> InfixOperation:
         Left -> Bareword: a
-        Operator: "??"
+        Operator: "?"
         Right -> DelimitedOperation:
           Open: "{"
           Expression -> Bareword: b
           Close: "}"
-    - Berg: "{a ?? b}"
+    - Berg: "{a ? b}"
       Ast -> DelimitedOperation:
         Open: "{"
         Expression -> InfixOperation:
           Left -> Bareword: a
-          Operator: "??"
+          Operator: "?"
           Right -> Bareword: b
         Close: "}"
-    - Berg: "a ?? b : c"
+    - Berg: "a ? b : c"
       Ast -> InfixOperation:
         Left -> InfixOperation:
           Left -> Bareword: a
-          Operator: "??"
+          Operator: "?"
           Right -> Bareword: b
         Operator: ":"
         Right -> Bareword: c
-    - Berg: "a : b ?? c"
+    - Berg: "a : b ? c"
       Ast -> InfixOperation:
         Left -> Bareword: a
         Operator: ":"
         Right -> InfixOperation:
           Left -> Bareword: b
-          Operator: "??"
+          Operator: "?"
           Right -> Bareword: c
-    - Berg: (a) ?? b
+    - Berg: (a) ? b
       Ast -> InfixOperation:
         Left -> DelimitedOperation:
           Open: (
           Expression -> Bareword: a
           Close: )
-        Operator: "??"
+        Operator: "?"
         Right -> Bareword: b
-    - Berg: a ?? (b)
+    - Berg: a ? (b)
       Ast -> InfixOperation:
         Left -> Bareword: a
-        Operator: "??"
+        Operator: "?"
         Right -> DelimitedOperation:
           Open: (
           Expression -> Bareword: b
           Close: )
-    - Berg: (a ?? b)
+    - Berg: (a ? b)
       Ast -> DelimitedOperation:
         Open: (
         Expression -> InfixOperation:
           Left -> Bareword: a
-          Operator: "??"
+          Operator: "?"
           Right -> Bareword: b
         Close: )
 
@@ -15402,7 +15402,7 @@
 
 
     #
-    # Against precedence 12: += *= /= %= : -= &&= ||= ??= =
+    # Against precedence 12: += *= /= %= : -= &&= ||= ?= =
     #
     #
     # ->
@@ -15535,18 +15535,18 @@
           Left -> Bareword: b
           Operator: ->
           Right -> Bareword: c
-    - Berg: a -> b ??= c
+    - Berg: a -> b ?= c
       Ast -> InfixOperation:
         Left -> InfixOperation:
           Left -> Bareword: a
           Operator: ->
           Right -> Bareword: b
-        Operator: "??="
+        Operator: "?="
         Right -> Bareword: c
-    - Berg: a ??= b -> c
+    - Berg: a ?= b -> c
       Ast -> InfixOperation:
         Left -> Bareword: a
-        Operator: "??="
+        Operator: "?="
         Right -> InfixOperation:
           Left -> Bareword: b
           Operator: ->
@@ -15807,10 +15807,10 @@
 
 
   #
-  # Precedence 12: += *= /= %= : -= &&= ||= ??= =
+  # Precedence 12: += *= /= %= : -= &&= ||= ?= =
   #
     #
-    # Against precedence 12: += *= /= %= : -= &&= ||= ??= =
+    # Against precedence 12: += *= /= %= : -= &&= ||= ?= =
     #
     #
     # +=
@@ -15935,18 +15935,18 @@
           Left -> Bareword: b
           Operator: +=
           Right -> Bareword: c
-    - Berg: a += b ??= c
+    - Berg: a += b ?= c
       Ast -> InfixOperation:
         Left -> Bareword: a
         Operator: +=
         Right -> InfixOperation:
           Left -> Bareword: b
-          Operator: "??="
+          Operator: "?="
           Right -> Bareword: c
-    - Berg: a ??= b += c
+    - Berg: a ?= b += c
       Ast -> InfixOperation:
         Left -> Bareword: a
-        Operator: "??="
+        Operator: "?="
         Right -> InfixOperation:
           Left -> Bareword: b
           Operator: +=
@@ -16075,18 +16075,18 @@
           Left -> Bareword: b
           Operator: "*="
           Right -> Bareword: c
-    - Berg: a *= b ??= c
+    - Berg: a *= b ?= c
       Ast -> InfixOperation:
         Left -> Bareword: a
         Operator: "*="
         Right -> InfixOperation:
           Left -> Bareword: b
-          Operator: "??="
+          Operator: "?="
           Right -> Bareword: c
-    - Berg: a ??= b *= c
+    - Berg: a ?= b *= c
       Ast -> InfixOperation:
         Left -> Bareword: a
-        Operator: "??="
+        Operator: "?="
         Right -> InfixOperation:
           Left -> Bareword: b
           Operator: "*="
@@ -16199,18 +16199,18 @@
           Left -> Bareword: b
           Operator: /=
           Right -> Bareword: c
-    - Berg: a /= b ??= c
+    - Berg: a /= b ?= c
       Ast -> InfixOperation:
         Left -> Bareword: a
         Operator: /=
         Right -> InfixOperation:
           Left -> Bareword: b
-          Operator: "??="
+          Operator: "?="
           Right -> Bareword: c
-    - Berg: a ??= b /= c
+    - Berg: a ?= b /= c
       Ast -> InfixOperation:
         Left -> Bareword: a
-        Operator: "??="
+        Operator: "?="
         Right -> InfixOperation:
           Left -> Bareword: b
           Operator: /=
@@ -16307,18 +16307,18 @@
           Left -> Bareword: b
           Operator: "%="
           Right -> Bareword: c
-    - Berg: a %= b ??= c
+    - Berg: a %= b ?= c
       Ast -> InfixOperation:
         Left -> Bareword: a
         Operator: "%="
         Right -> InfixOperation:
           Left -> Bareword: b
-          Operator: "??="
+          Operator: "?="
           Right -> Bareword: c
-    - Berg: a ??= b %= c
+    - Berg: a ?= b %= c
       Ast -> InfixOperation:
         Left -> Bareword: a
-        Operator: "??="
+        Operator: "?="
         Right -> InfixOperation:
           Left -> Bareword: b
           Operator: "%="
@@ -16399,18 +16399,18 @@
           Left -> Bareword: b
           Operator: ":"
           Right -> Bareword: c
-    - Berg: "a : b ??= c"
+    - Berg: "a : b ?= c"
       Ast -> InfixOperation:
         Left -> Bareword: a
         Operator: ":"
         Right -> InfixOperation:
           Left -> Bareword: b
-          Operator: "??="
+          Operator: "?="
           Right -> Bareword: c
-    - Berg: "a ??= b : c"
+    - Berg: "a ?= b : c"
       Ast -> InfixOperation:
         Left -> Bareword: a
-        Operator: "??="
+        Operator: "?="
         Right -> InfixOperation:
           Left -> Bareword: b
           Operator: ":"
@@ -16475,18 +16475,18 @@
           Left -> Bareword: b
           Operator: -=
           Right -> Bareword: c
-    - Berg: a -= b ??= c
+    - Berg: a -= b ?= c
       Ast -> InfixOperation:
         Left -> Bareword: a
         Operator: -=
         Right -> InfixOperation:
           Left -> Bareword: b
-          Operator: "??="
+          Operator: "?="
           Right -> Bareword: c
-    - Berg: a ??= b -= c
+    - Berg: a ?= b -= c
       Ast -> InfixOperation:
         Left -> Bareword: a
-        Operator: "??="
+        Operator: "?="
         Right -> InfixOperation:
           Left -> Bareword: b
           Operator: -=
@@ -16535,18 +16535,18 @@
           Left -> Bareword: b
           Operator: "&&="
           Right -> Bareword: c
-    - Berg: a &&= b ??= c
+    - Berg: a &&= b ?= c
       Ast -> InfixOperation:
         Left -> Bareword: a
         Operator: "&&="
         Right -> InfixOperation:
           Left -> Bareword: b
-          Operator: "??="
+          Operator: "?="
           Right -> Bareword: c
-    - Berg: a ??= b &&= c
+    - Berg: a ?= b &&= c
       Ast -> InfixOperation:
         Left -> Bareword: a
-        Operator: "??="
+        Operator: "?="
         Right -> InfixOperation:
           Left -> Bareword: b
           Operator: "&&="
@@ -16579,18 +16579,18 @@
           Left -> Bareword: b
           Operator: 1@9-11 = ||=
           Right -> Bareword: c
-    - Berg: a ||= b ??= c
+    - Berg: a ||= b ?= c
       Ast -> InfixOperation:
         Left -> Bareword: a
         Operator: "||="
         Right -> InfixOperation:
           Left -> Bareword: b
-          Operator: "??="
+          Operator: "?="
           Right -> Bareword: c
-    - Berg: a ??= b ||= c
+    - Berg: a ?= b ||= c
       Ast -> InfixOperation:
         Left -> Bareword: a
-        Operator: "??="
+        Operator: "?="
         Right -> InfixOperation:
           Left -> Bareword: b
           Operator: "||="
@@ -16613,31 +16613,31 @@
           Right -> Bareword: c
 
     #
-    # ??=
+    # ?=
     #
-    - Berg: a ??= b ??= c
+    - Berg: a ?= b ?= c
       Ast -> InfixOperation:
         Left -> Bareword: a
-        Operator: 1@3-5 = ??=
+        Operator: 1@3-5 = ?=
         Right -> InfixOperation:
           Left -> Bareword: b
-          Operator: 1@9-11 = ??=
+          Operator: 1@9-11 = ?=
           Right -> Bareword: c
-    - Berg: a ??= b = c
+    - Berg: a ?= b = c
       Ast -> InfixOperation:
         Left -> Bareword: a
-        Operator: "??="
+        Operator: "?="
         Right -> InfixOperation:
           Left -> Bareword: b
           Operator: 1@9 = =
           Right -> Bareword: c
-    - Berg: a = b ??= c
+    - Berg: a = b ?= c
       Ast -> InfixOperation:
         Left -> Bareword: a
         Operator: 1@3 = =
         Right -> InfixOperation:
           Left -> Bareword: b
-          Operator: "??="
+          Operator: "?="
           Right -> Bareword: c
 
     #
@@ -16929,37 +16929,37 @@
         Right -> Bareword: b
 
     #
-    # ??=
+    # ?=
     #
-    - Berg: a ??= b , c
+    - Berg: a ?= b , c
       Ast -> InfixOperation:
         Left -> InfixOperation:
           Left -> Bareword: a
-          Operator: "??="
+          Operator: "?="
           Right -> Bareword: b
         Operator: ","
         Right -> Bareword: c
-    - Berg: a , b ??= c
+    - Berg: a , b ?= c
       Ast -> InfixOperation:
         Left -> Bareword: a
         Operator: ","
         Right -> InfixOperation:
           Left -> Bareword: b
-          Operator: "??="
+          Operator: "?="
           Right -> Bareword: c
-    - Berg: a ??= b,
+    - Berg: a ?= b,
       Ast -> PostfixOperation:
         Left -> InfixOperation:
           Left -> Bareword: a
-          Operator: "??="
+          Operator: "?="
           Right -> Bareword: b
         Operator: ","
-    - Berg: a, ??= b
+    - Berg: a, ?= b
       Ast -> InfixOperation:
         Left -> PostfixOperation:
           Left -> Bareword: a
           Operator: ","
-        Operator: "??="
+        Operator: "?="
         Right -> Bareword: b
 
     #
@@ -17161,23 +17161,23 @@
           Right -> Bareword: c
 
     #
-    # ??=
+    # ?=
     #
-    - Berg: a ??= b & c
+    - Berg: a ?= b & c
       Ast -> InfixOperation:
         Left -> InfixOperation:
           Left -> Bareword: a
-          Operator: "??="
+          Operator: "?="
           Right -> Bareword: b
         Operator: "&"
         Right -> Bareword: c
-    - Berg: a & b ??= c
+    - Berg: a & b ?= c
       Ast -> InfixOperation:
         Left -> Bareword: a
         Operator: "&"
         Right -> InfixOperation:
           Left -> Bareword: b
-          Operator: "??="
+          Operator: "?="
           Right -> Bareword: c
 
     #
@@ -17365,23 +17365,23 @@
           Right -> Bareword: c
 
     #
-    # ??=
+    # ?=
     #
-    - Berg: a ??= b | c
+    - Berg: a ?= b | c
       Ast -> InfixOperation:
         Left -> InfixOperation:
           Left -> Bareword: a
-          Operator: "??="
+          Operator: "?="
           Right -> Bareword: b
         Operator: "|"
         Right -> Bareword: c
-    - Berg: a | b ??= c
+    - Berg: a | b ?= c
       Ast -> InfixOperation:
         Left -> Bareword: a
         Operator: "|"
         Right -> InfixOperation:
           Left -> Bareword: b
-          Operator: "??="
+          Operator: "?="
           Right -> Bareword: c
 
     #
@@ -17569,23 +17569,23 @@
           Right -> Bareword: c
 
     #
-    # ??=
+    # ?=
     #
-    - Berg: a ??= b   c
+    - Berg: a ?= b   c
       Ast -> InfixOperation:
         Left -> InfixOperation:
           Left -> Bareword: a
-          Operator: "??="
+          Operator: "?="
           Right -> Bareword: b
         Operator: "1@8+0 = "
         Right -> Bareword: c
-    - Berg: a   b ??= c
+    - Berg: a   b ?= c
       Ast -> InfixOperation:
         Left -> Bareword: a
         Operator: "1@2+0 = "
         Right -> InfixOperation:
           Left -> Bareword: b
-          Operator: "??="
+          Operator: "?="
           Right -> Bareword: c
 
     #
@@ -18013,53 +18013,53 @@
           Right -> Bareword: c
 
     #
-    # ??=
+    # ?=
     #
-    - Berg: "a ??= b \n c"
+    - Berg: "a ?= b \n c"
       Ast -> InfixOperation:
         Left -> InfixOperation:
           Left -> Bareword: a
-          Operator: "??="
+          Operator: "?="
           Right -> Bareword: b
         Operator: "\n"
         Right -> Bareword: c
-    - Berg: "a \n b ??= c"
+    - Berg: "a \n b ?= c"
       Ast -> InfixOperation:
         Left -> Bareword: a
         Operator: "\n"
         Right -> InfixOperation:
           Left -> Bareword: b
-          Operator: "??="
+          Operator: "?="
           Right -> Bareword: c
-    - Berg: a ??= b;
+    - Berg: a ?= b;
       Ast -> PostfixOperation:
         Left -> InfixOperation:
           Left -> Bareword: a
-          Operator: "??="
+          Operator: "?="
           Right -> Bareword: b
         Operator: ;
-    - Berg: a; ??= b
+    - Berg: a; ?= b
       Ast -> InfixOperation:
         Left -> PostfixOperation:
           Left -> Bareword: a
           Operator: ;
-        Operator: "??="
+        Operator: "?="
         Right -> Bareword: b
-    - Berg: a ??= b ; c
+    - Berg: a ?= b ; c
       Ast -> InfixOperation:
         Left -> InfixOperation:
           Left -> Bareword: a
-          Operator: "??="
+          Operator: "?="
           Right -> Bareword: b
         Operator: ;
         Right -> Bareword: c
-    - Berg: a ; b ??= c
+    - Berg: a ; b ?= c
       Ast -> InfixOperation:
         Left -> Bareword: a
         Operator: ;
         Right -> InfixOperation:
           Left -> Bareword: b
-          Operator: "??="
+          Operator: "?="
           Right -> Bareword: c
 
     #
@@ -18653,70 +18653,70 @@
         Close: )
 
     #
-    # ??=
+    # ?=
     #
-    - Berg: "{a} ??= b"
+    - Berg: "{a} ?= b"
       Ast -> InfixOperation:
         Left -> DelimitedOperation:
           Open: "{"
           Expression -> Bareword: a
           Close: "}"
-        Operator: "??="
+        Operator: "?="
         Right -> Bareword: b
-    - Berg: a ??= {b}
+    - Berg: a ?= {b}
       Ast -> InfixOperation:
         Left -> Bareword: a
-        Operator: "??="
+        Operator: "?="
         Right -> DelimitedOperation:
           Open: "{"
           Expression -> Bareword: b
           Close: "}"
-    - Berg: "{a ??= b}"
+    - Berg: "{a ?= b}"
       Ast -> DelimitedOperation:
         Open: "{"
         Expression -> InfixOperation:
           Left -> Bareword: a
-          Operator: "??="
+          Operator: "?="
           Right -> Bareword: b
         Close: "}"
-    - Berg: "a ??= b : c"
+    - Berg: "a ?= b : c"
       Ast -> InfixOperation:
         Left -> Bareword: a
-        Operator: "??="
+        Operator: "?="
         Right -> InfixOperation:
           Left -> Bareword: b
           Operator: ":"
           Right -> Bareword: c
-    - Berg: "a : b ??= c"
+    - Berg: "a : b ?= c"
       Ast -> InfixOperation:
         Left -> Bareword: a
         Operator: ":"
         Right -> InfixOperation:
           Left -> Bareword: b
-          Operator: "??="
+          Operator: "?="
           Right -> Bareword: c
-    - Berg: (a) ??= b
+    - Berg: (a) ?= b
       Ast -> InfixOperation:
         Left -> DelimitedOperation:
           Open: (
           Expression -> Bareword: a
           Close: )
-        Operator: "??="
+        Operator: "?="
         Right -> Bareword: b
-    - Berg: a ??= (b)
+    - Berg: a ?= (b)
       Ast -> InfixOperation:
         Left -> Bareword: a
-        Operator: "??="
+        Operator: "?="
         Right -> DelimitedOperation:
           Open: (
           Expression -> Bareword: b
           Close: )
-    - Berg: (a ??= b)
+    - Berg: (a ?= b)
       Ast -> DelimitedOperation:
         Open: (
         Expression -> InfixOperation:
           Left -> Bareword: a
-          Operator: "??="
+          Operator: "?="
           Right -> Bareword: b
         Close: )
 

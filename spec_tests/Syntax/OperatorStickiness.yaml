@@ -197,21 +197,21 @@ StickyPrefix:
       Operator: "&&"
       Right -> Bareword: b
 
-  # "|| ??",
+  # "|| ?",
   - Berg: a ||b
     Ast -> InfixOperation:
       $Term: a ||b
       Left -> Bareword: a
       Operator: "||"
       Right -> Bareword: b
-  - Berg: a ??b
+  - Berg: a ?b
     Ast -> InfixOperation:
-      $Term: a ??b
+      $Term: a ?b
       Left -> Bareword: a
-      Operator: "??"
+      Operator: "?"
       Right -> Bareword: b
 
-  # "right indent.: = += -= *= /= %= ||= &&= ??=",
+  # "right indent.: = += -= *= /= %= ||= &&= ?=",
   # - Berg: a :b
   #   Ast -> InfixOperation:
   #     $Term: a :b
@@ -266,11 +266,11 @@ StickyPrefix:
       Left -> Bareword: a
       Operator: "&&="
       Right -> Bareword: b
-  - Berg: a ??=b
+  - Berg: a ?=b
     Ast -> InfixOperation:
-      $Term: a ??=b
+      $Term: a ?=b
       Left -> Bareword: a
-      Operator: "??="
+      Operator: "?="
       Right -> Bareword: b
 
   # [ ",", { string: ",", type: :postfix, can_be_sticky: false } ],
@@ -568,21 +568,21 @@ StickyPostfix:
       Operator: "&&"
       Right -> Bareword: b
 
-  # "|| ??",
+  # "|| ?",
   - Berg: a|| b
     Ast -> InfixOperation:
       $Term: a|| b
       Left -> Bareword: a
       Operator: "||"
       Right -> Bareword: b
-  - Berg: a?? b
+  - Berg: a? b
     Ast -> InfixOperation:
-      $Term: a?? b
+      $Term: a? b
       Left -> Bareword: a
-      Operator: "??"
+      Operator: "?"
       Right -> Bareword: b
 
-  # "right indent.: = += -= *= /= %= ||= &&= ??=",
+  # "right indent.: = += -= *= /= %= ||= &&= ?=",
   - Berg: "a: b"
     Ast -> InfixOperation:
       $Term: "a: b"
@@ -637,11 +637,11 @@ StickyPostfix:
       Left -> Bareword: a
       Operator: "&&="
       Right -> Bareword: b
-  - Berg: a??= b
+  - Berg: a?= b
     Ast -> InfixOperation:
-      $Term: a??= b
+      $Term: a?= b
       Left -> Bareword: a
-      Operator: "??="
+      Operator: "?="
       Right -> Bareword: b
 
   # [ ",", { string: ",", type: :postfix, can_be_sticky: false } ],
@@ -938,21 +938,21 @@ StickyPrefixWithNewlines:
       Operator: "&&"
       Right -> Bareword: b
 
-  # "|| ??",
+  # "|| ?",
   - Berg: "a\n||b"
     Ast -> InfixOperation:
       $Term: "a\n||b"
       Left -> Bareword: a
       Operator: "||"
       Right -> Bareword: b
-  - Berg: "a\n??b"
+  - Berg: "a\n?b"
     Ast -> InfixOperation:
-      $Term: "a\n??b"
+      $Term: "a\n?b"
       Left -> Bareword: a
-      Operator: "??"
+      Operator: "?"
       Right -> Bareword: b
 
-  # "right indent.: = += -= *= /= %= ||= &&= ??=",
+  # "right indent.: = += -= *= /= %= ||= &&= ?=",
   # - Berg: "a\n:b"
   #   Ast -> InfixOperation:
   #     $Term: "a\n:b"
@@ -1007,11 +1007,11 @@ StickyPrefixWithNewlines:
       Left -> Bareword: a
       Operator: "&&="
       Right -> Bareword: b
-  - Berg: "a\n??=b"
+  - Berg: "a\n?=b"
     Ast -> InfixOperation:
-      $Term: "a\n??=b"
+      $Term: "a\n?=b"
       Left -> Bareword: a
-      Operator: "??="
+      Operator: "?="
       Right -> Bareword: b
 
   # [ ",", { string: ",", type: :postfix, can_be_sticky: false } ],
@@ -1309,21 +1309,21 @@ StickyPostfixWithNewlines:
       Operator: "&&"
       Right -> Bareword: b
 
-  # "|| ??",
+  # "|| ?",
   - Berg: "a||\nb"
     Ast -> InfixOperation:
       $Term: "a||\nb"
       Left -> Bareword: a
       Operator: "||"
       Right -> Bareword: b
-  - Berg: "a??\nb"
+  - Berg: "a?\nb"
     Ast -> InfixOperation:
-      $Term: "a??\nb"
+      $Term: "a?\nb"
       Left -> Bareword: a
-      Operator: "??"
+      Operator: "?"
       Right -> Bareword: b
 
-  # "right indent.: = += -= *= /= %= ||= &&= ??=",
+  # "right indent.: = += -= *= /= %= ||= &&= ?=",
   - Berg: "a: b"
     Ast -> InfixOperation:
       $Term: "a: b"
@@ -1378,11 +1378,11 @@ StickyPostfixWithNewlines:
       Left -> Bareword: a
       Operator: "&&="
       Right -> Bareword: b
-  - Berg: "a??=\nb"
+  - Berg: "a?=\nb"
     Ast -> InfixOperation:
-      $Term: "a??=\nb"
+      $Term: "a?=\nb"
       Left -> Bareword: a
-      Operator: "??="
+      Operator: "?="
       Right -> Bareword: b
 
   # [ ",", { string: ",", type: :postfix, can_be_sticky: false } ],

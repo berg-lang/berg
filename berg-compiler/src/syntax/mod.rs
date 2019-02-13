@@ -4,6 +4,7 @@ pub use self::expression_visitor::{ExpressionVisitor, Expression, VisitResult};
 pub use self::expression_formatter::{ExpressionFormatter, ExpressionTreeFormatter};
 pub mod identifiers;
 pub use self::identifiers::IdentifierIndex;
+pub use self::token::ExpressionBoundary;
 
 pub(crate) use self::ast::{
     Ast, AstDelta, AstIndex, AstRef, LiteralIndex, OperandPosition, RawLiteralIndex,
@@ -14,7 +15,7 @@ pub(crate) use self::source::{
 };
 pub(crate) use self::source_reconstruction::{SourceReconstruction, SourceReconstructionReader};
 pub(crate) use self::fixity::{Fixity, ExpressionFixity, OperatorFixity};
-pub(crate) use self::token::{ExpressionBoundary, ExpressionBoundaryError, Token, ExpressionToken, OperatorToken};
+pub(crate) use self::token::{ExpressionBoundaryError, Token, ExpressionToken, OperatorToken};
 
 mod ast;
 mod ast_expression;

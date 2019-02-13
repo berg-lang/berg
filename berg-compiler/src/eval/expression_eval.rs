@@ -1,13 +1,9 @@
-use crate::eval::ScopeRef;
-use crate::syntax::identifiers::{
-    APPLY, COLON, COMMA, DASH_DASH, DOT, EMPTY_STRING, NEWLINE, PLUS_PLUS, SEMICOLON,
-};
+use crate::eval::{ScopeRef, AmbiguousSyntax, AssignmentTarget};
 use crate::syntax::{
-    ExpressionTreeWalker, ExpressionBoundaryError, ExpressionRef, FieldIndex, IdentifierIndex, Token, ExpressionToken, OperatorToken
+    ExpressionTreeWalker, ExpressionBoundary, ExpressionBoundaryError, ExpressionRef, ExpressionToken, IdentifierIndex, OperatorToken, Token
 };
-use crate::util::try_from::TryFrom;
-use crate::util::type_name::TypeName;
-use crate::value::*;
+use crate::syntax::identifiers::*;
+use crate::value::implement::*;
 use num::BigRational;
 use std::fmt;
 use std::str::FromStr;
@@ -16,7 +12,7 @@ pub type ExpressionEvaluator<'p, 'a> = ExpressionTreeWalker<'p, 'a, &'p ScopeRef
 
 impl<'p, 'a: 'p> From<ExpressionEvaluator<'p, 'a>> for ExpressionRef<'a> {
     fn from(from: ExpressionEvaluator<'p, 'a>) -> Self {
-        ExpressionRef::new(from.scope().ast(), from.index())
+        ExpressionRef::new(from.scope().ast(), from.root_index())
     }
 }
 impl<'p, 'a: 'p> fmt::Display for ExpressionEvaluator<'p, 'a> {
@@ -26,16 +22,18 @@ impl<'p, 'a: 'p> fmt::Display for ExpressionEvaluator<'p, 'a> {
 }
 
 impl<'p, 'a: 'p> ExpressionEvaluator<'p, 'a> {
-    fn scope(self) -> &'p ScopeRef<'a> {
+    pub fn scope(self) -> &'p ScopeRef<'a> {
         self.context()
     }
     pub fn evaluate(self) -> BergResult<'a> {
+        self.delocalize_result_fully(self.evaluate_local(), ExpressionErrorPosition::Expression)
+    }
+    fn evaluate_local(self) -> BergResult<'a> {
         let indent = "  ".repeat(self.depth());
         println!("{}Evaluating {} ...", indent, self);
-        use crate::syntax::ExpressionBoundaryError::*;
-        use crate::syntax::ExpressionToken::*;
-        use crate::syntax::OperatorToken::*;
-        use crate::value::ErrorCode::*;
+        use ErrorCode::*;
+        use ExpressionToken::*;
+        use OperatorToken::*;
         let result = match self.token() {
             Token::Expression(token) => match token {
                 //
@@ -48,23 +46,18 @@ impl<'p, 'a: 'p> ExpressionEvaluator<'p, 'a> {
                     Ok(BergVal::BigRational(parsed))
                 }
                 // VariableName
-                FieldReference(field) => self.scope().local_field(field, self.ast()).take_error(self),
+                // TODO: make it so we don't have to clone, ya?
+                FieldReference(field) => AssignmentTarget::LocalFieldReference(self.scope().clone(), field).result(),
                 // VariableName
-                RawIdentifier(name) => Ok(name.into()),
+                RawIdentifier(name) => Err(ControlVal::AmbiguousSyntax(AmbiguousSyntax::RawIdentifier(name))),
                 // Empty parens or empty block
                 // () {}
-                MissingExpression => BergError::MissingExpression.take_error(self),
+                MissingExpression => AmbiguousSyntax::MissingExpression.result(),
 
                 //
                 // Prefix operators
                 //
 
-                // A++
-                PrefixOperator(PLUS_PLUS) => self.evaluate_prefix_assign(PLUS_PLUS),
-                // A--
-                PrefixOperator(DASH_DASH) => self.evaluate_prefix_assign(DASH_DASH),
-                // A:
-                PrefixOperator(COLON) => self.evaluate_declare(),
                 // A<op>
                 PrefixOperator(operator) => self.evaluate_prefix(operator),
 
@@ -73,35 +66,29 @@ impl<'p, 'a: 'p> ExpressionEvaluator<'p, 'a> {
                 //
 
                 // (...)
-                Open { error: None, .. } => self.evaluate_open(),
+                Open { error: ExpressionBoundaryError::None, boundary, .. } => self.evaluate_open(boundary),
 
                 // {...}, indent group
                 OpenBlock {
-                    error: None, index, ..
+                    error: ExpressionBoundaryError::None, index, ..
                 } => Ok(self
                     .scope()
-                    .create_child_block(self.inner_expression().index(), index)
+                    .create_child_block(self.inner_expression().root_index(), index)
                     .into()),
 
                 //
                 // Syntax errors
                 //
-                ErrorTerm(IdentifierStartsWithNumber, literal) => {
-                    BergError::IdentifierStartsWithNumber(literal).take_error(self)
-                }
-                ErrorTerm(UnsupportedCharacters, literal) => {
-                    BergError::UnsupportedCharacters(literal).take_error(self)
-                }
-                RawErrorTerm(InvalidUtf8, raw_literal) => {
-                    BergError::InvalidUtf8(raw_literal).take_error(self)
-                }
+                ErrorTerm(IdentifierStartsWithNumber, literal) => BergError::IdentifierStartsWithNumber(literal).err(),
+                ErrorTerm(UnsupportedCharacters, literal) => BergError::UnsupportedCharacters(literal).err(),
+                RawErrorTerm(InvalidUtf8, raw_literal) => BergError::InvalidUtf8(raw_literal).err(),
                 // ( and { syntax errors
                 Open {
-                    error: OpenError, ..
+                    error: ExpressionBoundaryError::OpenError, ..
                 }
                 | OpenBlock {
-                    error: OpenError, ..
-                } => self.ast().open_error().clone().take_error(self),
+                    error: ExpressionBoundaryError::OpenError, ..
+                } => self.ast().open_error().clone().err(),
                 OpenBlock {
                     error: ExpressionBoundaryError::OpenWithoutClose,
                     ..
@@ -109,7 +96,7 @@ impl<'p, 'a: 'p> ExpressionEvaluator<'p, 'a> {
                 | Open {
                     error: ExpressionBoundaryError::OpenWithoutClose,
                     ..
-                } => BergError::OpenWithoutClose.take_error(self),
+                } => BergError::OpenWithoutClose.err(),
                 OpenBlock {
                     error: ExpressionBoundaryError::CloseWithoutOpen,
                     ..
@@ -117,7 +104,15 @@ impl<'p, 'a: 'p> ExpressionEvaluator<'p, 'a> {
                 | Open {
                     error: ExpressionBoundaryError::CloseWithoutOpen,
                     ..
-                } => BergError::CloseWithoutOpen.take_error(self),
+                } => BergError::CloseWithoutOpen.err(),
+                OpenBlock {
+                    error: ExpressionBoundaryError::EmptyAutoBlock,
+                    ..
+                }
+                | Open {
+                    error: ExpressionBoundaryError::EmptyAutoBlock,
+                    ..
+                } => AmbiguousSyntax::MissingExpression.into_result(),
 
                 // Tokens that should have been handled elsewhere in the stack
                 ErrorTerm(..) | RawErrorTerm(..) => unreachable!(),
@@ -127,12 +122,6 @@ impl<'p, 'a: 'p> ExpressionEvaluator<'p, 'a> {
                 // Infix operators
                 //
 
-                // A; B
-                InfixOperator(SEMICOLON) => self.evaluate_semicolon(),
-                // Field: Value
-                InfixOperator(COLON) => self.evaluate_colon(),
-                // A, B, C, D
-                InfixOperator(COMMA) => self.evaluate_comma(),
                 // A <op> B
                 InfixOperator(operator) => self.evaluate_infix(operator),
                 // A <op>= B
@@ -147,21 +136,17 @@ impl<'p, 'a: 'p> ExpressionEvaluator<'p, 'a> {
                 //
                 // Postfix operators
                 //
-                // ++A
-                PostfixOperator(PLUS_PLUS) => self.evaluate_postfix_assign(PLUS_PLUS),
-                // --A
-                PostfixOperator(DASH_DASH) => self.evaluate_postfix_assign(DASH_DASH),
                 // <op>A
                 PostfixOperator(operator) => self.evaluate_postfix(operator),
-
 
                 // Tokens that should have been handled elsewhere in the stack
                 Close { .. } | CloseBlock { .. }  => unreachable!(),
             }
         };
         println!(
-            "{}Evaluated to {}",
+            "{}Evaluated {} to {}",
             indent,
+            self,
             match &result {
                 Ok(value) => format!("{}", value),
                 Err(error) => format!("{}", error),
@@ -170,370 +155,144 @@ impl<'p, 'a: 'p> ExpressionEvaluator<'p, 'a> {
         result
     }
 
-    fn evaluate_open(self) -> BergResult<'a> {
-        let inner = self.inner_expression();
-        if let Token::Expression(ExpressionToken::MissingExpression) = inner.token() {
-            Ok(BergVal::empty_tuple())
-        } else {
-            inner.evaluate()
-        }
-    }
-
-    //
-    // a; b; c
-    //
-    // a   b
-    //  \ /
-    //   ;   c
-    //    \ /
-    //     ;
-    //     ^ you are here
-    //
-    // We evaluate all semicolons together, since terminating semocolons
-    // are treated slightly differently: 1; ;2 yields an error, while 1;2;  does not.
-    //                                     ^                              ^
-    fn evaluate_semicolon(self) -> BergResult<'a> {
-        let left_operand = self.left_operand()?;
-        let left = match left_operand.token() {
-            Token::Operator(OperatorToken::InfixOperator(SEMICOLON)) => left_operand.evaluate_semicolon_left()?,
-            _ => left_operand.evaluate()?,
-        };
-        let right = self.right_expression();
-        match right.token() {
-            // If the rightmost semicolon has no operand, we treat it as
-            // returning the empty tuple
-            Token::Expression(ExpressionToken::MissingExpression) => Ok(BergVal::empty_tuple()),
-            // Check for malformed tree
-            Token::Operator(OperatorToken::InfixOperator(SEMICOLON)) => panic!("semicolon on the right hand side of a semicolon is unexpected: right hand side of {}!", self),
-            _ => left.infix(SEMICOLON, right).take_error(self),
-        }
-    }
-
-    //
-    // 1,2,3
-    //
-    // 1   2
-    //  \ /
-    //   ,   3
-    //    \ /
-    //     ,
-    //     ^ you are here
-    //
-    // We evaluate all commas together because the right side of inner expressions
-    // are treated slightly differently: 1, ,2 yields an error, while 1,2,  does not.
-    //                                     ^                              ^
-    // Additionally, we want to store them as a Vec, and it's performant if we
-    // can create the Vec all at once.
-    //
-    // Finally, a note: Tuples are stored in reverse order. So "1,2,3" is stored
-    // internally as "3,2,1." This is so that "next" is easy to do on the Tuple:
-    // you just pop the value off the end. No muss, no fuss.
-    //
-    fn evaluate_comma(self) -> BergResult<'a> {
-        //
-        // The goal is to get a vector in reverse order, because that's how Tuples
-        // are stored (for efficiency reasons).
-        //
-        let left = self.left_operand()?;
-        let right = self.right_expression();
-        let vec = match right.token() {
-            // If the rightmost comma has no operand, we ignore it: 1,2, == 1,2
-            Token::Expression(ExpressionToken::MissingExpression) => left.evaluate_comma_left(0)?,
-            // Check for malformed tree
-            Token::Operator(OperatorToken::InfixOperator(COMMA)) => panic!(
-                "comma on the right hand side of a comma is unexpected: right hand side of {}!",
-                self
-            ),
-            // Grab the left hand side of the vec and then insert this value.
-            _ => {
-                let mut vec = left.evaluate_comma_left(1)?;
-                vec[0] = right.evaluate()?;
-                vec
-            }
-        };
-        Ok(BergVal::Tuple(Tuple::from_reversed_vec(vec)))
+    fn evaluate_open(self, boundary: ExpressionBoundary) -> BergResult<'a> {
+        self.inner_expression().subexpression_result(boundary)
     }
 
     fn evaluate_infix(self, operator: IdentifierIndex) -> BergResult<'a> {
-        let left = self.left_operand()?;
-        let right = self.right_operand()?;
-        left.infix(operator, right).take_error(self)
+        self.left_expression().infix(operator, RightOperand::new(self.right_expression()))
     }
 
     fn evaluate_infix_assign(self, operator: IdentifierIndex) -> BergResult<'a> {
-        let mut target = self.left_operand()?.into_assignment_target()?;
-        let right = self.right_operand()?;
-        let value = match operator {
-            EMPTY_STRING => {
-                target.initialize()?;
-                right.evaluate()
-            }
-            _ => target.get()?.infix(operator, right).take_error(self),
-        };
-        target.set(value)
-    }
-
-    fn evaluate_colon(self) -> BergResult<'a> {
-        // Declare the variable so it can self-reference if needed.
-        let mut target = self
-            .left_operand()?
-            .into_assignment_target()?
-            .in_declaration();
-        target.declare()?;
-
-        // Because the right operand of colon is *always* a block, the MissingExpression will be inside it (if any).
-        let right = self.right_operand()?;
-        assert!(match right.token() {
-            Token::Expression(ExpressionToken::OpenBlock { .. }) => true,
-            _ => false,
-        });
-        if let Token::Expression(ExpressionToken::MissingExpression) = right.inner_expression().token() {
-            return BergError::MissingExpression.take_error(self);
-        }
-
-        // Now just evaluate and assign!
-        let value = right.evaluate();
-        target.set(value)
+        self.left_expression().infix_assign(operator, RightOperand::new(self.right_expression()))
     }
 
     fn evaluate_prefix(self, operator: IdentifierIndex) -> BergResult<'a> {
-        self.prefix_operand()?.prefix(operator).take_error(self)
+        self.right_expression().prefix(operator)
     }
 
     fn evaluate_postfix(self, operator: IdentifierIndex) -> BergResult<'a> {
-        let operand = self.postfix_operand()?;
-        operand.postfix(operator).take_error(self)
+        self.left_expression().postfix(operator)
     }
 
-    fn evaluate_prefix_assign(self, operator: IdentifierIndex) -> BergResult<'a> {
-        let mut target = self.prefix_operand()?.into_assignment_target()?;
-        target.initialize()?;
-        let value = target.get()?.prefix(operator).take_error(self);
-        target.set(value)
+    pub fn delocalize_error<T, E: From<ControlVal<'a>>>(self, error: BergError<'a>) -> Result<T, E> {
+        Err(E::from(ControlVal::Error(error.at_location(self))))
     }
 
-    fn evaluate_postfix_assign(self, operator: IdentifierIndex) -> BergResult<'a> {
-        let mut target = self.postfix_operand()?.into_assignment_target()?;
-        target.initialize()?;
-        let value = target.get()?.prefix(operator).take_error(self);
-        target.set(value)
-    }
-
-    fn evaluate_declare(self) -> BergResult<'a> {
-        let mut target = self.into_assignment_target()?;
-        target.declare()?;
-        target.get()
-    }
-
-    fn into_assignment_target(self) -> BergResult<'a, AssignmentTarget<'p, 'a>> {
-        use Token::*;
-        use ExpressionToken::*;
-        use OperatorToken::*;
-        match self.token() {
-            Expression(FieldReference(field)) => Ok(AssignmentTarget::Local(self, field)),
-            Expression(PrefixOperator(COLON)) => {
-                let colon_operand = self.prefix_operand()?;
-                match colon_operand.token() {
-                    Expression(FieldReference(field)) => {
-                        Ok(AssignmentTarget::DeclareLocal(colon_operand, field))
-                    }
-                    _ => BergError::AssignmentTargetMustBeIdentifier.take_error(colon_operand),
-                }
-            }
-            Expression(Open {
-                error: ExpressionBoundaryError::None,
-                ..
-            }) => self.inner_expression().into_assignment_target(),
-            Operator(InfixOperator(DOT)) => {
-                let right = self.right_operand()?;
-                match right.token() {
-                    Expression(RawIdentifier(name)) => {
-                        let object = self.left_operand()?.evaluate()?;
-                        Ok(AssignmentTarget::Object(self, object, name))
-                    }
-                    _ => BergError::AssignmentTargetMustBeIdentifier.take_error(right),
-                }
-            }
-            _ => BergError::AssignmentTargetMustBeIdentifier.take_error(self),
+    fn delocalize_result_fully<T: fmt::Debug>(self, result: BergResult<'a, T>, self_position: ExpressionErrorPosition) -> BergResult<'a, T> {
+        println!("delocalize({}, {:?}, {:?})", self, result, self_position);
+        match result {
+            Err(ControlVal::ExpressionError(error, position)) => error.at_location(self.error_location(position, self_position)).err(),
+            Ok(_) | Err(ControlVal::Error(_)) | Err(ControlVal::AmbiguousSyntax(_)) => result,
         }
     }
 
-    fn evaluate_comma_left(self, index: usize) -> BergResult<'a, Vec<BergVal<'a>>> {
-        let vec = match self.token() {
-            // Get the vector with the left hand side already filled in, then add the right hand side.
-            Token::Operator(OperatorToken::InfixOperator(COMMA)) => {
-                let mut vec = self.left_operand()?.evaluate_comma_left(index + 1)?;
-                let right = self.right_operand()?;
-                assert_ne!(
-                    right.token(),
-                    Token::Operator(OperatorToken::InfixOperator(COMMA)),
-                    "comma on the right hand side of a comma is unexpected: right hand side of {}!",
-                    self.to_string()
-                );
-                vec[index] = right.evaluate()?;
-                vec
-            }
-            // Create the vector with just enough to put our left and right operands in.
-            _ => {
-                let mut vec = vec![BergVal::Nothing; index + 1];
-                vec[index] = self.evaluate()?;
-                vec
-            }
+    fn error_location(self, position: ExpressionErrorPosition, self_position: ExpressionErrorPosition) -> ExpressionEvaluator<'p, 'a> {
+        use ExpressionErrorPosition::*;
+        let expression_position = match self_position {
+            Expression => self,
+            LeftOperand | RightOperand => self.parent_expression(),
+            ImmediateLeftOperand => self.next_expression()
         };
-        Ok(vec)
-    }
-    fn evaluate_semicolon_left(self) -> BergResult<'a> {
-        let left = self.left_operand()?.evaluate()?;
-        let right = self.right_operand()?;
-        match right.token() {
-            // Check for malformed tree
-            Token::Operator(OperatorToken::InfixOperator(SEMICOLON)) => panic!("semicolon on the right hand side of a semicolon is unexpected: right hand side of {}!", self),
-            _ => left.infix(SEMICOLON, right).take_error(self)
+        match position {
+            Expression => expression_position,
+            ImmediateLeftOperand => expression_position.prev_expression(),
+            LeftOperand => expression_position.left_expression(),
+            RightOperand => expression_position.right_expression(),
         }
     }
 
-    pub fn left_operand(self) -> BergResult<'a, Self>
-    {
-        let operand = self.left_expression();
-        match operand.token() {
-            Token::Expression(ExpressionToken::MissingExpression) => BergError::MissingExpression.take_error(self),
-            _ => Ok(operand),
-        }
-    }
-    pub fn right_operand(self) -> BergResult<'a, Self>
-    {
-        let operand = self.right_expression();
-        match operand.token() {
-            Token::Expression(ExpressionToken::MissingExpression) => BergError::MissingExpression.take_error(self),
-            _ => Ok(operand),
-        }
-    }
-    pub fn prefix_operand(self) -> BergResult<'a, Self>
-    {
-        let operand = self.right_expression();
-        match operand.token() {
-            Token::Expression(ExpressionToken::MissingExpression) => BergError::MissingExpression.take_error(self),
-            _ => Ok(operand),
-        }
-    }
-    pub fn postfix_operand(self) -> BergResult<'a, Self>
-    {
-        let operand = self.left_expression();
-        match operand.token() {
-            Token::Expression(ExpressionToken::MissingExpression) => BergError::MissingExpression.take_error(self),
-            _ => Ok(operand),
+    fn delocalize_result<T>(self, result: BergResult<'a, T>, relative_to: ExpressionErrorPosition) -> BergResult<'a, T> {
+        match result {
+            Err(ControlVal::ExpressionError(_, ExpressionErrorPosition::Expression)) => result,
+            Err(ControlVal::ExpressionError(error, position)) => error.at_location(self.error_location(position, relative_to)).err(),
+            _ => result,
         }
     }
 }
+
 
 impl<'p, 'a: 'p> BergValue<'a> for ExpressionEvaluator<'p, 'a> {
-    fn infix<T: BergValue<'a>>(self, operator: IdentifierIndex, right: T) -> BergResult<'a> {
-        self.evaluate()?.infix(operator, right)
+    fn into_result(self) -> BergResult<'a> {
+        self.delocalize_result(self.evaluate_local(), ExpressionErrorPosition::Expression)
     }
-    fn postfix(self, operator: IdentifierIndex) -> BergResult<'a> {
-        self.evaluate()?.postfix(operator)
+
+    fn next_val(self) -> BergResult<'a, Option<NextVal<'a>>> {
+        self.delocalize_result(self.evaluate_local().next_val(), ExpressionErrorPosition::Expression)
     }
+
+    fn into_native<T: TryFromBergVal<'a>>(self) -> BergResult<'a, T> {
+        self.delocalize_result(self.evaluate_local().into_native(), ExpressionErrorPosition::Expression)
+    }
+
+    fn try_into_native<T: TryFromBergVal<'a>>(self) -> BergResult<'a, Option<T>> {
+        self.delocalize_result(self.evaluate_local().try_into_native(), ExpressionErrorPosition::Expression)
+    }
+
+    fn infix(self, operator: IdentifierIndex, right: RightOperand<'a, impl BergValue<'a>>) -> BergResult<'a> {
+        let result = self.evaluate_local();
+        if let Err(ControlVal::AmbiguousSyntax(AmbiguousSyntax::Target(target))) = result {
+            // Handle <identifier>: <value>
+            if operator == COLON {
+                use AssignmentTarget::*;
+                if let LocalFieldReference(scope, name) = target {
+                    LocalFieldDeclaration(scope, name).set(self.delocalize_result_fully(right.into_result(), ExpressionErrorPosition::LeftOperand))?;
+                    return BergVal::empty_tuple().ok();
+                }
+            }
+            return self.delocalize_result(target.into_result().infix(operator, right), ExpressionErrorPosition::LeftOperand)
+        }
+        self.delocalize_result(result.infix(operator, right), ExpressionErrorPosition::LeftOperand)
+    }
+
+    fn infix_assign(self, operator: IdentifierIndex, right: RightOperand<'a, impl BergValue<'a>>) -> BergResult<'a> {
+        let result = self.evaluate_local();
+        if let Err(ControlVal::AmbiguousSyntax(AmbiguousSyntax::Target(mut target))) = result {
+            if operator == EMPTY_STRING {
+                target.set(self.delocalize_result_fully(right.into_result(), ExpressionErrorPosition::LeftOperand))?
+            } else {
+                target.update(|v| self.delocalize_result_fully(v.infix(operator, right), ExpressionErrorPosition::LeftOperand) )?
+            }
+            return BergVal::empty_tuple().ok()
+        }
+        self.delocalize_result(result.infix_assign(operator, right), ExpressionErrorPosition::LeftOperand)
+    }
+
     fn prefix(self, operator: IdentifierIndex) -> BergResult<'a> {
-        self.evaluate()?.prefix(operator)
+        let result = self.evaluate_local();
+        if operator == PLUS_PLUS || operator == DASH_DASH {
+            if let Err(ControlVal::AmbiguousSyntax(AmbiguousSyntax::Target(mut target))) = result {
+                target.update(|v| self.delocalize_result_fully(v.prefix(operator), ExpressionErrorPosition::RightOperand))?;
+                return BergVal::empty_tuple().ok();
+            }
+        }
+        self.delocalize_result(result.prefix(operator), ExpressionErrorPosition::RightOperand)
     }
-    fn field(&self, name: IdentifierIndex) -> BergResult<'a> {
-        self.evaluate()?.field(name)
+
+    fn postfix(self, operator: IdentifierIndex) -> BergResult<'a> {
+        let result = self.evaluate_local();
+        if operator == PLUS_PLUS || operator == DASH_DASH {
+            if let Err(ControlVal::AmbiguousSyntax(AmbiguousSyntax::Target(mut target))) = result {
+                target.update(|v| self.delocalize_result_fully(v.postfix(operator), ExpressionErrorPosition::LeftOperand))?;
+                return BergVal::empty_tuple().ok();
+            }
+        }
+        self.delocalize_result(result.postfix(operator), ExpressionErrorPosition::LeftOperand)
     }
+
+    fn subexpression_result(self, boundary: ExpressionBoundary) -> BergResult<'a> {
+        self.delocalize_result(self.evaluate_local().subexpression_result(boundary), ExpressionErrorPosition::LeftOperand)
+    }
+
+    fn into_right_operand(self) -> BergResult<'a> {
+        self.delocalize_result(self.evaluate_local(), ExpressionErrorPosition::Expression).into_right_operand()
+    }
+
+    fn field(self, name: IdentifierIndex) -> BergResult<'a> {
+        self.delocalize_result(self.evaluate_local().field(name), ExpressionErrorPosition::Expression)
+    }
+
     fn set_field(&mut self, name: IdentifierIndex, value: BergResult<'a>) -> BergResult<'a, ()> {
-        self.evaluate()?.set_field(name, value)
-    }
-    fn into_val(self) -> BergResult<'a> {
-        self.evaluate()
-    }
-    fn next_val(self) -> BergResult<'a, NextVal<'a>> {
-        self.evaluate()?.next_val()
-    }
-    fn into_native<T: TypeName + TryFrom<BergVal<'a>>>(self) -> BergResult<'a, BergResult<'a, T>>
-    where
-        <T as TryFrom<BergVal<'a>>>::Error: Into<BergVal<'a>>,
-    {
-        match self.evaluate()?.into_native() {
-            Ok(Err(LocalError(BergError::BadType(value, expected_type)))) => {
-                Ok(Err(LocalError(BergError::BadOperandType(
-                    self.operand_position(),
-                    value,
-                    expected_type,
-                ))))
-            }
-            result => result,
-        }
-    }
-}
-
-#[derive(Debug)]
-enum AssignmentTarget<'p, 'a: 'p> {
-    Local(ExpressionEvaluator<'p, 'a>, FieldIndex),
-    DeclareLocal(ExpressionEvaluator<'p, 'a>, FieldIndex),
-    Object(ExpressionEvaluator<'p, 'a>, BergVal<'a>, IdentifierIndex),
-}
-
-impl<'p, 'a: 'p> AssignmentTarget<'p, 'a> {
-    fn in_declaration(self) -> Self {
-        use AssignmentTarget::*;
-        match self {
-            Local(expression, field) => DeclareLocal(expression, field),
-            value => value,
-        }
-    }
-
-    fn initialize(&self) -> BergResult<'a, ()> {
-        use AssignmentTarget::*;
-        match self {
-            Local(expression, field) | DeclareLocal(expression, field) => expression
-                .scope()
-                .bring_local_field_into_scope(*field, expression.ast())
-                .take_error(*expression),
-            Object(..) => Ok(()),
-        }
-    }
-
-    fn get(&mut self) -> BergResult<'a> {
-        use crate::syntax::identifiers::DOT;
-        use AssignmentTarget::*;
-        self.initialize()?;
-        match self {
-            Local(expression, field) | DeclareLocal(expression, field) => expression
-                .scope()
-                .local_field(*field, expression.ast())
-                .take_error(*expression),
-            // Infix consumes values, but we still need the object around, so we clone the obj (it's cheap at the moment, a reference or primitive)
-            Object(expression, object, _) => {
-                let right = expression.right_operand()?;
-                object.clone().infix(DOT, right).take_error(*expression)
-            }
-        }
-    }
-
-    fn set(&mut self, value: BergResult<'a>) -> BergResult<'a> {
-        use AssignmentTarget::*;
-        match self {
-            Local(expression, field) | DeclareLocal(expression, field) => expression
-                .scope()
-                .set_local_field(*field, value, expression.ast())
-                .take_error(*expression)?,
-            Object(expression, object, name) => {
-                object.set_field(*name, value).take_error(*expression)?
-            }
-        }
-        // If it's a declaration, declare it public now that it's been set.
-        self.declare()?;
-        Ok(BergVal::empty_tuple())
-    }
-
-    fn declare(&mut self) -> BergResult<'a> {
-        use AssignmentTarget::*;
-        match self {
-            DeclareLocal(expression, field) => expression
-                .scope()
-                .declare_field(*field, expression.ast())
-                .take_error(*expression)?,
-            Local(..) | Object(..) => {}
-        }
-        Ok(BergVal::empty_tuple())
+        self.delocalize_result(self.evaluate_local().set_field(name, value), ExpressionErrorPosition::Expression)
     }
 }

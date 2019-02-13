@@ -55,7 +55,7 @@
         if token.Expression
             # Add the join and join the existing expression to the operator
             if Expression
-                Operator ??= AppendToken(join)
+                Operator ?= AppendToken(join)
                 Operator.RightChild = Expression
                 Expression.Parent = Operator
             else if Operator
@@ -299,7 +299,7 @@
         while Indent == margin
             # Term (series of operators and )
             :term = TermExpressionBuilder(join: APPLY)
-            while :token ??= ReadToken
+            while :token ?= ReadToken
                 break if token.IsCloseDelimiter
                 if token.IsOpenDelimiter
                     term.ExpectExpression
@@ -352,8 +352,8 @@
         if openDelimiter
             # Handle unmatched close delimiter
             # TODO close delimiter has real width; need to find a way to insert without actually affecting start/end range
-            Expression ??= SyntaxNode.AppendToken(NONE)
-            closeDelimiter = AppendToken(token ?? openDelimiter.CloseDelimiter)
+            Expression ?= SyntaxNode.AppendToken(NONE)
+            closeDelimiter = AppendToken(token ? openDelimiter.CloseDelimiter)
             if !token
                 ReportError UnclosedOperatorAtEndOfBlock(openDelimiter, block.End)
             else if closeDelimiter.Token != openDelimiter.CloseDelimiter

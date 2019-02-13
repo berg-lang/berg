@@ -40,7 +40,7 @@ Operators
 | Range           | [<]..[>]
 | Comparison      | == != < > <= >= <=> <Comparison>?
 | Match           | ! (post) ? (post) + (post) * (post)
-| Boolean         | ! (pre) || && ?? ?: (left)
+| Boolean         | ! (pre) || && ? ?: (left)
 | Assignment      | : (in+post) = <Math>= <Math>?= <Boolean>= [&]++[?] [&]--[?]
 | Ternary         | ?: (right)
 | List            | , (in+post)

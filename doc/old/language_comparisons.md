@@ -82,7 +82,7 @@ Whitespace
 | Python     | First line after : | NSP TAB FF  | 8        | Ignored     | FF, then tabs, then spaces at beginning of line. FF in rest of line undefined. Continuations can be outside the indent. Indent must be a multiple of 4.
 | Swift      | N/A
 | Go         | N/A
-| Markdown   | ?                  | SP TAB ??? | 4        | Ignored     |
+| Markdown   | ?                  | SP TAB ?? | 4        | Ignored     |
 | YAML       | ?                  | SP         | N/A      | Ignored (? Don't see mention in spec, but yamllint.com ignores) |
 
 Comments
@@ -106,7 +106,7 @@ Identifiers
 
 | Language   | Characters      | First  | Last | Escape         | Normalization
 |------------|-----------------|--------|------|----------------|---------------
-| JavaScript | ID ZWNJ ZWJ $ _ | minus ZWNJ ZWJ, digits |      | \XXXX, \{XXXX} | Case-significant, normalized by parser. Not sure if NFC or NKFC???
+| JavaScript | ID ZWNJ ZWJ $ _ | minus ZWNJ ZWJ, digits |      | \XXXX, \{XXXX} | Case-significant, normalized by parser. Not sure if NFC or NKFC??
 | Python     | XID _           |        |      |                | NKFC, normalized by parser
 | Swift      | A-Z a-z 0-9 _   | minus digits/combining |      | `reserved` |
 | Go         | Lu Ll Lt Lm Lo _ Nd | minus Nd

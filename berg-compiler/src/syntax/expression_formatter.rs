@@ -56,7 +56,7 @@ impl<'p, 'a: 'p> fmt::Display for ExpressionTreeWalker<'p, 'a, ExpressionFormatt
             }
             Fixity::Prefix => {
                 let right = self.right_expression();
-                if self.ast().tokens[self.index() - 1].has_left_operand() {
+                if self.ast().tokens[self.root_index() - 1].has_left_operand() {
                     write!(f, " {}{}", string, right)
                 } else {
                     write!(f, "{}{}", string, right)
@@ -64,7 +64,7 @@ impl<'p, 'a: 'p> fmt::Display for ExpressionTreeWalker<'p, 'a, ExpressionFormatt
             }
             Fixity::Postfix => {
                 let left = self.left_expression();
-                if self.ast().tokens[self.index() + 1].has_right_operand() {
+                if self.ast().tokens[self.root_index() + 1].has_right_operand() {
                     write!(f, " {}{}", left, string)
                 } else {
                     write!(f, "{}{}", left, string)
@@ -92,7 +92,7 @@ impl<'p, 'a: 'p> ExpressionTreeWalker<'p, 'a, ExpressionTreeFormatter> {
                 self.close_operator()
             )?,
             Fixity::Prefix | Fixity::Postfix | Fixity::Infix | Fixity::Term => {
-                write!(f, "{:?} at {}", token, self.index())?
+                write!(f, "{:?} at {}", token, self.root_index())?
             }
         }
         writeln!(f, ": {}", self.format())

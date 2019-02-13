@@ -154,18 +154,18 @@ BasicOperators:
       Operator: "&&"
       Right -> Bareword: b
 
-  # "|| ??",
+  # "|| ?",
   - Berg: a||b
     Ast -> InfixOperation:
       $Term: a||b
       Left -> Bareword: a
       Operator: "||"
       Right -> Bareword: b
-  - Berg: a??b
+  - Berg: a?b
     Ast -> InfixOperation:
-      $Term: a??b
+      $Term: a?b
       Left -> Bareword: a
-      Operator: "??"
+      Operator: "?"
       Right -> Bareword: b
 
   # "->",
@@ -186,7 +186,7 @@ BasicOperators:
   #     { string: "%=",  direction: :right, declaration: true, },
   #     { string: "||=", direction: :right, declaration: true, },
   #     { string: "&&=", direction: :right, declaration: true, },
-  #     { string: "??=", direction: :right, declaration: true, },
+  #     { string: "?=", direction: :right, declaration: true, },
   # ],
   - Berg: a:b
     Ast -> InfixOperation:
@@ -242,11 +242,11 @@ BasicOperators:
       Left -> Bareword: a
       Operator: "&&="
       Right -> Bareword: b
-  - Berg: a??=b
+  - Berg: a?=b
     Ast -> InfixOperation:
-      $Term: a??=b
+      $Term: a?=b
       Left -> Bareword: a
-      Operator: "??="
+      Operator: "?="
       Right -> Bareword: b
 
   # [ ",", { string: ",", type: :postfix, can_be_sticky: false } ],
@@ -492,21 +492,21 @@ OperatorsSeparatedBySpace:
       Operator: "&&"
       Right -> Bareword: b
 
-  # "|| ??",
+  # "|| ?",
   - Berg: a || b
     Ast -> InfixOperation:
       $Term: a || b
       Left -> Bareword: a
       Operator: "||"
       Right -> Bareword: b
-  - Berg: a ?? b
+  - Berg: a ? b
     Ast -> InfixOperation:
-      $Term: a ?? b
+      $Term: a ? b
       Left -> Bareword: a
-      Operator: "??"
+      Operator: "?"
       Right -> Bareword: b
 
-  # "right indent.: = += -= *= /= %= ||= &&= ??=",
+  # "right indent.: = += -= *= /= %= ||= &&= ?=",
   - Berg: "a : b"
     Ast -> InfixOperation:
       $Term: "a : b"
@@ -561,11 +561,11 @@ OperatorsSeparatedBySpace:
       Left -> Bareword: a
       Operator: "&&="
       Right -> Bareword: b
-  - Berg: a ??= b
+  - Berg: a ?= b
     Ast -> InfixOperation:
-      $Term: a ??= b
+      $Term: a ?= b
       Left -> Bareword: a
-      Operator: "??="
+      Operator: "?="
       Right -> Bareword: b
 
   # [ ",", { string: ",", type: :postfix, can_be_sticky: false } ],
@@ -809,21 +809,21 @@ OperatorsSeparatedByNewline:
       Operator: "&&"
       Right -> Bareword: b
 
-  # "|| ??",
+  # "|| ?",
   - Berg: "a\n||\nb"
     Ast -> InfixOperation:
       $Term: "a\n||\nb"
       Left -> Bareword: a
       Operator: "||"
       Right -> Bareword: b
-  - Berg: "a\n??\nb"
+  - Berg: "a\n?\nb"
     Ast -> InfixOperation:
-      $Term: "a\n??\nb"
+      $Term: "a\n?\nb"
       Left -> Bareword: a
-      Operator: "??"
+      Operator: "?"
       Right -> Bareword: b
 
-  # "right indent.: = += -= *= /= %= ||= &&= ??=",
+  # "right indent.: = += -= *= /= %= ||= &&= ?=",
   - Berg: "a : b"
     Ast -> InfixOperation:
       $Term: "a : b"
@@ -878,11 +878,11 @@ OperatorsSeparatedByNewline:
       Left -> Bareword: a
       Operator: "&&="
       Right -> Bareword: b
-  - Berg: "a\n??=\nb"
+  - Berg: "a\n?=\nb"
     Ast -> InfixOperation:
-      $Term: "a\n??=\nb"
+      $Term: "a\n?=\nb"
       Left -> Bareword: a
-      Operator: "??="
+      Operator: "?="
       Right -> Bareword: b
 
   # [ ",", { string: ",", type: :postfix, can_be_sticky: false } ],,
@@ -1131,21 +1131,21 @@ OperatorsSeparatedByCommentNewlineAndSpace:
       Operator: "&&"
       Right -> Bareword: b
 
-  # "|| ??",
+  # "|| ?",
   - Berg: "a# comment \n ||# comment \n b"
     Ast -> InfixOperation:
       $Term: "a# comment \n ||# comment \n b"
       Left -> Bareword: a
       Operator: "||"
       Right -> Bareword: b
-  - Berg: "a# comment \n ??# comment \n b"
+  - Berg: "a# comment \n ?# comment \n b"
     Ast -> InfixOperation:
-      $Term: "a# comment \n ??# comment \n b"
+      $Term: "a# comment \n ?# comment \n b"
       Left -> Bareword: a
-      Operator: "??"
+      Operator: "?"
       Right -> Bareword: b
 
-  # "right indent.: = += -= *= /= %= ||= &&= ??=",
+  # "right indent.: = += -= *= /= %= ||= &&= ?=",
   #
   # This one is a little messed up, but correct. Since the : is on the second line, its indent is just " ".
   # The indent for b is " " too, so it's a sibling of the :, not a child:
@@ -1213,11 +1213,11 @@ OperatorsSeparatedByCommentNewlineAndSpace:
       Left -> Bareword: a
       Operator: "&&="
       Right -> Bareword: b
-  - Berg: "a# comment \n ??=# comment \n b"
+  - Berg: "a# comment \n ?=# comment \n b"
     Ast -> InfixOperation:
-      $Term: "a# comment \n ??=# comment \n b"
+      $Term: "a# comment \n ?=# comment \n b"
       Left -> Bareword: a
-      Operator: "??="
+      Operator: "?="
       Right -> Bareword: b
 
   # [ ",", { string: ",", type: :postfix, can_be_sticky: false } ],

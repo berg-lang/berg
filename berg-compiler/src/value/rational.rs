@@ -1,40 +1,49 @@
 use crate::syntax::identifiers::*;
 use crate::syntax::IdentifierIndex;
-use crate::util::try_from::TryFrom;
-use crate::util::type_name::TypeName;
-use crate::value::*;
+use crate::value::implement::*;
 use num::{BigInt, BigRational, One, ToPrimitive, Zero};
 use std::{i64, u64};
 
-impl TypeName for BigRational {
-    const TYPE_NAME: &'static str = "number";
-}
-
 impl<'a> BergValue<'a> for BigRational {
-    fn infix<T: BergValue<'a>>(self, operator: IdentifierIndex, right: T) -> BergResult<'a> {
+    fn next_val(self) -> BergResult<'a, Option<NextVal<'a>>> {
+        single_next_val(self)
+    }
+    fn into_result(self) -> BergResult<'a> {
+        Ok(self.into())
+    }
+    fn into_native<T: TryFromBergVal<'a>>(self) -> BergResult<'a, T> {
+        default_into_native(self)
+    }
+    fn try_into_native<T: TryFromBergVal<'a>>(self) -> BergResult<'a, Option<T>> {
+        default_try_into_native(self)
+    }
+    fn infix(self, operator: IdentifierIndex, right: RightOperand<'a, impl BergValue<'a>>) -> BergResult<'a> {
         match operator {
-            PLUS => (self + right.into_native::<BigRational>()??).ok(),
-            DASH => (self - right.into_native::<BigRational>()??).ok(),
+            PLUS => (self + right.into_native::<BigRational>()?).ok(),
+            DASH => (self - right.into_native::<BigRational>()?).ok(),
             SLASH => {
-                let right = right.into_native::<BigRational>()??;
+                let right = right.into_native::<BigRational>()?;
                 if right.is_zero() {
                     BergError::DivideByZero.err()
                 } else {
                     (self / right).ok()
                 }
             }
-            STAR => (self * right.into_native::<BigRational>()??).ok(),
-            EQUAL_TO => match right.into_native::<BigRational>()? {
-                Ok(right) => self == right,
-                Err(_) => false,
+            STAR => (self * right.into_native::<BigRational>()?).ok(),
+            EQUAL_TO => match right.try_into_native::<BigRational>()? {
+                Some(right) => (self == right).into_result(),
+                None => false.ok(),
             }
-            .ok(),
-            GREATER_THAN => (self > right.into_native::<BigRational>()??).ok(),
-            LESS_THAN => (self < right.into_native::<BigRational>()??).ok(),
-            GREATER_EQUAL => (self >= right.into_native::<BigRational>()??).ok(),
-            LESS_EQUAL => (self <= right.into_native::<BigRational>()??).ok(),
+            GREATER_THAN => (self > right.into_native::<BigRational>()?).ok(),
+            LESS_THAN => (self < right.into_native::<BigRational>()?).ok(),
+            GREATER_EQUAL => (self >= right.into_native::<BigRational>()?).ok(),
+            LESS_EQUAL => (self <= right.into_native::<BigRational>()?).ok(),
             _ => default_infix(self, operator, right),
         }
+    }
+
+    fn infix_assign(self, operator: IdentifierIndex, right: RightOperand<'a, impl BergValue<'a>>) -> BergResult<'a> {
+        default_infix_assign(self, operator, right)
     }
 
     fn prefix(self, operator: IdentifierIndex) -> BergResult<'a> {
@@ -55,17 +64,19 @@ impl<'a> BergValue<'a> for BigRational {
         }
     }
 
-    fn field(&self, name: IdentifierIndex) -> BergResult<'a> {
+    fn subexpression_result(self, boundary: ExpressionBoundary) -> BergResult<'a> {
+        default_subexpression_result(self, boundary)
+    }
+
+    fn into_right_operand(self) -> BergResult<'a> {
+        default_into_right_operand(self)
+    }
+
+    fn field(self, name: IdentifierIndex) -> BergResult<'a> {
         default_field(self, name)
     }
     fn set_field(&mut self, name: IdentifierIndex, value: BergResult<'a>) -> BergResult<'a, ()> {
         default_set_field(self, name, value)
-    }
-    fn into_val(self) -> BergResult<'a> {
-        Ok(self.into())
-    }
-    fn next_val(self) -> BergResult<'a, NextVal<'a>> {
-        Ok(NextVal::single(self.into()))
     }
 }
 
@@ -81,12 +92,12 @@ impl<'a> From<BigRational> for BergVal<'a> {
     }
 }
 
-impl<'a> TryFrom<BergVal<'a>> for BigRational {
-    type Error = BergVal<'a>;
-    fn try_from(from: BergVal<'a>) -> Result<Self, Self::Error> {
-        match from {
-            BergVal::BigRational(value) => Ok(value),
-            _ => Err(from),
+impl<'a> TryFromBergVal<'a> for BigRational {
+    const TYPE_NAME: &'static str = "number";
+    fn try_from_berg_val(from: BergResult<'a>) -> BergResult<'a, Result<Self, BergVal<'a>>> {
+        match from.into_result()? {
+            BergVal::BigRational(value) => Ok(Ok(value)),
+            value => Ok(Err(value)),
         }
     }
 }
@@ -94,26 +105,26 @@ impl<'a> TryFrom<BergVal<'a>> for BigRational {
 macro_rules! impl_berg_val_for_primitive_num {
     ($($type:ty: $to:tt),*) => {
         $(
-            impl TypeName for $type {
+            impl<'a> TryFromBergVal<'a> for $type {
                 const TYPE_NAME: &'static str = stringify!($type);
+                fn try_from_berg_val(from: BergResult<'a>) -> BergResult<'a, Result<Self, BergVal<'a>>> {
+                    match from.into_result()? {
+                        BergVal::BigRational(value) => {
+                            if value.is_integer() {
+                                if let Some(value) = value.to_integer().$to() {
+                                    return Ok(Ok(value));
+                                }
+                            }
+                            Ok(Err(BergVal::BigRational(value)))
+                        },
+                        value => Ok(Err(value))
+                    }
+                }
             }
 
             impl<'a> From<$type> for BergVal<'a> {
                 fn from(from: $type) -> Self {
                     BigInt::from(from).into()
-                }
-            }
-
-            impl<'a> TryFrom<BergVal<'a>> for $type {
-                type Error = BergVal<'a>;
-                fn try_from(from: BergVal<'a>) -> Result<Self, Self::Error> {
-                    match from {
-                        BergVal::BigRational(ref value) if value.is_integer() => if let Some(value) = value.to_integer().$to() {
-                            return Ok(value)
-                        },
-                        _ => {}
-                    }
-                    Err(from)
                 }
             }
         )*

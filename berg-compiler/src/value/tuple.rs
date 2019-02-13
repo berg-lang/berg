@@ -1,6 +1,5 @@
 use crate::syntax::IdentifierIndex;
-use crate::util::type_name::TypeName;
-use crate::value::*;
+use crate::value::implement::*;
 use std::iter::FromIterator;
 use std::fmt;
 
@@ -22,6 +21,9 @@ impl<'a> Tuple<'a> {
     }
     pub fn from_reversed_vec(vec: Vec<BergVal<'a>>) -> Self {
         Tuple(vec)
+    }
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
     }
 }
 
@@ -55,52 +57,55 @@ impl<'a, 'p> IntoIterator for &'p Tuple<'a> {
         (&self.0).iter().rev()
     }
 }
-impl<'a> TypeName for Tuple<'a> {
-    const TYPE_NAME: &'static str = "Tuple";
-}
 
 impl<'a> BergValue<'a> for Tuple<'a> {
-    fn infix<T: BergValue<'a>>(self, operator: IdentifierIndex, right: T) -> BergResult<'a> {
+    fn infix(self, operator: IdentifierIndex, right: RightOperand<'a, impl BergValue<'a>>) -> BergResult<'a> {
         default_infix(self, operator, right)
     }
-
+    fn infix_assign(self, operator: IdentifierIndex, right: RightOperand<'a, impl BergValue<'a>>) -> BergResult<'a> {
+        default_infix_assign(self, operator, right)
+    }
     fn postfix(self, operator: IdentifierIndex) -> BergResult<'a> {
         default_postfix(self, operator)
     }
     fn prefix(self, operator: IdentifierIndex) -> BergResult<'a> {
         default_prefix(self, operator)
     }
+    fn subexpression_result(self, boundary: ExpressionBoundary) -> BergResult<'a> {
+        default_subexpression_result(self, boundary)
+    }
+    fn into_right_operand(self) -> BergResult<'a> {
+        default_into_right_operand(self)
+    }
 
-    fn field(&self, name: IdentifierIndex) -> BergResult<'a> {
+    fn field(self, name: IdentifierIndex) -> BergResult<'a> {
         default_field(self, name)
     }
     fn set_field(&mut self, name: IdentifierIndex, value: BergResult<'a>) -> BergResult<'a, ()> {
         default_set_field(self, name, value)
     }
 
-    fn next_val(mut self) -> BergResult<'a, NextVal<'a>> {
+    fn next_val(mut self) -> BergResult<'a, Option<NextVal<'a>>> {
         match self.0.pop() {
-            Some(value) => Ok(if self.0.is_empty() {
-                NextVal::single(value)
-            } else {
-                NextVal::head_tail(value, self.0.into())
-            }),
-            None => Ok(NextVal::none()),
+            Some(value) => Ok(Some(NextVal { head: Ok(value), tail: Ok(self.0.into()) })),
+            None => Ok(None),
         }
     }
-    fn into_val(self) -> BergResult<'a> {
+    fn into_result(self) -> BergResult<'a> {
         Ok(self.into())
     }
-    fn into_native<T: TypeName + TryFrom<BergVal<'a>>>(
-        mut self,
-    ) -> BergResult<'a, BergResult<'a, T>>
-    where
-        <T as TryFrom<BergVal<'a>>>::Error: Into<BergVal<'a>>,
-    {
+    fn into_native<T: TryFromBergVal<'a>>(mut self) -> BergResult<'a, T> {
         if self.0.len() == 1 {
-            self.0.pop().unwrap().into_native()
+            Ok(self.0.pop().unwrap().into_native()?)
         } else {
-            Ok(BergError::BadType(Box::new(self.into()), T::TYPE_NAME).err())
+            BergError::BadType(Box::new(Ok(BergVal::Tuple(self))), T::TYPE_NAME).err()
+        }
+    }
+    fn try_into_native<T: TryFromBergVal<'a>>(mut self) -> BergResult<'a, Option<T>> {
+        if self.0.len() == 1 {
+            Ok(Some(self.0.pop().unwrap().into_native()?))
+        } else {
+            Ok(None)
         }
     }
 }
@@ -133,20 +138,12 @@ impl<'a> From<Tuple<'a>> for Vec<BergVal<'a>> {
     }
 }
 
-impl<T: TypeName> TypeName for Vec<T> {
-    const TYPE_NAME: &'static str = "Vec<T>";
-}
-
-impl<T: TypeName> TypeName for &[T] {
-    const TYPE_NAME: &'static str = "[T]";
-}
-
-impl<'a> TryFrom<BergVal<'a>> for Tuple<'a> {
-    type Error = BergVal<'a>;
-    fn try_from(from: BergVal<'a>) -> Result<Self, Self::Error> {
-        match from {
-            BergVal::Tuple(tuple) => Ok(tuple),
-            _ => Err(from),
+impl<'a> TryFromBergVal<'a> for Tuple<'a> {
+    const TYPE_NAME: &'static str = "Tuple";
+    fn try_from_berg_val(from: BergResult<'a>) -> BergResult<'a, Result<Self, BergVal<'a>>> {
+        match from.into_result()? {
+            BergVal::Tuple(value) => Ok(Ok(value)),
+            value => Ok(Err(value)),
         }
     }
 }

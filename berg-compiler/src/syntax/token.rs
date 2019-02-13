@@ -61,6 +61,7 @@ pub enum ExpressionBoundaryError {
     CloseWithoutOpen,
     OpenWithoutClose,
     OpenError, // BergError opening or reading the source file
+    EmptyAutoBlock, // { a: }
     None,
 }
 

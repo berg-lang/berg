@@ -1,6 +1,6 @@
 use crate::eval::BlockRef;
 use crate::syntax::{Ast, AstIndex, AstRef, BlockIndex, FieldIndex, IdentifierIndex};
-use crate::value::{BergResult, BergValue};
+use crate::value::{BergResult, BergVal, BergValue};
 use std::fmt;
 
 #[derive(Clone)]
@@ -13,7 +13,7 @@ impl<'a> ScopeRef<'a> {
     pub fn create_child_block(&self, expression: AstIndex, index: BlockIndex) -> BlockRef<'a> {
         match self {
             ScopeRef::BlockRef(ref block) => block.create_child_block(expression, index),
-            ScopeRef::AstRef(_) => BlockRef::new(expression, index, self.clone(), None),
+            ScopeRef::AstRef(_) => BlockRef::new(expression, index, self.clone(), Ok(BergVal::empty_tuple())),
         }
     }
     pub fn local_field(&self, index: FieldIndex, ast: &Ast) -> BergResult<'a> {
@@ -22,10 +22,10 @@ impl<'a> ScopeRef<'a> {
             ScopeRef::AstRef(ref ast) => ast.source.root().local_field(index),
         }
     }
-    pub fn field(&self, name: IdentifierIndex) -> BergResult<'a> {
+    pub fn field(self, name: IdentifierIndex) -> BergResult<'a> {
         match self {
-            ScopeRef::BlockRef(ref block) => block.field(name),
-            ScopeRef::AstRef(ref ast) => ast.source.root().field(name),
+            ScopeRef::BlockRef(block) => block.field(name),
+            ScopeRef::AstRef(ast) => ast.source.root().field(name),
         }
     }
     pub fn bring_local_field_into_scope(&self, index: FieldIndex, ast: &Ast) -> BergResult<'a, ()> {

@@ -1,49 +1,112 @@
-use crate::syntax::ExpressionRef;
-use crate::value::*;
+use crate::value::implement::*;
+use std::fmt;
 
 pub type BergResult<'a, T = BergVal<'a>> = Result<T, ControlVal<'a>>;
 
-pub trait TakeError<'a, T>: Sized {
-    fn take_error(self, expression: impl Into<ExpressionRef<'a>>) -> BergResult<'a, T>;
+// Convenience so we can do Display on BergResult. Grr.
+pub trait DisplayAnyway {
+    fn display(&self) -> DisplayAnywayVal<Self> {
+        DisplayAnywayVal(self)
+    }
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result;
 }
-
-pub trait UnwindFrame<'a, T>: Sized {
-    fn unwind_frame(self, expression: impl Into<ExpressionRef<'a>>) -> BergResult<'a, T>;
-}
-
-impl<'a, T> UnwindFrame<'a, T> for BergResult<'a, T> {
-    fn unwind_frame(self, expression: impl Into<ExpressionRef<'a>>) -> BergResult<'a, T> {
+pub struct DisplayAnywayVal<'p, T: DisplayAnyway+?Sized>(&'p T);
+impl<'p, T: fmt::Display, E: fmt::Display> DisplayAnyway for Result<T, E> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Ok(value) => Ok(value),
-            Err(control) => Err(control.push_frame(expression.into())),
+            Ok(value) => write!(f, "{}", value),
+            Err(error) => write!(f, "{}", error),
         }
     }
 }
-impl<'a, T> UnwindFrame<'a, T> for Error<'a> {
-    fn unwind_frame(self, expression: impl Into<ExpressionRef<'a>>) -> BergResult<'a, T> {
-        Err(self.push_frame(expression.into()).into())
+impl<'p, T: DisplayAnyway> fmt::Display for DisplayAnywayVal<'p, T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        DisplayAnyway::fmt(self.0, f)
     }
 }
-impl<'a, T> UnwindFrame<'a, T> for ControlVal<'a> {
-    fn unwind_frame(self, location: impl Into<ExpressionRef<'a>>) -> BergResult<'a, T> {
-        Err(self.push_frame(location.into()))
-    }
-}
-impl<'a, T> TakeError<'a, T> for BergResult<'a, T> {
-    fn take_error(self, expression: impl Into<ExpressionRef<'a>>) -> BergResult<'a, T> {
+
+impl<'a, V: BergValue<'a>+Clone, E: BergValue<'a>+Clone> BergValue<'a> for Result<V, E> {
+    fn next_val(self) -> BergResult<'a, Option<NextVal<'a>>> {
         match self {
-            Ok(value) => Ok(value),
-            Err(control) => control.take_error(expression),
+            Ok(value) => value.next_val(),
+            Err(control) => control.next_val(),
         }
     }
-}
-impl<'a, T> TakeError<'a, T> for BergError<'a> {
-    fn take_error(self, location: impl Into<ExpressionRef<'a>>) -> BergResult<'a, T> {
-        Err(Error::new(self, location.into()).into())
+
+    fn into_native<T: TryFromBergVal<'a>>(self) -> BergResult<'a, T> {
+        match self {
+            Ok(value) => value.into_native(),
+            Err(control) => control.into_native()
+        }
     }
-}
-impl<'a, T> TakeError<'a, T> for ControlVal<'a> {
-    fn take_error(self, location: impl Into<ExpressionRef<'a>>) -> BergResult<'a, T> {
-        Err(self.push_frame(location.into()))
+
+    fn try_into_native<T: TryFromBergVal<'a>>(self) -> BergResult<'a, Option<T>> {
+        match self {
+            Ok(value) => value.try_into_native(),
+            Err(control) => control.try_into_native()
+        }
+    }
+
+    fn into_result(self) -> BergResult<'a> {
+        match self {
+            Ok(value) => value.into_result(),
+            Err(control) => control.into_result()
+        }
+    }
+
+    fn infix(self, operator: IdentifierIndex, right: RightOperand<'a, impl BergValue<'a>>) -> BergResult<'a> {
+        match self {
+            Ok(value) => value.infix(operator, right),
+            Err(control) => control.infix(operator, right),
+        }
+    }
+
+    fn infix_assign(self, operator: IdentifierIndex, right: RightOperand<'a, impl BergValue<'a>>) -> BergResult<'a> {
+        match self {
+            Ok(value) => value.infix_assign(operator, right),
+            Err(control) => control.infix_assign(operator, right),
+        }
+    }
+
+    fn postfix(self, operator: IdentifierIndex) -> BergResult<'a> {
+        match self {
+            Ok(value) => value.postfix(operator),
+            Err(control) => control.postfix(operator),
+        }
+    }
+
+    fn prefix(self, operator: IdentifierIndex) -> BergResult<'a> {
+        match self {
+            Ok(value) => value.prefix(operator),
+            Err(control) => control.prefix(operator),
+        }
+    }
+
+    fn subexpression_result(self, boundary: ExpressionBoundary) -> BergResult<'a> {
+        match self {
+            Ok(value) => value.subexpression_result(boundary),
+            Err(control) => control.subexpression_result(boundary),
+        }
+    }
+
+    fn into_right_operand(self) -> BergResult<'a> {
+        match self {
+            Ok(value) => value.into_right_operand(),
+            Err(control) => control.into_right_operand()
+        }
+    }
+
+    fn field(self, name: IdentifierIndex) -> BergResult<'a> {
+        match self {
+            Ok(v) => v.field(name),
+            Err(v) => v.field(name),
+        }
+    }
+
+    fn set_field(&mut self, name: IdentifierIndex, value: BergResult<'a>) -> BergResult<'a, ()> where Self: Clone {
+        match self {
+            Ok(v) => v.set_field(name, value),
+            Err(v) => v.set_field(name, value),
+        }
     }
 }
