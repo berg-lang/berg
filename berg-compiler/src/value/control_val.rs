@@ -15,24 +15,24 @@ impl<'a> BergValue<'a> for ControlVal<'a> {
         use ControlVal::*;
         match self {
             AmbiguousSyntax(val) => val.next_val(),
-            ExpressionError(..) | Error(_) => self.result(),
+            ExpressionError(..) | Error(_) => self.at_position(ExpressionErrorPosition::Expression),
         }
     }
-    fn into_result(self) -> BergResult<'a> {
+    fn into_val(self) -> BergResult<'a> {
         Err(self)
     }
     fn into_native<T: TryFromBergVal<'a>>(self) -> BergResult<'a, T> {
         use ControlVal::*;
         match self {
             AmbiguousSyntax(val) => val.into_native(),
-            ExpressionError(..) | Error(_) => self.result(),
+            ExpressionError(..) | Error(_) => self.at_position(ExpressionErrorPosition::Expression),
         }
     }
     fn try_into_native<T: TryFromBergVal<'a>>(self) -> BergResult<'a, Option<T>> {
         use ControlVal::*;
         match self {
             AmbiguousSyntax(val) => val.try_into_native(),
-            ExpressionError(..) | Error(_) => self.result(),
+            ExpressionError(..) | Error(_) => self.at_position(ExpressionErrorPosition::Expression),
         }
     }
 
@@ -40,7 +40,7 @@ impl<'a> BergValue<'a> for ControlVal<'a> {
         use ControlVal::*;
         match self {
             AmbiguousSyntax(val) => val.infix(operator, right),
-            ExpressionError(..) | Error(_) => self.result(),
+            ExpressionError(..) | Error(_) => self.at_position(ExpressionErrorPosition::LeftOperand),
         }
     }
 
@@ -48,7 +48,7 @@ impl<'a> BergValue<'a> for ControlVal<'a> {
         use ControlVal::*;
         match self {
             AmbiguousSyntax(val) => val.infix_assign(operator, right),
-            ExpressionError(..) | Error(_) => self.result(),
+            ExpressionError(..) | Error(_) => self.at_position(ExpressionErrorPosition::LeftOperand),
         }
     }
 
@@ -56,7 +56,7 @@ impl<'a> BergValue<'a> for ControlVal<'a> {
         use ControlVal::*;
         match self {
             AmbiguousSyntax(val) => val.prefix(operator),
-            ExpressionError(..) | Error(_) => self.result(),
+            ExpressionError(..) | Error(_) => self.at_position(ExpressionErrorPosition::RightOperand),
         }
     }
 
@@ -64,7 +64,7 @@ impl<'a> BergValue<'a> for ControlVal<'a> {
         use ControlVal::*;
         match self {
             AmbiguousSyntax(val) => val.postfix(operator),
-            ExpressionError(..) | Error(_) => self.result(),
+            ExpressionError(..) | Error(_) => self.at_position(ExpressionErrorPosition::LeftOperand),
         }
     }
 
@@ -72,17 +72,7 @@ impl<'a> BergValue<'a> for ControlVal<'a> {
         use ControlVal::*;
         match self {
             AmbiguousSyntax(val) => val.subexpression_result(boundary),
-            ExpressionError(..) | Error(_) => self.result(),
-        }
-    }
-
-    fn into_right_operand(self) -> BergResult<'a> {
-        use ControlVal::*;
-        match self {
-            AmbiguousSyntax(val) => val.into_right_operand(),
-            ExpressionError(error, ExpressionErrorPosition::Expression) => ExpressionError(error, ExpressionErrorPosition::RightOperand).err(),
-            ExpressionError(error, position) => panic!("Expression error {:?} with position {:?} passed to into_right_operand", error, position),
-            Error(_) => self.result(),
+            ExpressionError(..) | Error(_) => self.at_position(ExpressionErrorPosition::RightOperand),
         }
     }
 
@@ -90,21 +80,44 @@ impl<'a> BergValue<'a> for ControlVal<'a> {
         use ControlVal::*;
         match self {
             AmbiguousSyntax(val) => val.field(name),
-            ExpressionError(..) | Error(_) => self.result(),
+            ExpressionError(..) | Error(_) => self.at_position(ExpressionErrorPosition::LeftOperand),
         }
     }
     fn set_field(&mut self, name: IdentifierIndex, value: BergResult<'a>) -> BergResult<'a, ()> {
         use ControlVal::*;
         match self {
             AmbiguousSyntax(val) => val.set_field(name, value),
-            ExpressionError(..) | Error(_) => self.clone().result(),
+            ExpressionError(..) | Error(_) => self.clone().at_position(ExpressionErrorPosition::LeftOperand),
         }
     }
 }
 
 impl<'a> ControlVal<'a> {
-    pub fn result<T>(self) -> BergResult<'a, T> {
-        Err(self)
+    pub fn at_position<T>(self, new_position: ExpressionErrorPosition) -> BergResult<'a, T> {
+        use ControlVal::*;
+        use ExpressionErrorPosition::*;
+        match self {
+            ExpressionError(error, position) => match (position, new_position) {
+                (Expression, new_position) => ExpressionError(error, new_position).err(),
+                (position, Expression) => ExpressionError(error, position).err(),
+                (RightOperand, LeftOperand) => ExpressionError(error, RightLeft).err(),
+                (RightOperand, RightOperand) => ExpressionError(error, RightRight).err(),
+                (LeftOperand, LeftOperand) => ExpressionError(error, LeftLeft).err(),
+                (LeftOperand, RightOperand) => ExpressionError(error, LeftRight).err(),
+                _ => unreachable!("{:?} {:?} at {:?}", error, position, new_position),
+            }
+            _ => self.err(),
+        }
+    }
+    pub fn disambiguate_operand(self, new_position: ExpressionErrorPosition) -> BergResult<'a> {
+        match self {
+            ControlVal::AmbiguousSyntax(syntax) => match syntax.disambiguate() {
+                Err(ControlVal::AmbiguousSyntax(_)) => unreachable!(),
+                Err(error) => error.at_position(new_position),
+                Ok(value) => Ok(value),
+            }
+            _ => self.at_position(new_position)
+        }
     }
 }
 

@@ -60,7 +60,7 @@ impl<'a> BlockRef<'a> {
 
     pub fn apply(&self, input: RightOperand<'a, impl BergValue<'a>>) -> BergResult<'a> {
         let block = self.0.borrow();
-        let input = input.into_result();
+        let input = input.into_val();
         // Evaluate immediately and take the result.
         let new_block = Self::new(
             block.expression,
@@ -130,7 +130,7 @@ impl<'a> BlockRef<'a> {
         let scope = ScopeRef::BlockRef(self.clone());
         let expression = ExpressionEvaluator::new(&scope, &ast, expression);
         println!("Evaluating block {}", self);
-        let result = expression.evaluate().subexpression_result(ast.blocks[index].boundary);
+        let result = expression.evaluate_inner(ast.blocks[index].boundary);
         println!("result: {}", result.display());
         let mut block = self.0.borrow_mut();
         block.state = BlockState::Complete(result);
@@ -211,12 +211,9 @@ impl<'a> BlockRef<'a> {
                 .set_local_field(field_index, value, ast);
         }
         println!(
-            "Set {} to {}",
+            "Set {} to {:?}",
             ast.identifier_string(ast.fields[field_index].name),
-            match &value {
-                Ok(v) => format!("{}", v),
-                Err(v) => format!("{}", v),
-            }
+            value,
         );
         {
             let mut block = self.0.borrow_mut();
@@ -295,12 +292,12 @@ impl<'a> BergValue<'a> for BlockRef<'a> {
             None => Ok(None),
             Some(NextVal { head, tail }) => {
                 self.replace_result(tail);
-                Ok(Some(NextVal { head, tail: self.into_result() }))
+                Ok(Some(NextVal { head, tail: self.into_val() }))
             }
         }
     }
 
-    fn into_result(self) -> BergResult<'a> {
+    fn into_val(self) -> BergResult<'a> {
         Ok(self.into())
     }
 
@@ -318,7 +315,7 @@ impl<'a> BergValue<'a> for BlockRef<'a> {
             DOT => default_infix(self, operator, right),
             APPLY => self.apply(right),
             // Blocks do not evaluate when used as statements.
-            SEMICOLON | NEWLINE => right.into_result(),
+            SEMICOLON | NEWLINE => right.into_val(),
             _ => self.clone_result().infix(operator, right),
         }
     }
@@ -338,10 +335,6 @@ impl<'a> BergValue<'a> for BlockRef<'a> {
 
     fn subexpression_result(self, boundary: ExpressionBoundary) -> BergResult<'a> {
         self.clone_result().subexpression_result(boundary)
-    }
-
-    fn into_right_operand(self) -> BergResult<'a> {
-        self.clone_result().into_right_operand()
     }
 
     fn field(self, name: IdentifierIndex) -> BergResult<'a> {

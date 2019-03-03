@@ -47,10 +47,10 @@ impl<'a, V: BergValue<'a>+Clone, E: BergValue<'a>+Clone> BergValue<'a> for Resul
         }
     }
 
-    fn into_result(self) -> BergResult<'a> {
+    fn into_val(self) -> BergResult<'a> {
         match self {
-            Ok(value) => value.into_result(),
-            Err(control) => control.into_result()
+            Ok(value) => value.into_val(),
+            Err(control) => control.into_val()
         }
     }
 
@@ -86,13 +86,6 @@ impl<'a, V: BergValue<'a>+Clone, E: BergValue<'a>+Clone> BergValue<'a> for Resul
         match self {
             Ok(value) => value.subexpression_result(boundary),
             Err(control) => control.subexpression_result(boundary),
-        }
-    }
-
-    fn into_right_operand(self) -> BergResult<'a> {
-        match self {
-            Ok(value) => value.into_right_operand(),
-            Err(control) => control.into_right_operand()
         }
     }
 

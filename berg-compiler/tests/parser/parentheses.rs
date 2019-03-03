@@ -64,7 +64,7 @@ fn add_empty_parens_left() {
 }
 #[test]
 fn add_empty_parens_right() {
-    expect("1+()").to_error(BadType, 2..=3)
+    expect("1+()").to_error(BadOperandType, 2..=3)
 }
 #[test]
 fn add_empty_parens_both() {

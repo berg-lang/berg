@@ -1,7 +1,7 @@
 use crate::eval::BlockRef;
 use crate::syntax::{
     AstIndex, AstRef, ByteRange, ExpressionTreeWalker, ExpressionRef, FieldIndex, Fixity, IdentifierIndex,
-    LineColumnRange, LiteralIndex, OperandPosition, RawLiteralIndex,
+    LineColumnRange, LiteralIndex, RawLiteralIndex,
 };
 use crate::value::*;
 use std::fmt;
@@ -70,8 +70,8 @@ pub enum BergError<'a> {
     FieldNotSet(FieldIndex),
     CircularDependency,
     // TODO stop boxing BergVals
-    BadType(Box<BergResult<'a>>, &'static str),
-    BadOperandType(OperandPosition, Box<BergResult<'a>>, &'static str),
+    // BadOperandType(Box<BergResult<'a>>, &'static str),
+    BadOperandType(Box<BergResult<'a>>, &'static str),
     PrivateField(BlockRef<'a>, IdentifierIndex),
     NoSuchPublicField(BlockRef<'a>, IdentifierIndex),
     NoSuchPublicFieldOnValue(Box<BergResult<'a>>, IdentifierIndex),
@@ -103,7 +103,7 @@ pub enum ErrorCode {
     // Compile errors related to type (checker)
     UnsupportedOperator = 1001,
     DivideByZero,
-    BadType,
+    BadOperandType,
     NoSuchField,
     NoSuchPublicField,
     FieldNotSet,
@@ -123,9 +123,12 @@ pub enum ErrorLocation<'a> {
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub enum ExpressionErrorPosition {
     Expression,
-    ImmediateLeftOperand,
     LeftOperand,
     RightOperand,
+    LeftLeft,
+    LeftRight,
+    RightLeft,
+    RightRight,
 }
 
 impl<'a> ErrorLocation<'a> {
@@ -188,11 +191,6 @@ impl<'a> Error<'a> {
                 let range = expression.ast.token_ranges[expression.expression().root_index()].clone();
                 SourceRange(expression.ast, range)
             }
-            BadOperandType(position, ..) => {
-                let operand = expression.expression().child_expression(position).root_index();
-                SourceExpression(expression.ast, operand)
-            }
-
 
             DivideByZero | RightSideOfDotMustBeIdentifier => {
                 let operand = expression.expression().right_expression().root_index();
@@ -224,7 +222,9 @@ impl<'a> Error<'a> {
             | CircularDependency
             | ImmutableFieldOnRoot(..)
             | PrivateField(..)
-            | BadType(..) => ErrorLocation::SourceExpression(expression.ast, expression.root),
+            | BadOperandType(..)
+            // | BadOperandType(..)
+            => ErrorLocation::SourceExpression(expression.ast, expression.root),
         }
     }
 }
@@ -248,7 +248,7 @@ impl fmt::Display for ErrorCode {
             CloseWithoutOpen => "CloseWithoutOpen",
             UnsupportedOperator => "UnsupportedOperator",
             DivideByZero => "DivideByZero",
-            BadType => "BadType",
+            BadOperandType => "BadOperandType",
             NoSuchField => "NoSuchField",
             NoSuchPublicField => "NoSuchPublicField",
             FieldNotSet => "FieldNotSet",
@@ -406,22 +406,22 @@ impl<'a> fmt::Display for Error<'a> {
                 left = expression.expression().left_expression(),
                 right = expression.expression().right_expression(),
             ),
-            BadOperandType(position,ref actual_value,expected_type) => write!(
+            BadOperandType(ref actual_value,expected_type) => write!(
                 f,
                 "The value of '{operand}' is {actual_value}, but {position} '{operator}' must be an {expected_type}!",
-                operand = expression.expression().child_expression(position),
+                operand = expression.expression(),
                 actual_value = actual_value.display(),
-                position = position,
+                position = expression.expression().operand_position(),
                 operator = expression.expression().token_string(),
                 expected_type = expected_type
             ),
-            BadType(ref actual_value,expected_type) => write!(
-                f,
-                "The value of '{}' is {}, but we expected {}!",
-                expression,
-                actual_value.display(),
-                expected_type
-            ),
+            // BadOperandType(ref actual_value,expected_type) => write!(
+            //     f,
+            //     "The value of '{}' is {}, but we expected {}!",
+            //     expression,
+            //     actual_value.display(),
+            //     expected_type
+            // ),
         }
     }
 }
@@ -470,7 +470,7 @@ impl<'a> BergError<'a> {
             FieldNotSet(..) => ErrorCode::FieldNotSet,
             CircularDependency => ErrorCode::CircularDependency,
             ImmutableFieldOnRoot(..) => ErrorCode::ImmutableField,
-            BadOperandType(..) | BadType(..) => ErrorCode::BadType,
+            BadOperandType(..) => ErrorCode::BadOperandType,
         }
     }
 }

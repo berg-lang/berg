@@ -23,7 +23,7 @@ impl<'a> AssignmentTarget<'a> {
     }
 
     pub fn set(&mut self, value: impl BergValue<'a>) -> BergResult<'a, ()> {
-        self.set_internal(value.into_result())?;
+        self.set_internal(value.into_val())?;
         // If it's a declaration, declare it public now that it's been set.
         self.declare()?;
         Ok(())
@@ -47,11 +47,12 @@ impl<'a> AssignmentTarget<'a> {
 
     fn get_internal(&self) -> BergResult<'a> {
         use AssignmentTarget::*;
-        match self {
-            LocalFieldReference(scope, field) | LocalFieldDeclaration(scope, field) => scope
-                .local_field(*field, &scope.ast()),
+        let result = match self {
+            LocalFieldReference(scope, field) | LocalFieldDeclaration(scope, field) => 
+                scope.local_field(*field, &scope.ast()),
             ObjectFieldReference(object, name) => object.clone().field(*name)
-        }
+        };
+        self.point_errors_at_identifier(result)
     }
 
     fn set_internal(&mut self, value: BergResult<'a>) -> BergResult<'a, ()> {
@@ -76,6 +77,18 @@ impl<'a> AssignmentTarget<'a> {
         }
         Ok(())
     }
+
+    fn point_errors_at_identifier(&self, result: BergResult<'a>) -> BergResult<'a> {
+        use AssignmentTarget::*;
+        use ExpressionErrorPosition::*;
+        match result {
+            Err(ControlVal::ExpressionError(error, Expression)) => match self {
+                LocalFieldDeclaration(..) | ObjectFieldReference(..) => error.operand_err(RightOperand),
+                LocalFieldReference(..) => error.err(),
+            },
+            _ => result,
+        }
+    }
 }
 
 impl<'a> From<AssignmentTarget<'a>> for ControlVal<'a> {
@@ -88,7 +101,7 @@ impl<'a> BergValue<'a> for AssignmentTarget<'a> {
     fn next_val(self) -> BergResult<'a, Option<NextVal<'a>>> {
         self.get().next_val()
     }
-    fn into_result(self) -> BergResult<'a> {
+    fn into_val(self) -> BergResult<'a> {
         self.result()
     }
     fn into_native<T: TryFromBergVal<'a>>(self) -> BergResult<'a, T> {
@@ -118,10 +131,6 @@ impl<'a> BergValue<'a> for AssignmentTarget<'a> {
 
     fn subexpression_result(self, boundary: ExpressionBoundary) -> BergResult<'a> {
         self.get().subexpression_result(boundary)
-    }
-
-    fn into_right_operand(self) -> BergResult<'a> {
-        self.get().into_right_operand()
     }
 
     fn field(self, name: IdentifierIndex) -> BergResult<'a> {

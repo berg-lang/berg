@@ -416,7 +416,7 @@ mod operators_logical {
 
     #[test]
     fn and_true_1() {
-        expect("true&&1").to_error(BadType, 6)
+        expect("true&&1").to_error(BadOperandType, 6)
     }
 
     #[test]
@@ -431,12 +431,12 @@ mod operators_logical {
 
     #[test]
     fn and_true_multiple() {
-        expect("true&&(1,2)").to_error(BadType, 6..=10)
+        expect("true&&(1,2)").to_error(BadOperandType, 6..=10)
     }
 
     #[test]
     fn and_true_empty() {
-        expect("true&&()").to_error(BadType, 6..=7)
+        expect("true&&()").to_error(BadOperandType, 6..=7)
     }
 
     #[test]
@@ -446,7 +446,7 @@ mod operators_logical {
 
     #[test]
     fn or_false_1() {
-        expect("false||1").to_error(BadType, 7)
+        expect("false||1").to_error(BadOperandType, 7)
     }
 
     #[test]
@@ -461,12 +461,12 @@ mod operators_logical {
 
     #[test]
     fn or_false_multiple() {
-        expect("false||(1,2)").to_error(BadType, 7..=11)
+        expect("false||(1,2)").to_error(BadOperandType, 7..=11)
     }
 
     #[test]
     fn or_false_empty() {
-        expect("false||()").to_error(BadType, 7..=8)
+        expect("false||()").to_error(BadOperandType, 7..=8)
     }
 
     #[test]

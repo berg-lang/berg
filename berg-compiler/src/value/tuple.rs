@@ -74,9 +74,6 @@ impl<'a> BergValue<'a> for Tuple<'a> {
     fn subexpression_result(self, boundary: ExpressionBoundary) -> BergResult<'a> {
         default_subexpression_result(self, boundary)
     }
-    fn into_right_operand(self) -> BergResult<'a> {
-        default_into_right_operand(self)
-    }
 
     fn field(self, name: IdentifierIndex) -> BergResult<'a> {
         default_field(self, name)
@@ -91,14 +88,14 @@ impl<'a> BergValue<'a> for Tuple<'a> {
             None => Ok(None),
         }
     }
-    fn into_result(self) -> BergResult<'a> {
+    fn into_val(self) -> BergResult<'a> {
         Ok(self.into())
     }
     fn into_native<T: TryFromBergVal<'a>>(mut self) -> BergResult<'a, T> {
         if self.0.len() == 1 {
             Ok(self.0.pop().unwrap().into_native()?)
         } else {
-            BergError::BadType(Box::new(Ok(BergVal::Tuple(self))), T::TYPE_NAME).err()
+            BergError::BadOperandType(Box::new(Ok(BergVal::Tuple(self))), T::TYPE_NAME).err()
         }
     }
     fn try_into_native<T: TryFromBergVal<'a>>(mut self) -> BergResult<'a, Option<T>> {
@@ -141,7 +138,7 @@ impl<'a> From<Tuple<'a>> for Vec<BergVal<'a>> {
 impl<'a> TryFromBergVal<'a> for Tuple<'a> {
     const TYPE_NAME: &'static str = "Tuple";
     fn try_from_berg_val(from: BergResult<'a>) -> BergResult<'a, Result<Self, BergVal<'a>>> {
-        match from.into_result()? {
+        match from.into_val()? {
             BergVal::Tuple(value) => Ok(Ok(value)),
             value => Ok(Err(value)),
         }

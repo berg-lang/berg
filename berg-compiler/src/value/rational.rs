@@ -8,7 +8,7 @@ impl<'a> BergValue<'a> for BigRational {
     fn next_val(self) -> BergResult<'a, Option<NextVal<'a>>> {
         single_next_val(self)
     }
-    fn into_result(self) -> BergResult<'a> {
+    fn into_val(self) -> BergResult<'a> {
         Ok(self.into())
     }
     fn into_native<T: TryFromBergVal<'a>>(self) -> BergResult<'a, T> {
@@ -31,7 +31,7 @@ impl<'a> BergValue<'a> for BigRational {
             }
             STAR => (self * right.into_native::<BigRational>()?).ok(),
             EQUAL_TO => match right.try_into_native::<BigRational>()? {
-                Some(right) => (self == right).into_result(),
+                Some(right) => (self == right).into_val(),
                 None => false.ok(),
             }
             GREATER_THAN => (self > right.into_native::<BigRational>()?).ok(),
@@ -68,10 +68,6 @@ impl<'a> BergValue<'a> for BigRational {
         default_subexpression_result(self, boundary)
     }
 
-    fn into_right_operand(self) -> BergResult<'a> {
-        default_into_right_operand(self)
-    }
-
     fn field(self, name: IdentifierIndex) -> BergResult<'a> {
         default_field(self, name)
     }
@@ -95,7 +91,7 @@ impl<'a> From<BigRational> for BergVal<'a> {
 impl<'a> TryFromBergVal<'a> for BigRational {
     const TYPE_NAME: &'static str = "number";
     fn try_from_berg_val(from: BergResult<'a>) -> BergResult<'a, Result<Self, BergVal<'a>>> {
-        match from.into_result()? {
+        match from.into_val()? {
             BergVal::BigRational(value) => Ok(Ok(value)),
             value => Ok(Err(value)),
         }
@@ -108,7 +104,7 @@ macro_rules! impl_berg_val_for_primitive_num {
             impl<'a> TryFromBergVal<'a> for $type {
                 const TYPE_NAME: &'static str = stringify!($type);
                 fn try_from_berg_val(from: BergResult<'a>) -> BergResult<'a, Result<Self, BergVal<'a>>> {
-                    match from.into_result()? {
+                    match from.into_val()? {
                         BergVal::BigRational(value) => {
                             if value.is_integer() {
                                 if let Some(value) = value.to_integer().$to() {

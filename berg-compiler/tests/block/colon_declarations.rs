@@ -123,11 +123,11 @@ fn declare_error() {
 }
 #[test]
 fn declare_error_ref() {
-    expect("a: 1 + true; a").to_error(BadType, 7..=10)
+    expect("a: 1 + true; a").to_error(BadOperandType, 7..=10)
 }
 #[test]
 fn declare_error_ref_twice() {
-    expect("a: 1 + true; a + a").to_error(BadType, 7..=10)
+    expect("a: 1 + true; a + a").to_error(BadOperandType, 7..=10)
 }
 
 //

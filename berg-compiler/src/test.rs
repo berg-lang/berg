@@ -79,7 +79,7 @@ impl<'a> ExpectBerg<'a> {
     }
 
     pub fn bergvals_equal(expected: BergVal<'a>, actual: BergVal<'a>) -> BergResult<'a, bool> {
-        Ok(expected.infix(EQUAL_TO, RightOperand::new(actual))?.into_native::<bool>()?)
+        Ok(expected.infix(EQUAL_TO, actual.into())?.into_native::<bool>()?)
     }
 
     #[allow(clippy::needless_pass_by_value, clippy::wrong_self_convention)]

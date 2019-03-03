@@ -201,17 +201,17 @@ mod operators_comparison {
 
     #[test]
     fn greater_or_equal_0_false() {
-        expect("0>=false").to_error(BadType, 3..=7)
+        expect("0>=false").to_error(BadOperandType, 3..=7)
     }
 
     #[test]
     fn greater_or_equal_0_empty() {
-        expect("0>=()").to_error(BadType, 3..=4)
+        expect("0>=()").to_error(BadOperandType, 3..=4)
     }
 
     #[test]
     fn greater_or_equal_0_true() {
-        expect("0>=true").to_error(BadType, 3..=6)
+        expect("0>=true").to_error(BadOperandType, 3..=6)
     }
 
     #[test]
@@ -231,12 +231,12 @@ mod operators_comparison {
 
     #[test]
     fn greater_or_equal_1_false() {
-        expect("1>=false").to_error(BadType, 3..=7)
+        expect("1>=false").to_error(BadOperandType, 3..=7)
     }
 
     #[test]
     fn greater_or_equal_1_true() {
-        expect("1>=true").to_error(BadType, 3..=6)
+        expect("1>=true").to_error(BadOperandType, 3..=6)
     }
 
     #[test]
@@ -273,17 +273,17 @@ mod operators_comparison {
 
     #[test]
     fn greater_than_0_false() {
-        expect("0>false").to_error(BadType, 2..=6)
+        expect("0>false").to_error(BadOperandType, 2..=6)
     }
 
     #[test]
     fn greater_than_0_empty() {
-        expect("0>()").to_error(BadType, 2..=3)
+        expect("0>()").to_error(BadOperandType, 2..=3)
     }
 
     #[test]
     fn greater_than_0_true() {
-        expect("0>true").to_error(BadType, 2..=5)
+        expect("0>true").to_error(BadOperandType, 2..=5)
     }
 
     #[test]
@@ -303,12 +303,12 @@ mod operators_comparison {
 
     #[test]
     fn greater_than_1_false() {
-        expect("1>false").to_error(BadType, 2..=6)
+        expect("1>false").to_error(BadOperandType, 2..=6)
     }
 
     #[test]
     fn greater_than_1_true() {
-        expect("1>true").to_error(BadType, 2..=5)
+        expect("1>true").to_error(BadOperandType, 2..=5)
     }
 
     #[test]
@@ -344,17 +344,17 @@ mod operators_comparison {
 
     #[test]
     fn less_or_equal_0_false() {
-        expect("0<=false").to_error(BadType, 3..=7)
+        expect("0<=false").to_error(BadOperandType, 3..=7)
     }
 
     #[test]
     fn less_or_equal_0_empty() {
-        expect("0<=()").to_error(BadType, 3..=4)
+        expect("0<=()").to_error(BadOperandType, 3..=4)
     }
 
     #[test]
     fn less_or_equal_0_true() {
-        expect("0<=true").to_error(BadType, 3..=6)
+        expect("0<=true").to_error(BadOperandType, 3..=6)
     }
 
     #[test]
@@ -374,12 +374,12 @@ mod operators_comparison {
 
     #[test]
     fn less_or_equal_1_false() {
-        expect("1<=false").to_error(BadType, 3..=7)
+        expect("1<=false").to_error(BadOperandType, 3..=7)
     }
 
     #[test]
     fn less_or_equal_1_true() {
-        expect("1<=true").to_error(BadType, 3..=6)
+        expect("1<=true").to_error(BadOperandType, 3..=6)
     }
 
     #[test]
@@ -416,17 +416,17 @@ mod operators_comparison {
 
     #[test]
     fn less_than_0_false() {
-        expect("0<false").to_error(BadType, 2..=6)
+        expect("0<false").to_error(BadOperandType, 2..=6)
     }
 
     #[test]
     fn less_than_0_empty() {
-        expect("0<()").to_error(BadType, 2..=3)
+        expect("0<()").to_error(BadOperandType, 2..=3)
     }
 
     #[test]
     fn less_than_0_true() {
-        expect("0<true").to_error(BadType, 2..=5)
+        expect("0<true").to_error(BadOperandType, 2..=5)
     }
 
     #[test]
@@ -446,12 +446,12 @@ mod operators_comparison {
 
     #[test]
     fn less_than_1_false() {
-        expect("1<false").to_error(BadType, 2..=6)
+        expect("1<false").to_error(BadOperandType, 2..=6)
     }
 
     #[test]
     fn less_than_1_true() {
-        expect("1<true").to_error(BadType, 2..=5)
+        expect("1<true").to_error(BadOperandType, 2..=5)
     }
 
     #[test]
@@ -560,17 +560,17 @@ mod operators_math {
 
     #[test]
     fn add_1_false() {
-        expect("1+false").to_error(BadType, 2..=6)
+        expect("1+false").to_error(BadOperandType, 2..=6)
     }
 
     #[test]
     fn add_1_empty() {
-        expect("1+()").to_error(BadType, 2..=3)
+        expect("1+()").to_error(BadOperandType, 2..=3)
     }
 
     #[test]
     fn add_1_true() {
-        expect("1+true").to_error(BadType, 2..=5)
+        expect("1+true").to_error(BadOperandType, 2..=5)
     }
 
     #[test]
@@ -605,17 +605,17 @@ mod operators_math {
 
     #[test]
     fn sub_1_false() {
-        expect("1-false").to_error(BadType, 2..=6)
+        expect("1-false").to_error(BadOperandType, 2..=6)
     }
 
     #[test]
     fn sub_1_empty() {
-        expect("1-()").to_error(BadType, 2..=3)
+        expect("1-()").to_error(BadOperandType, 2..=3)
     }
 
     #[test]
     fn sub_1_true() {
-        expect("1-true").to_error(BadType, 2..=5)
+        expect("1-true").to_error(BadOperandType, 2..=5)
     }
 
     #[test]
@@ -655,17 +655,17 @@ mod operators_math {
 
     #[test]
     fn mul_1_false() {
-        expect("1*false").to_error(BadType, 2..=6)
+        expect("1*false").to_error(BadOperandType, 2..=6)
     }
 
     #[test]
     fn mul_1_empty() {
-        expect("1*()").to_error(BadType, 2..=3)
+        expect("1*()").to_error(BadOperandType, 2..=3)
     }
 
     #[test]
     fn mul_1_true() {
-        expect("1*true").to_error(BadType, 2..=5)
+        expect("1*true").to_error(BadOperandType, 2..=5)
     }
 
     #[test]
@@ -700,17 +700,17 @@ mod operators_math {
 
     #[test]
     fn div_1_false() {
-        expect("1/false").to_error(BadType, 2..=6)
+        expect("1/false").to_error(BadOperandType, 2..=6)
     }
 
     #[test]
     fn div_1_empty() {
-        expect("1/()").to_error(BadType, 2..=3)
+        expect("1/()").to_error(BadOperandType, 2..=3)
     }
 
     #[test]
     fn div_1_true() {
-        expect("1/true").to_error(BadType, 2..=5)
+        expect("1/true").to_error(BadOperandType, 2..=5)
     }
 
     #[test]

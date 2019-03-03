@@ -4,7 +4,7 @@ use crate::value::implement::*;
 impl<'a> TryFromBergVal<'a> for bool {
     const TYPE_NAME: &'static str = "bool";
     fn try_from_berg_val(from: BergResult<'a>) -> BergResult<'a, Result<Self, BergVal<'a>>> {
-        match from.into_result()? {
+        match from.into_val()? {
             BergVal::Boolean(value) => Ok(Ok(value)),
             value => Ok(Err(value)),
         }
@@ -19,7 +19,7 @@ impl<'a> From<bool> for BergVal<'a> {
 
 // Implementations for common types
 impl<'a> BergValue<'a> for bool {
-    fn into_result(self) -> BergResult<'a> {
+    fn into_val(self) -> BergResult<'a> {
         BergVal::Boolean(self).ok()
     }
 
@@ -33,10 +33,10 @@ impl<'a> BergValue<'a> for bool {
 
     fn infix(self, operator: IdentifierIndex, right: RightOperand<'a, impl BergValue<'a>>) -> BergResult<'a> {
         match operator {
-            AND_AND => (self && right.into_native()?).into_result(),
-            OR_OR => (self || right.into_native()?).into_result(),
+            AND_AND => (self && right.into_native()?).into_val(),
+            OR_OR => (self || right.into_native()?).into_val(),
             EQUAL_TO => match right.try_into_native::<bool>()? {
-                Some(right) => (self == right).into_result(),
+                Some(right) => (self == right).into_val(),
                 None => false.ok(),
             }
             _ => default_infix(self, operator, right),
@@ -61,10 +61,6 @@ impl<'a> BergValue<'a> for bool {
 
     fn subexpression_result(self, boundary: ExpressionBoundary) -> BergResult<'a> {
         default_subexpression_result(self, boundary)
-    }
-
-    fn into_right_operand(self) -> BergResult<'a> {
-        default_into_right_operand(self)
     }
 
     fn field(self, name: IdentifierIndex) -> BergResult<'a> {

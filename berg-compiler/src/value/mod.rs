@@ -16,4 +16,5 @@ pub use self::error::{BergError, Error, ErrorCode, ExpressionErrorPosition, Erro
 pub use self::result::{BergResult, DisplayAnyway};
 pub use self::tuple::Tuple;
 // Export types used in definition of BergValue and BergVal
+pub use crate::eval::AmbiguousSyntax;
 pub use crate::syntax::{IdentifierIndex, ExpressionBoundary};

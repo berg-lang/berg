@@ -224,35 +224,35 @@ fn assign_or_prev_ref_false() {
 //
 #[test]
 fn assign_missing_right() {
-    expect(":a = ; a").to_error(MissingOperand, 3)
+    expect(":a = ; a").to_error(FieldNotSet, 1)
 }
 #[test]
 fn reassign_missing_right() {
-    expect("a = ; a").to_error(MissingOperand, 2)
+    expect("a = ; a").to_error(FieldNotSet, 0)
 }
 #[test]
 fn assign_plus_missing_right() {
-    expect(":a += ; a").to_error(MissingOperand, 3..=4)
+    expect(":a += ; a").to_error(FieldNotSet, 1)
 }
 #[test]
 fn assign_minus_missing_right() {
-    expect(":a -= ; a").to_error(MissingOperand, 3..=4)
+    expect(":a -= ; a").to_error(FieldNotSet, 1)
 }
 #[test]
 fn assign_multiply_missing_right() {
-    expect(":a *= ; a").to_error(MissingOperand, 3..=4)
+    expect(":a *= ; a").to_error(FieldNotSet, 1)
 }
 #[test]
 fn assign_divide_missing_right() {
-    expect(":a /= ; a").to_error(MissingOperand, 3..=4)
+    expect(":a /= ; a").to_error(FieldNotSet, 1)
 }
 #[test]
 fn assign_and_missing_right() {
-    expect(":a &&= ; a").to_error(MissingOperand, 3..=5)
+    expect(":a &&= ; a").to_error(FieldNotSet, 1)
 }
 #[test]
 fn assign_or_missing_right() {
-    expect(":a ||= ; a").to_error(MissingOperand, 3..=5)
+    expect(":a ||= ; a").to_error(FieldNotSet, 1)
 }
 
 #[test]
@@ -384,19 +384,19 @@ fn assign_divide_non_field_expr() {
 }
 #[test]
 fn increment_post_non_field_expr() {
-    expect("(1+2)++").to_error(AssignmentTargetMustBeIdentifier, 1..=3)
+    expect("(1+2)++").to_error(AssignmentTargetMustBeIdentifier, 0..=4)
 }
 #[test]
 fn decrement_post_non_field_expr() {
-    expect("(1+2)--").to_error(AssignmentTargetMustBeIdentifier, 1..=3)
+    expect("(1+2)--").to_error(AssignmentTargetMustBeIdentifier, 0..=4)
 }
 #[test]
 fn increment_pre_non_field_expr() {
-    expect("++(1+2)").to_error(AssignmentTargetMustBeIdentifier, 3..=5)
+    expect("++(1+2)").to_error(AssignmentTargetMustBeIdentifier, 2..=6)
 }
 #[test]
 fn decrement_pre_non_field_expr() {
-    expect("--(1+2)").to_error(AssignmentTargetMustBeIdentifier, 3..=5)
+    expect("--(1+2)").to_error(AssignmentTargetMustBeIdentifier, 2..=6)
 }
 
 //
@@ -438,31 +438,31 @@ fn assign_or_error() {
 
 #[test]
 fn assign_error_ref() {
-    expect(":a = 1 + true; a").to_error(BadType, 9..=12)
+    expect(":a = 1 + true; a").to_error(BadOperandType, 9..=12)
 }
 #[test]
 fn reassign_error_ref() {
-    expect(":a = 1; a  = 1 + true; a").to_error(BadType, 17..=20)
+    expect(":a = 1; a  = 1 + true; a").to_error(BadOperandType, 17..=20)
 }
 #[test]
 fn assign_plus_error_ref() {
-    expect(":a = 1; a += 1 + true; a").to_error(BadType, 17..=20)
+    expect(":a = 1; a += 1 + true; a").to_error(BadOperandType, 17..=20)
 }
 #[test]
 fn assign_minus_error_ref() {
-    expect(":a = 1; a -= 1 + true; a").to_error(BadType, 17..=20)
+    expect(":a = 1; a -= 1 + true; a").to_error(BadOperandType, 17..=20)
 }
 #[test]
 fn assign_times_error_ref() {
-    expect(":a = 1; a *= 1 + true; a").to_error(BadType, 17..=20)
+    expect(":a = 1; a *= 1 + true; a").to_error(BadOperandType, 17..=20)
 }
 #[test]
 fn assign_divide_error_ref() {
-    expect(":a = 1; a /= 1 + true; a").to_error(BadType, 17..=20)
+    expect(":a = 1; a /= 1 + true; a").to_error(BadOperandType, 17..=20)
 }
 #[test]
 fn assign_and_error_ref() {
-    expect(":a = true; a &&= true && 1; a").to_error(BadType, 25)
+    expect(":a = true; a &&= true && 1; a").to_error(BadOperandType, 25)
 }
 #[test]
 fn assign_or_error_ref() {
@@ -471,7 +471,7 @@ fn assign_or_error_ref() {
 
 #[test]
 fn assign_error_ref_twice() {
-    expect(":a = 1 + true; a + a").to_error(BadType, 9..=12)
+    expect(":a = 1 + true; a + a").to_error(BadOperandType, 9..=12)
 }
 
 //
@@ -760,7 +760,7 @@ fn assign_plus_bad_type_left() {
 }
 #[test]
 fn assign_plus_bad_type_right() {
-    expect(":a = 2;    a += true; a").to_error(BadType, 16..=19)
+    expect(":a = 2;    a += true; a").to_error(BadOperandType, 16..=19)
 }
 #[test]
 fn assign_plus_bad_type_both() {
@@ -772,7 +772,7 @@ fn assign_minus_bad_type_left() {
 }
 #[test]
 fn assign_minus_bad_type_right() {
-    expect(":a = 2;    a -= true; a").to_error(BadType, 16..=19)
+    expect(":a = 2;    a -= true; a").to_error(BadOperandType, 16..=19)
 }
 #[test]
 fn assign_minus_bad_type_both() {
@@ -784,7 +784,7 @@ fn assign_multiply_bad_type_left() {
 }
 #[test]
 fn assign_multiply_bad_type_right() {
-    expect(":a = 2;    a *= true; a").to_error(BadType, 16..=19)
+    expect(":a = 2;    a *= true; a").to_error(BadOperandType, 16..=19)
 }
 #[test]
 fn assign_multiply_bad_type_both() {
@@ -796,7 +796,7 @@ fn assign_divide_bad_type_left() {
 }
 #[test]
 fn assign_divide_bad_type_right() {
-    expect(":a = 2;    a /= true; a").to_error(BadType, 16..=19)
+    expect(":a = 2;    a /= true; a").to_error(BadOperandType, 16..=19)
 }
 #[test]
 fn assign_divide_bad_type_both() {
@@ -809,7 +809,7 @@ fn assign_and_bad_type_left() {
 }
 #[test]
 fn assign_and_bad_type_right() {
-    expect(":a = true; a &&= 2; a").to_error(BadType, 17)
+    expect(":a = true; a &&= 2; a").to_error(BadOperandType, 17)
 }
 #[test]
 fn assign_and_bad_type_both() {
@@ -821,7 +821,7 @@ fn assign_or_bad_type_left() {
 }
 #[test]
 fn assign_or_bad_type_right() {
-    expect(":a = true; a &&= 2; a").to_error(BadType, 17)
+    expect(":a = true; a &&= 2; a").to_error(BadOperandType, 17)
 }
 #[test]
 fn assign_or_bad_type_both() {
@@ -890,7 +890,7 @@ fn assign_plus_bad_type_left_ref() {
 }
 #[test]
 fn assign_plus_bad_type_right_ref() {
-    expect(":a = 2;    a += true; a").to_error(BadType, 16..=19)
+    expect(":a = 2;    a += true; a").to_error(BadOperandType, 16..=19)
 }
 #[test]
 fn assign_plus_bad_type_both_ref() {
@@ -902,7 +902,7 @@ fn assign_minus_bad_type_left_ref() {
 }
 #[test]
 fn assign_minus_bad_type_right_ref() {
-    expect(":a = 2;    a -= true; a").to_error(BadType, 16..=19)
+    expect(":a = 2;    a -= true; a").to_error(BadOperandType, 16..=19)
 }
 #[test]
 fn assign_minus_bad_type_both_ref() {
@@ -914,7 +914,7 @@ fn assign_multiply_bad_type_left_ref() {
 }
 #[test]
 fn assign_multiply_bad_type_right_ref() {
-    expect(":a = 2;    a *= true; a").to_error(BadType, 16..=19)
+    expect(":a = 2;    a *= true; a").to_error(BadOperandType, 16..=19)
 }
 #[test]
 fn assign_multiply_bad_type_both_ref() {
@@ -926,7 +926,7 @@ fn assign_divide_bad_type_left_ref() {
 }
 #[test]
 fn assign_divide_bad_type_right_ref() {
-    expect(":a = 2;    a /= true; a").to_error(BadType, 16..=19)
+    expect(":a = 2;    a /= true; a").to_error(BadOperandType, 16..=19)
 }
 #[test]
 fn assign_divide_bad_type_both_ref() {
@@ -939,7 +939,7 @@ fn assign_and_bad_type_left_ref() {
 }
 #[test]
 fn assign_and_bad_type_right_ref() {
-    expect(":a = true; a &&= 2; a").to_error(BadType, 17)
+    expect(":a = true; a &&= 2; a").to_error(BadOperandType, 17)
 }
 #[test]
 fn assign_and_bad_type_both_ref() {
@@ -951,7 +951,7 @@ fn assign_or_bad_type_left_ref() {
 }
 #[test]
 fn assign_or_bad_type_right_ref() {
-    expect(":a = true; a &&= 2; a").to_error(BadType, 17)
+    expect(":a = true; a &&= 2; a").to_error(BadOperandType, 17)
 }
 #[test]
 fn assign_or_bad_type_both_ref() {

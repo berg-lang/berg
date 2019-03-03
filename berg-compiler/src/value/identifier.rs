@@ -5,7 +5,7 @@ use crate::value::implement::*;
 impl<'a> TryFromBergVal<'a> for IdentifierIndex {
     const TYPE_NAME: &'static str = "identifier";
     fn try_from_berg_val(from: BergResult<'a>) -> BergResult<'a, Result<Self, BergVal<'a>>> {
-        match from.into_result() {
+        match from.into_val() {
             Err(ControlVal::AmbiguousSyntax(AmbiguousSyntax::RawIdentifier(identifier))) => Ok(Ok(identifier)),
             Err(error) => Err(error),
             Ok(value) => Ok(Err(value)),
@@ -15,8 +15,8 @@ impl<'a> TryFromBergVal<'a> for IdentifierIndex {
 
 // Implementations for common types
 impl<'a> BergValue<'a> for IdentifierIndex {
-    fn into_result(self) -> BergResult<'a> {
-        ControlVal::AmbiguousSyntax(AmbiguousSyntax::RawIdentifier(self)).result()
+    fn into_val(self) -> BergResult<'a> {
+        ControlVal::AmbiguousSyntax(AmbiguousSyntax::RawIdentifier(self)).err()
     }
 
     fn into_native<T: TryFromBergVal<'a>>(self) -> BergResult<'a, T> {
@@ -34,7 +34,7 @@ impl<'a> BergValue<'a> for IdentifierIndex {
     fn infix(self, operator: IdentifierIndex, right: RightOperand<'a, impl BergValue<'a>>) -> BergResult<'a> {
         match operator {
             EQUAL_TO => match right.try_into_native::<IdentifierIndex>()? {
-                Some(right) => (self == right).into_result(),
+                Some(right) => (self == right).into_val(),
                 None => false.ok(),
             }
             _ => default_infix(self, operator, right),
@@ -55,10 +55,6 @@ impl<'a> BergValue<'a> for IdentifierIndex {
 
     fn subexpression_result(self, boundary: ExpressionBoundary) -> BergResult<'a> {
         default_subexpression_result(self, boundary)
-    }
-
-    fn into_right_operand(self) -> BergResult<'a> {
-        default_into_right_operand(self)
     }
 
     fn field(self, name: IdentifierIndex) -> BergResult<'a> {

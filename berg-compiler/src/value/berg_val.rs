@@ -44,7 +44,7 @@ impl<'a> From<BergVal<'a>> for BergResult<'a> {
 }
 
 impl<'a> BergValue<'a> for BergVal<'a> {
-    fn into_result(self) -> BergResult<'a> {
+    fn into_val(self) -> BergResult<'a> {
         Ok(self)
     }
 
@@ -125,16 +125,6 @@ impl<'a> BergValue<'a> for BergVal<'a> {
             BigRational(value) => value.subexpression_result(boundary),
             BlockRef(value) => value.subexpression_result(boundary),
             Tuple(value) => value.subexpression_result(boundary),
-        }
-    }
-
-    fn into_right_operand(self) -> BergResult<'a> {
-        use BergVal::*;
-        match self {
-            Boolean(value) => value.into_right_operand(),
-            BigRational(value) => value.into_right_operand(),
-            BlockRef(value) => value.into_right_operand(),
-            Tuple(value) => value.into_right_operand(),
         }
     }
 
