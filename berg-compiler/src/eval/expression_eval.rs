@@ -105,14 +105,6 @@ impl<'p, 'a: 'p> ExpressionEvaluator<'p, 'a> {
                     error: ExpressionBoundaryError::CloseWithoutOpen,
                     ..
                 } => BergError::CloseWithoutOpen.err(),
-                OpenBlock {
-                    error: ExpressionBoundaryError::EmptyAutoBlock,
-                    ..
-                }
-                | Open {
-                    error: ExpressionBoundaryError::EmptyAutoBlock,
-                    ..
-                } => AmbiguousSyntax::MissingExpression.into_val(),
 
                 // Tokens that should have been handled elsewhere in the stack
                 ErrorTerm(..) | RawErrorTerm(..) => unreachable!(),
@@ -157,9 +149,7 @@ impl<'p, 'a: 'p> ExpressionEvaluator<'p, 'a> {
 
     pub fn evaluate_inner(self, boundary: ExpressionBoundary) -> BergResult<'a> {
         let inner = self.inner_expression().evaluate_local();
-        println!("inner: {:?}", inner);
         let result = inner.subexpression_result(boundary);
-        println!("result = {:?}", result);
         self.delocalize_errors(result)
     }
 

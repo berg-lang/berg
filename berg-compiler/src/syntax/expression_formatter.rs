@@ -29,7 +29,7 @@ impl<'p, 'a: 'p> ExpressionTreeWalker<'p, 'a, ExpressionFormatter> {
             _ => unreachable!(),
         };
         match boundary {
-            ExpressionBoundary::AutoBlock => ("prec{", "}"),
+            ExpressionBoundary::AutoBlock => ("auto{", "}"),
             ExpressionBoundary::PrecedenceGroup => ("prec(", ")"),
             ExpressionBoundary::CompoundTerm => ("term(", ")"),
             ExpressionBoundary::Parentheses => ("(", ")"),

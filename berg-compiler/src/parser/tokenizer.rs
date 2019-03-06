@@ -1,7 +1,7 @@
-use crate::parser::grouper::Grouper;
+use crate::parser::Grouper;
 use crate::syntax::ExpressionToken::*;
 use crate::syntax::OperatorToken::*;
-use crate::syntax::{Ast, ByteIndex, ByteRange, ExpressionBoundary, ExpressionBoundaryError, Token, ExpressionToken, OperatorToken};
+use crate::syntax::{Ast, ByteIndex, ByteRange, ExpressionBoundary, ExpressionBoundaryError, ExpressionToken, OperatorToken, Token};
 
 // This builds up a valid expression from the incoming sequences, doing two things:
 // 1. Inserting apply, newline sequence, and missing expression as appropriate

@@ -1,6 +1,6 @@
 use crate::parser::sequencer::ByteType::*;
 use crate::parser::sequencer::CharType::*;
-use crate::parser::tokenizer::Tokenizer;
+use crate::parser::Tokenizer;
 use crate::syntax::ExpressionBoundary::*;
 use crate::syntax::OperatorToken::*;
 use crate::syntax::ExpressionToken::*;

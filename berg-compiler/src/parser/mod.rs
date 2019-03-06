@@ -3,8 +3,11 @@ mod grouper;
 mod sequencer;
 mod tokenizer;
 
-use self::sequencer::Sequencer;
 use crate::syntax::{Ast, AstRef, SourceBuffer, SourceRef};
+use binder::Binder;
+use grouper::Grouper;
+use sequencer::Sequencer;
+use tokenizer::Tokenizer;
 
 ///
 /// Opens and parses the source into an AST.

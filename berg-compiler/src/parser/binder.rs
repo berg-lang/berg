@@ -59,14 +59,11 @@ impl<'a> Binder<'a> {
         self.ast
     }
 
-    pub fn push_token(&mut self, token: impl Into<Token>, range: ByteRange) -> AstIndex {
-        use Token::*;
+    pub fn push_expression_token(&mut self, token: ExpressionToken, range: ByteRange) -> AstIndex {
         use ExpressionToken::*;
-        use OperatorToken::*;
-        let token = token.into();
         match token {
             // Unless it's preceded by a ., raw identifier is always a local field access or declaration, so bind it and translate it.
-            Expression(RawIdentifier(name))
+            RawIdentifier(name)
                 if match self.ast.tokens.last() {
                     Some(&Token::Operator(OperatorToken::InfixOperator(DOT))) => false,
                     _ => true,
@@ -74,11 +71,11 @@ impl<'a> Binder<'a> {
             {
                 self.push_field_reference(name, range)
             }
-            Expression(Open {
+            Open {
                 boundary,
                 error,
                 delta,
-            }) if boundary.is_scope() => {
+            } if boundary.is_block() => {
                 let open_block_index = self.open_block_index();
                 let index = self.push_open_scope(boundary, Some(open_block_index));
 
@@ -90,11 +87,20 @@ impl<'a> Binder<'a> {
                 };
                 self.ast.push_token(token, range)
             }
-            Operator(Close {
+            // We are the one who generates these tokens; no one before us should be doing so.
+            FieldReference(_) | OpenBlock { .. } => unreachable!(),
+            IntegerLiteral(_) | RawIdentifier(_) | ErrorTerm(..) | RawErrorTerm(..) | PrefixOperator(_) | Open { .. } | MissingExpression => self.ast.push_token(token, range),
+        }
+    }
+
+    pub fn push_operator_token(&mut self, token: OperatorToken, range: ByteRange) -> AstIndex {
+        use OperatorToken::*;
+        match token {
+            Close {
                 boundary,
                 error,
                 delta,
-            }) if boundary.is_scope() => {
+            } if boundary.is_block() => {
                 let index = self.push_close_scope();
 
                 // Push the token.
@@ -106,8 +112,8 @@ impl<'a> Binder<'a> {
                 self.ast.push_token(token, range)
             }
             // We are the one who generates these tokens; no one before us should be doing so.
-            Expression(FieldReference(_)) | Expression(OpenBlock { .. }) | Operator(CloseBlock { .. }) => unreachable!(),
-            Operator(InfixOperator(COLON)) => self.push_declaration_with_default(token, range),
+            CloseBlock { .. } => unreachable!(),
+            InfixOperator(COLON) => self.push_declaration_with_default(token, range),
             _ => self.ast.push_token(token, range),
         }
     }
@@ -121,7 +127,7 @@ impl<'a> Binder<'a> {
                 boundary,
                 error,
                 delta,
-            }) if boundary.is_scope() => {
+            }) if boundary.is_block() => {
                 self.insert_open_scope(index, boundary, error, delta, range)
             }
             Expression(Open { .. }) => self.ast.insert_token(index, token, range),
@@ -145,7 +151,7 @@ impl<'a> Binder<'a> {
         self.ast.push_token(FieldReference(field), range)
     }
 
-    fn push_declaration_with_default(&mut self, token: Token, range: ByteRange) -> AstIndex {
+    fn push_declaration_with_default(&mut self, token: OperatorToken, range: ByteRange) -> AstIndex {
         use Token::*;
         use ExpressionToken::*;
         let prev_token_index = self.ast.tokens.last_index();

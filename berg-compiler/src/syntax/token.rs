@@ -6,8 +6,9 @@ use crate::syntax::{
 };
 use crate::value::ErrorCode;
 use std::borrow::Cow;
+use std::fmt;
 
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, PartialEq)]
 pub enum Token {
     Expression(ExpressionToken),
     Operator(OperatorToken)
@@ -61,7 +62,6 @@ pub enum ExpressionBoundaryError {
     CloseWithoutOpen,
     OpenWithoutClose,
     OpenError, // BergError opening or reading the source file
-    EmptyAutoBlock, // { a: }
     None,
 }
 
@@ -108,6 +108,15 @@ impl Token {
         match self {
             Token::Expression(token) => token.delta(),
             Token::Operator(token) => token.delta(),
+        }
+    }
+}
+
+impl fmt::Debug for Token {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Token::Expression(token) => write!(f, "{:?}", token),
+            Token::Operator(token) => write!(f, "{:?}", token),
         }
     }
 }
@@ -175,6 +184,13 @@ impl OperatorToken {
     pub fn has_right_operand(self) -> bool {
         self.fixity().has_right_operand()
     }
+    pub fn starts_auto_block(self) -> bool {
+        use OperatorToken::*;
+        match self {
+            InfixOperator(COLON) => true,
+            _ => false,
+        }
+    }
     pub fn to_string<'p, 'a: 'p>(&self, ast: &'p Ast<'a>) -> Cow<'p, str> {
         use OperatorToken::*;
         match *self {
@@ -207,10 +223,10 @@ impl OperatorToken {
 }
 
 impl ExpressionBoundary {
-    /// Tells whether this expression boundary represents a scope.
-    pub(crate) fn is_scope(self) -> bool {
+    /// Tells whether this expression boundary represents a block.
+    pub(crate) fn is_block(self) -> bool {
         match self {
-            CurlyBraces | Source | Root | AutoBlock => true,
+            CurlyBraces | Source | Root | AutoBlock  => true,
             Parentheses | PrecedenceGroup | CompoundTerm => false,
         }
     }
@@ -218,15 +234,15 @@ impl ExpressionBoundary {
     /// it represents actual user syntax, or opens a scope).
     pub(crate) fn is_required(self) -> bool {
         match self {
-            Root | AutoBlock | Source | CurlyBraces | Parentheses => true,
-            PrecedenceGroup | CompoundTerm => false,
+            Root | Source | CurlyBraces | Parentheses | AutoBlock => true,
+            PrecedenceGroup | CompoundTerm  => false,
         }
     }
     /// Tells whether we expect a close token for this boundary or if it's handled
     /// by the grouper automatically.
     pub(crate) fn is_closed_automatically(self) -> bool {
         match self {
-            PrecedenceGroup | CompoundTerm | AutoBlock => true,
+            PrecedenceGroup | CompoundTerm | AutoBlock  => true,
             Root | Source | CurlyBraces | Parentheses => false,
         }
     }
