@@ -128,7 +128,7 @@ impl<'a> BergValue<'a> for BergVal<'a> {
         }
     }
 
-    fn field(self, name: IdentifierIndex) -> BergResult<'a> {
+    fn field(self, name: IdentifierIndex) -> BergResult<'a, BergResult<'a>> {
         use BergVal::*;
         match self {
             Boolean(value) => value.field(name),

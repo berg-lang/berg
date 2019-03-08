@@ -220,7 +220,6 @@ impl<'a> Grouper<'a> {
             boundary,
             infix,
         };
-        println!("OPEN {:?}", open_expression);
         self.open_expressions.push(open_expression);
     }
 

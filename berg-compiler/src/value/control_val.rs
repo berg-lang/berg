@@ -76,7 +76,7 @@ impl<'a> BergValue<'a> for ControlVal<'a> {
         }
     }
 
-    fn field(self, name: IdentifierIndex) -> BergResult<'a> {
+    fn field(self, name: IdentifierIndex) -> BergResult<'a, BergResult<'a>> {
         use ControlVal::*;
         match self {
             AmbiguousSyntax(val) => val.field(name),
@@ -97,13 +97,13 @@ impl<'a> ControlVal<'a> {
         use ControlVal::*;
         use ExpressionErrorPosition::*;
         match self {
-            ExpressionError(error, position) => match (position, new_position) {
-                (Expression, new_position) => ExpressionError(error, new_position).err(),
-                (position, Expression) => ExpressionError(error, position).err(),
-                (RightOperand, LeftOperand) => ExpressionError(error, RightLeft).err(),
-                (RightOperand, RightOperand) => ExpressionError(error, RightRight).err(),
+            ExpressionError(error, position) => match (new_position, position) {
+                (new_position, Expression) => ExpressionError(error, new_position).err(),
+                (Expression, position) => ExpressionError(error, position).err(),
                 (LeftOperand, LeftOperand) => ExpressionError(error, LeftLeft).err(),
                 (LeftOperand, RightOperand) => ExpressionError(error, LeftRight).err(),
+                (RightOperand, LeftOperand) => ExpressionError(error, RightLeft).err(),
+                (RightOperand, RightOperand) => ExpressionError(error, RightRight).err(),
                 _ => unreachable!("{:?} {:?} at {:?}", error, position, new_position),
             }
             _ => self.err(),

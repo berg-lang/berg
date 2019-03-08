@@ -22,8 +22,8 @@ pub struct Field {
 
 #[derive(Copy, Clone, Debug)]
 pub enum FieldError {
-    PrivateField(IdentifierIndex),
-    NoSuchPublicField(IdentifierIndex),
+    PrivateField,
+    NoSuchPublicField,
 }
 
 impl AstBlock {
@@ -51,12 +51,12 @@ impl AstBlock {
                 if field.is_public {
                     return Ok(field_index);
                 } else {
-                    return Err(FieldError::PrivateField(name));
+                    return Err(FieldError::PrivateField);
                 };
             }
             field_index += 1;
         }
 
-        Err(FieldError::NoSuchPublicField(name))
+        Err(FieldError::NoSuchPublicField)
     }
 }

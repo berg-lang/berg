@@ -16,22 +16,16 @@ impl<'a> ScopeRef<'a> {
             ScopeRef::AstRef(_) => BlockRef::new(expression, index, self.clone(), Ok(BergVal::empty_tuple())),
         }
     }
-    pub fn local_field(&self, index: FieldIndex, ast: &Ast) -> BergResult<'a> {
+    pub fn local_field(&self, index: FieldIndex, ast: &Ast) -> BergResult<'a, BergResult<'a>> {
         match self {
             ScopeRef::BlockRef(ref block) => block.local_field(index, ast),
-            ScopeRef::AstRef(ref ast) => ast.source.root().local_field(index),
+            ScopeRef::AstRef(ref ast) => Ok(ast.source.root().local_field(index)),
         }
     }
-    pub fn field(self, name: IdentifierIndex) -> BergResult<'a> {
+    pub fn field(self, name: IdentifierIndex) -> BergResult<'a, BergResult<'a>> {
         match self {
             ScopeRef::BlockRef(block) => block.field(name),
             ScopeRef::AstRef(ast) => ast.source.root().field(name),
-        }
-    }
-    pub fn bring_local_field_into_scope(&self, index: FieldIndex, ast: &Ast) -> BergResult<'a, ()> {
-        match self {
-            ScopeRef::BlockRef(block) => block.bring_local_field_into_scope(index, ast),
-            ScopeRef::AstRef(_) => ast.source.root().bring_local_field_into_scope(index),
         }
     }
     pub fn declare_field(&self, index: FieldIndex, ast: &Ast) -> BergResult<'a, ()> {

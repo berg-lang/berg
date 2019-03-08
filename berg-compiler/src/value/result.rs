@@ -89,7 +89,7 @@ impl<'a, V: BergValue<'a>+Clone, E: BergValue<'a>+Clone> BergValue<'a> for Resul
         }
     }
 
-    fn field(self, name: IdentifierIndex) -> BergResult<'a> {
+    fn field(self, name: IdentifierIndex) -> BergResult<'a, BergResult<'a>> {
         match self {
             Ok(v) => v.field(name),
             Err(v) => v.field(name),

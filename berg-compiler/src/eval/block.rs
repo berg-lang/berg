@@ -16,11 +16,12 @@ use std::rc::Rc;
 #[derive(Clone)]
 pub struct BlockRef<'a>(Rc<RefCell<BlockData<'a>>>);
 
+#[derive(Debug)]
 struct BlockData<'a> {
     expression: AstIndex,
     state: BlockState<'a>,
     index: BlockIndex,
-    fields: Vec<BergResult<'a>>,
+    fields: Vec<BlockFieldValue<'a>>,
     parent: ScopeRef<'a>,
     input: BergResult<'a>,
 }
@@ -31,6 +32,13 @@ enum BlockState<'a> {
     Running,
     NextVal,
     Complete(BergResult<'a>),
+}
+
+#[derive(Debug, Clone)]
+enum BlockFieldValue<'a> {
+    NotDeclared,
+    NotSet,
+    Value(BergResult<'a>),
 }
 
 impl<'a> BlockRef<'a> {
@@ -124,7 +132,10 @@ impl<'a> BlockRef<'a> {
                 BlockState::Ready => {}
             }
             block.state = BlockState::Running;
-            (block.ast(), block.expression, block.index)
+            let ast = block.ast();
+            let index = block.index;
+            block.fields.resize(ast.blocks[index].scope_count.into(), BlockFieldValue::NotDeclared);
+            (ast, block.expression, index)
         };
         // Run the block and stash the result
         let scope = ScopeRef::BlockRef(self.clone());
@@ -137,13 +148,16 @@ impl<'a> BlockRef<'a> {
         Ok(())
     }
 
-    pub fn local_field(&self, index: FieldIndex, ast: &Ast) -> BergResult<'a> {
-        let scope_start = ast.blocks[self.0.borrow().index].scope_start;
+    pub fn local_field(&self, index: FieldIndex, ast: &Ast) -> BergResult<'a, BergResult<'a>> {
+        use BlockFieldValue::*;
         let block = self.0.borrow();
+        let scope_start = ast.blocks[block.index].scope_start;
         if index >= scope_start {
             let scope_index: usize = (index - scope_start).into();
             match block.fields.get(scope_index) {
-                Some(result) => result.clone(),
+                Some(Value(result)) => Ok(result.clone()),
+                Some(NotSet) => BergError::FieldNotSet(index).err(),
+                Some(NotDeclared) => BergError::NoSuchField(index).err(),
                 None => BergError::NoSuchField(index).err(),
             }
         } else {
@@ -158,11 +172,7 @@ impl<'a> BlockRef<'a> {
             let scope_start = ast.blocks[block.index].scope_start;
             // The index we intend to insert this at
             let block_field_index: usize = (field_index - scope_start).into();
-            while block_field_index >= block.fields.len() {
-                let no_such_field = BergError::NoSuchField(scope_start + block.fields.len());
-                block.fields.push(no_such_field.err());
-            }
-            if let Err(ControlVal::ExpressionError(BergError::NoSuchField(..), ExpressionErrorPosition::Expression)) = block.fields[block_field_index] {
+            if let BlockFieldValue::NotDeclared = block.fields[block_field_index] {
                 // The only known way to declare a field in an object (right now) is to set it while
                 // running.
                 assert!(match block.state {
@@ -187,10 +197,10 @@ impl<'a> BlockRef<'a> {
         // Put input back, and set the field to the value we got!
         let mut block = self.0.borrow_mut();
         block.fields[block_field_index] = match next_val {
-            None => BergError::FieldNotSet(field_index).err(),
+            None => BlockFieldValue::NotSet,
             Some(NextVal { head, tail }) => {
                 block.input = tail;
-                head
+                BlockFieldValue::Value(head)
             }
         };
         Ok(())
@@ -218,33 +228,9 @@ impl<'a> BlockRef<'a> {
         {
             let mut block = self.0.borrow_mut();
             let index: usize = (field_index - scope_start).into();
-            while index >= block.fields.len() {
-                block.fields.push(BergError::NoSuchField(field_index).err());
-            }
-            block.fields[index] = value;
+            block.fields[index] = BlockFieldValue::Value(value);
         }
         println!("Now we are {}", self);
-        Ok(())
-    }
-
-    pub fn bring_local_field_into_scope(
-        &self,
-        field_index: FieldIndex,
-        ast: &Ast,
-    ) -> BergResult<'a, ()> {
-        let scope_start = ast.blocks[self.0.borrow().index].scope_start;
-        let mut block = self.0.borrow_mut();
-        if field_index < scope_start {
-            return Ok(());
-        }
-
-        let index: usize = (field_index - scope_start).into();
-        while index >= block.fields.len() {
-            block.fields.push(BergError::NoSuchField(field_index).err());
-        }
-        if let Err(ControlVal::ExpressionError(BergError::NoSuchField(_), ExpressionErrorPosition::Expression)) = block.fields[index] {
-            block.fields[index] = BergError::FieldNotSet(field_index).err()
-        }
         Ok(())
     }
 
@@ -252,11 +238,11 @@ impl<'a> BlockRef<'a> {
         self.0.borrow().ast()
     }
 
-    pub fn field_error<T>(&self, error: FieldError) -> BergResult<'a, T> {
+    pub fn field_error<T>(&self, error: FieldError, name: IdentifierIndex) -> BergResult<'a, T> {
         use FieldError::*;
         match error {
-            NoSuchPublicField(index) => BergError::NoSuchPublicField(self.clone(), index).err(),
-            PrivateField(index) => BergError::PrivateField(self.clone(), index).err(),
+            NoSuchPublicField => BergError::NoSuchPublicField(self.clone(), name).err(),
+            PrivateField => BergError::PrivateField(self.clone(), name).err(),
         }
     }
 }
@@ -337,7 +323,7 @@ impl<'a> BergValue<'a> for BlockRef<'a> {
         self.clone_result().subexpression_result(boundary)
     }
 
-    fn field(self, name: IdentifierIndex) -> BergResult<'a> {
+    fn field(self, name: IdentifierIndex) -> BergResult<'a, BergResult<'a>> {
         println!(
             "====> get {} on {}",
             self.ast().identifier_string(name),
@@ -349,20 +335,20 @@ impl<'a> BergValue<'a> for BlockRef<'a> {
         let current = current?;
         println!("current = {}", current);
         match current.field(name) {
+            // If we couldn't find the field on the inner value, see if our block has the field
             Err(ControlVal::ExpressionError(ref error, ExpressionErrorPosition::Expression)) if error.code() == ErrorCode::NoSuchPublicField => {
                 println!("====> no such public {} on {}", self.ast().identifier_string(name), self);
                 let ast = self.ast();
-                // If the inner result doesn't have it, get our own local field
                 let index = {
                     let block = self.0.borrow();
                     let ast_block = &ast.blocks[block.index];
                     ast_block
                         .public_field_index(block.index, name, &ast)
-                        .or_else(|error| self.field_error(error))?
+                        .or_else(|error| self.field_error(error, name))?
                 };
                 self.local_field(index, &ast)
             }
-            Ok(value) => { println!("====> got {} for {} on {}", value, self.ast().identifier_string(name), self); Ok(value) }
+            Ok(value) => { println!("====> got {:?} for {} on {}", value, self.ast().identifier_string(name), self); Ok(value) }
             Err(error) => { println!("====> error {} for {} on {}", error, self.ast().identifier_string(name), self); Err(error) }
             // result => result,
         }
@@ -376,7 +362,7 @@ impl<'a> BergValue<'a> for BlockRef<'a> {
             let ast_block = &ast.blocks[block.index];
             ast_block
                 .public_field_index(block.index, name, &ast)
-                .or_else(|error| self.field_error(error))?
+                .or_else(|error| self.field_error(error, name))?
         };
 
         // Set the field.
@@ -395,6 +381,7 @@ impl<'a> BlockData<'a> {
 
 impl<'a> fmt::Display for BlockRef<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        use BlockFieldValue::*;
         let block = self.0.borrow();
         let ast = self.ast();
         write!(f, "block({}", block.state)?;
@@ -417,9 +404,9 @@ impl<'a> fmt::Display for BlockRef<'a> {
                 let name = ast.identifier_string(field.name);
 
                 match field_value {
-                    Ok(value) => write!(f, "{}: {}", name, value)?,
-                    Err(ControlVal::ExpressionError(BergError::NoSuchField(..), ExpressionErrorPosition::Expression)) => write!(f, "{}: <undeclared>", name)?,
-                    Err(error) => write!(f, "{}: {}", name, error)?,
+                    Value(value) => write!(f, "{}: {}", name, value.display())?,
+                    NotDeclared => write!(f, "{}: <undeclared>", name)?,
+                    NotSet => write!(f, "{}: <not set>", name)?,
                 }
             }
             write!(f, "}}")?;
@@ -442,6 +429,7 @@ impl<'a> fmt::Display for BlockState<'a> {
 
 impl<'a> fmt::Debug for BlockRef<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        use BlockFieldValue::*;
         let block = self.0.borrow();
         let ast = self.ast();
         write!(f, "BlockRef {{ state: {:?}", block.state)?;
@@ -464,9 +452,9 @@ impl<'a> fmt::Debug for BlockRef<'a> {
                 let name = ast.identifier_string(field.name);
 
                 match field_value {
-                    Ok(value) => write!(f, "{}: {}", name, value)?,
-                    Err(ControlVal::ExpressionError(BergError::NoSuchField(..), ExpressionErrorPosition::Expression)) => write!(f, "{}: <undeclared>", name)?,
-                    Err(error) => write!(f, "{}: {}", name, error)?,
+                    Value(value) => write!(f, "{}: {:?}", name, value)?,
+                    NotDeclared => write!(f, "{}: <undeclared>", name)?,
+                    NotSet => write!(f, "{}: <not set>", name)?,
                 }
             }
             write!(f, "}}")?;

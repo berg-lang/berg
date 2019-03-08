@@ -63,7 +63,7 @@ impl<'a> BergValue<'a> for bool {
         default_subexpression_result(self, boundary)
     }
 
-    fn field(self, name: IdentifierIndex) -> BergResult<'a> {
+    fn field(self, name: IdentifierIndex) -> BergResult<'a, BergResult<'a>> {
         default_field(self, name)
     }
     fn set_field(&mut self, name: IdentifierIndex, value: BergResult<'a>) -> BergResult<'a, ()> {

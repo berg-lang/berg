@@ -224,11 +224,15 @@ fn assign_or_prev_ref_false() {
 //
 #[test]
 fn assign_missing_right() {
-    expect(":a = ; a").to_error(FieldNotSet, 1)
+    expect(":a = ; a").to_error(MissingOperand, 3)
 }
 #[test]
 fn reassign_missing_right() {
-    expect("a = ; a").to_error(FieldNotSet, 0)
+    expect(":a = 1; a = ; a").to_error(MissingOperand, 10)
+}
+#[test]
+fn reassign_missing_right_undeclared() {
+    expect("a = ; a").to_error(MissingOperand, 2)
 }
 #[test]
 fn assign_plus_missing_right() {
@@ -484,68 +488,68 @@ fn assign_undeclared() {
 }
 #[test]
 fn assign_plus_undeclared() {
-    expect("a += 1; a").to_error(FieldNotSet, 0)
+    expect("a += 1; a").to_error(NoSuchField, 0)
 }
 #[test]
 fn assign_minus_undeclared() {
-    expect("a -= 1; a").to_error(FieldNotSet, 0)
+    expect("a -= 1; a").to_error(NoSuchField, 0)
 }
 #[test]
 fn assign_times_undeclared() {
-    expect("a *= 1; a").to_error(FieldNotSet, 0)
+    expect("a *= 1; a").to_error(NoSuchField, 0)
 }
 #[test]
 fn assign_divide_undeclared() {
-    expect("a /= 1; a").to_error(FieldNotSet, 0)
+    expect("a /= 1; a").to_error(NoSuchField, 0)
 }
 #[test]
 fn assign_and_undeclared() {
-    expect("a &&= true; a").to_error(FieldNotSet, 0)
+    expect("a &&= true; a").to_error(NoSuchField, 0)
 }
 #[test]
 fn assign_or_undeclared() {
-    expect("a ||= false; a").to_error(FieldNotSet, 0)
+    expect("a ||= false; a").to_error(NoSuchField, 0)
 }
 #[test]
 fn increment_pre_undeclared() {
-    expect("++a; a").to_error(FieldNotSet, 2)
+    expect("++a; a").to_error(NoSuchField, 2)
 }
 #[test]
 fn decrement_pre_undeclared() {
-    expect("--a; a").to_error(FieldNotSet, 2)
+    expect("--a; a").to_error(NoSuchField, 2)
 }
 #[test]
 fn increment_post_undeclared() {
-    expect("a++; a").to_error(FieldNotSet, 0)
+    expect("a++; a").to_error(NoSuchField, 0)
 }
 #[test]
 fn decrement_post_undeclared() {
-    expect("a--; a").to_error(FieldNotSet, 0)
+    expect("a--; a").to_error(NoSuchField, 0)
 }
 
 #[test]
 fn assign_plus_undeclared_bad_type() {
-    expect("a += true; a").to_error(FieldNotSet, 0)
+    expect("a += true; a").to_error(NoSuchField, 0)
 }
 #[test]
 fn assign_minus_undeclared_bad_type() {
-    expect("a -= true; a").to_error(FieldNotSet, 0)
+    expect("a -= true; a").to_error(NoSuchField, 0)
 }
 #[test]
 fn assign_times_undeclared_bad_type() {
-    expect("a *= true; a").to_error(FieldNotSet, 0)
+    expect("a *= true; a").to_error(NoSuchField, 0)
 }
 #[test]
 fn assign_divide_undeclared_bad_type() {
-    expect("a /= true; a").to_error(FieldNotSet, 0)
+    expect("a /= true; a").to_error(NoSuchField, 0)
 }
 #[test]
 fn assign_and_undeclared_bad_type() {
-    expect("a &&= 1; a").to_error(FieldNotSet, 0)
+    expect("a &&= 1; a").to_error(NoSuchField, 0)
 }
 #[test]
 fn assign_or_undeclared_bad_type() {
-    expect("a ||= 2; a").to_error(FieldNotSet, 0)
+    expect("a ||= 2; a").to_error(NoSuchField, 0)
 }
 
 //
@@ -694,35 +698,35 @@ fn assign_or_declaration_bad_type() {
 
 #[test]
 fn assign_self_ref() {
-    expect(":a = a + 1; a").to_error(FieldNotSet, 5)
+    expect(":a = a + 1; a").to_error(NoSuchField, 5)
 }
 #[test]
 fn reassign_self_ref() {
-    expect("a = a + 1; a").to_error(FieldNotSet, 4)
+    expect("a = a + 1; a").to_error(NoSuchField, 4)
 }
 #[test]
 fn assign_plus_self_ref() {
-    expect("a += a; a").to_error(FieldNotSet, 0)
+    expect("a += a; a").to_error(NoSuchField, 0)
 }
 #[test]
 fn assign_minus_self_ref() {
-    expect("a -= a; a").to_error(FieldNotSet, 0)
+    expect("a -= a; a").to_error(NoSuchField, 0)
 }
 #[test]
 fn assign_multiply_self_ref() {
-    expect("a *= a; a").to_error(FieldNotSet, 0)
+    expect("a *= a; a").to_error(NoSuchField, 0)
 }
 #[test]
 fn assign_divide_self_ref() {
-    expect("a /= a; a").to_error(FieldNotSet, 0)
+    expect("a /= a; a").to_error(NoSuchField, 0)
 }
 #[test]
 fn assign_and_self_ref() {
-    expect("a &&= a; a").to_error(FieldNotSet, 0)
+    expect("a &&= a; a").to_error(NoSuchField, 0)
 }
 #[test]
 fn assign_or_self_ref() {
-    expect("a ||= a; a").to_error(FieldNotSet, 0)
+    expect("a ||= a; a").to_error(NoSuchField, 0)
 }
 
 #[test]

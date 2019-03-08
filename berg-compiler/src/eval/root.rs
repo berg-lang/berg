@@ -74,8 +74,8 @@ impl RootRef {
         }
     }
 
-    pub fn field<'a>(&self, name: IdentifierIndex) -> BergResult<'a> {
-        self.local_field(self.field_index(name)?)
+    pub fn field<'a>(&self, name: IdentifierIndex) -> BergResult<'a, BergResult<'a>> {
+        Ok(self.local_field(self.field_index(name)?))
     }
 
     pub fn local_field<'a>(&self, index: FieldIndex) -> BergResult<'a> {
@@ -94,11 +94,6 @@ impl RootRef {
         _value: BergResult<'a>,
     ) -> BergResult<'a, ()> {
         BergError::ImmutableFieldOnRoot(index).err()
-    }
-
-    // All valid fields are already initialized, nothing to do here.
-    pub fn bring_local_field_into_scope<'a>(&self, _index: FieldIndex) -> BergResult<'a, ()> {
-        Ok(())
     }
 
     pub fn declare_field<'a>(&self, _index: FieldIndex) -> BergResult<'a, ()> {

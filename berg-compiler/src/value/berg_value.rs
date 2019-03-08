@@ -79,7 +79,7 @@ pub trait BergValue<'a>: Sized + fmt::Debug {
         Err(E::from(self))
     }
 
-    fn field(self, name: IdentifierIndex) -> BergResult<'a>;
+    fn field(self, name: IdentifierIndex) -> BergResult<'a, BergResult<'a>>;
     fn set_field(&mut self, name: IdentifierIndex, value: BergResult<'a>) -> BergResult<'a, ()> where Self: Clone;
 
     fn infix(self, operator: IdentifierIndex, right: RightOperand<'a, impl BergValue<'a>>) -> BergResult<'a>;
@@ -223,7 +223,7 @@ pub mod implement {
                 use crate::eval::AssignmentTarget;
                 let left = left.into_val()?;
                 match right.try_into_native::<IdentifierIndex>()? {
-                    Some(name) => AssignmentTarget::ObjectFieldReference(left, name).result(),
+                    Some(name) => AssignmentTarget::ObjectFieldReference(left, name).err(),
                     None => BergError::RightSideOfDotMustBeIdentifier.err(),
                 }
             }
@@ -263,7 +263,7 @@ pub mod implement {
     pub fn default_field<'a, T: BergValue<'a>>(
         object: T,
         name: IdentifierIndex,
-    ) -> BergResult<'a> {
+    ) -> BergResult<'a, BergResult<'a>> {
         BergError::NoSuchPublicFieldOnValue(Box::new(object.into_val()), name).err()
     }
 

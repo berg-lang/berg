@@ -78,7 +78,7 @@ impl<'a> BergValue<'a> for AmbiguousSyntax<'a> {
         }
     }
 
-    fn field(self, name: IdentifierIndex) -> BergResult<'a> {
+    fn field(self, name: IdentifierIndex) -> BergResult<'a, BergResult<'a>> {
         match self {
             Target(v) => v.field(name),
             RawIdentifier(v) => v.field(name),
