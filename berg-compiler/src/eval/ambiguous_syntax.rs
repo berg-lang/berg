@@ -21,13 +21,25 @@ impl<'a> BergValue<'a> for AmbiguousSyntax<'a> {
         self.err()
     }
     fn next_val(self) -> BergResult<'a, Option<NextVal<'a>>> {
-        self.disambiguate().next_val()
+        match self {
+            Target(v) => v.next_val(),
+            RawIdentifier(v) => v.next_val(),
+            MissingExpression | PartialTuple(_) | TrailingComma(_) | TrailingSemicolon => self.disambiguate().next_val(),
+        }
     }
     fn into_native<T: TryFromBergVal<'a>>(self) -> BergResult<'a, T> {
-        self.disambiguate().into_native()
+        match self {
+            Target(v) => v.into_native(),
+            RawIdentifier(v) => v.into_native(),
+            MissingExpression | PartialTuple(_) | TrailingComma(_) | TrailingSemicolon => self.disambiguate().into_native(),
+        }
     }
     fn try_into_native<T: TryFromBergVal<'a>>(self) -> BergResult<'a, Option<T>> {
-        self.disambiguate().try_into_native()
+        match self {
+            Target(v) => v.try_into_native(),
+            RawIdentifier(v) => v.try_into_native(),
+            MissingExpression | PartialTuple(_) | TrailingComma(_) | TrailingSemicolon => self.disambiguate().try_into_native(),
+        }
     }
 
     fn infix(self, operator: IdentifierIndex, right: RightOperand<'a, impl BergValue<'a>>) -> BergResult<'a> {
