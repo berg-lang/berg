@@ -140,11 +140,15 @@ impl<'a> BlockRef<'a> {
         // Run the block and stash the result
         let scope = ScopeRef::BlockRef(self.clone());
         let expression = ExpressionEvaluator::new(&scope, &ast, expression);
-        println!("Evaluating block {}", self);
+        let indent = "  ".repeat(expression.depth());
+        println!("{}|----------------------------------------", indent);
+        println!("{}| Block evaluating {:?}", indent, expression);
         let result = expression.evaluate_inner(ast.blocks[index].boundary);
-        println!("result: {}", result.display());
-        let mut block = self.0.borrow_mut();
-        block.state = BlockState::Complete(result);
+        println!("{}|       evaluated to {}", indent, result.display());
+        self.0.borrow_mut().state = BlockState::Complete(result);
+        println!("{}| Block state after evaluation: {}", indent, self);
+        println!("{}| Block evaluated {:?} to {}", indent, expression, self.clone_result().display());
+        println!("{}", indent);
         Ok(())
     }
 
@@ -320,7 +324,7 @@ impl<'a> BergValue<'a> for BlockRef<'a> {
     }
 
     fn subexpression_result(self, boundary: ExpressionBoundary) -> BergResult<'a> {
-        self.clone_result().subexpression_result(boundary)
+        default_subexpression_result(self, boundary)
     }
 
     fn field(self, name: IdentifierIndex) -> BergResult<'a, BergResult<'a>> {
@@ -331,20 +335,19 @@ impl<'a> BergValue<'a> for BlockRef<'a> {
         );
         // Always try to get the field from the inner result first
         let current = self.clone_result();
-        println!("got from {}", self);
+        println!("got from {:?}", self);
         let current = current?;
         println!("current = {}", current);
         match current.field(name) {
             // If we couldn't find the field on the inner value, see if our block has the field
             Err(ControlVal::ExpressionError(ref error, ExpressionErrorPosition::Expression)) if error.code() == ErrorCode::NoSuchPublicField => {
-                println!("====> no such public {} on {}", self.ast().identifier_string(name), self);
+                println!("====> no such public {} on current", self.ast().identifier_string(name));
                 let ast = self.ast();
                 let index = {
                     let block = self.0.borrow();
                     let ast_block = &ast.blocks[block.index];
-                    ast_block
-                        .public_field_index(block.index, name, &ast)
-                        .or_else(|error| self.field_error(error, name))?
+                    let index = ast_block.public_field_index(block.index, name, &ast);
+                    index.or_else(|error| self.field_error(error, name))?
                 };
                 self.local_field(index, &ast)
             }
@@ -435,7 +438,7 @@ impl<'a> fmt::Debug for BlockRef<'a> {
         write!(f, "BlockRef {{ state: {:?}", block.state)?;
         match &block.input {
             Ok(BergVal::Tuple(tuple)) if tuple.is_empty() => {},
-            input => write!(f, ", input: {}", input.display())?,
+            input => write!(f, ", input: {:?}", input)?,
         }
         if !block.fields.is_empty() {
             write!(f, ", fields: {{")?;
@@ -461,7 +464,7 @@ impl<'a> fmt::Debug for BlockRef<'a> {
         }
         write!(
             f,
-            ", expression: {}, parent: {:?}",
+            ", expression: {:?}, parent: {:?}",
             ExpressionTreeWalker::basic(&ast, block.expression), block.parent
         )?;
         write!(f, "}}")
