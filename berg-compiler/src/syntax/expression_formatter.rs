@@ -7,18 +7,7 @@ pub struct ExpressionFormatter;
 
 #[derive(Copy, Clone, Debug)]
 pub struct ExpressionTreeFormatter {
-    starting_depth: usize,
-}
-
-impl<'p, 'a: 'p, Context: Copy + Clone + fmt::Debug> ExpressionTreeWalker<'p, 'a, Context> {
-    pub fn format(self) -> ExpressionTreeWalker<'p, 'a, ExpressionFormatter> {
-        self.with_context(ExpressionFormatter)
-    }
-    pub fn format_tree(self) -> ExpressionTreeWalker<'p, 'a, ExpressionTreeFormatter> {
-        self.with_context(ExpressionTreeFormatter {
-            starting_depth: self.depth(),
-        })
-    }
+    pub starting_depth: usize,
 }
 
 impl<'p, 'a: 'p> ExpressionTreeWalker<'p, 'a, ExpressionFormatter> {

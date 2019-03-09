@@ -1,5 +1,5 @@
 use crate::syntax::identifiers::*;
-use crate::syntax::{Ast, AstIndex, ByteIndex, ByteRange, AstExpressionTree, Token, ExpressionToken, OperatorToken};
+use crate::syntax::{Ast, AstIndex, ByteIndex, ByteRange, Token, ExpressionToken, OperatorToken};
 use std::cmp;
 use std::fmt;
 use std::io;
@@ -23,12 +23,6 @@ struct SourceReconstructionIterator<'p, 'a: 'p> {
     ast_index: AstIndex,
     whitespace_indices: Vec<usize>,
     line_index: usize,
-}
-
-impl<'p, 'a: 'p> AstExpressionTree<'p, 'a> {
-    pub fn reconstruct_source(self) -> SourceReconstruction<'p, 'a> {
-        SourceReconstruction::new(self.ast(), self.byte_range())
-    }
 }
 
 impl<'p, 'a: 'p> SourceReconstruction<'p, 'a> {

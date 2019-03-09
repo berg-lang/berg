@@ -166,7 +166,7 @@ impl<'p, 'a: 'p> ExpressionEvaluator<'p, 'a> {
                     return BergVal::empty_tuple().ok();
                 }
             }
-            self.delocalize_errors(left.into_val().infix(operator, right))
+            self.delocalize_errors(left.infix(operator, right))
         } else {
             self.delocalize_errors(left.infix(operator, right))
         }
@@ -286,7 +286,7 @@ impl<'p, 'a: 'p> BergValue<'a> for ExpressionEvaluator<'p, 'a> {
     }
 
     fn try_into_native<T: TryFromBergVal<'a>>(self) -> BergResult<'a, Option<T>> {
-        self.delocalize_errors(self.evaluate_local().try_into_native())
+       self.delocalize_errors(self.evaluate_local().try_into_native())
     }
 
     fn next_val(self) -> BergResult<'a, Option<NextVal<'a>>> {

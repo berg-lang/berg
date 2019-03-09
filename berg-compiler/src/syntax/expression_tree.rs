@@ -1,6 +1,6 @@
 use crate::syntax::Fixity::*;
 use crate::syntax::{
-    Ast, AstIndex, AstRef, ByteRange, ExpressionBoundary, Fixity, ExpressionFixity, OperandPosition, Token, ExpressionToken, OperatorToken,
+    Ast, AstIndex, AstRef, ByteRange, ExpressionBoundary, ExpressionFormatter, ExpressionTreeFormatter, SourceReconstruction, Fixity, ExpressionFixity, OperandPosition, Token, ExpressionToken, OperatorToken,
 };
 use std::borrow::Cow;
 use std::fmt;
@@ -57,7 +57,7 @@ impl<'a> fmt::Display for ExpressionRef<'a> {
 
 impl<'p, 'a: 'p, Context: Copy+Clone+fmt::Debug> fmt::Debug for ExpressionTreeWalker<'p, 'a, Context> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.expression)
+        write!(f, "{:?}", self.expression)
     }
 }
 impl<'p, 'a: 'p> fmt::Display for ExpressionTreeWalker<'p, 'a, ()> {
@@ -68,7 +68,7 @@ impl<'p, 'a: 'p> fmt::Display for ExpressionTreeWalker<'p, 'a, ()> {
 
 impl<'p, 'a: 'p> fmt::Debug for AstExpressionTree<'p, 'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.reconstruct_source())
+        write!(f, "{}", self.format())
     }
 }
 
@@ -93,6 +93,12 @@ impl<'p, 'a: 'p, Context: Copy + Clone + fmt::Debug> ExpressionTreeWalker<'p, 'a
             context,
             expression: AstExpressionTree::new(ast, root)
         }
+    }
+    pub fn format(self) -> ExpressionTreeWalker<'p, 'a, ExpressionFormatter> {
+        self.expression.format()
+    }
+    pub fn format_tree(self) -> ExpressionTreeWalker<'p, 'a, ExpressionTreeFormatter> {
+        self.expression.format_tree()
     }
     pub fn with_context<C: Copy + Clone + fmt::Debug>(self, context: C) -> ExpressionTreeWalker<'p, 'a, C> {
         ExpressionTreeWalker {
@@ -245,6 +251,16 @@ impl<'p, 'a: 'p> AstExpressionTree<'p, 'a> {
             Left | PostfixOperand => self.left_expression(),
             Right | PrefixOperand => self.right_expression(),
         }
+    }
+
+    pub fn format(self) -> ExpressionTreeWalker<'p, 'a, ExpressionFormatter> {
+        ExpressionTreeWalker::new(ExpressionFormatter, self.ast(), self.root_index())
+    }
+    pub fn format_tree(self) -> ExpressionTreeWalker<'p, 'a, ExpressionTreeFormatter> {
+        ExpressionTreeWalker::new(ExpressionTreeFormatter { starting_depth: self.depth() }, self.ast(), self.root_index())
+    }
+    pub fn reconstruct_source(self) -> SourceReconstruction<'p, 'a> {
+        SourceReconstruction::new(self.ast(), self.byte_range())
     }
 }
 
