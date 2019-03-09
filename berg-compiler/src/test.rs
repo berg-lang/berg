@@ -9,89 +9,89 @@ use std::fmt;
 use std::io;
 use std::ops::Range;
 
+///
+/// Test a string containing Berg source code.
+/// 
+/// `source` can be anything that can be converted into a string of bytes:
+/// String, &str, string literal, or reference to a byte array.
+/// 
+/// # Examples
+/// 
+/// ```
+/// expect("1 + 1").to_yield(2);
+/// expect(&[0x0]).to_error(InvalidUtf8, 0);
+/// ```
+/// 
 pub fn expect<T: AsRef<[u8]> + ?Sized>(source: &T) -> ExpectBerg {
     ExpectBerg(source.as_ref())
 }
 
-pub fn expect_bytes(source: &[u8]) -> ExpectBerg {
-    ExpectBerg(source)
-}
-
-pub fn test_source<'a, Bytes: Into<&'a [u8]>>(source: Bytes) -> SourceRef<'a> {
-    SourceRef::memory("test.rs", source.into(), test_root())
-}
-
-pub fn test_root() -> RootRef {
-    // Steal "source"
-    let out: Vec<u8> = vec![];
-    let err: Vec<u8> = vec![];
-    let root_path = Err(io::Error::new(
-        io::ErrorKind::Other,
-        "SYSTEM ERROR: no relative path--this error should be impossible to trigger",
-    ));
-    RootRef::new(root_path, Box::new(out), Box::new(err))
-}
-
+///
+/// A Berg test with a fluent interface.
+/// 
+/// Generally you will call [`expect()`] to create this.
+/// 
+/// # Examples
+/// 
+/// ```
+/// expect("1 + 1").to_yield(2);
+/// expect("1 / 0").to_error(DivideByZero, 4);
+/// ```
+/// 
 pub struct ExpectBerg<'a>(pub &'a [u8]);
 
-impl<'a> fmt::Display for ExpectBerg<'a> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "test '{}'", String::from_utf8_lossy(self.0))
-    }
-}
-
+///
+/// An expected error range.
+/// 
+/// Anything that implements this can be passed to [`to_error()`]. It is
+/// implemented on:
+/// * `usize`: `to_error(DivideByZero, 4)` and
+/// * ranges:  (so you can write `expect_error(DivideByZero, 1..2))`).
+/// 
 pub trait ExpectedErrorRange {
+    ///
+    /// Convert this into an actual ByteRange.
+    /// 
+    /// `len` will be the length of the actual source (in bytes), and is used
+    /// to create an explicit range for unbounded ranges (like `1..`). This
+    /// allows `expect("1/(0)").to_error(DivideByZero, 2..)` to match the actual
+    /// error range `2..5`.
+    /// 
     fn into_error_range(self, len: ByteIndex) -> ByteRange;
-}
-impl ExpectedErrorRange for usize {
-    fn into_error_range(self, len: ByteIndex) -> ByteRange {
-        ByteIndex::from(self).into_error_range(len)
-    }
-}
-impl ExpectedErrorRange for ByteIndex {
-    #[allow(clippy::range_plus_one)]
-    fn into_error_range(self, _len: ByteIndex) -> ByteRange {
-        Range {
-            start: self,
-            end: self + 1,
-        }
-    }
-}
-impl<R: BoundedRange<ByteIndex>, T: IntoRange<ByteIndex, Output = R>> ExpectedErrorRange for T {
-    fn into_error_range(self, len: ByteIndex) -> ByteRange {
-        let result = self.into_range().bounded_range(len);
-        assert!(result.start + 1 != result.end);
-        result
-    }
 }
 
 impl<'a> ExpectBerg<'a> {
-    fn parse(&self) -> AstRef<'a> {
-        let ast = parser::parse(test_source(self.0));
-        assert_eq!(
-            self.0,
-            ast.to_bytes().as_slice(),
-            "Round trip failed!\nExpected:\n{}\n---------\nActual:\n{}\n---------\n",
-            String::from_utf8_lossy(self.0),
-            ast.to_string()
-        );
-        ast
-    }
-
-    pub fn bergvals_equal(expected: BergVal<'a>, actual: BergVal<'a>) -> BergResult<'a, bool> {
-        Ok(expected.infix(EQUAL_TO, actual.into())?.into_native::<bool>()?)
-    }
-
+    ///
+    /// Test that the given value is returned when the Berg source is compiled and run.
+    /// 
+    /// `expected` can be anything convertible into a `BergVal`, including
+    /// numbers and booleans.
+    /// 
+    /// The [`val!`] macro can be used to check for more complex values like
+    /// arrays and arrays of arrays.
+    /// 
+    /// # Examples
+    /// 
+    /// ```
+    /// expect("1 + 1").to_yield(2);
+    /// expect("1 == 2").to_yield(false);
+    /// expect("1,(2,3),4").to_yield(val!(1,(2,3),4));
+    /// expect(":a = 1").to_yield(val!());
+    /// ```
+    /// 
     #[allow(clippy::needless_pass_by_value, clippy::wrong_self_convention)]
     pub fn to_yield<V: Into<BergVal<'a>> + fmt::Display>(self, expected: V)
     where
         BergVal<'a>: From<V>,
     {
+        println!("Source:");
+        println!("{}", String::from_utf8_lossy(self.0));
+        println!("");
         let actual = evaluate_ast(self.parse())
             .unwrap_or_else(|error| panic!("Unexpected error: {}", error));
         let expected = BergVal::from(expected);
         println!("actual: {}, expected: {}", actual, expected);
-        let equal = Self::bergvals_equal(expected.clone(), actual.clone());
+        let equal = bergvals_equal(expected.clone(), actual.clone());
         assert!(
             equal.clone().unwrap_or(false),
             "Wrong value returned! expected: {}, actual: {}. Equal: {}",
@@ -101,22 +101,44 @@ impl<'a> ExpectBerg<'a> {
         );
     }
 
-    fn consume_all(mut value: BergVal<'a>) -> BergResult<'a> {
-        let mut values = vec![];
-        loop {
-            match value.next_val()? {
-                None => break,
-                Some(NextVal { head, tail }) => {
-                    values.push(head?);
-                    value = tail?;
-                }
-            }
-        }
-        Ok(values.into())
-    }
-
+    ///
+    /// Test that an error with the given `code` and location (`expected_range`)
+    /// is produced when the Berg source is compiled and run.
+    /// 
+    /// `expected_range` can be an index or range of indices into the string.
+    /// 
+    /// # Panics
+    /// 
+    /// * If no error is produced:
+    ///   ```should_panic
+    ///   expect("1 / 1").to_error(DivideByZero, 4);
+    ///   ```
+    /// * If an error is produced with the wrong code
+    ///   ```should_panic
+    ///   expect("1 / 0").to_error(NoSuchField, 4);
+    ///   ```
+    /// * If an error is produced with the wrong location
+    ///   ```should_panic
+    ///   expect("1 / 0").to_error(DivideByZero, 2);
+    ///   expect("(1 / 0) + 1").to_error(DivideByZero, 4..=6);
+    ///   ```
+    /// 
+    /// # Examples
+    /// 
+    /// ```
+    /// expect("1 / 0").to_error(DivideByZero, 4);
+    /// expect("1 / (0)").to_error(DivideByZero, 4..);
+    /// expect("(1+1) += 2").to_error(AssignmentTargetMustBeIdentifier, 0..=4);
+    /// ```
+    /// 
+    /// This will panic:
+    /// 
+    /// 
     #[allow(clippy::wrong_self_convention)]
     pub fn to_error(self, code: ErrorCode, expected_range: impl ExpectedErrorRange) {
+        println!("Source:");
+        println!("{}", String::from_utf8_lossy(self.0));
+        println!("");
         let ast = parser::parse(test_source(self.0));
         let expected_range = ast
             .char_data
@@ -159,26 +181,84 @@ impl<'a> ExpectBerg<'a> {
             ),
         }
     }
+
+    fn parse(&self) -> AstRef<'a> {
+        let ast = parser::parse(test_source(self.0));
+        assert_eq!(
+            self.0,
+            ast.to_bytes().as_slice(),
+            "Round trip failed!\nExpected:\n{}\n---------\nActual:\n{}\n---------\n",
+            String::from_utf8_lossy(self.0),
+            ast.to_string()
+        );
+        ast
+    }
+
+    fn consume_all(mut value: BergVal<'a>) -> BergResult<'a> {
+        let mut values = vec![];
+        loop {
+            match value.next_val()? {
+                None => break,
+                Some(NextVal { head, tail }) => {
+                    values.push(head?);
+                    value = tail?;
+                }
+            }
+        }
+        Ok(values.into())
+    }
 }
 
 fn error_string(code: ErrorCode, range: LineColumnRange) -> String {
     format!("{} at {}", code, range)
 }
 
-// struct DisplayResults<'p, 'a: 'p>(&'p Vec<BergResult<'a>>);
+fn test_source<'a, Bytes: Into<&'a [u8]>>(source: Bytes) -> SourceRef<'a> {
+    SourceRef::memory("test.rs", source.into(), test_root())
+}
 
-// impl<'p, 'a: 'p> fmt::Display for DisplayResults<'p, 'a> {
-//     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-//         match self.0.len() {
-//             0 => write!(f, "()"),
-//             1 => match &self.0[0] { Ok(v) => write!(f, "{}", v), Err(e) => write!(f, "{}", e) },
-//             _ => {
-//                 match &self.0[0] { Ok(v) => write!(f, "({}", v)?, Err(e) => write!(f, "({}", e)? };
-//                 for result in &self.0[1..] {
-//                     match result { Ok(v) => write!(f, ",{}", v)?, Err(e) => write!(f, ",{}", e)? }
-//                 }
-//                 write!(f, ")")
-//             }
-//         }
-//     }
-// }
+fn test_root() -> RootRef {
+    // Steal "source"
+    let out: Vec<u8> = vec![];
+    let err: Vec<u8> = vec![];
+    let root_path = Err(io::Error::new(
+        io::ErrorKind::Other,
+        "SYSTEM ERROR: no relative path--this error should be impossible to trigger",
+    ));
+    RootRef::new(root_path, Box::new(out), Box::new(err))
+}
+
+impl<'a> fmt::Display for ExpectBerg<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "test '{}'", String::from_utf8_lossy(self.0))
+    }
+}
+
+impl ExpectedErrorRange for usize {
+    fn into_error_range(self, len: ByteIndex) -> ByteRange {
+        ByteIndex::from(self).into_error_range(len)
+    }
+}
+impl ExpectedErrorRange for ByteIndex {
+    #[allow(clippy::range_plus_one)]
+    fn into_error_range(self, _len: ByteIndex) -> ByteRange {
+        Range {
+            start: self,
+            end: self + 1,
+        }
+    }
+}
+impl<R: BoundedRange<ByteIndex>, T: IntoRange<ByteIndex, Output = R>> ExpectedErrorRange for T {
+    fn into_error_range(self, len: ByteIndex) -> ByteRange {
+        let result = self.into_range().bounded_range(len);
+        assert!(result.start + 1 != result.end);
+        result
+    }
+}
+
+///
+/// Check if two BergVals are equal. Just calls `infix`.
+/// 
+fn bergvals_equal<'a>(expected: BergVal<'a>, actual: BergVal<'a>) -> BergResult<'a, bool> {
+    Ok(expected.infix(EQUAL_TO, actual.into())?.into_native::<bool>()?)
+}

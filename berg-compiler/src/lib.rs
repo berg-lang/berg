@@ -1,9 +1,14 @@
+// Turn on all warnings
 #![warn(clippy::all)]
 
+// Used for the faster hash algorithm
 extern crate fnv;
+// Used for arbitrary-precision numbers
 extern crate num;
+// Used to pool identifiers and operators (making identifier comparison faster)
 extern crate string_interner;
 
+// Explicitly expose just the interfaces we want to expose
 pub use crate::value::{BergResult, BergVal, BergValue, Error, ErrorCode};
 
 use crate::eval::{evaluate_ast, RootRef};
@@ -29,19 +34,3 @@ pub fn evaluate_bytes<'a>(name: &'a str, value: &'a [u8]) -> impl BergValue<'a> 
     let source = SourceRef::memory(name, value, RootRef::from_env());
     evaluate_ast(parse(source))
 }
-
-// #[cfg(test)]
-// pub mod test;
-
-// use value::Val;
-// use std::path::PathBuf;
-
-// use root::from_env;
-
-// pub fn evaluate_file<P: Into<PathBuf>>(path: P) -> Val<'static> {
-//     from_env().evaluate_file(path)
-// }
-
-// pub fn evaluate_bytes<'a>(name: &'a str, bytes: &'a [u8]) -> Val<'a> {
-//     from_env().evaluate_bytes(name, bytes)
-// }
