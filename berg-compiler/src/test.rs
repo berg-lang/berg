@@ -149,7 +149,7 @@ impl<'a> ExpectBerg<'a> {
             result.is_err(),
             "No error produced by {}: expected {}, got value {}",
             self,
-            error_string(code, expected_range),
+            self.error_string(code, expected_range, &ast),
             result.as_ref().unwrap()
         );
         match result.unwrap_err() {
@@ -157,26 +157,24 @@ impl<'a> ExpectBerg<'a> {
                 assert_eq!(
                     code,
                     actual.code(),
-                    "Wrong error code from {}! Expected {}, got {} at {}",
+                    "Wrong error code from {}! Expected {}, got {}",
                     self,
-                    error_string(code, expected_range),
-                    actual.code(),
-                    actual.location().range()
+                    self.error_string(code, expected_range, &ast),
+                    self.error_string(actual.code(), actual.location().range(), &ast)
                 );
                 assert_eq!(
                     expected_range,
                     actual.location().range(),
-                    "Wrong error range from {}! Expected {}, got {} at {}",
+                    "Wrong error range from {}! Expected {}, got {}",
                     self,
-                    error_string(code, expected_range),
-                    actual.code(),
-                    actual.location().range()
+                    self.error_string(code, expected_range, &ast),
+                    self.error_string(actual.code(), actual.location().range(), &ast)
                 );
             },
             actual => panic!(
                 "Result of {} is an error, but of an unexpected type! Expected {}, got {}",
                 self,
-                error_string(code, expected_range),
+                self.error_string(code, expected_range, &ast),
                 actual
             ),
         }
@@ -207,10 +205,11 @@ impl<'a> ExpectBerg<'a> {
         }
         Ok(values.into())
     }
-}
 
-fn error_string(code: ErrorCode, range: LineColumnRange) -> String {
-    format!("{} at {}", code, range)
+    fn error_string(&self, code: ErrorCode, range: LineColumnRange, ast: &AstRef<'a>) -> String {
+        let byte_range = ast.char_data.byte_range(range).into_range();
+        format!("{} at {} ({})", code, range, String::from_utf8_lossy(&self.0[byte_range]))
+    }
 }
 
 fn test_source<'a, Bytes: Into<&'a [u8]>>(source: Bytes) -> SourceRef<'a> {

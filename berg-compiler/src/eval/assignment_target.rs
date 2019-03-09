@@ -61,11 +61,14 @@ impl<'a> AssignmentTarget<'a> {
             panic!("ExpressionError({:?}, {:?})", error, position);
         }
         use AssignmentTarget::*;
-        match self {
+        let result = match self {
             LocalFieldReference(scope, field) | LocalFieldDeclaration(scope, field) => 
-                scope.set_local_field(*field, value, &scope.ast())?,
-            ObjectFieldReference(object, name) => { object.set_field(*name, value)?; }
+                scope.set_local_field(*field, value, &scope.ast()),
+            ObjectFieldReference(object, name) => {
+                object.set_field(*name, value)
+            }
         };
+        self.point_errors_at_identifier(result)?;
         Ok(())
     }
 

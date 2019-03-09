@@ -225,9 +225,10 @@ impl<'a> BlockRef<'a> {
                 .set_local_field(field_index, value, ast);
         }
         println!(
-            "Set {} to {:?}",
+            "Set {} to {:?}: {}",
             ast.identifier_string(ast.fields[field_index].name),
             value,
+            self
         );
         {
             let mut block = self.0.borrow_mut();
@@ -358,6 +359,8 @@ impl<'a> BergValue<'a> for BlockRef<'a> {
     }
 
     fn set_field(&mut self, name: IdentifierIndex, value: BergResult<'a>) -> BergResult<'a, ()> {
+        self.ensure_evaluated()?;
+
         // Figure out the field index from its name
         let ast = self.ast();
         let index = {

@@ -56,11 +56,14 @@ impl CharData {
     }
 
     pub(crate) fn location(&self, index: ByteIndex) -> LineColumn {
-        // TODO binary search to make it faster. But, meh.
-        let mut line = self.line_starts.len();
-        while self.line_starts[line - 1] > index {
-            line -= 1
-        }
+        let line = match self.line_starts.binary_search(&index) {
+            // If the index happens to be at the start of a line, we'll get
+            // the 0-based index of that line, and we want 1-based.
+            Ok(line) => line + 1,
+            // If the index is not the start of a line, we'll get the index of the
+            // *next* line, which is the same as a 1-based index to our line.
+            Err(line) => line,
+        };
 
         let column = index + 1 - self.line_starts[line - 1];
         let line = line as u32;
@@ -77,9 +80,17 @@ impl CharData {
         }
     }
 
-    // pub(crate) fn byte_length(&self) -> ByteIndex {
-    //     self.byte_length
-    // }
+    pub(crate) fn byte_index(&self, location: LineColumn) -> ByteIndex {
+        self.line_starts[(location.line-1) as usize] + location.column - 1
+    }
+    #[allow(clippy::range_plus_one)]
+    pub(crate) fn byte_range(&self, range: LineColumnRange) -> ByteRange {
+        let start = self.byte_index(range.start);
+        match range.end {
+            Some(end) => start..(self.byte_index(end)+1),
+            None => start..start,
+        }
+    }
 }
 
 impl LineColumn {

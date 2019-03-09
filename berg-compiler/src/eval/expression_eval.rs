@@ -149,8 +149,8 @@ impl<'p, 'a: 'p> ExpressionEvaluator<'p, 'a> {
     }
 
     pub fn evaluate_inner(self, boundary: ExpressionBoundary) -> BergResult<'a> {
-        let inner = self.inner_expression().evaluate_local();
-        let result = inner.subexpression_result(boundary);
+        let mut result = self.inner_expression().evaluate_local();
+        if boundary.is_required() { result = result.subexpression_result(boundary) }
         self.delocalize_errors(result)
     }
 
@@ -259,17 +259,28 @@ impl<'p, 'a: 'p> ExpressionEvaluator<'p, 'a> {
         }
     }
 
+    fn skip_implicit_groups(self) -> Self {
+        let mut result = self;
+        while let Token::Expression(ExpressionToken::Open { boundary, .. }) = result.token() {
+            if boundary.is_required() {
+                break;
+            }
+            result = result.inner_expression();
+        }
+        result
+    }
+
     fn error_location(self, position: ExpressionErrorPosition) -> ExpressionEvaluator<'p, 'a> {
         use ExpressionErrorPosition::*;
         let result = match position {
             Expression => self,
             LeftOperand => self.left_expression(),
-            LeftLeft => self.left_expression().left_expression(),
-            LeftRight => self.left_expression().right_expression(),
+            LeftLeft => self.left_expression().skip_implicit_groups().left_expression(),
+            LeftRight => self.left_expression().skip_implicit_groups().right_expression(),
             RightOperand => self.right_expression(),
-            RightLeft => self.right_expression().left_expression(),
-            RightRight => self.right_expression().right_expression(),
-        };
+            RightLeft => self.right_expression().skip_implicit_groups().left_expression(),
+            RightRight => self.right_expression().skip_implicit_groups().right_expression(),
+        }.skip_implicit_groups();
         println!("error_location({:?} [{:?}]): result ({:?})={:?}", self, self.token(), position, result);
         result
     }
