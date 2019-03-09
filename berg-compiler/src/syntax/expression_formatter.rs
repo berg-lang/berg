@@ -59,7 +59,10 @@ impl<'p, 'a: 'p> fmt::Display for ExpressionTreeWalker<'p, 'a, ExpressionFormatt
                     write!(f, "{}{}", left, string)
                 }
             }
-            Fixity::Term => write!(f, "{}", token.to_string(self.ast())),
+            Fixity::Term => match token {
+                Token::Expression(ExpressionToken::MissingExpression) => write!(f, "<missing>"),
+                _ => write!(f, "{}", token.to_string(self.ast())),
+            }
             Fixity::Open | Fixity::Close => {
                 let (open, close) = self.boundary_strings();
                 let inner = self.inner_expression();

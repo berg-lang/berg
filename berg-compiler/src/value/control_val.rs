@@ -109,13 +109,18 @@ impl<'a> ControlVal<'a> {
             _ => self.err(),
         }
     }
-    pub fn disambiguate_operand(self, new_position: ExpressionErrorPosition) -> BergResult<'a> {
+    pub fn disambiguate(self) -> BergResult<'a> {
         match self {
             ControlVal::AmbiguousSyntax(syntax) => match syntax.disambiguate() {
                 Err(ControlVal::AmbiguousSyntax(_)) => unreachable!(),
-                Err(error) => error.at_position(new_position),
-                Ok(value) => Ok(value),
+                result => result,
             }
+            result => result.err(),
+        }
+    }
+    pub fn disambiguate_operand(self, new_position: ExpressionErrorPosition) -> BergResult<'a> {
+        match self {
+            ControlVal::AmbiguousSyntax(syntax) => syntax.disambiguate_operand(new_position),
             _ => self.at_position(new_position)
         }
     }

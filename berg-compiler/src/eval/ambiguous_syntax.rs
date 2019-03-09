@@ -128,4 +128,11 @@ impl<'a> AmbiguousSyntax<'a> {
             Target(v) => v.get(),
         }
     }
+    pub fn disambiguate_operand(self, new_position: ExpressionErrorPosition) -> BergResult<'a> {
+        match self.disambiguate() {
+            Err(ControlVal::AmbiguousSyntax(_)) => unreachable!(),
+            Err(error) => error.at_position(new_position),
+            Ok(value) => Ok(value),
+        }
+    }
 }

@@ -57,8 +57,6 @@ pub trait BergValue<'a>: Sized + fmt::Debug {
     ///
     /// Get a concrete BergResult for this value.
     /// 
-    /// This will not perform any evaluation or calculation.
-    /// 
     fn into_val(self) -> BergResult<'a>;
 
     ///
@@ -125,19 +123,28 @@ impl<'a, V: BergValue<'a>> RightOperand<'a, V> {
             Ok(value) => Ok(value),
         }
     }
+    ///
+    /// Get the operand's value with appropriate error locations and no
+    /// AmbiguousSyntax values.
+    /// 
     pub fn into_val(self) -> BergResult<'a> {
         match self.0.into_val() {
             Err(error) => error.disambiguate_operand(ExpressionErrorPosition::RightOperand),
             Ok(value) => Ok(value),
         }
     }
-    pub fn if_ambiguous<F: FnOnce(AmbiguousSyntax<'a>) -> BergResult<'a>>(self, f: F) -> BergResult<'a> {
+    ///
+    /// Get the operand's value, with appropriate errors, but return AmbiguousSyntax
+    /// values instead of disambiguating them, so that the caller can look at them.
+    /// 
+    pub fn keep_ambiguous_if<F: Fn(&AmbiguousSyntax) -> bool>(self, f: F) -> BergResult<'a> {
         match self.0.into_val() {
-            Err(ControlVal::AmbiguousSyntax(syntax)) => match f(syntax) {
-                Err(error) => error.at_position(ExpressionErrorPosition::RightOperand),
-                Ok(value) => Ok(value),
-            },
-            Err(error) => error.at_position(ExpressionErrorPosition::RightOperand),
+            Err(ControlVal::AmbiguousSyntax(syntax)) => if f(&syntax) {
+                Err(ControlVal::AmbiguousSyntax(syntax))
+            } else {
+                syntax.disambiguate_operand(ExpressionErrorPosition::RightOperand)
+            }
+            Err(error) => error.disambiguate_operand(ExpressionErrorPosition::RightOperand),
             Ok(value) => Ok(value),
         }
     }
@@ -190,16 +197,25 @@ pub mod implement {
         match operator {
             COMMA => {
                 let left = left.into_val()?;
-                match right.into_val() {
+                let right = right.keep_ambiguous_if(|syntax| match syntax { AmbiguousSyntax::MissingExpression => true, _ => false });
+                match right {
                     Err(ControlVal::AmbiguousSyntax(AmbiguousSyntax::MissingExpression)) => AmbiguousSyntax::TrailingComma(vec![left]).err(),
-                    right => AmbiguousSyntax::PartialTuple(vec![left, right?]).err(),
+                    Ok(right) => AmbiguousSyntax::PartialTuple(vec![left, right]).err(),
+                    Err(error) => Err(error),
                 }
             }
-            SEMICOLON => match right.into_val() {
-                Err(ControlVal::AmbiguousSyntax(AmbiguousSyntax::MissingExpression)) => AmbiguousSyntax::TrailingSemicolon.err(),
-                right => right
+            SEMICOLON => {
+                left.into_val()?;
+                let right = right.keep_ambiguous_if(|syntax| match syntax { AmbiguousSyntax::MissingExpression => true, _ => false });
+                match right {
+                    Err(ControlVal::AmbiguousSyntax(AmbiguousSyntax::MissingExpression)) => AmbiguousSyntax::TrailingSemicolon.err(),
+                    result => result,
+                }
             }
-            NEWLINE => right.into_val(),
+            NEWLINE => {
+                left.into_val()?;
+                right.into_val()
+            }
             EQUAL_TO => {
                 let mut left_next = left.next_val()?;
                 let mut right_next = right.into_val().next_val()?;
@@ -224,7 +240,7 @@ pub mod implement {
                 let left = left.into_val()?;
                 match right.try_into_native::<IdentifierIndex>()? {
                     Some(name) => AssignmentTarget::ObjectFieldReference(left, name).err(),
-                    None => BergError::RightSideOfDotMustBeIdentifier.err(),
+                    None => BergError::RightSideOfDotMustBeIdentifier.operand_err(ExpressionErrorPosition::RightOperand),
                 }
             }
             COLON => BergError::AssignmentTargetMustBeIdentifier.operand_err(ExpressionErrorPosition::LeftOperand),

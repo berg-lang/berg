@@ -272,15 +272,17 @@ impl<'p, 'a: 'p> ExpressionEvaluator<'p, 'a> {
 
     fn error_location(self, position: ExpressionErrorPosition) -> ExpressionEvaluator<'p, 'a> {
         use ExpressionErrorPosition::*;
+        let expression = self.skip_implicit_groups();
         let result = match position {
-            Expression => self,
-            LeftOperand => self.left_expression(),
-            LeftLeft => self.left_expression().skip_implicit_groups().left_expression(),
-            LeftRight => self.left_expression().skip_implicit_groups().right_expression(),
-            RightOperand => self.right_expression(),
-            RightLeft => self.right_expression().skip_implicit_groups().left_expression(),
-            RightRight => self.right_expression().skip_implicit_groups().right_expression(),
-        }.skip_implicit_groups();
+            Expression => expression,
+            LeftOperand => expression.left_expression(),
+            LeftLeft => expression.left_expression().skip_implicit_groups().left_expression(),
+            LeftRight => expression.left_expression().skip_implicit_groups().right_expression(),
+            RightOperand => expression.right_expression(),
+            RightLeft => expression.right_expression().skip_implicit_groups().left_expression(),
+            RightRight => expression.right_expression().skip_implicit_groups().right_expression(),
+        };
+        let result = result.skip_implicit_groups();
         println!("error_location({:?} [{:?}]): result ({:?})={:?}", self, self.token(), position, result);
         result
     }
