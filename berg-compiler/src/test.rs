@@ -8,6 +8,7 @@ use crate::value::*;
 use std::fmt;
 use std::io;
 use std::ops::Range;
+pub use ErrorCode::*;
 
 ///
 /// Test a string containing Berg source code.
@@ -18,8 +19,9 @@ use std::ops::Range;
 /// # Examples
 /// 
 /// ```
+/// use berg_compiler::test::*;
 /// expect("1 + 1").to_yield(2);
-/// expect(&[0x0]).to_error(InvalidUtf8, 0);
+/// expect(&[0x0]).to_error(UnsupportedCharacters, 0);
 /// ```
 /// 
 pub fn expect<T: AsRef<[u8]> + ?Sized>(source: &T) -> ExpectBerg {
@@ -34,6 +36,7 @@ pub fn expect<T: AsRef<[u8]> + ?Sized>(source: &T) -> ExpectBerg {
 /// # Examples
 /// 
 /// ```
+/// use berg_compiler::test::*;
 /// expect("1 + 1").to_yield(2);
 /// expect("1 / 0").to_error(DivideByZero, 4);
 /// ```
@@ -67,16 +70,15 @@ impl<'a> ExpectBerg<'a> {
     /// `expected` can be anything convertible into a `BergVal`, including
     /// numbers and booleans.
     /// 
-    /// The [`val!`] macro can be used to check for more complex values like
+    /// The [`tuple!`] macro can be used to check for more complex values like
     /// arrays and arrays of arrays.
     /// 
     /// # Examples
     /// 
     /// ```
+    /// use berg_compiler::test::*;
     /// expect("1 + 1").to_yield(2);
     /// expect("1 == 2").to_yield(false);
-    /// expect("1,(2,3),4").to_yield(val!(1,(2,3),4));
-    /// expect(":a = 1").to_yield(val!());
     /// ```
     /// 
     #[allow(clippy::needless_pass_by_value, clippy::wrong_self_convention)]
@@ -107,32 +109,33 @@ impl<'a> ExpectBerg<'a> {
     /// 
     /// `expected_range` can be an index or range of indices into the string.
     /// 
-    /// # Panics
-    /// 
-    /// * If no error is produced:
-    ///   ```should_panic
-    ///   expect("1 / 1").to_error(DivideByZero, 4);
-    ///   ```
-    /// * If an error is produced with the wrong code
-    ///   ```should_panic
-    ///   expect("1 / 0").to_error(NoSuchField, 4);
-    ///   ```
-    /// * If an error is produced with the wrong location
-    ///   ```should_panic
-    ///   expect("1 / 0").to_error(DivideByZero, 2);
-    ///   expect("(1 / 0) + 1").to_error(DivideByZero, 4..=6);
-    ///   ```
-    /// 
     /// # Examples
     /// 
     /// ```
+    /// use berg_compiler::test::*;
     /// expect("1 / 0").to_error(DivideByZero, 4);
     /// expect("1 / (0)").to_error(DivideByZero, 4..);
     /// expect("(1+1) += 2").to_error(AssignmentTargetMustBeIdentifier, 0..=4);
     /// ```
     /// 
-    /// This will panic:
+    /// # Panics
     /// 
+    /// * If no error is produced:
+    ///   ```should_panic
+    ///   use berg_compiler::test::*;
+    ///   expect("1 / 1").to_error(DivideByZero, 4);
+    ///   ```
+    /// * If an error is produced with the wrong code
+    ///   ```should_panic
+    ///   use berg_compiler::test::*;
+    ///   expect("1 / 0").to_error(NoSuchField, 4);
+    ///   ```
+    /// * If an error is produced with the wrong location
+    ///   ```should_panic
+    ///   use berg_compiler::test::*;
+    ///   expect("1 / 0").to_error(DivideByZero, 2);
+    ///   expect("(1 / 0) + 1").to_error(DivideByZero, 4..=6);
+    ///   ```
     /// 
     #[allow(clippy::wrong_self_convention)]
     pub fn to_error(self, code: ErrorCode, expected_range: impl ExpectedErrorRange) {

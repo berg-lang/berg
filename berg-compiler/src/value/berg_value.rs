@@ -28,8 +28,9 @@ pub trait BergValue<'a>: Sized + fmt::Debug {
     /// 
     /// Example:
     /// 
-    ///     fn add_values(a: impl BergValue<'a>, b: impl BergValue<'a>) -> BergResult<'a, usize> {
-    ///         a.into_native::<usize>()? + b.into_native::<usize>()?
+    ///     use berg_compiler::*;
+    ///     fn add_values<'a>(a: impl BergValue<'a>, b: impl BergValue<'a>) -> BergResult<'a, usize> {
+    ///         Ok(a.into_native::<usize>()? + b.into_native::<usize>()?)
     ///     }
     /// 
     fn into_native<T: TryFromBergVal<'a>>(self) -> BergResult<'a, T>;
@@ -45,10 +46,11 @@ pub trait BergValue<'a>: Sized + fmt::Debug {
     /// 
     /// Example:
     /// 
-    ///     fn check_equal(a: u32, b: impl BergValue<'a>) -> BergResult<'a, usize> {
+    ///     use berg_compiler::*;
+    ///     fn check_equal<'a>(a: usize, b: impl BergValue<'a>) -> BergResult<'a, bool> {
     ///         match b.try_into_native::<usize>()? {
-    ///             Some(b) => a == b,
-    ///             None => false,
+    ///             Some(b) => Ok(a == b),
+    ///             None => Ok(false),
     ///         }
     ///     }
     /// 

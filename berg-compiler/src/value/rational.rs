@@ -127,4 +127,4 @@ macro_rules! impl_berg_val_for_primitive_num {
     }
 }
 
-impl_berg_val_for_primitive_num! { u64: to_u64, i64: to_i64, u32: to_u32, i32: to_i32, u16: to_u16, i16: to_i16, u8: to_u8, i8: to_i8 }
+impl_berg_val_for_primitive_num! { u64: to_u64, i64: to_i64, u32: to_u32, i32: to_i32, u16: to_u16, i16: to_i16, u8: to_u8, i8: to_i8, usize: to_usize, isize: to_isize }
