@@ -22,19 +22,11 @@ impl<'a> AssignmentTarget<'a> {
         self.get_internal()
     }
 
-    pub fn set(&mut self, value: BergVal<'a>) -> BergResult<'a, ()> {
-        self.set_internal(value)?;
-        // If it's a declaration, declare it public now that it's been set.
-        self.declare()?;
-        Ok(())
-    }
-
-    pub fn update<F: FnOnce(BergVal<'a>) -> BergResult<'a>>(&mut self, f: F) -> BergResult<'a, ()> {
-        // If it's a declaration, declare it so that it gets its initial value (if any).
-        self.declare()?;
-        let value = f(self.get_internal()?)?;
-        self.set(value)?;
-        Ok(())
+    pub fn set(&mut self, value: BergVal<'a>, operand_position: ExpressionErrorPosition) -> BergResult<'a> {
+        match self.set_internal(value).and_then(|_| self.declare()) {
+            Ok(()) => BergVal::empty_tuple().ok(),
+            Err(error) => error.at_position(operand_position),
+        }
     }
 
     fn declare(&self) -> BergResult<'a, ()> {
@@ -102,23 +94,41 @@ impl<'a> BergValue<'a> for AssignmentTarget<'a> {
     fn try_into_native<T: TryFromBergVal<'a>>(self) -> BergResult<'a, Option<T>> {
         self.get().try_into_native()
     }
-    fn infix(self, operator: IdentifierIndex, right: RightOperand<'a, impl BergValue<'a>>) -> BergResult<'a> {
-        self.get().infix(operator, right)
+    fn infix(mut self, operator: IdentifierIndex, right: RightOperand<'a, impl BergValue<'a>>) -> BergResult<'a> {
+        use AssignmentTarget::*;
+        use ExpressionErrorPosition::LeftOperand;
+        match (operator, &self) {
+            // Handle <identifier>: <value>
+            (COLON, LocalFieldReference(..)) => self.set(right.into_val()?, LeftOperand),
+            _ => self.get().infix(operator, right)
+        }
     }
-    fn infix_assign(self, _operator: IdentifierIndex, _right: RightOperand<'a, impl BergValue<'a>>) -> BergResult<'a> {
-        unreachable!()
+    fn infix_assign(mut self, operator: IdentifierIndex, right: RightOperand<'a, impl BergValue<'a>>) -> BergResult<'a> {
+        use ExpressionErrorPosition::LeftOperand;
+        match operator {
+            EMPTY_STRING => self.set(right.into_val()?, LeftOperand),
+            operator => self.set(self.get().infix(operator, right)?, LeftOperand),
+        }
     }
 
     fn prefix(self, operator: IdentifierIndex) -> BergResult<'a> {
         use AssignmentTarget::*;
+        use ExpressionErrorPosition::RightOperand;
         match (operator, self) {
             (COLON, LocalFieldReference(scope, field)) => LocalFieldDeclaration(scope, field).err(),
-            (_, v) => v.get().prefix(operator),
+            (PLUS_PLUS, mut right) => right.set(right.get().prefix(PLUS_ONE)?, RightOperand),
+            (DASH_DASH, mut right) => right.set(right.get().prefix(MINUS_ONE)?, RightOperand),
+            (_, right) => right.get().prefix(operator),
         }
     }
 
-    fn postfix(self, operator: IdentifierIndex) -> BergResult<'a> {
-        self.get().postfix(operator)
+    fn postfix(mut self, operator: IdentifierIndex) -> BergResult<'a> {
+        use ExpressionErrorPosition::LeftOperand;
+        match operator {
+            PLUS_PLUS => self.set(self.get().postfix(PLUS_ONE)?, LeftOperand),
+            DASH_DASH => self.set(self.get().postfix(MINUS_ONE)?, LeftOperand),
+            _ => self.get().postfix(operator)
+        }
     }
 
     fn subexpression_result(self, boundary: ExpressionBoundary) -> BergResult<'a> {
@@ -129,6 +139,9 @@ impl<'a> BergValue<'a> for AssignmentTarget<'a> {
         self.get().field(name)
     }
     fn set_field(&mut self, name: IdentifierIndex, value: BergVal<'a>) -> BergResult<'a, ()> {
-        self.update(|mut v| v.set_field(name, value).and_then(|_| v.ok()))
+        use ExpressionErrorPosition::Expression;
+        let mut obj = self.get()?;
+        obj.set_field(name, value)?;
+        self.set(obj, Expression).and(Ok(()))
     }
 }

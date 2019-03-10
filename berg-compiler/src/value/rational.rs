@@ -50,16 +50,16 @@ impl<'a> BergValue<'a> for BigRational {
         match operator {
             PLUS => (self).ok(),
             DASH => (-self).ok(),
-            PLUS_PLUS => (self + BigRational::one()).ok(),
-            DASH_DASH => (self - BigRational::one()).ok(),
+            PLUS_ONE => (self + BigRational::one()).ok(),
+            MINUS_ONE => (self - BigRational::one()).ok(),
             _ => default_prefix(self, operator),
         }
     }
 
     fn postfix(self, operator: IdentifierIndex) -> BergResult<'a> {
         match operator {
-            PLUS_PLUS => (self + BigRational::one()).ok(),
-            DASH_DASH => (self - BigRational::one()).ok(),
+            PLUS_ONE => (self + BigRational::one()).ok(),
+            MINUS_ONE => (self - BigRational::one()).ok(),
             _ => default_postfix(self, operator),
         }
     }

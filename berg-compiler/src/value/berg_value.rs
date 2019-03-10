@@ -262,19 +262,22 @@ pub mod implement {
         operand: impl BergValue<'a>,
         operator: IdentifierIndex,
     ) -> BergResult<'a> {
-        BergError::UnsupportedOperator(Box::new(operand.into_val()), Fixity::Postfix, operator).err()
+        use crate::syntax::identifiers::{PLUS_PLUS, DASH_DASH};
+        match operator {
+            PLUS_PLUS | DASH_DASH => BergError::AssignmentTargetMustBeIdentifier.operand_err(ExpressionErrorPosition::LeftOperand),
+            _ => BergError::UnsupportedOperator(Box::new(operand.into_val()), Fixity::Prefix, operator).err(),
+        }
     }
 
     pub fn default_prefix<'a>(
         operand: impl BergValue<'a>,
         operator: IdentifierIndex,
     ) -> BergResult<'a> {
-        use crate::syntax::identifiers::{DOUBLE_EXCLAMATION_POINT, EXCLAMATION_POINT};
+        use crate::syntax::identifiers::{DOUBLE_EXCLAMATION_POINT, EXCLAMATION_POINT, PLUS_PLUS, DASH_DASH};
         match operator {
             DOUBLE_EXCLAMATION_POINT => operand.prefix(EXCLAMATION_POINT)?.prefix(EXCLAMATION_POINT),
-            _ => {
-                BergError::UnsupportedOperator(Box::new(operand.into_val()), Fixity::Prefix, operator).err()
-            }
+            PLUS_PLUS | DASH_DASH => BergError::AssignmentTargetMustBeIdentifier.operand_err(ExpressionErrorPosition::RightOperand),
+            _ => BergError::UnsupportedOperator(Box::new(operand.into_val()), Fixity::Prefix, operator).err(),
         }
     }
 

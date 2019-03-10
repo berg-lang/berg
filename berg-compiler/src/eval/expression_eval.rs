@@ -157,67 +157,23 @@ impl<'p, 'a: 'p> ExpressionEvaluator<'p, 'a> {
     fn evaluate_infix(self, operator: IdentifierIndex) -> BergResult<'a> {
         let left = self.left_expression().evaluate_local();
         let right = RightOperand::from(self.right_expression());
-        if let Err(ControlVal::AmbiguousSyntax(AmbiguousSyntax::Target(left))) = left {
-            // Handle <identifier>: <value>
-            if operator == COLON {
-                use AssignmentTarget::*;
-                if let LocalFieldReference(scope, name) = left {
-                    self.assignment_result( LocalFieldDeclaration(scope, name).set(self.disambiguate(right.into_val())?), ExpressionErrorPosition::LeftOperand)?;
-                    return BergVal::empty_tuple().ok();
-                }
-            }
-            self.delocalize_errors(left.infix(operator, right))
-        } else {
-            self.delocalize_errors(left.infix(operator, right))
-        }
+        self.delocalize_errors(left.infix(operator, right))
     }
 
     fn evaluate_infix_assign(self, operator: IdentifierIndex) -> BergResult<'a> {
-        use ExpressionErrorPosition::LeftOperand;
         let left = self.left_expression().evaluate_local();
         let right = RightOperand::from(self.right_expression());
-        if let Err(ControlVal::AmbiguousSyntax(AmbiguousSyntax::Target(mut left))) = left {
-            let result_of_set = match operator {
-                EMPTY_STRING => left.set(self.disambiguate(right.into_val())?),
-                operator => left.update(|v| self.disambiguate(v.infix(operator, right))),
-            };
-            self.assignment_result( result_of_set, LeftOperand )?;
-            BergVal::empty_tuple().ok()
-        } else {
-            self.delocalize_errors(left.infix_assign(operator, right))
-        }
+        self.delocalize_errors(left.infix_assign(operator, right))
     }
 
     fn evaluate_prefix(self, operator: IdentifierIndex) -> BergResult<'a> {
         let right = self.right_expression().evaluate_local();
-        let result = if operator == PLUS_PLUS || operator == DASH_DASH {
-            if let Err(ControlVal::AmbiguousSyntax(AmbiguousSyntax::Target(mut right))) = right {
-                let result_of_set = right.update(|v| self.disambiguate(v.prefix(operator)));
-                self.assignment_result( result_of_set, ExpressionErrorPosition::RightOperand)?;
-                BergVal::empty_tuple().ok()
-            } else {
-                BergError::AssignmentTargetMustBeIdentifier.operand_err(ExpressionErrorPosition::RightOperand)
-            }
-        } else {
-            right.prefix(operator)
-        };
-        self.delocalize_errors(result)
+        self.delocalize_errors(right.prefix(operator))
     }
 
     fn evaluate_postfix(self, operator: IdentifierIndex) -> BergResult<'a> {
         let left = self.left_expression().evaluate_local();
-        let result = if operator == PLUS_PLUS || operator == DASH_DASH {
-            if let Err(ControlVal::AmbiguousSyntax(AmbiguousSyntax::Target(mut left))) = left {
-                let result_of_set = left.update(|v| self.disambiguate(v.postfix(operator)));
-                self.assignment_result( result_of_set, ExpressionErrorPosition::LeftOperand )?;
-                BergVal::empty_tuple().ok()
-            } else {
-                BergError::AssignmentTargetMustBeIdentifier.operand_err(ExpressionErrorPosition::LeftOperand)
-            }
-        } else {
-            left.postfix(operator)
-        };
-        self.delocalize_errors(result)
+        self.delocalize_errors(left.postfix(operator))
     }
 
     ///
@@ -227,23 +183,6 @@ impl<'p, 'a: 'p> ExpressionEvaluator<'p, 'a> {
         match result {
             Err(ControlVal::ExpressionError(error, position)) => error.at_location(self.error_location(position)).err(),
             _ => result,
-        }
-    }
-
-    ///
-    /// Disambiguate the result, with error locations at the given position instead of on the expression
-    /// itself.
-    /// Return errors at the relative operand position (i.e. if LeftOperand is passed, return an
-    /// error pointed at the left operand's source location instead of our own).
-    /// 
-    fn assignment_result(self, result: BergResult<'a, ()>, position: ExpressionErrorPosition) -> BergResult<'a> {
-        match result {
-            Err(error1) => {
-                let error = error1.clone().at_position(position);
-                println!("ASSIGNMENT RESULT {:?}+{:?} = {:?}", error1, position, error);
-                self.disambiguate(error)
-            }
-            Ok(()) => BergVal::empty_tuple().ok(),
         }
     }
 

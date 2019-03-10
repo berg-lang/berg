@@ -58,6 +58,8 @@ identifiers! {
     DASH = "-",
     PLUS_PLUS = "++",
     DASH_DASH = "--",
+    PLUS_ONE = "<plus_one>",
+    MINUS_ONE = "<minus_one>",
 
     TRUE = "true",
     FALSE = "false",
