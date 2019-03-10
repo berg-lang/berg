@@ -75,16 +75,16 @@ impl<'a> BergValue<'a> for Tuple<'a> {
         default_subexpression_result(self, boundary)
     }
 
-    fn field(self, name: IdentifierIndex) -> BergResult<'a, BergResult<'a>> {
+    fn field(self, name: IdentifierIndex) -> BergResult<'a> {
         default_field(self, name)
     }
-    fn set_field(&mut self, name: IdentifierIndex, value: BergResult<'a>) -> BergResult<'a, ()> {
+    fn set_field(&mut self, name: IdentifierIndex, value: BergVal<'a>) -> BergResult<'a, ()> {
         default_set_field(self, name, value)
     }
 
     fn next_val(mut self) -> BergResult<'a, Option<NextVal<'a>>> {
         match self.0.pop() {
-            Some(value) => Ok(Some(NextVal { head: Ok(value), tail: Ok(self.0.into()) })),
+            Some(value) => Ok(Some(NextVal { head: value, tail: Ok(self.0.into()) })),
             None => Ok(None),
         }
     }

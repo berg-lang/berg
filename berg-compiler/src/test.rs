@@ -201,7 +201,7 @@ impl<'a> ExpectBerg<'a> {
             match value.next_val()? {
                 None => break,
                 Some(NextVal { head, tail }) => {
-                    values.push(head?);
+                    values.push(head);
                     value = tail?;
                 }
             }

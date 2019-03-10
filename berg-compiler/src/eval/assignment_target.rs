@@ -19,20 +19,20 @@ impl<'a> AssignmentTarget<'a> {
     pub fn get(&self) -> BergResult<'a> {
         // If it's a declaration, declare it and get its initial value, if any.
         self.declare()?;
-        self.get_internal()?
+        self.get_internal()
     }
 
-    pub fn set(&mut self, value: impl BergValue<'a>) -> BergResult<'a, ()> {
-        self.set_internal(value.into_val())?;
+    pub fn set(&mut self, value: BergVal<'a>) -> BergResult<'a, ()> {
+        self.set_internal(value)?;
         // If it's a declaration, declare it public now that it's been set.
         self.declare()?;
         Ok(())
     }
 
-    pub fn update<F: FnOnce(BergResult<'a>) -> BergResult<'a>>(&mut self, f: F) -> BergResult<'a, ()> {
+    pub fn update<F: FnOnce(BergVal<'a>) -> BergResult<'a>>(&mut self, f: F) -> BergResult<'a, ()> {
         // If it's a declaration, declare it so that it gets its initial value (if any).
         self.declare()?;
-        let value = f(self.get_internal()?);
+        let value = f(self.get_internal()?)?;
         self.set(value)?;
         Ok(())
     }
@@ -46,7 +46,7 @@ impl<'a> AssignmentTarget<'a> {
         Ok(())
     }
 
-    fn get_internal(&self) -> BergResult<'a, BergResult<'a>> {
+    fn get_internal(&self) -> BergResult<'a> {
         use AssignmentTarget::*;
         let result = match self {
             LocalFieldReference(scope, field) | LocalFieldDeclaration(scope, field) => 
@@ -56,10 +56,7 @@ impl<'a> AssignmentTarget<'a> {
         self.point_errors_at_identifier(result)
     }
 
-    fn set_internal(&mut self, value: BergResult<'a>) -> BergResult<'a, ()> {
-        if let Err(ControlVal::ExpressionError(error, position)) = value {
-            panic!("ExpressionError({:?}, {:?})", error, position);
-        }
+    fn set_internal(&mut self, value: BergVal<'a>) -> BergResult<'a, ()> {
         use AssignmentTarget::*;
         let result = match self {
             LocalFieldReference(scope, field) | LocalFieldDeclaration(scope, field) => 
@@ -128,10 +125,10 @@ impl<'a> BergValue<'a> for AssignmentTarget<'a> {
         self.get().subexpression_result(boundary)
     }
 
-    fn field(self, name: IdentifierIndex) -> BergResult<'a, BergResult<'a>> {
+    fn field(self, name: IdentifierIndex) -> BergResult<'a> {
         self.get().field(name)
     }
-    fn set_field(&mut self, name: IdentifierIndex, value: BergResult<'a>) -> BergResult<'a, ()> {
-        self.update(|mut v| v.set_field(name, value).and_then(|_| v))
+    fn set_field(&mut self, name: IdentifierIndex, value: BergVal<'a>) -> BergResult<'a, ()> {
+        self.update(|mut v| v.set_field(name, value).and_then(|_| v.ok()))
     }
 }

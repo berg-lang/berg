@@ -90,7 +90,7 @@ impl<'a> BergValue<'a> for AmbiguousSyntax<'a> {
         }
     }
 
-    fn field(self, name: IdentifierIndex) -> BergResult<'a, BergResult<'a>> {
+    fn field(self, name: IdentifierIndex) -> BergResult<'a> {
         match self {
             Target(v) => v.field(name),
             RawIdentifier(v) => v.field(name),
@@ -98,12 +98,12 @@ impl<'a> BergValue<'a> for AmbiguousSyntax<'a> {
         }
     }
 
-    fn set_field(&mut self, name: IdentifierIndex, value: BergResult<'a>) -> BergResult<'a, ()> {
+    fn set_field(&mut self, name: IdentifierIndex, value: BergVal<'a>) -> BergResult<'a, ()> {
         match self {
             Target(v) => v.set_field(name, value),
             RawIdentifier(v) => v.set_field(name, value),
             MissingExpression => BergError::MissingOperand.err(),
-            PartialTuple(_) | TrailingComma(_) | TrailingSemicolon => panic!("not yet implemented: can't set field {} on {:?} to {}", name, self, value.display()),
+            PartialTuple(_) | TrailingComma(_) | TrailingSemicolon => panic!("not yet implemented: can't set field {} on {:?} to {}", name, self, value),
         }
     }
 }

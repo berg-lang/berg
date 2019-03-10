@@ -1,6 +1,6 @@
 use crate::syntax::identifiers;
 use crate::syntax::{FieldIndex, IdentifierIndex};
-use crate::value::{BergError, BergValue, BergResult};
+use crate::value::{BergError, BergResult, BergVal, BergValue};
 use std;
 use std::env;
 use std::fmt;
@@ -74,8 +74,8 @@ impl RootRef {
         }
     }
 
-    pub fn field<'a>(&self, name: IdentifierIndex) -> BergResult<'a, BergResult<'a>> {
-        Ok(self.local_field(self.field_index(name)?))
+    pub fn field<'a>(&self, name: IdentifierIndex) -> BergResult<'a> {
+        self.local_field(self.field_index(name)?)
     }
 
     pub fn local_field<'a>(&self, index: FieldIndex) -> BergResult<'a> {
@@ -91,7 +91,7 @@ impl RootRef {
     pub fn set_local_field<'a>(
         &self,
         index: FieldIndex,
-        _value: BergResult<'a>,
+        _value: BergVal<'a>,
     ) -> BergResult<'a, ()> {
         BergError::ImmutableFieldOnRoot(index).err()
     }

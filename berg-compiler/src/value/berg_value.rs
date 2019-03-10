@@ -79,8 +79,8 @@ pub trait BergValue<'a>: Sized + fmt::Debug {
         Err(E::from(self))
     }
 
-    fn field(self, name: IdentifierIndex) -> BergResult<'a, BergResult<'a>>;
-    fn set_field(&mut self, name: IdentifierIndex, value: BergResult<'a>) -> BergResult<'a, ()> where Self: Clone;
+    fn field(self, name: IdentifierIndex) -> BergResult<'a>;
+    fn set_field(&mut self, name: IdentifierIndex, value: BergVal<'a>) -> BergResult<'a, ()> where Self: Clone;
 
     fn infix(self, operator: IdentifierIndex, right: RightOperand<'a, impl BergValue<'a>>) -> BergResult<'a>;
     fn infix_assign(self, operator: IdentifierIndex, right: RightOperand<'a, impl BergValue<'a>>) -> BergResult<'a>;
@@ -165,7 +165,7 @@ pub mod implement {
     use crate::eval::AmbiguousSyntax;
 
     pub fn single_next_val<'a>(value: impl BergValue<'a>) -> BergResult<'a, Option<NextVal<'a>>> {
-        Ok(Some(NextVal::single(value.into_val())))
+        Ok(Some(NextVal::single(value.into_val()?)))
     }
 
     pub fn default_into_native<'a, T: TryFromBergVal<'a>>(value: impl BergValue<'a>) -> BergResult<'a, T>  {
@@ -281,7 +281,7 @@ pub mod implement {
     pub fn default_field<'a, T: BergValue<'a>>(
         object: T,
         name: IdentifierIndex,
-    ) -> BergResult<'a, BergResult<'a>> {
+    ) -> BergResult<'a> {
         BergError::NoSuchPublicFieldOnValue(Box::new(object.into_val()), name).err()
     }
 
@@ -289,7 +289,7 @@ pub mod implement {
     pub fn default_set_field<'a, T: BergValue<'a>+Clone>(
         object: &mut T,
         name: IdentifierIndex,
-        _value: BergResult<'a>,
+        _value: BergVal<'a>,
     ) -> BergResult<'a, ()> {
         BergError::NoSuchPublicFieldOnValue(Box::new(object.clone().into_val()), name).err()
     }

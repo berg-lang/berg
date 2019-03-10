@@ -76,14 +76,14 @@ impl<'a> BergValue<'a> for ControlVal<'a> {
         }
     }
 
-    fn field(self, name: IdentifierIndex) -> BergResult<'a, BergResult<'a>> {
+    fn field(self, name: IdentifierIndex) -> BergResult<'a> {
         use ControlVal::*;
         match self {
             AmbiguousSyntax(val) => val.field(name),
             ExpressionError(..) | Error(_) => self.at_position(ExpressionErrorPosition::LeftOperand),
         }
     }
-    fn set_field(&mut self, name: IdentifierIndex, value: BergResult<'a>) -> BergResult<'a, ()> {
+    fn set_field(&mut self, name: IdentifierIndex, value: BergVal<'a>) -> BergResult<'a, ()> {
         use ControlVal::*;
         match self {
             AmbiguousSyntax(val) => val.set_field(name, value),

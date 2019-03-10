@@ -89,14 +89,14 @@ impl<'a, V: BergValue<'a>+Clone, E: BergValue<'a>+Clone> BergValue<'a> for Resul
         }
     }
 
-    fn field(self, name: IdentifierIndex) -> BergResult<'a, BergResult<'a>> {
+    fn field(self, name: IdentifierIndex) -> BergResult<'a> {
         match self {
             Ok(v) => v.field(name),
             Err(v) => v.field(name),
         }
     }
 
-    fn set_field(&mut self, name: IdentifierIndex, value: BergResult<'a>) -> BergResult<'a, ()> where Self: Clone {
+    fn set_field(&mut self, name: IdentifierIndex, value: BergVal<'a>) -> BergResult<'a, ()> where Self: Clone {
         match self {
             Ok(v) => v.set_field(name, value),
             Err(v) => v.set_field(name, value),

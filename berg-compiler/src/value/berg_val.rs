@@ -15,15 +15,15 @@ pub enum BergVal<'a> {
 }
 
 #[derive(Debug, Clone)]
-pub struct NextVal<'a> { pub head: BergResult<'a>, pub tail: BergResult<'a> }
+pub struct NextVal<'a> { pub head: BergVal<'a>, pub tail: BergResult<'a> }
 
 impl<'a> fmt::Display for NextVal<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{} -> {}", self.head.display(), self.tail.display())
+        write!(f, "{} -> {}", self.head, self.tail.display())
     }
 }
 impl<'a> NextVal<'a> {
-    pub fn single(value: BergResult<'a>) -> NextVal<'a> {
+    pub fn single(value: BergVal<'a>) -> NextVal<'a> {
         NextVal { head: value, tail: Ok(BergVal::empty_tuple()) }
     }
 }
@@ -128,7 +128,7 @@ impl<'a> BergValue<'a> for BergVal<'a> {
         }
     }
 
-    fn field(self, name: IdentifierIndex) -> BergResult<'a, BergResult<'a>> {
+    fn field(self, name: IdentifierIndex) -> BergResult<'a> {
         use BergVal::*;
         match self {
             Boolean(value) => value.field(name),
@@ -141,7 +141,7 @@ impl<'a> BergValue<'a> for BergVal<'a> {
     fn set_field(
         &mut self,
         name: IdentifierIndex,
-        field_value: BergResult<'a>,
+        field_value: BergVal<'a>,
     ) -> BergResult<'a, ()> {
         use BergVal::*;
         match self {

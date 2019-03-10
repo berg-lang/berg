@@ -162,7 +162,7 @@ impl<'p, 'a: 'p> ExpressionEvaluator<'p, 'a> {
             if operator == COLON {
                 use AssignmentTarget::*;
                 if let LocalFieldReference(scope, name) = left {
-                    self.assignment_result( LocalFieldDeclaration(scope, name).set(self.disambiguate(right.into_val())), ExpressionErrorPosition::LeftOperand)?;
+                    self.assignment_result( LocalFieldDeclaration(scope, name).set(self.disambiguate(right.into_val())?), ExpressionErrorPosition::LeftOperand)?;
                     return BergVal::empty_tuple().ok();
                 }
             }
@@ -178,7 +178,7 @@ impl<'p, 'a: 'p> ExpressionEvaluator<'p, 'a> {
         let right = RightOperand::from(self.right_expression());
         if let Err(ControlVal::AmbiguousSyntax(AmbiguousSyntax::Target(mut left))) = left {
             let result_of_set = match operator {
-                EMPTY_STRING => left.set(self.disambiguate(right.into_val())),
+                EMPTY_STRING => left.set(self.disambiguate(right.into_val())?),
                 operator => left.update(|v| self.disambiguate(v.infix(operator, right))),
             };
             self.assignment_result( result_of_set, LeftOperand )?;
@@ -332,12 +332,12 @@ impl<'p, 'a: 'p> BergValue<'a> for ExpressionEvaluator<'p, 'a> {
     }
 
     #[allow(unused_variables)]
-    fn field(self, name: IdentifierIndex) -> BergResult<'a, BergResult<'a>> {
+    fn field(self, name: IdentifierIndex) -> BergResult<'a> {
         unreachable!()
     }
 
     #[allow(unused_variables)]
-    fn set_field(&mut self, name: IdentifierIndex, value: BergResult<'a>) -> BergResult<'a, ()> {
+    fn set_field(&mut self, name: IdentifierIndex, value: BergVal<'a>) -> BergResult<'a, ()> {
         unreachable!()
     }
 }

@@ -409,35 +409,35 @@ fn decrement_pre_non_field_expr() {
 
 #[test]
 fn assign_error() {
-    expect(":a = 1 + true").to_yield(tuple!())
+    expect(":a = 1 + true").to_error(BadOperandType, 9..=12)
 }
 #[test]
 fn reassign_error() {
-    expect(":a = 1; a  = 1 + true").to_yield(tuple!())
+    expect(":a = 1; a  = 1 + true").to_error(BadOperandType, 17..=20)
 }
 #[test]
 fn assign_plus_error() {
-    expect(":a = 1; a += 1 + true").to_yield(tuple!())
+    expect(":a = 1; a += 1 + true").to_error(BadOperandType, 17..=20)
 }
 #[test]
 fn assign_minus_error() {
-    expect(":a = 1; a -= 1 + true").to_yield(tuple!())
+    expect(":a = 1; a -= 1 + true").to_error(BadOperandType, 17..=20)
 }
 #[test]
 fn assign_times_error() {
-    expect(":a = 1; a *= 1 + true").to_yield(tuple!())
+    expect(":a = 1; a *= 1 + true").to_error(BadOperandType, 17..=20)
 }
 #[test]
 fn assign_divide_error() {
-    expect(":a = 1; a /= 1 + true").to_yield(tuple!())
+    expect(":a = 1; a /= 1 + true").to_error(BadOperandType, 17..=20)
 }
 #[test]
 fn assign_and_error() {
-    expect(":a = true; a &&= true && 1").to_yield(tuple!())
+    expect(":a = true; a &&= true && 1").to_error(BadOperandType, 25)
 }
 #[test]
 fn assign_or_error() {
-    expect(":a = true; a ||= false && 1").to_yield(tuple!())
+    expect(":a = false; a ||= true && 1").to_error(BadOperandType, 26)
 }
 
 #[test]

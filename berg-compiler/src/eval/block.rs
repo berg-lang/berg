@@ -38,7 +38,7 @@ enum BlockState<'a> {
 enum BlockFieldValue<'a> {
     NotDeclared,
     NotSet,
-    Value(BergResult<'a>),
+    Value(BergVal<'a>),
 }
 
 impl<'a> BlockRef<'a> {
@@ -152,7 +152,7 @@ impl<'a> BlockRef<'a> {
         Ok(())
     }
 
-    pub fn local_field(&self, index: FieldIndex, ast: &Ast) -> BergResult<'a, BergResult<'a>> {
+    pub fn local_field(&self, index: FieldIndex, ast: &Ast) -> BergResult<'a> {
         use BlockFieldValue::*;
         let block = self.0.borrow();
         let scope_start = ast.blocks[block.index].scope_start;
@@ -213,7 +213,7 @@ impl<'a> BlockRef<'a> {
     pub fn set_local_field(
         &self,
         field_index: FieldIndex,
-        value: BergResult<'a>,
+        value: BergVal<'a>,
         ast: &Ast,
     ) -> BergResult<'a, ()> {
         let scope_start = ast.blocks[self.0.borrow().index].scope_start;
@@ -328,7 +328,7 @@ impl<'a> BergValue<'a> for BlockRef<'a> {
         default_subexpression_result(self, boundary)
     }
 
-    fn field(self, name: IdentifierIndex) -> BergResult<'a, BergResult<'a>> {
+    fn field(self, name: IdentifierIndex) -> BergResult<'a> {
         println!(
             "====> get {} on {}",
             self.ast().identifier_string(name),
@@ -358,7 +358,7 @@ impl<'a> BergValue<'a> for BlockRef<'a> {
         }
     }
 
-    fn set_field(&mut self, name: IdentifierIndex, value: BergResult<'a>) -> BergResult<'a, ()> {
+    fn set_field(&mut self, name: IdentifierIndex, value: BergVal<'a>) -> BergResult<'a, ()> {
         self.ensure_evaluated()?;
 
         // Figure out the field index from its name
@@ -410,7 +410,7 @@ impl<'a> fmt::Display for BlockRef<'a> {
                 let name = ast.identifier_string(field.name);
 
                 match field_value {
-                    Value(value) => write!(f, "{}: {}", name, value.display())?,
+                    Value(value) => write!(f, "{}: {}", name, value)?,
                     NotDeclared => write!(f, "{}: <undeclared>", name)?,
                     NotSet => write!(f, "{}: <not set>", name)?,
                 }
