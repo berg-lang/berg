@@ -85,7 +85,7 @@ impl<'a> BergValue<'a> for AmbiguousSyntax<'a> {
         match self {
             Target(v) => v.subexpression_result(boundary),
             RawIdentifier(v) => v.subexpression_result(boundary),
-            MissingExpression if boundary == Parentheses || boundary == CurlyBraces => BergVal::empty_tuple().ok(),
+            MissingExpression if boundary == Parentheses || boundary.is_block() => BergVal::empty_tuple().ok(),
             MissingExpression | PartialTuple(_) | TrailingComma(_) | TrailingSemicolon => self.disambiguate().subexpression_result(boundary),
         }
     }
