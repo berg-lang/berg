@@ -1,7 +1,6 @@
 use crate::syntax::{
-    Ast, AstIndex, ExpressionVisitor, Expression, VisitResult, Fixity, ExpressionToken, OperatorToken,
+    Ast, AstIndex, ExpressionVisitor, Expression, VisitResult, Fixity, ExpressionToken, OperatorToken
 };
-use crate::syntax::identifiers::*;
 
 
 ///
@@ -27,33 +26,31 @@ impl<'p, 'a: 'p> Expression for AstExpression<'p, 'a> {
         let mut next = {
             use ExpressionToken::*;
             match self.ast.expression_token(self.index) {
-                IntegerLiteral(literal) => self.result(walker.integer_literal(literal)),
-                FieldReference(field) => self.result(walker.field_reference(field)),
-                RawIdentifier(identifier) => self.result(walker.raw_identifier(identifier)),
-                MissingExpression => self.result(walker.missing_expression()),
-                ErrorTerm(error, literal) => self.result(walker.error_term(error, literal)),
-                RawErrorTerm(error, raw_literal) => self.result(walker.raw_error_term(error, raw_literal)),
-
+                Term(token) => self.result(walker.term(token)),
                 PrefixOperator(operator) => walker.prefix(operator, self.operand(Fixity::Prefix)),
-                Open { boundary, error, .. } => walker.subexpression(boundary, error, self.operand(Fixity::Open)),
-                OpenBlock { index, error, .. } => walker.block(index, error, self.operand(Fixity::Open)),
+                Open(error, boundary, delta) if boundary.is_block() => {
+                    let block_index = self.ast.close_block_index(self.index + delta);
+                    walker.block(block_index, error, self.operand(Fixity::Open))
+                }
+                Open(error, boundary, _) => walker.subexpression(boundary, error, self.operand(Fixity::Open)),
             }
         };
 
+        //
         // Next, walk operators until we reach an operator that isn't part of our expression.
         // The most important effect here is that in "(a + b + c)", "(a" (which has parent_fixity
         // == Open) will pick up "+ b" and then "+ c". Keeps the stack fairly shallow by consuming
         // operators over and over.
+        //
+        // TODO Consider extending this to handle precedence so that we don't have to store precedence in the AST
+        //
         while let Some(operator_token) = next.walk_state.take_next_operator() {
             use OperatorToken::*;
             next = match operator_token {
                 InfixOperator(operator) => walker.infix(next.result, operator, false, next.walk_state.operand(Fixity::Infix)),
                 InfixAssignment(operator) => walker.infix(next.result, operator, true, next.walk_state.operand(Fixity::Infix)),
-                Apply => walker.infix(next.result, APPLY, false, next.walk_state.operand(Fixity::Infix)),
-                NewlineSequence => walker.infix(next.result, NEWLINE, false, next.walk_state.operand(Fixity::Infix)),
-
                 PostfixOperator(operator) => next.walk_state.result(walker.postfix(next.result, operator)),
-                Close { .. } | CloseBlock { .. } => next.walk_state.result(next.result),
+                Close(..) | CloseBlock(..) => unreachable!(), // next.walk_state.result(next.result),
             };
         }
         next

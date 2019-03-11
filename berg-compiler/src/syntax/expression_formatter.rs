@@ -1,5 +1,5 @@
-use crate::syntax::identifiers::SEMICOLON;
-use crate::syntax::{ExpressionTreeWalker, ExpressionBoundary, Fixity, Token, ExpressionToken, OperatorToken};
+use crate::syntax::identifiers::{NEWLINE, SEMICOLON};
+use crate::syntax::{ExpressionTreeWalker, ExpressionBoundary, Fixity, Token, ExpressionToken, OperatorToken, TermToken};
 use std::fmt;
 
 #[derive(Copy, Clone, Debug)]
@@ -13,8 +13,7 @@ pub struct ExpressionTreeFormatter {
 impl<'p, 'a: 'p> ExpressionTreeWalker<'p, 'a, ExpressionFormatter> {
     fn boundary_strings(self) -> (&'static str, &'static str) {
         let boundary = match self.open_token() {
-            ExpressionToken::Open { boundary, .. } => boundary,
-            ExpressionToken::OpenBlock { index, .. } => self.ast().blocks[index].boundary,
+            ExpressionToken::Open(_, boundary, _) => boundary,
             _ => unreachable!(),
         };
         match boundary {
@@ -31,42 +30,44 @@ impl<'p, 'a: 'p> ExpressionTreeWalker<'p, 'a, ExpressionFormatter> {
 
 impl<'p, 'a: 'p> fmt::Display for ExpressionTreeWalker<'p, 'a, ExpressionFormatter> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        use Token::*;
+        use ExpressionToken::*;
+        use OperatorToken::*;
+        use TermToken::*;
         let token = self.token();
         let string = self.token_string();
-        match token.fixity() {
-            Fixity::Infix => {
-                let left = self.left_expression();
-                let right = self.right_expression();
-                match token {
-                    Token::Operator(OperatorToken::InfixOperator(SEMICOLON)) => write!(f, "{}{} {}", left, string, right),
-                    Token::Operator(OperatorToken::NewlineSequence) => write!(f, "{}\\n {}", left, right),
-                    _ => write!(f, "{} {} {}", left, string, right),
+        match token {
+            Expression(token) => match token {
+                Term(token) => match token {
+                    MissingExpression => write!(f, "<missing>"),
+                    _ => write!(f, "{}", token.to_string(self.ast())),
+                }
+                PrefixOperator(_) => {
+                    let right = self.right_expression();
+                    if self.ast().tokens[self.root_index() - 1].has_left_operand() {
+                        write!(f, " {}{}", string, right)
+                    } else {
+                        write!(f, "{}{}", string, right)
+                    }
+                }
+                Open(..) => {
+                    let (open, close) = self.boundary_strings();
+                    let inner = self.inner_expression();
+                    write!(f, "{}{}{}", open, inner, close)
                 }
             }
-            Fixity::Prefix => {
-                let right = self.right_expression();
-                if self.ast().tokens[self.root_index() - 1].has_left_operand() {
-                    write!(f, " {}{}", string, right)
-                } else {
-                    write!(f, "{}{}", string, right)
+            Operator(token) => match token {
+                PostfixOperator(_) => {
+                    let left = self.left_expression();
+                    if self.ast().tokens[self.root_index() + 1].has_right_operand() {
+                        write!(f, " {}{}", left, string)
+                    } else {
+                        write!(f, "{}{}", left, string)
+                    }
                 }
-            }
-            Fixity::Postfix => {
-                let left = self.left_expression();
-                if self.ast().tokens[self.root_index() + 1].has_right_operand() {
-                    write!(f, " {}{}", left, string)
-                } else {
-                    write!(f, "{}{}", left, string)
-                }
-            }
-            Fixity::Term => match token {
-                Token::Expression(ExpressionToken::MissingExpression) => write!(f, "<missing>"),
-                _ => write!(f, "{}", token.to_string(self.ast())),
-            }
-            Fixity::Open | Fixity::Close => {
-                let (open, close) = self.boundary_strings();
-                let inner = self.inner_expression();
-                write!(f, "{}{}{}", open, inner, close)
+                Close(..) | CloseBlock(..) => unreachable!(),
+                InfixOperator(SEMICOLON) | InfixOperator(NEWLINE) => write!(f, "{}{} {}", self.left_expression(), string, self.right_expression()),
+                InfixOperator(_) | InfixAssignment(_) => write!(f, "{} {} {}", self.left_expression(), string, self.right_expression()),
             }
         }
     }

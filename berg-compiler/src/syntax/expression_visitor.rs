@@ -1,27 +1,18 @@
 use crate::syntax::{
-    BlockIndex, ExpressionBoundary, ExpressionBoundaryError, IdentifierIndex, LiteralIndex, RawLiteralIndex, FieldIndex,
+    BlockIndex, ExpressionBoundary, ExpressionBoundaryError, IdentifierIndex, TermToken,
 };
-use crate::value::ErrorCode;
 
 ///
 /// A visitor that is passed expressions in evaluation order.
 ///
 pub trait ExpressionVisitor: Sized {
     type Result: Sized;
-    fn integer_literal(&self, literal: LiteralIndex) -> Self::Result;
-    fn field_reference(&self, field: FieldIndex) -> Self::Result;
-    fn raw_identifier(&self, identifier: IdentifierIndex) -> Self::Result;
-    fn missing_expression(&self) -> Self::Result;
-    fn error_term(&self, error: ErrorCode, literal: LiteralIndex) -> Self::Result;
-    fn raw_error_term(&self, error: ErrorCode, literal: RawLiteralIndex) -> Self::Result;
-    fn postfix(&self, left: Self::Result, operator: IdentifierIndex) -> Self::Result;
-
+    fn term(&self, term: TermToken) -> Self::Result;
     fn infix<E: Expression>(&self, left: Self::Result, operator: IdentifierIndex, is_assign: bool, operand: E) -> VisitResult<Self, E>;
     fn prefix<E: Expression>(&self, operator: IdentifierIndex, operand: E) -> VisitResult<Self, E>;
-    fn subexpression<E: Expression>(&self, _boundary: ExpressionBoundary, _error: ExpressionBoundaryError, inner: E) -> VisitResult<Self, E> {
-        inner.visit_and(self, |r| r)
-    }
-    fn block<E: Expression>(&self, block: BlockIndex, error: ExpressionBoundaryError, inner: E) -> VisitResult<Self, E>;
+    fn postfix(&self, left: Self::Result, operator: IdentifierIndex) -> Self::Result;
+    fn subexpression<E: Expression>(&self, boundary: ExpressionBoundary, error: Option<ExpressionBoundaryError>, inner: E) -> VisitResult<Self, E>;
+    fn block<E: Expression>(&self, block: BlockIndex, error: Option<ExpressionBoundaryError>, inner: E) -> VisitResult<Self, E>;
 }
 
 pub struct VisitResult<V: ExpressionVisitor, E: Expression> {
@@ -31,7 +22,9 @@ pub struct VisitResult<V: ExpressionVisitor, E: Expression> {
 
 pub trait Expression: Sized {
     ///
-    /// Internal state held by an expression. Used to construct the VisitResult type.
+    /// Internal state held by an expression.
+    /// 
+    /// Used to construct the [`VisitResult`] type.
     ///
     type VisitState;
 
@@ -63,12 +56,7 @@ struct SkipExpression;
 
 impl ExpressionVisitor for SkipExpression {
     type Result = ();
-    fn integer_literal(&self, _literal: LiteralIndex) -> Self::Result { }
-    fn field_reference(&self, _field: FieldIndex) -> Self::Result { }
-    fn raw_identifier(&self, _identifier: IdentifierIndex) -> Self::Result { }
-    fn missing_expression(&self) -> Self::Result { }
-    fn error_term(&self, _error: ErrorCode, _literal: LiteralIndex) -> Self::Result { }
-    fn raw_error_term(&self, _error: ErrorCode, _literal: RawLiteralIndex) -> Self::Result { }
+    fn term(&self, _token: TermToken) -> Self::Result { }
     fn postfix(&self, _left: Self::Result, _operator: IdentifierIndex) -> Self::Result { }
     fn infix<E: Expression>(&self, _left: Self::Result, _operator: IdentifierIndex, _is_assign: bool, operand: E) -> VisitResult<Self, E> {
         operand.visit(self)
@@ -76,10 +64,10 @@ impl ExpressionVisitor for SkipExpression {
     fn prefix<E: Expression>(&self, _operator: IdentifierIndex, operand: E) -> VisitResult<Self, E> {
         operand.visit(self)
     }
-    fn subexpression<E: Expression>(&self, _boundary: ExpressionBoundary, _error: ExpressionBoundaryError, inner: E) -> VisitResult<Self, E> {
+    fn subexpression<E: Expression>(&self, _boundary: ExpressionBoundary, _error: Option<ExpressionBoundaryError>, inner: E) -> VisitResult<Self, E> {
         inner.visit(self)
     }
-    fn block<E: Expression>(&self, _block: BlockIndex, _error: ExpressionBoundaryError, inner: E) -> VisitResult<Self, E> {
+    fn block<E: Expression>(&self, _block: BlockIndex, _error: Option<ExpressionBoundaryError>, inner: E) -> VisitResult<Self, E> {
         inner.visit(self)
     }
 }

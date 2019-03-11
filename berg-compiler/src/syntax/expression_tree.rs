@@ -1,6 +1,6 @@
 use crate::syntax::Fixity::*;
 use crate::syntax::{
-    Ast, AstIndex, AstRef, ByteRange, ExpressionBoundary, ExpressionFormatter, ExpressionTreeFormatter, SourceReconstruction, Fixity, ExpressionFixity, OperandPosition, Token, ExpressionToken, OperatorToken,
+    Ast, AstIndex, AstRef, ByteRange, ExpressionBoundary, ExpressionFormatter, ExpressionTreeFormatter, SourceReconstruction, Fixity, OperandPosition, Token, ExpressionToken, OperatorToken,
 };
 use std::borrow::Cow;
 use std::fmt;
@@ -203,8 +203,7 @@ impl<'p, 'a: 'p> AstExpressionTree<'p, 'a> {
 
     pub fn boundary(self) -> ExpressionBoundary {
         match self.open_token() {
-            ExpressionToken::Open { boundary, .. } => boundary,
-            ExpressionToken::OpenBlock { index, .. } => self.ast.blocks[index].boundary,
+            ExpressionToken::Open(_, boundary, _) => boundary,
             _ => unreachable!(),
         }
     }
@@ -265,12 +264,13 @@ impl<'p, 'a: 'p> AstExpressionTree<'p, 'a> {
 }
 
 ///
-/// The index of the token at the very end of the expression.
+/// The index of the token at the very beginning of the expression.
 ///
 fn first_index(ast: &Ast, root: AstIndex) -> AstIndex {
     let token = ast.tokens[root];
     match token {
-        Token::Operator(OperatorToken::Close { delta, .. }) | Token::Operator(OperatorToken::CloseBlock { delta, .. }) => root - delta,
+        Token::Operator(OperatorToken::Close(delta, _)) => root - delta,
+        Token::Operator(OperatorToken::CloseBlock(block_index, _)) => root - ast.blocks[block_index].delta,
         _ => {
             let mut left = root;
             while ast.tokens[left].has_left_operand() {
@@ -291,7 +291,7 @@ fn prev_index(ast: &Ast, root: AstIndex) -> AstIndex {
 fn last_index(ast: &Ast, root: AstIndex) -> AstIndex {
     let token = ast.tokens[root];
     match token {
-        Token::Expression(ExpressionToken::Open { delta, .. }) | Token::Expression(ExpressionToken::OpenBlock { delta, .. }) => root + delta,
+        Token::Expression(ExpressionToken::Open(_, _, delta)) => root + delta,
         _ => {
             let mut right = root;
             while ast.tokens[right].has_right_operand() {
@@ -306,34 +306,31 @@ fn last_index(ast: &Ast, root: AstIndex) -> AstIndex {
 /// The root index of the current expression's right operand.
 ///
 fn right_operand_root(ast: &Ast, root: AstIndex) -> AstIndex {
-    use Fixity::*;
+    use Token::*;
+    use ExpressionToken::*;
+    use OperatorToken::*;
+
     let start = root + 1;
 
-    match ast.tokens[root].fixity() {
+    match ast.tokens[root] {
         // If this is prefix, it cannot have postfix or infix children, so its immediate right is the child.
-        Prefix => return start,
+        Expression(PrefixOperator(_)) => return start,
         // If this is a group term, APPLY inner() and return.
-        Open => return inner_root(ast, root),
+        Expression(Open(..)) => return inner_root(ast, root),
         // Otherwise, it's guaranteed to be infix.
-        Infix => {}
-        _ => unreachable!(),
+        _ => assert!(ast.tokens[root].fixity() == Fixity::Infix),
     }
 
     // Check whether there is a postfix by skipping prefix and term.
     let mut end = start;
-    while ast.expression_token(end).fixity() == ExpressionFixity::Prefix {
+    while let PrefixOperator(_) = ast.expression_token(end) {
         end += 1;
     }
-    match ast.expression_token(end) {
-        ExpressionToken::Open { delta, .. } | ExpressionToken::OpenBlock { delta, .. } => {
-            end += delta;
-        }
-        _ => {}
+    if let Open(_, _, delta) = ast.expression_token(end) {
+        end += delta;
     }
     let mut has_postfix = false;
-    while end < ast.tokens.last_index()
-        && ast.tokens[end + 1].fixity() == Fixity::Postfix
-    {
+    while let PostfixOperator(_) = ast.operator_token(end + 1) {
         end += 1;
         has_postfix = true;
     }
@@ -348,43 +345,42 @@ fn right_operand_root(ast: &Ast, root: AstIndex) -> AstIndex {
 }
 
 fn left_operand_root(ast: &Ast, root: AstIndex) -> AstIndex {
-    use Fixity::*;
+    use Token::*;
+    use OperatorToken::*;
+
     let end = root - 1;
     let mut start = end;
-    let operator_fixity = ast.token(root).fixity();
+    let is_postfix = ast.token(root).fixity() == Fixity::Postfix;
 
     // Pass any postfixes to find the term.
-    let mut has_postfix = false;
-    while ast.token(start).fixity() == Postfix {
+    let mut left_has_postfix = false;
+    while let Operator(PostfixOperator(_)) = ast.token(start) {
         start -= 1;
-        has_postfix = true;
+        left_has_postfix = true;
     }
 
     // Jump to the open token if it's a group term (parens, curlies, etc.)
     match ast.token(start) {
-        Token::Operator(OperatorToken::Close { delta, .. }) | Token::Operator(OperatorToken::CloseBlock { delta, .. }) => {
-            start -= delta;
-        }
+        Operator(Close(delta, _)) => { start -= delta; }
+        Operator(CloseBlock(block_index, _)) => { start -= ast.blocks[block_index].delta; }
         _ => {}
     }
 
     // Pass any prefixes if there is no postfix or infix.
-    if operator_fixity == Postfix || !has_postfix {
+    if is_postfix || !left_has_postfix {
         while start > 0 && ast.tokens[start - 1].fixity() == Fixity::Prefix {
             start -= 1;
         }
     }
 
     // Check for an infix.
-    if operator_fixity != Postfix
-        && start > 0
-        && ast.tokens[start - 1].fixity() == Infix
+    if !is_postfix && start > 0 && ast.tokens[start - 1].fixity() == Infix
     {
         return start - 1;
     }
 
     // Pick postfix if there is one.
-    if has_postfix {
+    if left_has_postfix {
         return end;
     }
 
@@ -430,14 +426,15 @@ fn inner_root(ast: &Ast, index: AstIndex) -> AstIndex {
 
 fn open_operator_index(ast: &Ast, index: AstIndex) -> AstIndex {
     match ast.tokens[index] {
-        Token::Operator(OperatorToken::Close { delta, .. }) | Token::Operator(OperatorToken::CloseBlock { delta, .. }) => index - delta,
+        Token::Operator(OperatorToken::Close(delta, _)) => index - delta,
+        Token::Operator(OperatorToken::CloseBlock(block_index, _)) => index - ast.blocks[block_index].delta,
         _ => index,
     }
 }
 
 fn close_operator_index(ast: &Ast, index: AstIndex) -> AstIndex {
     match ast.tokens[index] {
-        Token::Expression(ExpressionToken::Open { delta, .. }) | Token::Expression(ExpressionToken::OpenBlock { delta, .. }) => index + delta,
+        Token::Expression(ExpressionToken::Open(_, _, delta)) => index + delta,
         _ => index,
     }
 }

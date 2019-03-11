@@ -1,5 +1,5 @@
 use crate::syntax::identifiers::*;
-use crate::syntax::{Ast, AstIndex, ByteIndex, ByteRange, Token, ExpressionToken, OperatorToken};
+use crate::syntax::{Ast, AstIndex, ByteIndex, ByteRange, Token, ExpressionToken, OperatorToken, TermToken};
 use std::cmp;
 use std::fmt;
 use std::io;
@@ -208,27 +208,31 @@ impl<'p, 'a: 'p> SourceReconstructionIterator<'p, 'a> {
         use Token::*;
         use ExpressionToken::*;
         use OperatorToken::*;
+        use TermToken::*;
 
         let bytes = match token {
             Expression(token) => match token {
-                IntegerLiteral(literal) | ErrorTerm(.., literal) => {
-                    self.ast.literal_string(literal).as_bytes()
+                Term(token) => match token {
+                    IntegerLiteral(literal) | ErrorTerm(.., literal) => {
+                        self.ast.literal_string(literal).as_bytes()
+                    }
+                    RawErrorTerm(.., raw_literal) => &self.ast.raw_literals[raw_literal],
+
+                    FieldReference(field) => self
+                        .ast
+                        .identifier_string(self.ast.fields[field].name)
+                        .as_bytes(),
+
+                    RawIdentifier(identifier) => self.ast.identifier_string(identifier).as_bytes(),
+                    MissingExpression => unreachable!(),
                 }
-                RawErrorTerm(.., raw_literal) => &self.ast.raw_literals[raw_literal],
-
-                FieldReference(field) => self
-                    .ast
-                    .identifier_string(self.ast.fields[field].name)
-                    .as_bytes(),
-
-                RawIdentifier(identifier)
-                | PrefixOperator(identifier) => self.ast.identifier_string(identifier).as_bytes(),
-
-                Open { boundary, .. } => boundary.open_string().as_bytes(),
-                OpenBlock { index, .. } => self.ast.blocks[index].boundary.open_string().as_bytes(),
-                MissingExpression => unreachable!(),
+                PrefixOperator(identifier) => self.ast.identifier_string(identifier).as_bytes(),
+                Open(_, boundary, _) => boundary.open_string().as_bytes(),
             }
             Operator(token) => match token {
+                InfixOperator(NEWLINE) => return None,
+                InfixOperator(APPLY) => unreachable!(),
+
                 InfixOperator(identifier)
                 | PostfixOperator(identifier) => self.ast.identifier_string(identifier).as_bytes(),
 
@@ -242,10 +246,7 @@ impl<'p, 'a: 'p> SourceReconstructionIterator<'p, 'a> {
                     }
                 }
 
-                Close { boundary, .. } => boundary.close_string().as_bytes(),
-                CloseBlock { index, .. } => self.ast.blocks[index].boundary.close_string().as_bytes(),
-                NewlineSequence => return None,
-                Apply => unreachable!(),
+                Close(_, boundary) | CloseBlock(_, boundary) => boundary.close_string().as_bytes(),
             }
         };
         Some((token_start, bytes))

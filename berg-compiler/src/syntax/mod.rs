@@ -14,8 +14,7 @@ pub(crate) use self::source::{
     ByteIndex, ByteRange, ByteSlice, SourceBuffer, SourceOpenError, SourceRef,
 };
 pub(crate) use self::source_reconstruction::{SourceReconstruction, SourceReconstructionReader};
-pub(crate) use self::fixity::{Fixity, ExpressionFixity, OperatorFixity};
-pub(crate) use self::token::{ExpressionBoundaryError, Token, ExpressionToken, OperatorToken};
+pub(crate) use self::token::{ErrorTermError, ExpressionBoundaryError, ExpressionToken, Fixity, OperatorToken, RawErrorTermError, TermToken, Token};
 
 mod ast;
 mod ast_expression;
@@ -24,7 +23,6 @@ mod char_data;
 mod expression_formatter;
 mod expression_tree;
 mod expression_visitor;
-mod fixity;
 mod precedence;
 mod source;
 mod source_reconstruction;

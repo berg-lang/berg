@@ -111,6 +111,12 @@ impl<'a> Ast<'a> {
             Token::Expression(_) => unreachable!(),
         }
     }
+    pub fn close_block_index(&self, index: AstIndex) -> BlockIndex {
+        match self.tokens[index] {
+            Token::Operator(OperatorToken::CloseBlock(block_index, _)) => block_index,
+            _ => unreachable!(),
+        }
+    }
     pub fn token_string(&self, index: AstIndex) -> Cow<str> {
         self.tokens[index].to_string(self)
     }

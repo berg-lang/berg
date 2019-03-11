@@ -1,8 +1,7 @@
 use crate::eval::{ScopeRef, AmbiguousSyntax, AssignmentTarget};
 use crate::syntax::{
-    ExpressionTreeWalker, ExpressionBoundary, ExpressionBoundaryError, ExpressionRef, ExpressionToken, IdentifierIndex, OperatorToken, Token
+    ErrorTermError, ExpressionTreeWalker, ExpressionBoundary, ExpressionBoundaryError, ExpressionRef, ExpressionToken, IdentifierIndex, OperatorToken, RawErrorTermError, TermToken, Token
 };
-use crate::syntax::identifiers::*;
 use crate::value::implement::*;
 use num::BigRational;
 use std::fmt;
@@ -32,83 +31,55 @@ impl<'p, 'a: 'p> ExpressionEvaluator<'p, 'a> {
     fn evaluate_local(self) -> BergResult<'a> {
         let indent = "  ".repeat(self.depth());
         println!("{}Evaluating {} ...", indent, self);
-        use ErrorCode::*;
         use ExpressionToken::*;
+        use TermToken::*;
         use OperatorToken::*;
+        use ExpressionBoundaryError::*;
+        use ErrorTermError::*;
+        use RawErrorTermError::*;
         let result = match self.token() {
             Token::Expression(token) => match token {
-                //
-                // Nouns (operands)
-                //
+                ExpressionToken::Term(token) => match token {
+                    //
+                    // Nouns (operands)
+                    //
 
-                // 1234
-                IntegerLiteral(literal) => {
-                    let parsed = BigRational::from_str(self.ast().literal_string(literal)).unwrap();
-                    Ok(BergVal::BigRational(parsed))
+                    // 1234
+                    IntegerLiteral(literal) => {
+                        let parsed = BigRational::from_str(self.ast().literal_string(literal)).unwrap();
+                        Ok(BergVal::BigRational(parsed))
+                    }
+                    // VariableName
+                    // TODO: make it so we don't have to clone, ya?
+                    FieldReference(field) => AssignmentTarget::LocalFieldReference(self.scope().clone(), field).err(),
+                    // VariableName
+                    RawIdentifier(name) => Err(ControlVal::AmbiguousSyntax(AmbiguousSyntax::RawIdentifier(name))),
+                    // Empty parens or empty block
+                    // () {}
+                    MissingExpression => AmbiguousSyntax::MissingExpression.result(),
+                    //
+                    // Syntax errors
+                    //
+                    ErrorTerm(IdentifierStartsWithNumber, literal) => BergError::IdentifierStartsWithNumber(literal).err(),
+                    ErrorTerm(UnsupportedCharacters, literal) => BergError::UnsupportedCharacters(literal).err(),
+                    RawErrorTerm(InvalidUtf8, raw_literal) => BergError::InvalidUtf8(raw_literal).err(),
                 }
-                // VariableName
-                // TODO: make it so we don't have to clone, ya?
-                FieldReference(field) => AssignmentTarget::LocalFieldReference(self.scope().clone(), field).err(),
-                // VariableName
-                RawIdentifier(name) => Err(ControlVal::AmbiguousSyntax(AmbiguousSyntax::RawIdentifier(name))),
-                // Empty parens or empty block
-                // () {}
-                MissingExpression => AmbiguousSyntax::MissingExpression.result(),
-
-                //
-                // Prefix operators
-                //
 
                 // A<op>
                 PrefixOperator(operator) => self.evaluate_prefix(operator),
 
-                //
-                // Groupings
-                //
+                // (...), {...}
+                Open(None, boundary, delta) => if boundary.is_block() {
+                    let block_index = self.ast().close_block_index(self.root_index() + delta);
+                    Ok(self.scope().create_child_block(self.root_index(), block_index).into())
+                } else {
+                    self.evaluate_inner(boundary)
+                }
 
-                // (...)
-                Open { error: ExpressionBoundaryError::None, boundary, .. } => self.evaluate_inner(boundary),
-
-                // {...}, indent group
-                OpenBlock {
-                    error: ExpressionBoundaryError::None, index, ..
-                } => Ok(self
-                    .scope()
-                    .create_child_block(self.root_index(), index)
-                    .into()),
-
-                //
-                // Syntax errors
-                //
-                ErrorTerm(IdentifierStartsWithNumber, literal) => BergError::IdentifierStartsWithNumber(literal).err(),
-                ErrorTerm(UnsupportedCharacters, literal) => BergError::UnsupportedCharacters(literal).err(),
-                RawErrorTerm(InvalidUtf8, raw_literal) => BergError::InvalidUtf8(raw_literal).err(),
                 // ( and { syntax errors
-                Open {
-                    error: ExpressionBoundaryError::OpenError, ..
-                }
-                | OpenBlock {
-                    error: ExpressionBoundaryError::OpenError, ..
-                } => self.ast().open_error().clone().err(),
-                OpenBlock {
-                    error: ExpressionBoundaryError::OpenWithoutClose,
-                    ..
-                }
-                | Open {
-                    error: ExpressionBoundaryError::OpenWithoutClose,
-                    ..
-                } => BergError::OpenWithoutClose.err(),
-                OpenBlock {
-                    error: ExpressionBoundaryError::CloseWithoutOpen,
-                    ..
-                }
-                | Open {
-                    error: ExpressionBoundaryError::CloseWithoutOpen,
-                    ..
-                } => BergError::CloseWithoutOpen.err(),
-
-                // Tokens that should have been handled elsewhere in the stack
-                ErrorTerm(..) | RawErrorTerm(..) => unreachable!(),
+                Open(Some(OpenError), ..) => self.ast().open_error().clone().err(),
+                Open(Some(OpenWithoutClose), ..) => BergError::OpenWithoutClose.err(),
+                Open(Some(CloseWithoutOpen), ..) => BergError::CloseWithoutOpen.err(),
             }
             Token::Operator(token) => match token {
                 //
@@ -119,12 +90,6 @@ impl<'p, 'a: 'p> ExpressionEvaluator<'p, 'a> {
                 InfixOperator(operator) => self.evaluate_infix(operator),
                 // A <op>= B
                 InfixAssignment(operator) => self.evaluate_infix_assign(operator),
-                // Multiline sequence:
-                // A
-                // B
-                NewlineSequence => self.evaluate_infix(NEWLINE),
-                // F Arg
-                Apply => self.evaluate_infix(APPLY),
 
                 //
                 // Postfix operators
@@ -132,8 +97,8 @@ impl<'p, 'a: 'p> ExpressionEvaluator<'p, 'a> {
                 // <op>A
                 PostfixOperator(operator) => self.evaluate_postfix(operator),
 
-                // Tokens that should have been handled elsewhere in the stack
-                Close { .. } | CloseBlock { .. }  => unreachable!(),
+                // We should never be evaluating Close, only Open.
+                Close(..) | CloseBlock(..) => unreachable!(),
             }
         };
         println!(
@@ -200,7 +165,7 @@ impl<'p, 'a: 'p> ExpressionEvaluator<'p, 'a> {
 
     fn skip_implicit_groups(self) -> Self {
         let mut result = self;
-        while let Token::Expression(ExpressionToken::Open { boundary, .. }) = result.token() {
+        while let Token::Expression(ExpressionToken::Open(_, boundary, _)) = result.token() {
             if boundary.is_required() {
                 break;
             }

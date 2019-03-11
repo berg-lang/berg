@@ -1,4 +1,4 @@
-use crate::syntax::{AstRef, ExpressionBoundary, IdentifierIndex};
+use crate::syntax::{AstDelta, AstRef, ExpressionBoundary, IdentifierIndex};
 use std::u32;
 
 index_type! {
@@ -10,6 +10,7 @@ index_type! {
 pub struct AstBlock {
     pub boundary: ExpressionBoundary,
     pub parent: Delta<BlockIndex>,
+    pub delta: AstDelta,
     pub scope_start: FieldIndex,
     pub scope_count: Delta<FieldIndex>,
 }

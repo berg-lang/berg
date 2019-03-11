@@ -4,9 +4,9 @@ use crate::parser::Tokenizer;
 use crate::syntax::ExpressionBoundary::*;
 use crate::syntax::OperatorToken::*;
 use crate::syntax::ExpressionToken::*;
-use crate::syntax::{Ast, ByteIndex, ByteSlice, IdentifierIndex};
+use crate::syntax::TermToken::*;
+use crate::syntax::{Ast, ByteIndex, ByteSlice, ErrorTermError, IdentifierIndex, RawErrorTermError};
 use crate::util::indexed_vec::Delta;
-use crate::value::ErrorCode;
 use std::str;
 
 ///
@@ -88,7 +88,7 @@ impl<'a> Sequencer<'a> {
 
     fn utf8_syntax_error(
         &mut self,
-        error: ErrorCode,
+        error: ErrorTermError,
         buffer: &ByteSlice,
         start: ByteIndex,
         scanner: &Scanner,
@@ -101,7 +101,7 @@ impl<'a> Sequencer<'a> {
 
     fn raw_syntax_error(
         &mut self,
-        error: ErrorCode,
+        error: RawErrorTermError,
         buffer: &ByteSlice,
         start: ByteIndex,
         scanner: &Scanner,
@@ -118,7 +118,7 @@ impl<'a> Sequencer<'a> {
         scanner.next_while(Digit, buffer);
         if scanner.next_while_identifier(buffer) {
             return self.utf8_syntax_error(
-                ErrorCode::IdentifierStartsWithNumber,
+                ErrorTermError::IdentifierStartsWithNumber,
                 buffer,
                 start,
                 scanner,
@@ -245,12 +245,12 @@ impl<'a> Sequencer<'a> {
 
     fn unsupported(&mut self, buffer: &ByteSlice, start: ByteIndex, scanner: &mut Scanner) {
         scanner.next_while(Unsupported, buffer);
-        self.utf8_syntax_error(ErrorCode::UnsupportedCharacters, buffer, start, scanner)
+        self.utf8_syntax_error(ErrorTermError::UnsupportedCharacters, buffer, start, scanner)
     }
 
     fn invalid_utf8(&mut self, buffer: &ByteSlice, start: ByteIndex, scanner: &mut Scanner) {
         scanner.next_while(InvalidUtf8, buffer);
-        self.raw_syntax_error(ErrorCode::InvalidUtf8, buffer, start, scanner)
+        self.raw_syntax_error(RawErrorTermError::InvalidUtf8, buffer, start, scanner)
     }
 
     fn store_spaces_in_char_data(

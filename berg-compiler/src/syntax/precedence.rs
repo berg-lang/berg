@@ -1,4 +1,3 @@
-use crate::syntax::identifiers::*;
 use crate::syntax::{IdentifierIndex, OperatorToken};
 use Precedence::*;
 
@@ -111,8 +110,6 @@ impl From<OperatorToken> for Precedence {
         match from {
             InfixOperator(operator) => operator.into(),
             InfixAssignment(_) => Precedence::Assign,
-            NewlineSequence => NEWLINE.into(),
-            Apply => APPLY.into(),
             // Should only ever be called for infix
             _ => unreachable!(),
         }
