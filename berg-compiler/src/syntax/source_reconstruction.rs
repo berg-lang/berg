@@ -5,27 +5,56 @@ use std::fmt;
 use std::io;
 use std::io::Read;
 
+///
+/// Reconstructs a range of source from the parsed AST.
+/// 
+/// All data in an AST is preserved, which is what makes this possible.
+/// 
 pub struct SourceReconstruction<'p, 'a: 'p> {
     ast: &'p Ast<'a>,
     range: ByteRange,
 }
 
+///
+/// An io::Reader over an AST that yields the same data as the original source.
+/// 
+/// Uses [`SourceReconstruction`] to do the formatting.
+/// 
 pub struct SourceReconstructionReader<'p, 'a: 'p> {
     iterator: SourceReconstructionIterator<'p, 'a>,
     buffered: Option<&'p [u8]>,
 }
 
-/// Iterates through tokens and space, yielding &str's that reconstruct the file.
+///
+/// Iterates through the AST, yielding &strs that reconstruct the file.
+/// 
+/// Works by iterating in parallel through tokens, whitespace and line starts,
+/// and picking whichever one covers the current range.
+/// 
 struct SourceReconstructionIterator<'p, 'a: 'p> {
+    /// The AST we're reconstructing.
     ast: &'p Ast<'a>,
+    /// The current byte index (corresponding to the original file).
     index: ByteIndex,
+    /// The end of the range we're reconstructing (non-inclusive)
     end: ByteIndex,
+    /// The next token we'll need to reconstruct.
     ast_index: AstIndex,
-    whitespace_indices: Vec<usize>,
-    line_index: usize,
+    /// The next whitespace we'll need to print.
+    whitespace_index: usize,
+    /// The next line start.
+    line_start_index: usize,
 }
 
 impl<'p, 'a: 'p> SourceReconstruction<'p, 'a> {
+    ///
+    /// Create a reconstructor for the given range.
+    /// 
+    /// # Arguments
+    /// 
+    /// * `ast` - The AST containing the parsed information
+    /// * 
+    /// 
     pub fn new(ast: &'p Ast<'a>, range: ByteRange) -> Self {
         SourceReconstruction { ast, range }
     }
@@ -99,8 +128,8 @@ impl<'p, 'a: 'p> SourceReconstructionIterator<'p, 'a> {
             index,
             end: range.end,
             ast_index: find_ast_index(ast, index),
-            whitespace_indices: find_whitespace_indices(ast, index),
-            line_index: 0,
+            whitespace_index: find_whitespace_index(ast, index),
+            line_start_index: 0,
         }
     }
 }
@@ -167,41 +196,40 @@ impl<'p, 'a: 'p> SourceReconstructionIterator<'p, 'a> {
     }
 
     fn next_whitespace_range(&mut self) -> Option<(ByteIndex, &'p [u8])> {
-        // Go through our catalogue of whitespace, and find out if any are in our range.
-        let char_ranges = &self.ast.char_data.whitespace.char_ranges;
-        for (index, &(ref space_char, ref ranges)) in char_ranges.iter().enumerate() {
-            // If this space char's next range is at our index, return it.
-            let range_index = self.whitespace_indices[index];
-            let range = &ranges[range_index];
-            if range.start <= self.index && self.index < range.end {
-                // Figure out where this repeat of the space character starts (it could be a multibyte character).
-                let offset = usize::from(self.index - range.start) % space_char.len();
-                let start = self.index - offset;
-
-                // Skip to the next whitespace if we need to.
-                if start + space_char.len() >= range.end && range_index + 1 < ranges.len() {
-                    self.whitespace_indices[index] = range_index + 1;
-                }
-
-                return Some((start, space_char.as_bytes()));
+        // If the current whitespace range includes us, return that string.
+        if let Some((whitespace, whitespace_start)) = self.ast.char_data.whitespace_ranges.get(self.whitespace_index) {
+            if *whitespace_start <= self.index {
+                self.whitespace_index += 1;
+                let whitespace_character = self.ast.char_data.whitespace_characters.resolve(*whitespace).unwrap();
+                assert!(*whitespace_start + whitespace_character.len() > self.index, "whitespace {:?} at {} got skipped somehow! Current index is {}.", whitespace_character, whitespace_start, self.index);
+                return Some((*whitespace_start, whitespace_character.as_bytes()));
             }
         }
+
         None
     }
 
+    ///
+    /// Write out \n if we have a line ending without any character data.
+    /// 
     fn next_newline(&mut self) -> Option<(ByteIndex, &'p [u8])> {
-        let line_starts = &self.ast.char_data.line_starts;
-        // If we are looking for the character just before the end of the line, it's \n.
-        if self.line_index + 1 < line_starts.len()
-            && self.index == line_starts[self.line_index + 1] - 1
-        {
-            self.line_index += 1;
-            let string = NEWLINE.well_known_str().as_bytes();
-            assert!(string.len() == 1);
-            Some((self.index, string))
-        } else {
-            None
+        // If this is a line start, increment the line start index and return "\n".
+        while let Some(line_start) = self.ast.char_data.line_starts.get(self.line_start_index) {
+            // We haven't reached the line ending yet.
+            if *line_start > self.index + 1 {
+                break;
+            }
+
+            // We may have to skip a few line starts if some of them had alternate
+            // line endings like \r or \r\n in them (and therefore we found the space
+            // string in next_newline()).
+            self.line_start_index += 1;
+            if *line_start == self.index + 1 {
+                return Some((self.index, b"\n"));
+            }
         }
+
+        None
     }
 
     fn token_bytes(&self, token_start: ByteIndex, token: Token) -> Option<(ByteIndex, &'p [u8])> {
@@ -255,17 +283,20 @@ impl<'p, 'a: 'p> SourceReconstructionIterator<'p, 'a> {
 
 fn find_ast_index(ast: &Ast, index: ByteIndex) -> AstIndex {
     let ast_index = ast.token_ranges.iter().position(|range| range.end > index);
-    ast_index.unwrap_or_else(|| ast.token_ranges.last_index())
+    ast_index.unwrap_or_else(|| ast.token_ranges.len().into())
 }
 
-fn find_whitespace_indices(ast: &Ast, index: ByteIndex) -> Vec<usize> {
-    ast.char_data
-        .whitespace
-        .char_ranges
-        .iter()
-        .map(|&(_, ref ranges)| {
-            let whitespace_index = ranges.iter().position(|range| range.end > index);
-            whitespace_index.unwrap_or_else(|| ranges.len() - 1)
-        })
-        .collect()
+fn find_whitespace_index(ast: &Ast, index: ByteIndex) -> usize {
+    // Get the first whitespace that starts *at* or *after* the given index.
+    if let Some(next_whitespace) = ast.char_data.whitespace_ranges.iter().position(|(_, start)| *start >= index) {
+        // If there is a whitespace starting *after* the given index, check if the previous one *intersects* the index.
+        if next_whitespace > 0 {
+            let (whitespace, start) = ast.char_data.whitespace_ranges[next_whitespace - 1];
+            if start + ast.char_data.whitespace_characters.resolve(whitespace).unwrap().len() > index {
+                return next_whitespace - 1;
+            }
+        }
+        return next_whitespace
+    }
+    ast.char_data.whitespace_ranges.len()
 }

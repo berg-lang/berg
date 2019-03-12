@@ -14,7 +14,7 @@ fn newline() {
 }
 #[test]
 fn newline_newline() {
-    expect("\n").to_yield(tuple!())
+    expect("\n\n").to_yield(tuple!())
 }
 #[test]
 fn newline_cr() {
@@ -37,6 +37,10 @@ fn cr_crlf() {
     expect("\r\r\n").to_yield(tuple!())
 }
 #[test]
+fn cr_space() {
+    expect("\r ").to_yield(tuple!())
+}
+#[test]
 fn crlf() {
     expect("\r\n").to_yield(tuple!())
 }
@@ -51,4 +55,8 @@ fn crlf_cr() {
 #[test]
 fn crlf_crlf() {
     expect("\r\n\r\n").to_yield(tuple!())
+}
+#[test]
+fn crlf_space() {
+    expect("\r\n ").to_yield(tuple!())
 }

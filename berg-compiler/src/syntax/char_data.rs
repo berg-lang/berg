@@ -1,28 +1,43 @@
-use crate::syntax::{ByteIndex, ByteRange, ByteSlice};
+use crate::syntax::{ByteIndex, ByteRange};
 use crate::util::indexed_vec::Delta;
 use std::cmp::Ordering;
 use std::fmt::{Display, Formatter, Result};
+use std::num::NonZeroU32;
 use std::str;
+use std::u32;
+use string_interner::{StringInterner, Symbol};
 
+///
+/// Debug data about the original source.
+/// 
+/// Includes enough character data to reconstruct the original source.
+/// 
 #[derive(Debug)]
 pub struct CharData {
     // size in bytes
     // byte_size: usize,
-    // Size in Unicode codepoints
-    pub(crate) size: ByteIndex,
+    // Size in bytes
+    pub size: ByteIndex,
     // checksum
     // time retrieved
     // time modified
     // system retrieved on
+    
+    ///
     /// Beginning index of each line.
-    pub(crate) line_starts: Vec<ByteIndex>,
-    /// Whitespace of each character type except ' ' and '\n' (those are the default whitespace)
-    pub(crate) whitespace: Whitespace,
-}
+    ///
+    pub line_starts: Vec<ByteIndex>,
 
-#[derive(Debug, Default)]
-pub struct Whitespace {
-    pub char_ranges: Vec<(String, Vec<ByteRange>)>,
+    ///
+    /// Whitespace characters found in the document.
+    /// 
+    pub whitespace_characters: StringInterner<WhitespaceIndex>,
+
+    ///
+    /// Ordered list of whitespace ranges, except ' ' and '\n'
+    /// (which are the default for space and line ranges, respectively).
+    /// 
+    pub whitespace_ranges: Vec<(WhitespaceIndex, ByteIndex)>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -38,24 +53,40 @@ pub struct LineColumnRange {
     pub end: Option<LineColumn>,
 }
 
+///
+/// An index into [`Whitespace::whitespace_characters`]
+/// 
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Ord, PartialOrd)]
+pub struct WhitespaceIndex(NonZeroU32);
+
 impl Default for CharData {
     fn default() -> Self {
         CharData {
             size: Default::default(),
             line_starts: vec![ByteIndex::from(0)],
-            whitespace: Default::default(),
+            whitespace_characters: StringInterner::new(),
+            whitespace_ranges: Default::default(),
         }
     }
 }
 
 impl CharData {
-    pub(crate) fn append_line(&mut self, buffer: &ByteSlice, range: ByteRange) {
-        self.line_starts.push(range.end);
-        let newline_char = unsafe { str::from_utf8_unchecked(&buffer[range.clone()]) };
-        self.whitespace.ranges_for_char(newline_char).push(range);
+    ///
+    /// Add the run of whitespace to the whitespace list.
+    /// 
+    /// # Panics
+    /// 
+    /// * Panics if spaces.len() == 0
+    /// * Panics if `append()` is not called with `start` increasing each time.
+    /// * Panics if ByteIndex == u32::MAX
+    /// 
+    pub fn append_whitespace(&mut self, whitespace: &str, start: ByteIndex) {
+        // Read Unicode characters (which is not the same as bytes)
+        let whitespace_index = self.whitespace_characters.get_or_intern(whitespace);
+        self.whitespace_ranges.push((whitespace_index, start));
     }
 
-    pub(crate) fn location(&self, index: ByteIndex) -> LineColumn {
+    pub fn location(&self, index: ByteIndex) -> LineColumn {
         let line = match self.line_starts.binary_search(&index) {
             // If the index happens to be at the start of a line, we'll get
             // the 0-based index of that line, and we want 1-based.
@@ -70,7 +101,7 @@ impl CharData {
         LineColumn { line, column }
     }
 
-    pub(crate) fn range(&self, range: &ByteRange) -> LineColumnRange {
+    pub fn range(&self, range: &ByteRange) -> LineColumnRange {
         let start = self.location(range.start);
         if range.start == range.end {
             LineColumnRange { start, end: None }
@@ -80,11 +111,12 @@ impl CharData {
         }
     }
 
-    pub(crate) fn byte_index(&self, location: LineColumn) -> ByteIndex {
+    pub fn byte_index(&self, location: LineColumn) -> ByteIndex {
         self.line_starts[(location.line-1) as usize] + location.column - 1
     }
+
     #[allow(clippy::range_plus_one)]
-    pub(crate) fn byte_range(&self, range: LineColumnRange) -> ByteRange {
+    pub fn byte_range(&self, range: LineColumnRange) -> ByteRange {
         let start = self.byte_index(range.start);
         match range.end {
             Some(end) => start..(self.byte_index(end)+1),
@@ -153,48 +185,14 @@ impl Display for LineColumnRange {
     }
 }
 
-impl Whitespace {
-    pub fn append(&mut self, spaces: &str, start: ByteIndex) {
-        let mut char_indices = spaces.char_indices();
-        let (mut current_char_start, mut current_char) = char_indices.next().unwrap();
-        for (next_char_start, next_char) in char_indices {
-            if next_char == current_char {
-                continue;
-            }
-
-            // Store the character (and the number of repeats)
-            // We don't store ' ' since it's so common
-            if current_char != ' ' {
-                let space_start = start + current_char_start;
-                let space_end = start + next_char_start;
-                let space_char = unsafe {
-                    spaces.get_unchecked(
-                        current_char_start..current_char_start + current_char.len_utf8(),
-                    )
-                };
-                self.ranges_for_char(space_char)
-                    .push(space_start..space_end);
-            }
-
-            current_char = next_char;
-            current_char_start = next_char_start;
-        }
+// For StringInterner
+impl Symbol for WhitespaceIndex {
+    fn from_usize(val: usize) -> Self {
+        assert!(val < u32::MAX as usize);
+        WhitespaceIndex(unsafe { NonZeroU32::new_unchecked((val + 1) as u32) })
     }
 
-    pub fn ranges_for_char(&mut self, space_char: &str) -> &mut Vec<ByteRange> {
-        // Find the vec we're storing this character in. (e.g. \t)
-        let index = match self
-            .char_ranges
-            .iter()
-            .position(|&(ref range_space_char, _)| range_space_char == space_char)
-        {
-            Some(index) => index,
-            None => {
-                self.char_ranges
-                    .push((space_char.to_string(), Default::default()));
-                self.char_ranges.len() - 1
-            }
-        };
-        &mut self.char_ranges[index].1
+    fn to_usize(self) -> usize {
+        (self.0.get() as usize) - 1
     }
 }

@@ -81,7 +81,7 @@ impl<'a> Tokenizer<'a> {
     // Newline is space, so it closes terms just like space. If the last line ended in a evaluate
     // expression, we may be about to create a newline sequence. Save the first newline until we know
     // whether the next real line is an operator (continuation) or a new expression.
-    pub fn on_newline(&mut self, start: ByteIndex, length: u8) {
+    pub fn on_line_ending(&mut self, start: ByteIndex, length: u8) {
         self.close_term(start);
         if !self.prev_was_operator && self.newline_length == 0 {
             self.newline_start = start;

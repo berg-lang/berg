@@ -20,7 +20,8 @@ use std::str;
 /// | Integer | `1234` | A run of digit characters. | Term |
 /// | Identifier | `ThisIsAnIdentifier` | A run of alphanumeric characters, or `_`. | Term |
 /// | Operator | `+` `-` `*` `++` `+=` `<=>` `--->` | A run of operator characters. | Prefix if unbalanced like `+1`, postfix if unbalanced like If it's unbalanced like `+1` or `2*`, it's a postfix/prefix operator. Otherwise it's infix.
-/// | Space | ` ` `\t` | A run of space characters. | Space |
+/// | Space | ` ` | A run of space characters. | Space |
+/// | Whitespace | ` ` `\t` | A run of space and other whitespace characters. | Space |
 /// | Unsupported | | A run of valid UTF-8 characters which aren't supported (such as emoji). | Term |
 /// | Invalid | | A run of invalid UTF-8 bytes. | Term |
 ///
@@ -37,6 +38,33 @@ use std::str;
 pub struct Sequencer<'a> {
     /// The tokenizer to send sequences to.
     tokenizer: Tokenizer<'a>,
+}
+
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub enum CharType {
+    Digit,
+    Identifier,
+    Operator,
+    OpenParen,
+    CloseParen,
+    OpenCurly,
+    CloseCurly,
+    Separator,
+    Colon,
+    Space,
+    Newline,
+    LineEnding,
+    HorizontalWhitespace,
+    Unsupported,
+    InvalidUtf8,
+    Eof,
+}
+
+#[derive(Debug, Copy, Clone, PartialEq)]
+enum ByteType {
+    Char(CharType),
+    CarriageReturn,
+    Utf8LeadingByte(Delta<ByteIndex>),
 }
 
 impl<'a> Sequencer<'a> {
@@ -65,7 +93,9 @@ impl<'a> Sequencer<'a> {
                 OpenCurly => self.tokenizer.on_open(CurlyBraces, start..scanner.index),
                 CloseCurly => self.tokenizer.on_close(CurlyBraces, start..scanner.index),
                 Newline => self.newline(buffer, start, &scanner),
+                LineEnding => self.line_ending(buffer, start, &scanner),
                 Space => self.space(buffer, start, &mut scanner),
+                HorizontalWhitespace => self.horizontal_whitespace(buffer, start, &mut scanner),
                 Unsupported => self.unsupported(buffer, start, &mut scanner),
                 InvalidUtf8 => self.invalid_utf8(buffer, start, &mut scanner),
                 Eof => break,
@@ -148,7 +178,7 @@ impl<'a> Sequencer<'a> {
 
         let term_is_about_to_end = {
             let char_type = scanner.peek(buffer);
-            char_type.is_space()
+            char_type.is_whitespace()
                 || char_type.is_close()
                 || char_type.is_separator()
                 || (char_type == Colon && !scanner.peek_at(buffer, 1).is_always_right_operand())
@@ -229,17 +259,35 @@ impl<'a> Sequencer<'a> {
         }
     }
 
-    fn newline(&mut self, buffer: &ByteSlice, start: ByteIndex, scanner: &Scanner) {
+    fn newline(&mut self, _buffer: &ByteSlice, start: ByteIndex, scanner: &Scanner) {
+        self.on_line_ending(start, scanner)
+    }
+
+    fn line_ending(&mut self, buffer: &ByteSlice, start: ByteIndex, scanner: &Scanner) {
+        self.store_whitespace_in_char_data(buffer, start, scanner);
+        self.on_line_ending(start, scanner)
+    }
+
+    fn on_line_ending(&mut self, start: ByteIndex, scanner: &Scanner) {
         self.ast_mut()
             .char_data
-            .append_line(buffer, start..scanner.index);
+            .line_starts.push(scanner.index);
         self.tokenizer
-            .on_newline(start, ((scanner.index - start).0).0 as u8)
+            .on_line_ending(start, ((scanner.index - start).0).0 as u8)
     }
 
     fn space(&mut self, buffer: &ByteSlice, start: ByteIndex, scanner: &mut Scanner) {
         scanner.next_while(Space, buffer);
-        self.store_spaces_in_char_data(buffer, start, scanner);
+        // Only store spaces in char data if it's mixed space
+        if scanner.next_while_horizontal_whitespace(buffer) {
+            self.store_whitespace_in_char_data(buffer, start, scanner);
+        }
+        self.tokenizer.on_space(start)
+    }
+
+    fn horizontal_whitespace(&mut self, buffer: &ByteSlice, start: ByteIndex, scanner: &mut Scanner) {
+        scanner.next_while_horizontal_whitespace(buffer);
+        self.store_whitespace_in_char_data(buffer, start, scanner);
         self.tokenizer.on_space(start)
     }
 
@@ -253,13 +301,13 @@ impl<'a> Sequencer<'a> {
         self.raw_syntax_error(RawErrorTermError::InvalidUtf8, buffer, start, scanner)
     }
 
-    fn store_spaces_in_char_data(
+    fn store_whitespace_in_char_data(
         &mut self,
         buffer: &ByteSlice,
         start: ByteIndex,
-        scanner: &mut Scanner,
+        scanner: &Scanner,
     ) {
-        self.ast_mut().char_data.whitespace.append(
+        self.ast_mut().char_data.append_whitespace(
             unsafe { str::from_utf8_unchecked(&buffer[start..scanner.index]) },
             start,
         );
@@ -299,6 +347,20 @@ impl Scanner {
         }
     }
 
+    fn next_while_horizontal_whitespace(&mut self, buffer: &ByteSlice) -> bool {
+        let mut found = false;
+        loop {
+            let (char_type, char_length) = CharType::read(buffer, self.index);
+            if char_type.is_horizontal_whitespace() {
+                self.advance(char_length);
+                found = true;
+            } else {
+                break;
+            }
+        }
+        found
+    }
+
     fn next_while_identifier(&mut self, buffer: &ByteSlice) -> bool {
         let mut found = false;
         loop {
@@ -329,31 +391,6 @@ impl Scanner {
     }
 }
 
-#[derive(Debug, Copy, Clone, PartialEq)]
-pub enum CharType {
-    Digit,
-    Identifier,
-    Operator,
-    OpenParen,
-    CloseParen,
-    OpenCurly,
-    CloseCurly,
-    Separator,
-    Colon,
-    Space,
-    Newline,
-    Unsupported,
-    InvalidUtf8,
-    Eof,
-}
-
-#[derive(Debug, Copy, Clone, PartialEq)]
-enum ByteType {
-    Char(CharType),
-    CarriageReturn,
-    Utf8LeadingByte(Delta<ByteIndex>),
-}
-
 impl CharType {
     fn read(buffer: &ByteSlice, index: ByteIndex) -> (CharType, Delta<ByteIndex>) {
         if let Some(byte_type) = ByteType::peek(buffer, index) {
@@ -365,7 +402,7 @@ impl CharType {
                     } else {
                         1
                     };
-                    (Newline, char_length.into())
+                    (LineEnding, char_length.into())
                 }
                 ByteType::Utf8LeadingByte(char_length) => {
                     if Self::is_valid_utf8_char(buffer, index, char_length) {
@@ -414,9 +451,16 @@ impl CharType {
         }
     }
 
-    pub(crate) fn is_space(self) -> bool {
+    pub(crate) fn is_whitespace(self) -> bool {
         match self {
-            Space | Newline | Unsupported | InvalidUtf8 | Eof => true,
+            Space | Newline | HorizontalWhitespace | Unsupported | InvalidUtf8 | Eof => true,
+            _ => false,
+        }
+    }
+
+    pub(crate) fn is_horizontal_whitespace(self) -> bool {
+        match self {
+            Space | HorizontalWhitespace => true,
             _ => false,
         }
     }
@@ -476,7 +520,8 @@ impl ByteType {
             b'}' => Char(CloseCurly),
             b';' | b',' => Char(Separator),
             b':' => Char(Colon),
-            b' ' | b'\t' => Char(Space),
+            b' ' => Char(Space),
+            b'\t' => Char(HorizontalWhitespace),
             b'\n' => Char(Newline),
             b'\r' => ByteType::CarriageReturn,
             _ => ByteType::from_generic(byte),
