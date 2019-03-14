@@ -226,7 +226,7 @@ impl<'p, 'a: 'p> BergValue<'a> for ExpressionEvaluator<'p, 'a> {
     }
 
     #[allow(unused_variables)]
-    fn field(self, name: IdentifierIndex) -> BergResult<'a> {
+    fn field(self, name: IdentifierIndex) -> EvalResult<'a> {
         unreachable!()
     }
 

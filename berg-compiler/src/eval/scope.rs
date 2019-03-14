@@ -16,13 +16,13 @@ impl<'a> ScopeRef<'a> {
             ScopeRef::AstRef(_) => BlockRef::new(expression, index, self.clone(), Ok(BergVal::empty_tuple())),
         }
     }
-    pub fn local_field(&self, index: FieldIndex, ast: &Ast) -> BergResult<'a> {
+    pub fn local_field(&self, index: FieldIndex, ast: &Ast) -> EvalResult<'a> {
         match self {
             ScopeRef::BlockRef(ref block) => block.local_field(index, ast),
             ScopeRef::AstRef(ref ast) => ast.source.root().local_field(index),
         }
     }
-    pub fn field(self, name: IdentifierIndex) -> BergResult<'a> {
+    pub fn field(self, name: IdentifierIndex) -> EvalResult<'a> {
         match self {
             ScopeRef::BlockRef(block) => block.field(name),
             ScopeRef::AstRef(ast) => ast.source.root().field(name),

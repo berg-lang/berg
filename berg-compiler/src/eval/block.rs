@@ -152,14 +152,14 @@ impl<'a> BlockRef<'a> {
         Ok(())
     }
 
-    pub fn local_field(&self, index: FieldIndex, ast: &Ast) -> BergResult<'a> {
+    pub fn local_field(&self, index: FieldIndex, ast: &Ast) -> EvalResult<'a> {
         use BlockFieldValue::*;
         let block = self.0.borrow();
         let scope_start = ast.blocks[block.index].scope_start;
         if index >= scope_start {
             let scope_index: usize = (index - scope_start).into();
             match block.fields.get(scope_index) {
-                Some(Value(result)) => Ok(result.clone()),
+                Some(Value(value)) => value.clone().eval_val(),
                 Some(NotSet) => BergError::FieldNotSet(index).err(),
                 Some(NotDeclared) => BergError::NoSuchField(index).err(),
                 None => BergError::NoSuchField(index).err(),
@@ -340,7 +340,7 @@ impl<'a> BergValue<'a> for BlockRef<'a> {
         default_subexpression_result(self, boundary)
     }
 
-    fn field(self, name: IdentifierIndex) -> BergResult<'a> {
+    fn field(self, name: IdentifierIndex) -> EvalResult<'a> {
         println!(
             "====> get {} on {}",
             self.ast().identifier_string(name),

@@ -564,7 +564,7 @@ impl<'a> BergValue<'a> for ErrorVal<'a> {
         self.reposition(ExpressionErrorPosition::RightOperand).err()
     }
 
-    fn field(self, _name: IdentifierIndex) -> BergResult<'a> {
+    fn field(self, _name: IdentifierIndex) -> EvalResult<'a> {
         self.err()
     }
 

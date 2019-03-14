@@ -74,11 +74,11 @@ impl RootRef {
         }
     }
 
-    pub fn field<'a>(&self, name: IdentifierIndex) -> BergResult<'a> {
+    pub fn field<'a>(&self, name: IdentifierIndex) -> EvalResult<'a> {
         self.local_field(self.field_index(name)?)
     }
 
-    pub fn local_field<'a>(&self, index: FieldIndex) -> BergResult<'a> {
+    pub fn local_field<'a>(&self, index: FieldIndex) -> EvalResult<'a> {
         use crate::eval::root_fields::*;
         match index {
             TRUE => true.ok(),

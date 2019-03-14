@@ -52,13 +52,31 @@ impl<'a> From<BergVal<'a>> for EvalResult<'a> {
 
 impl<'a> BergValue<'a> for BergVal<'a> {
     fn into_val(self) -> BergResult<'a> {
-        self.ok()
+        use BergVal::*;
+        match self {
+            Boolean(value) => value.into_val(),
+            BigRational(value) => value.into_val(),
+            BlockRef(value) => value.into_val(),
+            Tuple(value) => value.into_val(),
+        }
     }
     fn eval_val(self) -> EvalResult<'a> {
-        self.ok()
+        use BergVal::*;
+        match self {
+            Boolean(value) => value.eval_val(),
+            BigRational(value) => value.eval_val(),
+            BlockRef(value) => value.eval_val(),
+            Tuple(value) => value.eval_val(),
+        }
     }
-    fn at_position(self, _new_position: ExpressionErrorPosition) -> BergResult<'a> {
-        self.ok()
+    fn at_position(self, new_position: ExpressionErrorPosition) -> BergResult<'a> {
+        use BergVal::*;
+        match self {
+            Boolean(value) => value.at_position(new_position),
+            BigRational(value) => value.at_position(new_position),
+            BlockRef(value) => value.at_position(new_position),
+            Tuple(value) => value.at_position(new_position),
+        }
     }
 
     fn next_val(self) -> Result<Option<NextVal<'a>>, ErrorVal<'a>> {
@@ -141,7 +159,7 @@ impl<'a> BergValue<'a> for BergVal<'a> {
         }
     }
 
-    fn field(self, name: IdentifierIndex) -> BergResult<'a> {
+    fn field(self, name: IdentifierIndex) -> EvalResult<'a> {
         use BergVal::*;
         match self {
             Boolean(value) => value.field(name),
@@ -270,7 +288,7 @@ impl<'a, V: BergValue<'a>+Clone> BergValue<'a> for Result<V, ErrorVal<'a>> {
         }
     }
 
-    fn field(self, name: IdentifierIndex) -> BergResult<'a> {
+    fn field(self, name: IdentifierIndex) -> EvalResult<'a> {
         match self {
             Ok(v) => v.field(name),
             Err(v) => v.field(name),

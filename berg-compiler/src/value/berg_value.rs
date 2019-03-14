@@ -71,7 +71,7 @@ pub trait BergValue<'a>: Sized + fmt::Debug {
     /// 
     fn eval_val(self) -> EvalResult<'a>;
 
-    fn field(self, name: IdentifierIndex) -> BergResult<'a>;
+    fn field(self, name: IdentifierIndex) -> EvalResult<'a>;
     fn set_field(&mut self, name: IdentifierIndex, value: BergVal<'a>) -> Result<(), ErrorVal<'a>> where Self: Clone;
 
     fn infix(self, operator: IdentifierIndex, right: RightOperand<'a, impl BergValue<'a>>) -> EvalResult<'a>;
@@ -264,7 +264,7 @@ pub mod implement {
     pub fn default_field<'a, T: BergValue<'a>>(
         object: T,
         name: IdentifierIndex,
-    ) -> BergResult<'a> {
+    ) -> EvalResult<'a> {
         BergError::NoSuchPublicFieldOnValue(Box::new(object.into_val()), name).err()
     }
 
