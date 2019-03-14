@@ -63,7 +63,7 @@ impl<'a> BlockRef<'a> {
     }
 
     pub fn create_child_block(&self, expression: AstIndex, index: BlockIndex) -> Self {
-        Self::new(expression, index, ScopeRef::BlockRef(self.clone()), Ok(BergVal::empty_tuple()))
+        Self::new(expression, index, ScopeRef::BlockRef(self.clone()), BergVal::empty_tuple().ok())
     }
 
     pub fn apply(&self, input: RightOperand<'a, impl BergValue<'a>>) -> BergResult<'a> {
@@ -76,7 +76,7 @@ impl<'a> BlockRef<'a> {
             block.parent.clone(),
             input,
         );
-        new_block.take_result(BlockState::Complete(Ok(BergVal::empty_tuple())))
+        new_block.take_result(BlockState::Complete(BergVal::empty_tuple().ok()))
     }
 
     fn take_result(&self, replace_with: BlockState<'a>) -> BergResult<'a> {
@@ -120,7 +120,7 @@ impl<'a> BlockRef<'a> {
         }
     }
 
-    fn ensure_evaluated(&self) -> BergResult<'a, ()> {
+    fn ensure_evaluated(&self) -> Result<(), ErrorVal<'a>> {
         // Check if the block has already been run (and don't re-run)
         let (ast, expression, index) = {
             let mut block = self.0.borrow_mut();
@@ -143,7 +143,7 @@ impl<'a> BlockRef<'a> {
         let indent = "  ".repeat(expression.depth());
         println!("{}|----------------------------------------", indent);
         println!("{}| Block evaluating {:?}", indent, expression);
-        let result = expression.evaluate_inner(ast.blocks[index].boundary);
+        let result = expression.evaluate_inner(ast.blocks[index].boundary).into_val();
         println!("{}|       evaluated to {}", indent, result.display());
         self.0.borrow_mut().state = BlockState::Complete(result);
         println!("{}| Block state after evaluation: {}", indent, self);
@@ -169,7 +169,7 @@ impl<'a> BlockRef<'a> {
         }
     }
 
-    pub fn declare_field(&self, field_index: FieldIndex, ast: &Ast) -> BergResult<'a, ()> {
+    pub fn declare_field(&self, field_index: FieldIndex, ast: &Ast) -> Result<(), ErrorVal<'a>> {
         // Make sure we have enough spots to put the field
         let (input, block_field_index) = {
             let mut block = self.0.borrow_mut();
@@ -215,7 +215,7 @@ impl<'a> BlockRef<'a> {
         field_index: FieldIndex,
         value: BergVal<'a>,
         ast: &Ast,
-    ) -> BergResult<'a, ()> {
+    ) -> Result<(), ErrorVal<'a>> {
         let scope_start = ast.blocks[self.0.borrow().index].scope_start;
         if field_index < scope_start {
             return self
@@ -243,7 +243,7 @@ impl<'a> BlockRef<'a> {
         self.0.borrow().ast()
     }
 
-    pub fn field_error<T>(&self, error: FieldError, name: IdentifierIndex) -> BergResult<'a, T> {
+    pub fn field_error<T>(&self, error: FieldError, name: IdentifierIndex) -> Result<T, ErrorVal<'a>> {
         use FieldError::*;
         match error {
             NoSuchPublicField => BergError::NoSuchPublicField(self.clone(), name).err(),
@@ -274,8 +274,14 @@ impl<'a> From<BlockRef<'a>> for BergVal<'a> {
     }
 }
 
+impl<'a> From<BlockRef<'a>> for EvalVal<'a> {
+    fn from(from: BlockRef<'a>) -> Self {
+        BergVal::from(from).into()
+    }
+}
+
 impl<'a> BergValue<'a> for BlockRef<'a> {
-    fn next_val(self) -> BergResult<'a, Option<NextVal<'a>>> {
+    fn next_val(self) -> Result<Option<NextVal<'a>>, ErrorVal<'a>> {
         // Get the current result, and prevent anyone else from retrieving this value while we change it
         // by marking state as NextVal
         let next_val = self.take_result(BlockState::NextVal).next_val()?;
@@ -289,42 +295,48 @@ impl<'a> BergValue<'a> for BlockRef<'a> {
     }
 
     fn into_val(self) -> BergResult<'a> {
-        Ok(self.into())
+        self.ok()
+    }
+    fn eval_val(self) -> EvalResult<'a> {
+        self.ok()
+    }
+    fn at_position(self, _new_position: ExpressionErrorPosition) -> BergResult<'a> {
+        self.ok()
     }
 
-    fn into_native<T: TryFromBergVal<'a>>(self) -> BergResult<'a, T> {
+    fn into_native<T: TryFromBergVal<'a>>(self) -> Result<T, ErrorVal<'a>> {
         self.clone_result().into_native()
     }
-    fn try_into_native<T: TryFromBergVal<'a>>(self) -> BergResult<'a, Option<T>> {
+    fn try_into_native<T: TryFromBergVal<'a>>(self) -> Result<Option<T>, ErrorVal<'a>> {
         self.clone_result().try_into_native()
     }
 
-    fn infix(self, operator: IdentifierIndex, right: RightOperand<'a, impl BergValue<'a>>) -> BergResult<'a> {
+    fn infix(self, operator: IdentifierIndex, right: RightOperand<'a, impl BergValue<'a>>) -> EvalResult<'a> {
         use crate::syntax::identifiers::*;
 
         match operator {
             DOT => default_infix(self, operator, right),
-            APPLY => self.apply(right),
+            APPLY => self.apply(right)?.ok(),
             // Blocks do not evaluate when used as statements.
-            SEMICOLON | NEWLINE => right.into_val(),
+            SEMICOLON | NEWLINE => right.into_val()?.ok(),
             _ => self.clone_result().infix(operator, right),
         }
     }
 
-    fn infix_assign(self, operator: IdentifierIndex, right: RightOperand<'a, impl BergValue<'a>>) -> BergResult<'a> {
+    fn infix_assign(self, operator: IdentifierIndex, right: RightOperand<'a, impl BergValue<'a>>) -> EvalResult<'a> {
         self.clone_result().infix_assign(operator, right)
     }
 
-    fn prefix(self, operator: IdentifierIndex) -> BergResult<'a> {
+    fn prefix(self, operator: IdentifierIndex) -> EvalResult<'a> {
         // Closures report their own internal error instead of local ones.
         self.clone_result().prefix(operator)
     }
 
-    fn postfix(self, operator: IdentifierIndex) -> BergResult<'a> {
+    fn postfix(self, operator: IdentifierIndex) -> EvalResult<'a> {
         self.clone_result().postfix(operator)
     }
 
-    fn subexpression_result(self, boundary: ExpressionBoundary) -> BergResult<'a> {
+    fn subexpression_result(self, boundary: ExpressionBoundary) -> EvalResult<'a> {
         default_subexpression_result(self, boundary)
     }
 
@@ -341,7 +353,7 @@ impl<'a> BergValue<'a> for BlockRef<'a> {
         println!("current = {}", current);
         match current.field(name) {
             // If we couldn't find the field on the inner value, see if our block has the field
-            Err(ControlVal::ExpressionError(ref error, ExpressionErrorPosition::Expression)) if error.code() == ErrorCode::NoSuchPublicField => {
+            Err(ErrorVal::ExpressionError(ref error, ExpressionErrorPosition::Expression)) if error.code() == ErrorCode::NoSuchPublicField => {
                 println!("====> no such public {} on current", self.ast().identifier_string(name));
                 let ast = self.ast();
                 let index = {
@@ -358,7 +370,7 @@ impl<'a> BergValue<'a> for BlockRef<'a> {
         }
     }
 
-    fn set_field(&mut self, name: IdentifierIndex, value: BergVal<'a>) -> BergResult<'a, ()> {
+    fn set_field(&mut self, name: IdentifierIndex, value: BergVal<'a>) -> Result<(), ErrorVal<'a>> {
         self.ensure_evaluated()?;
 
         // Figure out the field index from its name
@@ -380,8 +392,8 @@ impl<'a> BlockData<'a> {
     pub fn ast(&self) -> AstRef<'a> {
         self.parent.ast()
     }
-    pub fn delocalize_error<T>(&self, error: BergError<'a>) -> BergResult<'a, T> {
-        Err(ControlVal::Error(error.at_location(ExpressionRef::new(self.ast(), self.expression))))
+    pub fn delocalize_error<T>(&self, error: BergError<'a>) -> Result<T, ErrorVal<'a>> {
+        Err(ErrorVal::Error(error.at_location(ExpressionRef::new(self.ast(), self.expression))))
     }
 }
 

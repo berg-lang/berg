@@ -16,7 +16,7 @@ pub trait BergValue<'a>: Sized + fmt::Debug {
     /// - `Err(error)` if we cannot tell whether there is a next value or not
     ///   due to an error.
     ///
-    fn next_val(self) -> BergResult<'a, Option<NextVal<'a>>>;
+    fn next_val(self) -> Result<Option<NextVal<'a>>, ErrorVal<'a>>;
 
     ///
     /// Get the result of this value as a particular native type.
@@ -29,11 +29,11 @@ pub trait BergValue<'a>: Sized + fmt::Debug {
     /// Example:
     /// 
     ///     use berg_compiler::*;
-    ///     fn add_values<'a>(a: impl BergValue<'a>, b: impl BergValue<'a>) -> BergResult<'a, usize> {
+    ///     fn add_values<'a>(a: impl BergValue<'a>, b: impl BergValue<'a>) -> Result<usize, ErrorVal<'a>> {
     ///         Ok(a.into_native::<usize>()? + b.into_native::<usize>()?)
     ///     }
     /// 
-    fn into_native<T: TryFromBergVal<'a>>(self) -> BergResult<'a, T>;
+    fn into_native<T: TryFromBergVal<'a>>(self) -> Result<T, ErrorVal<'a>>;
 
     ///
     /// Get the result of this value as a particular native type.
@@ -47,46 +47,38 @@ pub trait BergValue<'a>: Sized + fmt::Debug {
     /// Example:
     /// 
     ///     use berg_compiler::*;
-    ///     fn check_equal<'a>(a: usize, b: impl BergValue<'a>) -> BergResult<'a, bool> {
+    ///     fn check_equal<'a>(a: usize, b: impl BergValue<'a>) -> Result<bool, ErrorVal<'a>> {
     ///         match b.try_into_native::<usize>()? {
     ///             Some(b) => Ok(a == b),
     ///             None => Ok(false),
     ///         }
     ///     }
     /// 
-    fn try_into_native<T: TryFromBergVal<'a>>(self) -> BergResult<'a, Option<T>>;
+    fn try_into_native<T: TryFromBergVal<'a>>(self) -> Result<Option<T>, ErrorVal<'a>>;
 
     ///
-    /// Get a concrete BergResult for this value.
+    /// Get a concrete BergVal for this value.
     /// 
     fn into_val(self) -> BergResult<'a>;
 
     ///
-    /// Convert this value into a BergResult.
-    ///
-    /// This does no evaluation and exists as a convenience for things like booleans.
+    /// Get a concrete BergVal for this value, adjusted for the given expression position.
     /// 
-    fn ok<T: From<Self>, E>(self) -> Result<T, E> {
-        Ok(T::from(self))
-    }
+    fn at_position(self, new_position: ExpressionErrorPosition) -> BergResult<'a>;
 
     ///
-    /// Convert this value into a BergResult.
-    ///
-    /// This does no evaluation and exists as a convenience for things like errors.
+    /// Get a concrete EvalVal for this value.
     /// 
-    fn err<T, E: From<Self>>(self) -> Result<T, E> {
-        Err(E::from(self))
-    }
+    fn eval_val(self) -> EvalResult<'a>;
 
     fn field(self, name: IdentifierIndex) -> BergResult<'a>;
-    fn set_field(&mut self, name: IdentifierIndex, value: BergVal<'a>) -> BergResult<'a, ()> where Self: Clone;
+    fn set_field(&mut self, name: IdentifierIndex, value: BergVal<'a>) -> Result<(), ErrorVal<'a>> where Self: Clone;
 
-    fn infix(self, operator: IdentifierIndex, right: RightOperand<'a, impl BergValue<'a>>) -> BergResult<'a>;
-    fn infix_assign(self, operator: IdentifierIndex, right: RightOperand<'a, impl BergValue<'a>>) -> BergResult<'a>;
-    fn prefix(self, operator: IdentifierIndex) -> BergResult<'a>;
-    fn postfix(self, operator: IdentifierIndex) -> BergResult<'a>;
-    fn subexpression_result(self, boundary: ExpressionBoundary) -> BergResult<'a>;
+    fn infix(self, operator: IdentifierIndex, right: RightOperand<'a, impl BergValue<'a>>) -> EvalResult<'a>;
+    fn infix_assign(self, operator: IdentifierIndex, right: RightOperand<'a, impl BergValue<'a>>) -> EvalResult<'a>;
+    fn prefix(self, operator: IdentifierIndex) -> EvalResult<'a>;
+    fn postfix(self, operator: IdentifierIndex) -> EvalResult<'a>;
+    fn subexpression_result(self, boundary: ExpressionBoundary) -> EvalResult<'a>;
 }
 
 pub trait TryFromBergVal<'a>: Sized+fmt::Debug {
@@ -100,11 +92,11 @@ pub trait TryFromBergVal<'a>: Sized+fmt::Debug {
     /// - `Err(error)` if there was an error calculating the value.
     /// - `Ok(Err(value))` if the value was calculated, but could not be converted to the native type.
     ///
-    fn try_from_berg_val(from: BergResult<'a>) -> BergResult<'a, Result<Self, BergVal<'a>>>;
+    fn try_from_berg_val(from: EvalVal<'a>) -> Result<Result<Self, BergVal<'a>>, ErrorVal<'a>>;
 }
 
 #[derive(Debug, Copy, Clone)]
-pub struct RightOperand<'a, V: BergValue<'a>>(V, PhantomData<&'a ()>);
+pub struct RightOperand<'a, V: BergValue<'a>>(pub V, pub PhantomData<&'a ()>);
 
 impl<'a, V: BergValue<'a>> From<V> for RightOperand<'a, V> {
     fn from(from: V) -> Self {
@@ -113,41 +105,32 @@ impl<'a, V: BergValue<'a>> From<V> for RightOperand<'a, V> {
 }
 
 impl<'a, V: BergValue<'a>> RightOperand<'a, V> {
-    pub fn into_native<T: TryFromBergVal<'a>>(self) -> BergResult<'a, T> {
+    pub fn into_native<T: TryFromBergVal<'a>>(self) -> Result<T, ErrorVal<'a>> {
         match self.0.into_native() {
-            Err(error) => error.at_position(ExpressionErrorPosition::RightOperand),
             Ok(value) => Ok(value),
+            Err(error) => error.reposition(ExpressionErrorPosition::RightOperand).err(),
         }
     }
-    pub fn try_into_native<T: TryFromBergVal<'a>>(self) -> BergResult<'a, Option<T>> {
+    pub fn try_into_native<T: TryFromBergVal<'a>>(self) -> Result<Option<T>, ErrorVal<'a>> {
         match self.0.try_into_native() {
-            Err(error) => error.at_position(ExpressionErrorPosition::RightOperand),
             Ok(value) => Ok(value),
+            Err(error) => error.reposition(ExpressionErrorPosition::RightOperand).err(),
         }
     }
     ///
     /// Get the operand's value with appropriate error locations and no
-    /// AmbiguousSyntax values.
+    /// EvalVal values.
     /// 
     pub fn into_val(self) -> BergResult<'a> {
-        match self.0.into_val() {
-            Err(error) => error.disambiguate_operand(ExpressionErrorPosition::RightOperand),
-            Ok(value) => Ok(value),
-        }
+        self.0.into_val().at_position(ExpressionErrorPosition::RightOperand)
     }
     ///
-    /// Get the operand's value, with appropriate errors, but return AmbiguousSyntax
-    /// values instead of disambiguating them, so that the caller can look at them.
+    /// Process the value and give appropriate error locations to the result.
     /// 
-    pub fn keep_ambiguous_if<F: Fn(&AmbiguousSyntax) -> bool>(self, f: F) -> BergResult<'a> {
-        match self.0.into_val() {
-            Err(ControlVal::AmbiguousSyntax(syntax)) => if f(&syntax) {
-                Err(ControlVal::AmbiguousSyntax(syntax))
-            } else {
-                syntax.disambiguate_operand(ExpressionErrorPosition::RightOperand)
-            }
-            Err(error) => error.disambiguate_operand(ExpressionErrorPosition::RightOperand),
-            Ok(value) => Ok(value),
+    pub fn eval_val(self) -> Result<RightOperand<'a, EvalVal<'a>>, ErrorVal<'a>> {
+        match self.0.eval_val() {
+            Ok(v) => Ok(RightOperand::from(v)),
+            Err(error) => error.reposition(ExpressionErrorPosition::Expression).err(),
         }
     }
 }
@@ -162,61 +145,59 @@ pub mod implement {
     pub use crate::value::*;
     pub use crate::syntax::ExpressionRef;
     use crate::syntax::Fixity;
-    use crate::eval::AmbiguousSyntax;
 
-    pub fn single_next_val<'a>(value: impl BergValue<'a>) -> BergResult<'a, Option<NextVal<'a>>> {
+    pub fn single_next_val<'a>(value: impl BergValue<'a>) -> Result<Option<NextVal<'a>>, ErrorVal<'a>> {
         Ok(Some(NextVal::single(value.into_val()?)))
     }
 
-    pub fn default_into_native<'a, T: TryFromBergVal<'a>>(value: impl BergValue<'a>) -> BergResult<'a, T>  {
-        match T::try_from_berg_val(value.into_val()) {
+    pub fn default_into_native<'a, T: TryFromBergVal<'a>>(value: impl BergValue<'a>) -> Result<T, ErrorVal<'a>>  {
+        match T::try_from_berg_val(value.eval_val()?) {
             Ok(Ok(value)) => Ok(value),
             Ok(Err(original)) => BergError::BadOperandType(Box::new(Ok(original)), T::TYPE_NAME).err(),
             Err(error) => Err(error),
         }
     }
 
-    pub fn default_try_into_native<'a, T: TryFromBergVal<'a>>(value: impl BergValue<'a>) -> BergResult<'a, Option<T>>  {
-        match T::try_from_berg_val(value.into_val()) {
+    pub fn default_try_into_native<'a, T: TryFromBergVal<'a>>(value: impl BergValue<'a>) -> Result<Option<T>, ErrorVal<'a>>  {
+        match T::try_from_berg_val(value.eval_val()?) {
             Ok(Ok(value)) => Ok(Some(value)),
             Ok(Err(_)) => Ok(None),
             Err(error) => Err(error),
         }
     }
 
-    pub fn default_subexpression_result<'a>(value: impl BergValue<'a>, _boundary: ExpressionBoundary) -> BergResult<'a> {
-        value.into_val()
+    pub fn default_subexpression_result<'a>(value: impl BergValue<'a>, _boundary: ExpressionBoundary) -> EvalResult<'a> {
+        value.eval_val()
     }
 
     pub fn default_infix<'a>(
         left: impl BergValue<'a>,
         operator: IdentifierIndex,
         right: RightOperand<'a, impl BergValue<'a>>,
-    ) -> BergResult<'a> {
+    ) -> EvalResult<'a> {
         use crate::syntax::identifiers::{
             COLON, COMMA, DOT, EQUAL_TO, EXCLAMATION_POINT, NEWLINE, NOT_EQUAL_TO, SEMICOLON,
         };
         match operator {
             COMMA => {
                 let left = left.into_val()?;
-                let right = right.keep_ambiguous_if(|syntax| match syntax { AmbiguousSyntax::MissingExpression => true, _ => false });
-                match right {
-                    Err(ControlVal::AmbiguousSyntax(AmbiguousSyntax::MissingExpression)) => AmbiguousSyntax::TrailingComma(vec![left]).err(),
-                    Ok(right) => AmbiguousSyntax::PartialTuple(vec![left, right]).err(),
-                    Err(error) => Err(error),
+                match right.eval_val()? {
+                    // (1,)
+                    RightOperand(EvalVal::MissingExpression, _) => EvalVal::TrailingComma(vec![left]).ok(),
+                    // (1,2[,...])
+                    right => EvalVal::PartialTuple(vec![left, right.into_val()?]).ok(),
                 }
             }
             SEMICOLON => {
                 left.into_val()?;
-                let right = right.keep_ambiguous_if(|syntax| match syntax { AmbiguousSyntax::MissingExpression => true, _ => false });
-                match right {
-                    Err(ControlVal::AmbiguousSyntax(AmbiguousSyntax::MissingExpression)) => AmbiguousSyntax::TrailingSemicolon.err(),
-                    result => result,
+                match right.eval_val()? {
+                    RightOperand(EvalVal::MissingExpression, _) => EvalVal::TrailingSemicolon.ok(),
+                    right => right.into_val()?.ok(),
                 }
             }
             NEWLINE => {
                 left.into_val()?;
-                right.into_val()
+                right.into_val()?.ok()
             }
             EQUAL_TO => {
                 let mut left_next = left.next_val()?;
@@ -238,10 +219,9 @@ pub mod implement {
             }
             NOT_EQUAL_TO => left.infix(EQUAL_TO, right)?.prefix(EXCLAMATION_POINT),
             DOT => {
-                use crate::eval::AssignmentTarget;
                 let left = left.into_val()?;
                 match right.try_into_native::<IdentifierIndex>()? {
-                    Some(name) => AssignmentTarget::ObjectFieldReference(left, name).err(),
+                    Some(name) => AssignmentTarget::ObjectFieldReference(left, name).ok(),
                     None => BergError::RightSideOfDotMustBeIdentifier.operand_err(ExpressionErrorPosition::RightOperand),
                 }
             }
@@ -254,14 +234,14 @@ pub mod implement {
         _left: impl BergValue<'a>,
         _operator: IdentifierIndex,
         _right: RightOperand<'a, impl BergValue<'a>>,
-    ) -> BergResult<'a> {
+    ) -> EvalResult<'a> {
         BergError::AssignmentTargetMustBeIdentifier.operand_err(ExpressionErrorPosition::LeftOperand)
     }
 
     pub fn default_postfix<'a>(
         operand: impl BergValue<'a>,
         operator: IdentifierIndex,
-    ) -> BergResult<'a> {
+    ) -> EvalResult<'a> {
         use crate::syntax::identifiers::{PLUS_PLUS, DASH_DASH};
         match operator {
             PLUS_PLUS | DASH_DASH => BergError::AssignmentTargetMustBeIdentifier.operand_err(ExpressionErrorPosition::LeftOperand),
@@ -272,7 +252,7 @@ pub mod implement {
     pub fn default_prefix<'a>(
         operand: impl BergValue<'a>,
         operator: IdentifierIndex,
-    ) -> BergResult<'a> {
+    ) -> EvalResult<'a> {
         use crate::syntax::identifiers::{DOUBLE_EXCLAMATION_POINT, EXCLAMATION_POINT, PLUS_PLUS, DASH_DASH};
         match operator {
             DOUBLE_EXCLAMATION_POINT => operand.prefix(EXCLAMATION_POINT)?.prefix(EXCLAMATION_POINT),
@@ -293,7 +273,7 @@ pub mod implement {
         object: &mut T,
         name: IdentifierIndex,
         _value: BergVal<'a>,
-    ) -> BergResult<'a, ()> {
+    ) -> Result<(), ErrorVal<'a>> {
         BergError::NoSuchPublicFieldOnValue(Box::new(object.clone().into_val()), name).err()
     }
 }

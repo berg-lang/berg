@@ -7,6 +7,15 @@ use crate::value::*;
 use std::fmt;
 
 ///
+/// Standard berg error, either with or without a full error location.
+/// 
+#[derive(Debug, Clone)]
+pub enum ErrorVal<'a> {
+    ExpressionError(BergError<'a>, ExpressionErrorPosition),
+    Error(Error<'a>),
+}
+
+///
 /// Standard berg error.
 /// 
 /// Contains a BergError and a stack of error locations.
@@ -70,7 +79,7 @@ pub enum BergError<'a> {
     FieldNotSet(FieldIndex),
     CircularDependency,
     // TODO stop boxing BergVals
-    // BadOperandType(Box<BergResult<'a>>, &'static str),
+    // BadOperandType(Box<EvalResult<'a>>, &'static str),
     BadOperandType(Box<BergResult<'a>>, &'static str),
     PrivateField(BlockRef<'a>, IdentifierIndex),
     NoSuchPublicField(BlockRef<'a>, IdentifierIndex),
@@ -131,6 +140,25 @@ pub enum ExpressionErrorPosition {
     RightRight,
 }
 
+impl<'a> ErrorVal<'a> {
+    pub fn reposition(self, new_position: ExpressionErrorPosition) -> ErrorVal<'a> {
+        use ErrorVal::*;
+        use ExpressionErrorPosition::*;
+        match self {
+            ExpressionError(error, position) => match (new_position, position) {
+                (new_position, Expression) => ExpressionError(error, new_position),
+                (Expression, position) => ExpressionError(error, position),
+                (LeftOperand, LeftOperand) => ExpressionError(error, LeftLeft),
+                (LeftOperand, RightOperand) => ExpressionError(error, LeftRight),
+                (RightOperand, LeftOperand) => ExpressionError(error, RightLeft),
+                (RightOperand, RightOperand) => ExpressionError(error, RightRight),
+                _ => unreachable!("{:?} {:?} at {:?}", error, position, new_position),
+            }
+            _ => self,
+        }
+
+    }
+}
 impl<'a> ErrorLocation<'a> {
     pub fn range(&self) -> LineColumnRange {
         match self {
@@ -157,10 +185,6 @@ impl<'a> Error<'a> {
             error,
             expression,
         }
-    }
-
-    pub fn err<T, E: From<Self>>(self) -> Result<T, E> {
-        Err(E::from(self))
     }
 
     pub fn code(&self) -> ErrorCode {
@@ -257,6 +281,19 @@ impl fmt::Display for ErrorCode {
             ImmutableField => "ImmutableField",
         };
         write!(f, "{}", string)
+    }
+}
+
+impl<'a> fmt::Display for ErrorVal<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        use ErrorVal::*;
+        match self {
+            Error(error) => write!(f, "{}", error),
+            ExpressionError(error, position) => match position {
+                ExpressionErrorPosition::Expression => write!(f, "{:?}", error),
+                _ => write!(f, "{:?} at {:?}", error, position)
+            }
+        }
     }
 }
 
@@ -431,12 +468,8 @@ impl<'a> BergError<'a> {
         Error::new(self, expression.into())
     }
 
-    pub fn err<T>(self) -> BergResult<'a, T> {
-        Err(ControlVal::ExpressionError(self, ExpressionErrorPosition::Expression))
-    }
-
-    pub fn operand_err<T>(self, position: ExpressionErrorPosition) -> BergResult<'a, T> {
-        Err(ControlVal::ExpressionError(self, position))
+    pub fn operand_err<T>(self, position: ExpressionErrorPosition) -> Result<T, ErrorVal<'a>> {
+        Err(ErrorVal::ExpressionError(self, position))
     }
 
     pub fn code(&self) -> ErrorCode {
@@ -472,5 +505,70 @@ impl<'a> BergError<'a> {
             ImmutableFieldOnRoot(..) => ErrorCode::ImmutableField,
             BadOperandType(..) => ErrorCode::BadOperandType,
         }
+    }
+}
+
+impl<'a> From<BergError<'a>> for ErrorVal<'a> {
+    fn from(from: BergError<'a>) -> Self {
+        ErrorVal::ExpressionError(from, ExpressionErrorPosition::Expression)
+    }
+}
+
+impl<'a> From<Error<'a>> for ErrorVal<'a> {
+    fn from(from: Error<'a>) -> Self {
+        ErrorVal::Error(from)
+    }
+}
+
+impl<'a> BergValue<'a> for ErrorVal<'a> {
+    fn next_val(self) -> Result<Option<NextVal<'a>>, ErrorVal<'a>> {
+        self.err()
+    }
+
+    fn into_native<T: TryFromBergVal<'a>>(self) -> Result<T, ErrorVal<'a>> {
+        self.err()
+    }
+
+    fn try_into_native<T: TryFromBergVal<'a>>(self) -> Result<Option<T>, ErrorVal<'a>> {
+        self.err()
+    }
+
+    fn into_val(self) -> BergResult<'a> {
+        self.err()
+    }
+
+    fn eval_val(self) -> EvalResult<'a> {
+        self.err()
+    }
+    fn at_position(self, new_position: ExpressionErrorPosition) -> BergResult<'a> {
+        self.reposition(new_position).err()
+    }
+
+    fn infix(self, _operator: IdentifierIndex, _right: RightOperand<'a, impl BergValue<'a>>) -> EvalResult<'a> {
+        self.reposition(ExpressionErrorPosition::LeftOperand).err()
+    }
+
+    fn infix_assign(self, _operator: IdentifierIndex, _right: RightOperand<'a, impl BergValue<'a>>) -> EvalResult<'a> {
+        self.reposition(ExpressionErrorPosition::LeftOperand).err()
+    }
+
+    fn postfix(self, _operator: IdentifierIndex) -> EvalResult<'a> {
+        self.reposition(ExpressionErrorPosition::LeftOperand).err()
+    }
+
+    fn prefix(self, _operator: IdentifierIndex) -> EvalResult<'a> {
+        self.reposition(ExpressionErrorPosition::RightOperand).err()
+    }
+
+    fn subexpression_result(self, _boundary: ExpressionBoundary) -> EvalResult<'a> {
+        self.reposition(ExpressionErrorPosition::RightOperand).err()
+    }
+
+    fn field(self, _name: IdentifierIndex) -> BergResult<'a> {
+        self.err()
+    }
+
+    fn set_field(&mut self, _name: IdentifierIndex, _value: BergVal<'a>) -> Result<(), ErrorVal<'a>> where Self: Clone {
+        self.clone().err()
     }
 }

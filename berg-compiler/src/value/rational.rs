@@ -5,19 +5,25 @@ use num::{BigInt, BigRational, One, ToPrimitive, Zero};
 use std::{i64, u64};
 
 impl<'a> BergValue<'a> for BigRational {
-    fn next_val(self) -> BergResult<'a, Option<NextVal<'a>>> {
+    fn next_val(self) -> Result<Option<NextVal<'a>>, ErrorVal<'a>> {
         single_next_val(self)
     }
     fn into_val(self) -> BergResult<'a> {
-        Ok(self.into())
+        self.ok()
     }
-    fn into_native<T: TryFromBergVal<'a>>(self) -> BergResult<'a, T> {
+    fn eval_val(self) -> EvalResult<'a> {
+        self.ok()
+    }
+    fn at_position(self, _new_position: ExpressionErrorPosition) -> BergResult<'a> {
+        self.ok()
+    }
+    fn into_native<T: TryFromBergVal<'a>>(self) -> Result<T, ErrorVal<'a>> {
         default_into_native(self)
     }
-    fn try_into_native<T: TryFromBergVal<'a>>(self) -> BergResult<'a, Option<T>> {
+    fn try_into_native<T: TryFromBergVal<'a>>(self) -> Result<Option<T>, ErrorVal<'a>> {
         default_try_into_native(self)
     }
-    fn infix(self, operator: IdentifierIndex, right: RightOperand<'a, impl BergValue<'a>>) -> BergResult<'a> {
+    fn infix(self, operator: IdentifierIndex, right: RightOperand<'a, impl BergValue<'a>>) -> EvalResult<'a> {
         match operator {
             PLUS => (self + right.into_native::<BigRational>()?).ok(),
             DASH => (self - right.into_native::<BigRational>()?).ok(),
@@ -31,9 +37,9 @@ impl<'a> BergValue<'a> for BigRational {
             }
             STAR => (self * right.into_native::<BigRational>()?).ok(),
             EQUAL_TO => match right.try_into_native::<BigRational>()? {
-                Some(right) => (self == right).into_val(),
-                None => false.ok(),
-            }
+                Some(right) => self == right,
+                None => false,
+            }.ok(),
             GREATER_THAN => (self > right.into_native::<BigRational>()?).ok(),
             LESS_THAN => (self < right.into_native::<BigRational>()?).ok(),
             GREATER_EQUAL => (self >= right.into_native::<BigRational>()?).ok(),
@@ -42,11 +48,11 @@ impl<'a> BergValue<'a> for BigRational {
         }
     }
 
-    fn infix_assign(self, operator: IdentifierIndex, right: RightOperand<'a, impl BergValue<'a>>) -> BergResult<'a> {
+    fn infix_assign(self, operator: IdentifierIndex, right: RightOperand<'a, impl BergValue<'a>>) -> EvalResult<'a> {
         default_infix_assign(self, operator, right)
     }
 
-    fn prefix(self, operator: IdentifierIndex) -> BergResult<'a> {
+    fn prefix(self, operator: IdentifierIndex) -> EvalResult<'a> {
         match operator {
             PLUS => (self).ok(),
             DASH => (-self).ok(),
@@ -56,7 +62,7 @@ impl<'a> BergValue<'a> for BigRational {
         }
     }
 
-    fn postfix(self, operator: IdentifierIndex) -> BergResult<'a> {
+    fn postfix(self, operator: IdentifierIndex) -> EvalResult<'a> {
         match operator {
             PLUS_ONE => (self + BigRational::one()).ok(),
             MINUS_ONE => (self - BigRational::one()).ok(),
@@ -64,14 +70,14 @@ impl<'a> BergValue<'a> for BigRational {
         }
     }
 
-    fn subexpression_result(self, boundary: ExpressionBoundary) -> BergResult<'a> {
+    fn subexpression_result(self, boundary: ExpressionBoundary) -> EvalResult<'a> {
         default_subexpression_result(self, boundary)
     }
 
     fn field(self, name: IdentifierIndex) -> BergResult<'a> {
         default_field(self, name)
     }
-    fn set_field(&mut self, name: IdentifierIndex, value: BergVal<'a>) -> BergResult<'a, ()> {
+    fn set_field(&mut self, name: IdentifierIndex, value: BergVal<'a>) -> Result<(), ErrorVal<'a>> {
         default_set_field(self, name, value)
     }
 }
@@ -81,19 +87,30 @@ impl<'a> From<BigInt> for BergVal<'a> {
         BigRational::from(from).into()
     }
 }
+impl<'a> From<BigInt> for EvalVal<'a> {
+    fn from(from: BigInt) -> Self {
+        BergVal::from(from).into()
+    }
+}
 
 impl<'a> From<BigRational> for BergVal<'a> {
     fn from(from: BigRational) -> Self {
         BergVal::BigRational(from)
     }
 }
+impl<'a> From<BigRational> for EvalVal<'a> {
+    fn from(from: BigRational) -> Self {
+        BergVal::from(from).into()
+    }
+}
+
 
 impl<'a> TryFromBergVal<'a> for BigRational {
     const TYPE_NAME: &'static str = "number";
-    fn try_from_berg_val(from: BergResult<'a>) -> BergResult<'a, Result<Self, BergVal<'a>>> {
+    fn try_from_berg_val(from: EvalVal<'a>) -> Result<Result<Self, BergVal<'a>>, ErrorVal<'a>> {
         match from.into_val()? {
             BergVal::BigRational(value) => Ok(Ok(value)),
-            value => Ok(Err(value)),
+            from => Ok(Err(from))
         }
     }
 }
@@ -103,7 +120,7 @@ macro_rules! impl_berg_val_for_primitive_num {
         $(
             impl<'a> TryFromBergVal<'a> for $type {
                 const TYPE_NAME: &'static str = stringify!($type);
-                fn try_from_berg_val(from: BergResult<'a>) -> BergResult<'a, Result<Self, BergVal<'a>>> {
+                fn try_from_berg_val(from: EvalVal<'a>) -> Result<Result<Self, BergVal<'a>>, ErrorVal<'a>> {
                     match from.into_val()? {
                         BergVal::BigRational(value) => {
                             if value.is_integer() {
@@ -121,6 +138,11 @@ macro_rules! impl_berg_val_for_primitive_num {
             impl<'a> From<$type> for BergVal<'a> {
                 fn from(from: $type) -> Self {
                     BigInt::from(from).into()
+                }
+            }
+            impl<'a> From<$type> for EvalVal<'a> {
+                fn from(from: $type) -> Self {
+                    BergVal::from(from).into()
                 }
             }
         )*

@@ -9,7 +9,7 @@ extern crate num;
 extern crate string_interner;
 
 // Explicitly expose just the interfaces we want to expose
-pub use crate::value::{BergResult, BergVal, BergValue, Error, ErrorCode};
+pub use crate::value::{BergResult, BergVal, BergValue, ErrorVal, Error, ErrorCode};
 
 use crate::eval::{evaluate_ast, RootRef};
 use crate::parser::parse;

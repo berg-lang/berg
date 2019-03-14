@@ -156,7 +156,7 @@ impl<'a> ExpectBerg<'a> {
             result.as_ref().unwrap()
         );
         match result.unwrap_err() {
-            ControlVal::Error(actual) => {
+            ErrorVal::Error(actual) => {
                 assert_eq!(
                     code,
                     actual.code(),
@@ -261,6 +261,6 @@ impl<R: BoundedRange<ByteIndex>, T: IntoRange<ByteIndex, Output = R>> ExpectedEr
 ///
 /// Check if two BergVals are equal. Just calls `infix`.
 /// 
-fn bergvals_equal<'a>(expected: BergVal<'a>, actual: BergVal<'a>) -> BergResult<'a, bool> {
+fn bergvals_equal<'a>(expected: BergVal<'a>, actual: BergVal<'a>) -> Result<bool, ErrorVal<'a>> {
     Ok(expected.infix(EQUAL_TO, actual.into())?.into_native::<bool>()?)
 }

@@ -1,6 +1,6 @@
 use crate::eval::BlockRef;
 use crate::syntax::{Ast, AstIndex, AstRef, BlockIndex, FieldIndex, IdentifierIndex};
-use crate::value::{BergResult, BergVal, BergValue};
+use crate::value::implement::*;
 use std::fmt;
 
 #[derive(Clone)]
@@ -28,7 +28,7 @@ impl<'a> ScopeRef<'a> {
             ScopeRef::AstRef(ast) => ast.source.root().field(name),
         }
     }
-    pub fn declare_field(&self, index: FieldIndex, ast: &Ast) -> BergResult<'a, ()> {
+    pub fn declare_field(&self, index: FieldIndex, ast: &Ast) -> Result<(), ErrorVal<'a>> {
         match self {
             ScopeRef::BlockRef(block) => block.declare_field(index, ast),
             ScopeRef::AstRef(_) => ast.source.root().declare_field(index),
@@ -39,7 +39,7 @@ impl<'a> ScopeRef<'a> {
         index: FieldIndex,
         value: BergVal<'a>,
         ast: &Ast,
-    ) -> BergResult<'a, ()> {
+    ) -> Result<(), ErrorVal<'a>> {
         match self {
             ScopeRef::BlockRef(block) => block.set_local_field(index, value, ast),
             ScopeRef::AstRef(ast) => ast.source.root().set_local_field(index, value),

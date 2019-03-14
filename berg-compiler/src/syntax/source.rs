@@ -1,6 +1,6 @@
 use crate::eval::RootRef;
 use crate::util::indexed_vec::{to_indexed_cow, IndexedSlice};
-use crate::value::{BergError, BergResult};
+use crate::value::*;
 use std::borrow::Cow;
 use std::fs::File;
 use std::io;
@@ -62,7 +62,7 @@ impl<'a> SourceRef<'a> {
             SourceData::Memory(name, ..) => name.into(),
         }
     }
-    pub fn absolute_path<'p>(&'p self) -> BergResult<'a, Cow<'p, Path>>
+    pub fn absolute_path<'p>(&'p self) -> Result<Cow<'p, Path>, ErrorVal<'a>>
     where
         'a: 'p,
     {
@@ -123,7 +123,7 @@ fn check_source_too_large<'a>(size: usize) -> Option<SourceOpenError<'a>> {
     }
 }
 
-fn absolute_path<'a>(path: Cow<'a, Path>, root: &RootRef) -> BergResult<'a, Cow<'a, Path>> {
+fn absolute_path<'a>(path: Cow<'a, Path>, root: &RootRef) -> Result<Cow<'a, Path>, ErrorVal<'a>> {
     if path.is_relative() {
         match *root.root_path() {
             Ok(ref root_path) => Ok(Cow::Owned(root_path.join(path))),

@@ -4,7 +4,9 @@ use num::BigRational;
 use std::fmt;
 
 ///
-/// A concrete type that can hold any `BergValue`, and delegates operations to the concrete type.
+/// A concrete type that can hold any global [`BergValue`].
+/// 
+/// Contrast with [`EvalVal`], which holds the results of evaluations.
 ///
 #[derive(Clone)]
 pub enum BergVal<'a> {
@@ -16,6 +18,8 @@ pub enum BergVal<'a> {
 
 #[derive(Debug, Clone)]
 pub struct NextVal<'a> { pub head: BergVal<'a>, pub tail: BergResult<'a> }
+
+pub type BergResult<'a> = Result<BergVal<'a>, ErrorVal<'a>>;
 
 impl<'a> fmt::Display for NextVal<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -32,23 +36,32 @@ impl<'a> BergVal<'a> {
     pub fn empty_tuple() -> BergVal<'a> {
         BergVal::from(vec![])
     }
-    pub fn ok<E>(self) -> Result<BergVal<'a>, E> {
-        Ok(self)
+}
+
+impl<'a> From<BergVal<'a>> for EvalVal<'a> {
+    fn from(from: BergVal<'a>) -> Self {
+        EvalVal::Value(from)
     }
 }
 
-impl<'a> From<BergVal<'a>> for BergResult<'a> {
+impl<'a> From<BergVal<'a>> for EvalResult<'a> {
     fn from(from: BergVal<'a>) -> Self {
-        Ok(from)
+        from.ok()
     }
 }
 
 impl<'a> BergValue<'a> for BergVal<'a> {
     fn into_val(self) -> BergResult<'a> {
-        Ok(self)
+        self.ok()
+    }
+    fn eval_val(self) -> EvalResult<'a> {
+        self.ok()
+    }
+    fn at_position(self, _new_position: ExpressionErrorPosition) -> BergResult<'a> {
+        self.ok()
     }
 
-    fn next_val(self) -> BergResult<'a, Option<NextVal<'a>>> {
+    fn next_val(self) -> Result<Option<NextVal<'a>>, ErrorVal<'a>> {
         use BergVal::*;
         match self {
             Boolean(value) => value.next_val(),
@@ -58,7 +71,7 @@ impl<'a> BergValue<'a> for BergVal<'a> {
         }
     }
 
-    fn into_native<T: TryFromBergVal<'a>>(self) -> BergResult<'a, T> {
+    fn into_native<T: TryFromBergVal<'a>>(self) -> Result<T, ErrorVal<'a>> {
         use BergVal::*;
         match self {
             Boolean(value) => value.into_native(),
@@ -68,7 +81,7 @@ impl<'a> BergValue<'a> for BergVal<'a> {
         }
     }
 
-    fn try_into_native<T: TryFromBergVal<'a>>(self) -> BergResult<'a, Option<T>> {
+    fn try_into_native<T: TryFromBergVal<'a>>(self) -> Result<Option<T>, ErrorVal<'a>> {
         use BergVal::*;
         match self {
             Boolean(value) => value.try_into_native(),
@@ -78,7 +91,7 @@ impl<'a> BergValue<'a> for BergVal<'a> {
         }
     }
 
-    fn infix(self, operator: IdentifierIndex, right: RightOperand<'a, impl BergValue<'a>>) -> BergResult<'a> {
+    fn infix(self, operator: IdentifierIndex, right: RightOperand<'a, impl BergValue<'a>>) -> EvalResult<'a> {
         use BergVal::*;
         match self {
             Boolean(value) => value.infix(operator, right),
@@ -88,7 +101,7 @@ impl<'a> BergValue<'a> for BergVal<'a> {
         }
     }
 
-    fn infix_assign(self, operator: IdentifierIndex, right: RightOperand<'a, impl BergValue<'a>>) -> BergResult<'a> {
+    fn infix_assign(self, operator: IdentifierIndex, right: RightOperand<'a, impl BergValue<'a>>) -> EvalResult<'a> {
         use BergVal::*; 
         match self {
             Boolean(value) => value.infix_assign(operator, right),
@@ -98,7 +111,7 @@ impl<'a> BergValue<'a> for BergVal<'a> {
         }
     }
 
-    fn postfix(self, operator: IdentifierIndex) -> BergResult<'a> {
+    fn postfix(self, operator: IdentifierIndex) -> EvalResult<'a> {
         use BergVal::*;
         match self {
             Boolean(value) => value.postfix(operator),
@@ -108,7 +121,7 @@ impl<'a> BergValue<'a> for BergVal<'a> {
         }
     }
 
-    fn prefix(self, operator: IdentifierIndex) -> BergResult<'a> {
+    fn prefix(self, operator: IdentifierIndex) -> EvalResult<'a> {
         use BergVal::*;
         match self {
             Boolean(value) => value.prefix(operator),
@@ -118,7 +131,7 @@ impl<'a> BergValue<'a> for BergVal<'a> {
         }
     }
 
-    fn subexpression_result(self, boundary: ExpressionBoundary) -> BergResult<'a> {
+    fn subexpression_result(self, boundary: ExpressionBoundary) -> EvalResult<'a> {
         use BergVal::*;
         match self {
             Boolean(value) => value.subexpression_result(boundary),
@@ -142,7 +155,7 @@ impl<'a> BergValue<'a> for BergVal<'a> {
         &mut self,
         name: IdentifierIndex,
         field_value: BergVal<'a>,
-    ) -> BergResult<'a, ()> {
+    ) -> Result<(), ErrorVal<'a>> {
         use BergVal::*;
         match self {
             Boolean(ref mut value) => value.set_field(name, field_value),
@@ -175,6 +188,99 @@ impl<'a> fmt::Display for BergVal<'a> {
             BigRational(ref value) => write!(f, "{}", value),
             BlockRef(ref value) => write!(f, "{}", value),
             Tuple(ref value) => write!(f, "{}", value),
+        }
+    }
+}
+
+impl<'a, V: BergValue<'a>+Clone> BergValue<'a> for Result<V, ErrorVal<'a>> {
+    fn next_val(self) -> Result<Option<NextVal<'a>>, ErrorVal<'a>> {
+        match self {
+            Ok(v) => v.next_val(),
+            Err(v) => v.next_val(),
+        }
+    }
+
+    fn into_native<T: TryFromBergVal<'a>>(self) -> Result<T, ErrorVal<'a>> {
+        match self {
+            Ok(v) => v.into_native(),
+            Err(v) => v.into_native(),
+        }
+    }
+
+    fn try_into_native<T: TryFromBergVal<'a>>(self) -> Result<Option<T>, ErrorVal<'a>> {
+        match self {
+            Ok(v) => v.try_into_native(),
+            Err(v) => v.try_into_native(),
+        }
+    }
+
+    fn into_val(self) -> BergResult<'a> {
+        match self {
+            Ok(v) => v.into_val(),
+            Err(v) => v.into_val(),
+        }
+    }
+
+    fn eval_val(self) -> EvalResult<'a> {
+        match self {
+            Ok(v) => v.eval_val(),
+            Err(v) => v.eval_val(),
+        }
+    }
+
+    fn at_position(self, new_position: ExpressionErrorPosition) -> BergResult<'a> {
+        match self {
+            Ok(v) => v.at_position(new_position),
+            Err(v) => v.at_position(new_position),
+        }
+    }
+
+    fn infix(self, operator: IdentifierIndex, right: RightOperand<'a, impl BergValue<'a>>) -> EvalResult<'a> {
+        match self {
+            Ok(v) => v.infix(operator, right),
+            Err(v) => v.infix(operator, right),
+        }
+    }
+
+    fn infix_assign(self, operator: IdentifierIndex, right: RightOperand<'a, impl BergValue<'a>>) -> EvalResult<'a> {
+        match self {
+            Ok(v) => v.infix_assign(operator, right),
+            Err(v) => v.infix_assign(operator, right),
+        }
+    }
+
+    fn postfix(self, operator: IdentifierIndex) -> EvalResult<'a> {
+        match self {
+            Ok(v) => v.postfix(operator),
+            Err(v) => v.postfix(operator),
+        }
+    }
+
+    fn prefix(self, operator: IdentifierIndex) -> EvalResult<'a> {
+        match self {
+            Ok(v) => v.prefix(operator),
+            Err(v) => v.prefix(operator),
+        }
+    }
+
+    fn subexpression_result(self, boundary: ExpressionBoundary) -> EvalResult<'a> {
+        match self {
+            Ok(v) => v.subexpression_result(boundary),
+            Err(v) => v.subexpression_result(boundary),
+        }
+    }
+
+    fn field(self, name: IdentifierIndex) -> BergResult<'a> {
+        match self {
+            Ok(v) => v.field(name),
+            Err(v) => v.field(name),
+        }
+    }
+
+    fn set_field(&mut self, name: IdentifierIndex, value: BergVal<'a>) -> Result<(), ErrorVal<'a>> where Self: Clone {
+        match self {
+            Ok(v) => v.set_field(name, value),
+            Err(v) => v.set_field(name, value),
         }
     }
 }

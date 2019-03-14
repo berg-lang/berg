@@ -1,6 +1,6 @@
 use crate::syntax::identifiers;
 use crate::syntax::{FieldIndex, IdentifierIndex};
-use crate::value::{BergError, BergResult, BergVal, BergValue};
+use crate::value::*;
 use std;
 use std::env;
 use std::fmt;
@@ -67,7 +67,7 @@ impl RootRef {
         root_fields::NAMES.iter()
     }
 
-    fn field_index<'a>(&self, name: IdentifierIndex) -> BergResult<'a, FieldIndex> {
+    fn field_index<'a>(&self, name: IdentifierIndex) -> Result<FieldIndex, ErrorVal<'a>> {
         match self.field_names().enumerate().find(|&(_, n)| name == *n) {
             Some((index, _)) => Ok(FieldIndex(index as u32)),
             None => BergError::NoSuchPublicFieldOnRoot(name).err(),
@@ -92,11 +92,11 @@ impl RootRef {
         &self,
         index: FieldIndex,
         _value: BergVal<'a>,
-    ) -> BergResult<'a, ()> {
+    ) -> Result<(), ErrorVal<'a>> {
         BergError::ImmutableFieldOnRoot(index).err()
     }
 
-    pub fn declare_field<'a>(&self, _index: FieldIndex) -> BergResult<'a, ()> {
+    pub fn declare_field<'a>(&self, _index: FieldIndex) -> Result<(), ErrorVal<'a>> {
         // This should not be possible to do. We can fill in an error here when we find a testcase that triggers it.
         unreachable!()
     }
