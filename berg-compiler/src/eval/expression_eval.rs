@@ -182,7 +182,10 @@ impl<'p, 'a: 'p> BergValue<'a> for ExpressionEvaluator<'p, 'a> {
         self.delocalize_errors(self.evaluate_local().into_val())
     }
     fn eval_val(self) -> EvalResult<'a> {
-        self.delocalize_errors(self.evaluate_local())
+        self.delocalize_errors(self.evaluate_local().eval_val())
+    }
+    fn evaluate(self) -> BergResult<'a> {
+        self.delocalize_errors(self.evaluate_local().evaluate())
     }
     fn at_position(self, new_position: ExpressionErrorPosition) -> BergResult<'a> {
         self.into_val().at_position(new_position)

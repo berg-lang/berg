@@ -21,16 +21,13 @@ struct RootData {
     err: Box<Write>,
 }
 
-pub mod root_fields {
-    use crate::syntax::identifiers;
-    use crate::syntax::{FieldIndex, IdentifierIndex};
-
-    pub const TRUE: FieldIndex = FieldIndex(0);
-    pub const FALSE: FieldIndex = FieldIndex(1);
-    pub const IF: FieldIndex = FieldIndex(2);
-    pub const ELSE: FieldIndex = FieldIndex(3);
-    pub const WHILE: FieldIndex = FieldIndex(4);
-    pub const NAMES: [IdentifierIndex; 5] = [identifiers::TRUE, identifiers::FALSE, identifiers::IF, identifiers::ELSE, identifiers::WHILE];
+///
+/// Keywords are fields in the root. When the identifier `true` is in the code,
+/// it's treated as a normal variable reference and looked up in scope (which
+/// includes the root scope).
+///
+pub mod keywords {
+    fields! { TRUE, FALSE, IF, ELSE, WHILE, BREAK, CONTINUE, }
 }
 
 impl Default for RootRef {
@@ -67,7 +64,7 @@ impl RootRef {
     }
 
     pub fn field_names(&self) -> impl ExactSizeIterator<Item = &IdentifierIndex> + fmt::Debug {
-        root_fields::NAMES.iter()
+        keywords::FIELD_NAMES.iter()
     }
 
     fn field_index<'a>(&self, name: IdentifierIndex) -> Result<FieldIndex, ErrorVal<'a>> {
@@ -82,13 +79,15 @@ impl RootRef {
     }
 
     pub fn local_field<'a>(&self, index: FieldIndex) -> EvalResult<'a> {
-        use crate::eval::root_fields::*;
+        use crate::eval::keywords::*;
         match index {
             TRUE => true.ok(),
             FALSE => false.ok(),
             IF => EvalVal::If.ok(),
             ELSE => EvalVal::Else.ok(),
             WHILE => EvalVal::While.ok(),
+            BREAK => BergError::BreakOutsideLoop.err(),
+            CONTINUE => BergError::ContinueOutsideLoop.err(),
             _ => unreachable!(),
         }
     }

@@ -161,11 +161,19 @@ impl<'a> Ast<'a> {
     }
 
     pub fn push_token(&mut self, token: impl Into<Token>, range: ByteRange) -> AstIndex {
-        self.tokens.push(token.into());
+        let token = token.into();
+        // Validate that we push tokens in increasing order
+        assert!(match self.token_ranges.last() {
+            Some(last) => range.start >= last.end,
+            None => true,
+        }, "Pushing token {:?} too early! Last token ended at {} and this one starts at {}", token, self.token_ranges.last().unwrap().end, range.start);
+        self.tokens.push(token);
         self.token_ranges.push(range)
     }
 
     pub fn insert_token(&mut self, index: AstIndex, token: impl Into<Token>, range: ByteRange) {
+        assert!(index == 0 || range.start >= self.token_ranges[index - 1].end);
+        assert!(index == self.token_ranges.len() || range.end <= self.token_ranges[index].start);
         self.tokens.insert(index, token.into());
         self.token_ranges.insert(index, range);
     }

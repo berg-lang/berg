@@ -8,9 +8,9 @@ use string_interner::{StringInterner, Symbol};
 pub struct IdentifierIndex(NonZeroU32);
 
 macro_rules! identifiers {
-    { $($name:ident = $str:expr),* } => {
+    { $($name:ident = $str:expr,)* } => {
         const ALL_IDENTIFIERS: [(IdentifierIndex, &str); IdentifierIndices::COUNT as usize] = [
-            $( ($name, $str) ),*
+            $( ($name, $str), )*
         ];
         // We use this enum to determine the indices
         #[allow(non_camel_case_types)]
@@ -27,6 +27,7 @@ macro_rules! identifiers {
         };
     }
 }
+
 identifiers! {
     OPEN_PAREN = "(",
     CLOSE_PAREN = ")",
@@ -65,7 +66,9 @@ identifiers! {
     FALSE = "false",
     IF = "if",
     ELSE = "else",
-    WHILE = "while"
+    WHILE = "while",
+    BREAK = "break",
+    CONTINUE = "continue",
 }
 
 pub(crate) fn intern_all() -> StringInterner<IdentifierIndex> {

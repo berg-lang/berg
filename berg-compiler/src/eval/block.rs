@@ -76,7 +76,7 @@ impl<'a> BlockRef<'a> {
             block.parent.clone(),
             input,
         );
-        new_block.take_result(BlockState::Complete(BergVal::empty_tuple().ok()))
+        new_block.take_result(BlockState::Complete(BergVal::empty_tuple().ok())).evaluate()
     }
 
     fn take_result(&self, replace_with: BlockState<'a>) -> BergResult<'a> {
@@ -299,6 +299,9 @@ impl<'a> BergValue<'a> for BlockRef<'a> {
     }
     fn eval_val(self) -> EvalResult<'a> {
         self.ok()
+    }
+    fn evaluate(self) -> BergResult<'a> {
+        self.clone_result()
     }
     fn at_position(self, _new_position: ExpressionErrorPosition) -> BergResult<'a> {
         self.ok()

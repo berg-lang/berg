@@ -188,9 +188,10 @@ impl<'a> ExpectBerg<'a> {
         assert_eq!(
             self.0,
             ast.to_bytes().as_slice(),
-            "Round trip failed!\nExpected:\n{}\n---------\nActual:\n{}\n---------\n",
+            "Round trip failed!\nExpected:\n{}\n---------\nActual:\n{}\n---------\nDebug:\n{:?}\n---------",
             String::from_utf8_lossy(self.0),
-            ast.to_string()
+            ast.to_string(),
+            ast.token_ranges
         );
         ast
     }

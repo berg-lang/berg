@@ -80,6 +80,9 @@ impl<'a> BergValue<'a> for EvalVal<'a> {
         use BergError::*;
         match self {
             Value(v) => v.into_val(),
+            Target(v) => v.into_val(),
+            RawIdentifier(v) => v.into_val(),
+
             If => IfWithoutCondition.err(),
             ConditionalVal(IfCondition, _) => IfWithoutCondition.operand_err(ExpressionErrorPosition::RightOperand),
             Else => ElseWithoutIf.err(),
@@ -92,15 +95,26 @@ impl<'a> BergValue<'a> for EvalVal<'a> {
             MissingExpression => MissingOperand.err(),
             PartialTuple(vec) | TrailingComma(vec) => Tuple::from(vec).ok(),
             TrailingSemicolon => BergVal::empty_tuple().ok(),
-            RawIdentifier(v) => v.into_val(),
-            Target(v) => v.into_val(),
         }
     }
     fn at_position(self, new_position: ExpressionErrorPosition) -> BergResult<'a> {
         self.into_val().at_position(new_position)
     }
     fn eval_val(self) -> EvalResult<'a> {
-        self.ok()
+        match self {
+            Value(v) => v.eval_val(),
+            Target(v) => v.eval_val(),
+            RawIdentifier(v) => v.eval_val(),
+            MissingExpression | PartialTuple(_) | TrailingComma(_) | TrailingSemicolon | If | Else | ConditionalVal(..) | While | WhileCondition(_)  => self.ok(),
+        }
+    }
+    fn evaluate(self) -> BergResult<'a> {
+        match self {
+            Value(v) => v.evaluate(),
+            Target(v) => v.evaluate(),
+            RawIdentifier(v) => v.evaluate(),
+            MissingExpression | PartialTuple(_) | TrailingComma(_) | TrailingSemicolon | If | Else | ConditionalVal(..) | While | WhileCondition(_)  => self.into_val()?.evaluate(),
+        }
     }
     fn next_val(self) -> Result<Option<NextVal<'a>>, ErrorVal<'a>> {
         match self {
@@ -281,14 +295,28 @@ impl<'a> BergValue<'a> for EvalVal<'a> {
 }
 
 fn run_while_loop<'a>(condition: BlockRef<'a>, block: BlockRef<'a>) -> EvalResult<'a> {
+    use ErrorCode::*;
     loop {
+        println!("LOOP");
+        // Check the condition, and break if false (or error).
         match condition.apply(BergVal::empty_tuple().into()).into_native::<bool>() {
-            // (while APPLY { condition }) APPLY { block } means block is right operand
-            Ok(true) => block.apply(BergVal::empty_tuple().into()).at_position(ExpressionErrorPosition::RightOperand)?,
+            Ok(true) => {},
             Ok(false) => break,
             // (while APPLY { condition }) APPLY { block } means condition is the left operand's right operand
             Err(error) => return error.reposition(ExpressionErrorPosition::LeftRight).err(),
         };
+
+        // Run the block.
+        let result = block.apply(BergVal::empty_tuple().into());
+        match result.into_val() {
+            Ok(_) => {},
+            Err(error) => match error.code() {
+                BreakOutsideLoop => break,
+                ContinueOutsideLoop => continue,
+                // (while APPLY { condition }) APPLY { block } means block is right operand
+                _ => return error.reposition(ExpressionErrorPosition::LeftRight).err()
+            }
+        }
     }
     BergVal::empty_tuple().ok()
 }
@@ -394,6 +422,9 @@ impl<'a> BergValue<'a> for AssignmentTarget<'a> {
     }
     fn into_val(self) -> BergResult<'a> {
         self.get().into_val()
+    }
+    fn evaluate(self) -> BergResult<'a> {
+        self.get().evaluate()
     }
     fn eval_val(self) -> EvalResult<'a> {
         self.ok()

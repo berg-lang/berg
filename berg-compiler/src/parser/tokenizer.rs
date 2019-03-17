@@ -153,6 +153,8 @@ impl<'a> Tokenizer<'a> {
         }
         self.grouper.on_expression_token(token, range);
         self.prev_was_operator = token.has_right_operand();
+        // Now that this token is emitted, we wait for the *next* newline as a statement separator.
+        self.newline_length = 0;
     }
     fn emit_operator_token(&mut self, token: OperatorToken, range: ByteRange) {
         if self.prev_was_operator {
@@ -160,5 +162,7 @@ impl<'a> Tokenizer<'a> {
         }
         self.grouper.on_operator_token(token, range);
         self.prev_was_operator = token.has_right_operand();
+        // Now that this token is emitted, we wait for the *next* newline as a statement separator.
+        self.newline_length = 0;
     }
 }

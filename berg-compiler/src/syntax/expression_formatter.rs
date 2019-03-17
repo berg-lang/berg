@@ -79,10 +79,10 @@ impl<'p, 'a: 'p> ExpressionTreeWalker<'p, 'a, ExpressionTreeFormatter> {
         match token.fixity() {
             Fixity::Open | Fixity::Close => write!(
                 f,
-                "{:?} at {}-{}",
+                "{:?} at token range {}-{}",
                 token,
                 self.open_operator(),
-                self.close_operator()
+                self.close_operator(),
             )?,
             Fixity::Prefix | Fixity::Postfix | Fixity::Infix | Fixity::Term => {
                 write!(f, "{:?} at {}", token, self.root_index())?

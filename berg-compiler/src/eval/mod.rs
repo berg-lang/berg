@@ -5,7 +5,7 @@ mod scope;
 
 pub use self::block::BlockRef;
 pub use self::expression_eval::ExpressionEvaluator;
-pub use self::root::root_fields;
+pub use self::root::keywords;
 pub use self::root::RootRef;
 pub use self::scope::ScopeRef;
 

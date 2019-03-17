@@ -97,6 +97,10 @@ pub enum BergError<'a> {
     NoSuchPublicFieldOnValue(Box<BergResult<'a>>, IdentifierIndex),
     NoSuchPublicFieldOnRoot(IdentifierIndex),
     ImmutableFieldOnRoot(FieldIndex),
+
+    // These are control values--only errors if nobody catches them.
+    BreakOutsideLoop,
+    ContinueOutsideLoop,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq)]
@@ -141,6 +145,8 @@ pub enum ErrorCode {
     CircularDependency,
     PrivateField,
     ImmutableField,
+    BreakOutsideLoop,
+    ContinueOutsideLoop,
 }
 
 #[derive(Debug, Clone)]
@@ -163,6 +169,13 @@ pub enum ExpressionErrorPosition {
 }
 
 impl<'a> ErrorVal<'a> {
+    pub fn code(&self) -> ErrorCode {
+        use ErrorVal::*;
+        match self {
+            ExpressionError(error, _) => error.code(),            
+            Error(error) => error.code(),
+        }
+    }
     pub fn reposition(self, new_position: ExpressionErrorPosition) -> ErrorVal<'a> {
         use ErrorVal::*;
         use ExpressionErrorPosition::*;
@@ -283,6 +296,8 @@ impl<'a> Error<'a> {
             | WhileWithoutBlock
             | WhileConditionMustBeBlock
             | WhileBlockMustBeBlock
+            | BreakOutsideLoop
+            | ContinueOutsideLoop
             => ErrorLocation::SourceExpression(expression.ast, expression.root),
         }
     }
@@ -325,6 +340,8 @@ impl fmt::Display for ErrorCode {
             WhileWithoutBlock => "WhileWithoutBlock",
             WhileConditionMustBeBlock => "WhileConditionMustBeBlock",
             WhileBlockMustBeBlock => "WhileBlockMustBeBlock",
+            BreakOutsideLoop => "BreakOutsideLoop",
+            ContinueOutsideLoop => "ContinueOutsideLoop",
         };
         write!(f, "{}", string)
     }
@@ -495,6 +512,14 @@ impl<'a> fmt::Display for Error<'a> {
                 "while block must be a block! Did you mean to add brackets here, like '{{ {} }}'?",
                 expression.expression()
             ),
+            BreakOutsideLoop => write!(
+                f,
+                "break found outside loop! break must be called from within a while loop."
+            ),
+            ContinueOutsideLoop => write!(
+                f,
+                "continue found outside loop! break must be called from within a while loop."
+            ),
             PrivateField(ref value, name) => write!(
                 f,
                 "Field '{}' on '{}' is private and cannot be accessed with '.'! Perhaps you meant to declare the field with ':{}' instead of '{}'?",
@@ -597,6 +622,8 @@ impl<'a> BergError<'a> {
             WhileWithoutBlock => ErrorCode::WhileWithoutBlock,
             WhileConditionMustBeBlock => ErrorCode::WhileConditionMustBeBlock,
             WhileBlockMustBeBlock => ErrorCode::WhileBlockMustBeBlock,
+            BreakOutsideLoop => ErrorCode::BreakOutsideLoop,
+            ContinueOutsideLoop => ErrorCode::ContinueOutsideLoop,
 
             // Compile errors related to type (checker)
             UnsupportedOperator(..) => ErrorCode::UnsupportedOperator,
@@ -644,6 +671,9 @@ impl<'a> BergValue<'a> for ErrorVal<'a> {
     }
 
     fn eval_val(self) -> EvalResult<'a> {
+        self.err()
+    }
+    fn evaluate(self) -> BergResult<'a> {
         self.err()
     }
     fn at_position(self, new_position: ExpressionErrorPosition) -> BergResult<'a> {

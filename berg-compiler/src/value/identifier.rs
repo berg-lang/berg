@@ -21,6 +21,10 @@ impl<'a> BergValue<'a> for IdentifierIndex {
         EvalVal::RawIdentifier(self).ok()
     }
 
+    fn evaluate(self) -> BergResult<'a> {
+        self.into_val()
+    }
+
     fn at_position(self, new_position: ExpressionErrorPosition) -> BergResult<'a> {
         self.into_val().at_position(new_position)
     }

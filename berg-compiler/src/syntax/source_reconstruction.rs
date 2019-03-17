@@ -258,6 +258,7 @@ impl<'p, 'a: 'p> SourceReconstructionIterator<'p, 'a> {
                 Open(_, boundary, _) => boundary.open_string().as_bytes(),
             }
             Operator(token) => match token {
+                // Newlines are whitespace and will be handled by next_whitespace_range
                 InfixOperator(NEWLINE) => return None,
                 InfixOperator(APPLY) => unreachable!(),
 

@@ -19,11 +19,13 @@ use std::path::Path;
 
 #[macro_use]
 pub(crate) mod util;
-pub(crate) mod eval;
-pub(crate) mod parser;
+#[macro_use]
 pub(crate) mod syntax;
-pub mod test;
+pub(crate) mod parser;
+pub(crate) mod eval;
 pub(crate) mod value;
+
+pub mod test;
 
 pub fn evaluate_file<'a, P: Into<Cow<'a, Path>>>(path: P) -> impl BergValue<'a> {
     let source = SourceRef::file(path.into(), RootRef::from_env());

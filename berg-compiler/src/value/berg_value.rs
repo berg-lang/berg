@@ -71,6 +71,11 @@ pub trait BergValue<'a>: Sized + fmt::Debug {
     /// 
     fn eval_val(self) -> EvalResult<'a>;
 
+    ///
+    /// Evaluate this value immediately, even if it is lazy.
+    /// 
+    fn evaluate(self) -> BergResult<'a>;
+
     fn field(self, name: IdentifierIndex) -> EvalResult<'a>;
     fn set_field(&mut self, name: IdentifierIndex, value: BergVal<'a>) -> Result<(), ErrorVal<'a>> where Self: Clone;
 
@@ -133,9 +138,12 @@ impl<'a, V: BergValue<'a>> RightOperand<'a, V> {
             Err(error) => error.reposition(ExpressionErrorPosition::Expression).err(),
         }
     }
+    pub fn evaluate(self) -> BergResult<'a> {
+        self.0.evaluate().at_position(ExpressionErrorPosition::RightOperand)
+    }
     ///
     /// Process the value and give appropriate error locations to the result.
-    /// 
+    ///  
     pub fn get(self) -> Result<RightOperand<'a, EvalVal<'a>>, ErrorVal<'a>> {
         match self.0.eval_val() {
             Ok(v) => match v.get() {
@@ -201,15 +209,15 @@ pub mod implement {
                 }
             }
             SEMICOLON => {
-                left.into_val()?;
+                left.evaluate()?;
                 match right.eval_val()? {
                     RightOperand(EvalVal::MissingExpression, _) => EvalVal::TrailingSemicolon.ok(),
-                    right => right.into_val()?.ok(),
+                    right => right.evaluate()?.ok(),
                 }
             }
             NEWLINE => {
-                left.into_val()?;
-                right.into_val()?.ok()
+                left.evaluate()?;
+                right.evaluate()?.ok()
             }
             EQUAL_TO => {
                 let mut left_next = left.next_val()?;

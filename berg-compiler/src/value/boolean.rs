@@ -33,6 +33,10 @@ impl<'a> BergValue<'a> for bool {
         self.ok()
     }
 
+    fn evaluate(self) -> BergResult<'a> {
+        self.into_val()
+    }
+
     fn at_position(self, _new_position: ExpressionErrorPosition) -> BergResult<'a> {
         self.ok()
     }

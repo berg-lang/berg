@@ -2,7 +2,13 @@ use crate::*;
 
 #[test]
 fn while_1_through_5() {
-    expect(":x = 1; while { x <= 5 } { x++ }; x").to_yield(6);
+    expect("
+        :x = 1
+        while { x <= 5 } {
+            x++
+        }
+        x
+    ").to_yield(6);
 }
 
 #[test]
@@ -58,4 +64,123 @@ fn add_1_while() {
 #[test]
 fn add_1_while_block() {
     expect(":x = 1; 1 + while { x <= 5 } { x++ }").to_error(WhileWithoutCondition, 12..=16)
+}
+
+#[test]
+fn break_exits_while() {
+    expect("
+        :x = 1
+        :y = 1
+        while { x <= 5 } {
+            x++
+            break
+            y++
+        }
+        x,y
+    ").to_yield(tuple!(2,1))
+}
+
+#[test]
+fn break_exits_while_from_nested_block() {
+    expect("
+        :x = 1
+        :y = 1
+        while { x <= 5 } {
+            x++
+            { break }
+            y++
+        }
+        x,y
+    ").to_yield(tuple!(2,1))
+}
+#[test]
+fn break_exits_while_from_if() {
+    expect("
+        :x = 1
+        :y = 1
+        while { x <= 5 } {
+            x++
+            if x >= 3 { break }
+            y++
+        }
+        x,y
+    ").to_yield(tuple!(3,2))
+}
+#[test]
+fn break_exits_while_from_callback() {
+    expect("
+        :DoThisIf = { (:cond,:arg); if cond { arg } else { } }
+        :x = 1
+        :y = 1
+        while { x <= 5 } {
+            x++
+            DoThisIf { x >= 3 }, { break }
+            y++
+        }
+        x,y
+    ").to_yield(tuple!(3,2))
+}
+
+#[test]
+fn continue_skips_remaining_block() {
+    expect("
+        :x = 1
+        :y = 1
+        while { x <= 5 } {
+            x++
+            continue
+            y++
+        }
+        x,y
+    ").to_yield(tuple!(6,1))
+}
+
+#[test]
+fn continue_skips_remaining_block_from_nested_block() {
+    expect("
+        :x = 1
+        :y = 1
+        while { x <= 5 } {
+            x++
+            { continue }
+            y++
+        }
+        x,y
+    ").to_yield(tuple!(6,1))
+}
+#[test]
+fn continue_skips_remaining_block_from_if() {
+    expect("
+        :x = 1
+        :y = 1
+        while { x <= 5 } {
+            x++
+            if x >= 3 { continue }
+            y++
+        }
+        x,y
+    ").to_yield(tuple!(6,2))
+}
+#[test]
+fn continue_skips_remaining_block_from_callback() {
+    expect("
+        :DoThisIf = { (:cond,:arg); if cond { arg } else { } }
+        :x = 1
+        :y = 1
+        while { x <= 5 } {
+            x++
+            DoThisIf { x >= 3 }, { continue }
+            y++
+        }
+        x,y
+    ").to_yield(tuple!(6,2))
+}
+
+#[test]
+fn dangling_break() {
+    expect("break").to_error(BreakOutsideLoop, 0..=4)
+}
+#[test]
+fn dangling_continue() {
+    expect("continue").to_error(ContinueOutsideLoop, 0..=7)
 }

@@ -10,9 +10,25 @@ use std::fmt;
 ///
 #[derive(Clone)]
 pub enum BergVal<'a> {
+    ///
+    /// Boolean value (true or false).
+    ///
     Boolean(bool),
+    ///
+    /// Number value (any rational).
+    ///
     BigRational(BigRational),
+    ///
+    /// Block value.
+    /// 
+    /// Operations on a block generally operate on the block's result value.
+    /// Properties may be retrieved either from the result value, or from the
+    /// block itself.
+    /// 
+    /// May or may not be evaluated already.
+    /// 
     BlockRef(BlockRef<'a>),
+    /// [ 1, 2, 3 ]
     Tuple(Tuple<'a>),
 }
 
@@ -67,6 +83,15 @@ impl<'a> BergValue<'a> for BergVal<'a> {
             BigRational(value) => value.eval_val(),
             BlockRef(value) => value.eval_val(),
             Tuple(value) => value.eval_val(),
+        }
+    }
+    fn evaluate(self) -> BergResult<'a> {
+        use BergVal::*;
+        match self {
+            Boolean(value) => value.evaluate(),
+            BigRational(value) => value.evaluate(),
+            BlockRef(value) => value.evaluate(),
+            Tuple(value) => value.evaluate(),
         }
     }
     fn at_position(self, new_position: ExpressionErrorPosition) -> BergResult<'a> {
@@ -243,6 +268,13 @@ impl<'a, V: BergValue<'a>+Clone> BergValue<'a> for Result<V, ErrorVal<'a>> {
         match self {
             Ok(v) => v.eval_val(),
             Err(v) => v.eval_val(),
+        }
+    }
+
+    fn evaluate(self) -> BergResult<'a> {
+        match self {
+            Ok(v) => v.evaluate(),
+            Err(v) => v.evaluate(),
         }
     }
 
