@@ -1,23 +1,9 @@
-use crate::eval::ScopeRef;
+use crate::eval::{BlockRef, ScopeRef};
 use crate::syntax::{FieldIndex, IdentifierIndex};
 use crate::syntax::identifiers::*;
 use crate::value::implement::*;
 use std::fmt;
 use EvalVal::*;
-
-#[derive(Debug, Clone)]
-pub enum ConditionalState {
-    /// if ^
-    IfCondition,
-    /// if true ^
-    RunBlock,
-    /// if false ^
-    IgnoreBlock,
-    /// else ^
-    ElseBlock,
-    /// (if true | if false | else) {} ^
-    MaybeElse,
-}
 
 #[derive(Debug, Clone)]
 pub enum EvalVal<'a> {
@@ -28,7 +14,11 @@ pub enum EvalVal<'a> {
     /// else
     Else,
     /// if, else evaluation
-    ConditionalVal(ConditionalState, Option<BergVal<'a>>),
+    ConditionalVal(ConditionalState, Option<BlockRef<'a>>),
+    /// while
+    While,
+    /// while <condition>
+    WhileCondition(BlockRef<'a>),
     /// 1 + <here>
     MissingExpression,
     /// 1,2
@@ -55,6 +45,20 @@ pub enum AssignmentTarget<'a> {
     ObjectFieldReference(BergVal<'a>, IdentifierIndex),
 }
 
+#[derive(Debug, Clone)]
+pub enum ConditionalState {
+    /// if ^
+    IfCondition,
+    /// if true ^
+    RunBlock,
+    /// if false ^
+    IgnoreBlock,
+    /// else ^
+    ElseBlock,
+    /// (if true | if false | else) {} ^
+    MaybeElse,
+}
+
 impl<'a> EvalVal<'a> {
     //
     // If this is a reference to something else, resolve it (it might be a syntax
@@ -64,7 +68,7 @@ impl<'a> EvalVal<'a> {
         use EvalVal::*;
         match self {
             Target(v) => v.get(),
-            Value(_) | If | Else | ConditionalVal(..) | MissingExpression | PartialTuple(_) | TrailingComma(_) | TrailingSemicolon | RawIdentifier(_) => self.ok(),
+            Value(_) | If | Else | ConditionalVal(..) | While | WhileCondition(_) | MissingExpression | PartialTuple(_) | TrailingComma(_) | TrailingSemicolon | RawIdentifier(_) => self.ok(),
         }
     }
 }
@@ -78,11 +82,13 @@ impl<'a> BergValue<'a> for EvalVal<'a> {
             Value(v) => v.into_val(),
             If => IfWithoutCondition.err(),
             ConditionalVal(IfCondition, _) => IfWithoutCondition.operand_err(ExpressionErrorPosition::RightOperand),
-            Else => BergError::ElseWithoutIf.err(),
-            ConditionalVal(ElseBlock, _) => ElseWithoutCode.operand_err(ExpressionErrorPosition::RightOperand),
-            ConditionalVal(RunBlock, _) | ConditionalVal(IgnoreBlock, _) => IfWithoutCode.err(),
+            Else => ElseWithoutIf.err(),
+            ConditionalVal(ElseBlock, _) => ElseWithoutBlock.operand_err(ExpressionErrorPosition::RightOperand),
+            ConditionalVal(RunBlock, _) | ConditionalVal(IgnoreBlock, _) => IfWithoutBlock.err(),
             ConditionalVal(MaybeElse, None) => BergVal::empty_tuple().ok(),
             ConditionalVal(MaybeElse, Some(v)) => v.ok(),
+            While => WhileWithoutCondition.err(),
+            WhileCondition(_) => WhileWithoutBlock.operand_err(ExpressionErrorPosition::LeftOperand),
             MissingExpression => MissingOperand.err(),
             PartialTuple(vec) | TrailingComma(vec) => Tuple::from(vec).ok(),
             TrailingSemicolon => BergVal::empty_tuple().ok(),
@@ -101,7 +107,7 @@ impl<'a> BergValue<'a> for EvalVal<'a> {
             Value(v) => v.next_val(),
             Target(v) => v.next_val(),
             RawIdentifier(v) => v.next_val(),
-            MissingExpression | PartialTuple(_) | TrailingComma(_) | TrailingSemicolon | If | Else | ConditionalVal(..) => self.into_val()?.next_val(),
+            MissingExpression | PartialTuple(_) | TrailingComma(_) | TrailingSemicolon | If | Else | ConditionalVal(..) | While | WhileCondition(_)  => self.into_val()?.next_val(),
         }
     }
     fn into_native<T: TryFromBergVal<'a>>(self) -> Result<T, ErrorVal<'a>> {
@@ -109,7 +115,7 @@ impl<'a> BergValue<'a> for EvalVal<'a> {
             Value(v) => v.into_native(),
             Target(v) => v.into_native(),
             RawIdentifier(v) => v.into_native(),
-            MissingExpression | PartialTuple(_) | TrailingComma(_) | TrailingSemicolon | If | Else | ConditionalVal(..) => self.into_val()?.into_native(),
+            MissingExpression | PartialTuple(_) | TrailingComma(_) | TrailingSemicolon | If | Else | ConditionalVal(..) | While | WhileCondition(_)  => self.into_val()?.into_native(),
         }
     }
     fn try_into_native<T: TryFromBergVal<'a>>(self) -> Result<Option<T>, ErrorVal<'a>> {
@@ -117,7 +123,7 @@ impl<'a> BergValue<'a> for EvalVal<'a> {
             Value(v) => v.try_into_native(),
             Target(v) => v.try_into_native(),
             RawIdentifier(v) => v.try_into_native(),
-            MissingExpression | PartialTuple(_) | TrailingComma(_) | TrailingSemicolon | If | Else | ConditionalVal(..) => self.into_val()?.try_into_native(),
+            MissingExpression | PartialTuple(_) | TrailingComma(_) | TrailingSemicolon | If | Else | ConditionalVal(..) | While | WhileCondition(_)  => self.into_val()?.try_into_native(),
         }
     }
 
@@ -157,49 +163,62 @@ impl<'a> BergValue<'a> for EvalVal<'a> {
                                 ConditionalVal(IgnoreBlock, result).ok()
                             }
                         }
-                        // if true <block>
-                        // if false {} else <block>
-                        RunBlock if result.is_none() => match right.get()? {
-                            // if true if, if true else
-                            RightOperand(If, _) | RightOperand(Else, _) => IfWithoutCode.operand_err(ExpressionErrorPosition::LeftOperand),
-                            right => ConditionalVal(MaybeElse, Some(right.into_val()?)).ok(),
+                        RunBlock if result.is_none() => match right.into_val() {
+                            // if true {}
+                            Ok(BergVal::BlockRef(block)) => ConditionalVal(MaybeElse, Some(block)).ok(),
+                            // if true 1
+                            _ => IfBlockMustBeBlock.operand_err(ExpressionErrorPosition::RightOperand),
                         }
                         RunBlock => unreachable!(),
-                        IgnoreBlock => match right.get()? {
-                            // if false if
-                            RightOperand(If, _) => IfWithoutCode.operand_err(ExpressionErrorPosition::LeftOperand),
-                            // if false else
-                            RightOperand(Else, _) => IfWithoutCode.operand_err(ExpressionErrorPosition::LeftOperand),
-                            // if false <block>
-                            _ => ConditionalVal(MaybeElse, result).ok(),
+                        IgnoreBlock => match right.into_val() {
+                            // if false {}
+                            Ok(BergVal::BlockRef(_)) => ConditionalVal(MaybeElse, result).ok(),
+                            // if false 1
+                            _ => IfBlockMustBeBlock.operand_err(ExpressionErrorPosition::RightOperand),
                         }
                         // else ^
                         ElseBlock => match right.get()? {
                             // else if
                             RightOperand(If, _) => ConditionalVal(IfCondition, result).ok(),
-                            // else else
-                            RightOperand(Else, _) => ElseWithoutCode.operand_err(ExpressionErrorPosition::LeftRight),
-                            right => match result {
-                                // else <block>
-                                None => right.into_val()?.ok(),
-                                // if true {} else <block>
-                                Some(val) => val.ok(),
-                            },
+                            right => match right.into_val() {
+                                Ok(BergVal::BlockRef(block)) => match result {
+                                    // if false {} else {}
+                                    None => block.ok(),
+                                    // if true {} else {}
+                                    Some(val) => val.ok(),
+                                }
+                                // if true|false else else
+                                // if true|false else 1
+                                _ => ElseBlockMustBeBlock.operand_err(ExpressionErrorPosition::RightOperand),
+                            }
                         }
                         // if true|false {} <something>
                         MaybeElse => match right.get()? {
-                            // if true {} else
+                            // if true|false {} else
                             RightOperand(Else, _) => ConditionalVal(ElseBlock, result).ok(),
-                            // if true {} if
-                            // if true {} 1
-                            _ => IfWithoutElse.err()
+                            // if true|false {} if
+                            // if true|false {} 1
+                            _ => IfFollowedByNonElse.err()
                         }
                     }
                 } else {
                     ConditionalVal(state, result).into_val().infix(operator, right)
                 }
             }
-            MissingExpression | TrailingSemicolon | TrailingComma(_) | If | Else => self.into_val().infix(operator, right),
+            // while <condition>
+            While if operator == APPLY => match right.into_val()? {
+                BergVal::BlockRef(block) => WhileCondition(block).ok(),
+                _ => WhileConditionMustBeBlock.operand_err(ExpressionErrorPosition::RightOperand),
+            }
+            WhileCondition(condition) => if operator == APPLY {
+                match right.into_val()? {
+                    BergVal::BlockRef(block) => run_while_loop(condition, block),
+                    _ => WhileBlockMustBeBlock.operand_err(ExpressionErrorPosition::RightOperand),
+                }
+            } else {
+                WhileCondition(condition).into_val().infix(operator, right)
+            }
+            MissingExpression | TrailingSemicolon | TrailingComma(_) | If | Else | While => self.into_val().infix(operator, right),
         }
     }
 
@@ -208,7 +227,7 @@ impl<'a> BergValue<'a> for EvalVal<'a> {
             Value(v) => v.infix_assign(operator, right),
             Target(v) => v.infix_assign(operator, right),
             RawIdentifier(v) => v.infix_assign(operator, right),
-            MissingExpression | PartialTuple(_) | TrailingComma(_) | TrailingSemicolon | If | Else | ConditionalVal(..) => self.into_val().infix_assign(operator, right),
+            MissingExpression | PartialTuple(_) | TrailingComma(_) | TrailingSemicolon | If | Else | ConditionalVal(..) | While | WhileCondition(_)  => self.into_val().infix_assign(operator, right),
         }
     }
 
@@ -217,7 +236,7 @@ impl<'a> BergValue<'a> for EvalVal<'a> {
             Value(v) => v.prefix(operator),
             Target(v) => v.prefix(operator),
             RawIdentifier(v) => v.prefix(operator),
-            MissingExpression | PartialTuple(_) | TrailingComma(_) | TrailingSemicolon | If | Else | ConditionalVal(..) => self.into_val().prefix(operator),
+            MissingExpression | PartialTuple(_) | TrailingComma(_) | TrailingSemicolon | If | Else | ConditionalVal(..) | While | WhileCondition(_)  => self.into_val().prefix(operator),
         }
     }
 
@@ -226,7 +245,7 @@ impl<'a> BergValue<'a> for EvalVal<'a> {
             Value(v) => v.postfix(operator),
             Target(v) => v.postfix(operator),
             RawIdentifier(v) => v.prefix(operator),
-            MissingExpression | PartialTuple(_) | TrailingComma(_) | TrailingSemicolon | If | Else | ConditionalVal(..) => self.into_val().postfix(operator),
+            MissingExpression | PartialTuple(_) | TrailingComma(_) | TrailingSemicolon | If | Else | ConditionalVal(..) | While | WhileCondition(_)  => self.into_val().postfix(operator),
         }
     }
 
@@ -237,7 +256,7 @@ impl<'a> BergValue<'a> for EvalVal<'a> {
             Target(v) => v.subexpression_result(boundary),
             RawIdentifier(v) => v.subexpression_result(boundary),
             MissingExpression if boundary == Parentheses || boundary.is_block() => BergVal::empty_tuple().ok(),
-            MissingExpression | PartialTuple(_) | TrailingComma(_) | TrailingSemicolon | If | Else | ConditionalVal(..) => self.into_val().subexpression_result(boundary),
+            MissingExpression | PartialTuple(_) | TrailingComma(_) | TrailingSemicolon | If | Else | ConditionalVal(..) | While | WhileCondition(_)  => self.into_val().subexpression_result(boundary),
         }
     }
 
@@ -246,7 +265,7 @@ impl<'a> BergValue<'a> for EvalVal<'a> {
             Value(v) => v.field(name),
             Target(v) => v.field(name),
             RawIdentifier(v) => v.field(name),
-            MissingExpression | PartialTuple(_) | TrailingComma(_) | TrailingSemicolon | If | Else | ConditionalVal(..) => self.into_val().field(name),
+            MissingExpression | PartialTuple(_) | TrailingComma(_) | TrailingSemicolon | If | Else | ConditionalVal(..) | While | WhileCondition(_)  => self.into_val().field(name),
         }
     }
 
@@ -256,9 +275,22 @@ impl<'a> BergValue<'a> for EvalVal<'a> {
             Target(v) => v.set_field(name, value),
             RawIdentifier(v) => v.set_field(name, value),
             MissingExpression => BergError::MissingOperand.err(),
-            PartialTuple(_) | TrailingComma(_) | TrailingSemicolon | If | Else | ConditionalVal(..) => panic!("not yet implemented: can't set field {} on {:?} to {}", name, self, value),
+            PartialTuple(_) | TrailingComma(_) | TrailingSemicolon | If | Else | ConditionalVal(..) | While | WhileCondition(_)  => panic!("not yet implemented: can't set field {} on {:?} to {}", name, self, value),
         }
     }
+}
+
+fn run_while_loop<'a>(condition: BlockRef<'a>, block: BlockRef<'a>) -> EvalResult<'a> {
+    loop {
+        match condition.apply(BergVal::empty_tuple().into()).into_native::<bool>() {
+            // (while APPLY { condition }) APPLY { block } means block is right operand
+            Ok(true) => block.apply(BergVal::empty_tuple().into()).at_position(ExpressionErrorPosition::RightOperand)?,
+            Ok(false) => break,
+            // (while APPLY { condition }) APPLY { block } means condition is the left operand's right operand
+            Err(error) => return error.reposition(ExpressionErrorPosition::LeftRight).err(),
+        };
+    }
+    BergVal::empty_tuple().ok()
 }
 
 impl<'a> fmt::Display for EvalVal<'a> {
@@ -284,6 +316,8 @@ impl<'a> fmt::Display for EvalVal<'a> {
             ConditionalVal(RunBlock, Some(_)) => unreachable!(),
             ConditionalVal(MaybeElse, None) => write!(f, "complete if -> ()"),
             ConditionalVal(MaybeElse, Some(v)) => write!(f, "complete if -> {}", v),
+            While => write!(f, "while"),
+            WhileCondition(condition) => write!(f, "while {}", condition),
          }
     }
 }

@@ -78,11 +78,17 @@ pub enum BergError<'a> {
     NoSuchField(FieldIndex),
     FieldNotSet(FieldIndex),
     CircularDependency,
-    IfWithoutCode,
+    IfWithoutBlock,
     IfWithoutCondition,
-    ElseWithoutCode,
+    IfBlockMustBeBlock,
+    ElseBlockMustBeBlock,
+    ElseWithoutBlock,
     ElseWithoutIf,
-    IfWithoutElse,
+    IfFollowedByNonElse,
+    WhileWithoutCondition,
+    WhileWithoutBlock,
+    WhileConditionMustBeBlock,
+    WhileBlockMustBeBlock,
     // TODO stop boxing BergVals
     // BadOperandType(Box<EvalResult<'a>>, &'static str),
     BadOperandType(Box<BergResult<'a>>, &'static str),
@@ -113,11 +119,17 @@ pub enum ErrorCode {
     RightSideOfDotMustBeIdentifier,
     OpenWithoutClose,
     CloseWithoutOpen,
-    IfWithoutCode,
     IfWithoutCondition,
-    ElseWithoutCode,
+    IfWithoutBlock,
+    IfBlockMustBeBlock,
+    ElseBlockMustBeBlock,
+    ElseWithoutBlock,
     ElseWithoutIf,
-    IfWithoutElse,
+    IfFollowedByNonElse,
+    WhileWithoutCondition,
+    WhileWithoutBlock,
+    WhileConditionMustBeBlock,
+    WhileBlockMustBeBlock,
 
     // Compile errors related to type (checker)
     UnsupportedOperator = 1001,
@@ -226,12 +238,12 @@ impl<'a> Error<'a> {
                 SourceRange(expression.ast, range)
             }
 
-            DivideByZero | RightSideOfDotMustBeIdentifier | IfWithoutElse => {
+            DivideByZero | RightSideOfDotMustBeIdentifier | IfFollowedByNonElse => {
                 let operand = expression.expression().right_expression().root_index();
                 SourceExpression(expression.ast, operand)
             }
 
-            IfWithoutCode => {
+            IfWithoutBlock => {
                 let if_expression = expression.expression().left_expression().root_index();
                 SourceExpression(expression.ast, if_expression)
             }
@@ -263,8 +275,14 @@ impl<'a> Error<'a> {
             | PrivateField(..)
             | BadOperandType(..)
             | IfWithoutCondition
-            | ElseWithoutCode
+            | ElseWithoutBlock
             | ElseWithoutIf
+            | IfBlockMustBeBlock
+            | ElseBlockMustBeBlock
+            | WhileWithoutCondition
+            | WhileWithoutBlock
+            | WhileConditionMustBeBlock
+            | WhileBlockMustBeBlock
             => ErrorLocation::SourceExpression(expression.ast, expression.root),
         }
     }
@@ -296,11 +314,17 @@ impl fmt::Display for ErrorCode {
             CircularDependency => "CircularDependency",
             PrivateField => "PrivateField",
             ImmutableField => "ImmutableField",
-            IfWithoutCode => "IfWithoutCode",
+            IfWithoutBlock => "IfWithoutBlock",
             IfWithoutCondition => "IfWithoutCondition",
-            ElseWithoutCode => "ElseWithoutCode",
+            IfBlockMustBeBlock => "IfBlockMustBeBlock",
+            ElseBlockMustBeBlock => "ElseBlockMustBeBlock",
+            ElseWithoutBlock => "ElseWithoutBlock",
             ElseWithoutIf => "ElseWithoutIf",
-            IfWithoutElse => "IfWithoutElse",
+            IfFollowedByNonElse => "IfFollowedByNonElse",
+            WhileWithoutCondition => "WhileWithoutCondition",
+            WhileWithoutBlock => "WhileWithoutBlock",
+            WhileConditionMustBeBlock => "WhileConditionMustBeBlock",
+            WhileBlockMustBeBlock => "WhileBlockMustBeBlock",
         };
         write!(f, "{}", string)
     }
@@ -424,24 +448,52 @@ impl<'a> fmt::Display for Error<'a> {
             ),
             IfWithoutCondition => write!(
                 f,
-                "if statement missing a condition! Did you mean to add a condition, such as 'if (1 == 1)' or 'if 1 == 1'?"
+                "if statement missing a condition! Did you mean to add a condition, such as 'if x == 1'?"
             ),
-            IfWithoutCode => write!(
+            IfWithoutBlock => write!(
                 f,
                 "if statement missing a block! if needs two arguments, a condition and then a block, such as '{} {{ do something here; }}'?",
                 expression.expression()
             ),
-            ElseWithoutCode => write!(
+            IfBlockMustBeBlock => write!(
+                f,
+                "if block must be a block! Did you mean to add brackets here, like '{{ {} }}'?",
+                expression.expression()
+            ),
+            ElseWithoutBlock => write!(
                 f,
                 "else statement missing a block! else requires a block to run, such as '... else {{ do something here; }}'?"
+            ),
+            ElseBlockMustBeBlock => write!(
+                f,
+                "else block must be a block! Did you mean to add brackets here, like '{{ {} }}'?",
+                expression.expression()
             ),
             ElseWithoutIf => write!(
                 f,
                 "else statement without if! else can only happen after an if statement, like if 1 == 1 {{ }} else {{ }}"
             ),
-            IfWithoutElse => write!(
+            IfFollowedByNonElse => write!(
                 f,
                 "Extra statement after if! if statements can only be followed by 'else' or 'else if'. Perhaps you meant to put the code in a block, or to insert a semicolon to terminate the if?"
+            ),
+            WhileWithoutCondition => write!(
+                f,
+                "while statement missing a condition! Did you mean to add a condition, such as 'while x < 10'?"
+            ),
+            WhileConditionMustBeBlock => write!(
+                f,
+                "while condition must be a block to ensure it can be called multiple times! Did you mean to add brackets here, like '{{ {} }}'?",
+                expression.expression()
+            ),
+            WhileWithoutBlock => write!(
+                f,
+                "while statement missing a block! while requires a block to run, such as 'while x < 10 {{ x++ }}'?"
+            ),
+            WhileBlockMustBeBlock => write!(
+                f,
+                "while block must be a block! Did you mean to add brackets here, like '{{ {} }}'?",
+                expression.expression()
             ),
             PrivateField(ref value, name) => write!(
                 f,
@@ -535,10 +587,16 @@ impl<'a> BergError<'a> {
             OpenWithoutClose => ErrorCode::OpenWithoutClose,
             CloseWithoutOpen => ErrorCode::CloseWithoutOpen,
             IfWithoutCondition => ErrorCode::IfWithoutCondition,
-            IfWithoutCode => ErrorCode::IfWithoutCode,
-            ElseWithoutCode => ErrorCode::ElseWithoutCode,
+            IfWithoutBlock => ErrorCode::IfWithoutBlock,
+            ElseWithoutBlock => ErrorCode::ElseWithoutBlock,
             ElseWithoutIf => ErrorCode::ElseWithoutIf,
-            IfWithoutElse => ErrorCode::IfWithoutElse,
+            IfFollowedByNonElse => ErrorCode::IfFollowedByNonElse,
+            IfBlockMustBeBlock => ErrorCode::IfBlockMustBeBlock,
+            ElseBlockMustBeBlock => ErrorCode::ElseBlockMustBeBlock,
+            WhileWithoutCondition => ErrorCode::WhileWithoutCondition,
+            WhileWithoutBlock => ErrorCode::WhileWithoutBlock,
+            WhileConditionMustBeBlock => ErrorCode::WhileConditionMustBeBlock,
+            WhileBlockMustBeBlock => ErrorCode::WhileBlockMustBeBlock,
 
             // Compile errors related to type (checker)
             UnsupportedOperator(..) => ErrorCode::UnsupportedOperator,

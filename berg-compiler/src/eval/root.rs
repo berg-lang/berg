@@ -29,7 +29,8 @@ pub mod root_fields {
     pub const FALSE: FieldIndex = FieldIndex(1);
     pub const IF: FieldIndex = FieldIndex(2);
     pub const ELSE: FieldIndex = FieldIndex(3);
-    pub const NAMES: [IdentifierIndex; 4] = [identifiers::TRUE, identifiers::FALSE, identifiers::IF, identifiers::ELSE];
+    pub const WHILE: FieldIndex = FieldIndex(4);
+    pub const NAMES: [IdentifierIndex; 5] = [identifiers::TRUE, identifiers::FALSE, identifiers::IF, identifiers::ELSE, identifiers::WHILE];
 }
 
 impl Default for RootRef {
@@ -87,6 +88,7 @@ impl RootRef {
             FALSE => false.ok(),
             IF => EvalVal::If.ok(),
             ELSE => EvalVal::Else.ok(),
+            WHILE => EvalVal::While.ok(),
             _ => unreachable!(),
         }
     }

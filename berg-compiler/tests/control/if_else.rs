@@ -42,6 +42,19 @@ fn if_false_if_true_else_runs_correct_blocks() {
 }
 
 #[test]
+fn if_int_bad_type_error() {
+    expect("if 1 { 10 }").to_error(BadOperandType, 3)
+}
+#[test]
+fn if_empty_bad_type_error() {
+    expect("if () { 10 }").to_error(BadOperandType, 3..=4)
+}
+#[test]
+fn else_if_empty_bad_type_error() {
+    expect("if false {} else if () { 10 }").to_error(BadOperandType, 20..=21)
+}
+
+#[test]
 fn dangling_if_error() {
     expect("if").to_error(IfWithoutCondition, 0..=1);
 }
@@ -59,35 +72,35 @@ fn dangling_if_else_error() {
 }
 #[test]
 fn dangling_if_true_if_error() {
-    expect("if true if").to_error(IfWithoutCode, 0..=1);
+    expect("if true if").to_error(IfBlockMustBeBlock, 8..=9);
 }
 #[test]
 fn dangling_if_true_else_error() {
-    expect("if true else").to_error(IfWithoutCode, 0..=1);
+    expect("if true else").to_error(IfBlockMustBeBlock, 8..=11);
 }
 #[test]
 fn dangling_if_false_if_error() {
-    expect("if false if").to_error(IfWithoutCode, 0..=1);
+    expect("if false if").to_error(IfBlockMustBeBlock, 9..=10);
 }
 #[test]
 fn dangling_if_false_else_error() {
-    expect("if false else").to_error(IfWithoutCode, 0..=1);
+    expect("if false else").to_error(IfBlockMustBeBlock, 9..=12);
 }
 #[test]
 fn dangling_if_true_block_if_error() {
-    expect("if true {} if").to_error(IfWithoutElse, 11..=12);
+    expect("if true {} if").to_error(IfFollowedByNonElse, 11..=12);
 }
 #[test]
 fn dangling_if_true_block_else_error() {
-    expect("if true {} else").to_error(ElseWithoutCode, 11..=14);
+    expect("if true {} else").to_error(ElseWithoutBlock, 11..=14);
 }
 #[test]
 fn dangling_if_false_block_if_error() {
-    expect("if false {} if").to_error(IfWithoutElse, 12..=13);
+    expect("if false {} if").to_error(IfFollowedByNonElse, 12..=13);
 }
 #[test]
 fn dangling_if_false_block_else_error() {
-    expect("if false {} else").to_error(ElseWithoutCode, 12..=15);
+    expect("if false {} else").to_error(ElseWithoutBlock, 12..=15);
 }
 #[test]
 fn dangling_if_true_block_else_if_error() {
@@ -95,7 +108,7 @@ fn dangling_if_true_block_else_if_error() {
 }
 #[test]
 fn dangling_if_true_block_else_else_error() {
-    expect("if true {} else else").to_error(ElseWithoutCode, 11..=14);
+    expect("if true {} else else").to_error(ElseBlockMustBeBlock, 16..=19);
 }
 #[test]
 fn dangling_if_false_block_else_if_error() {
@@ -103,7 +116,7 @@ fn dangling_if_false_block_else_if_error() {
 }
 #[test]
 fn dangling_if_false_block_else_else_error() {
-    expect("if false {} else else").to_error(ElseWithoutCode, 12..=15);
+    expect("if false {} else else").to_error(ElseBlockMustBeBlock, 17..=20);
 }
 #[test]
 fn dangling_if_true_block_else_if_if_error() {
@@ -123,27 +136,27 @@ fn dangling_if_false_block_else_if_else_error() {
 }
 #[test]
 fn if_true_without_block_error() {
-    expect("if true").to_error(IfWithoutCode, 0..=1)
+    expect("if true").to_error(IfWithoutBlock, 0..=1)
 }
 #[test]
 fn if_false_without_block_error() {
-    expect("if false").to_error(IfWithoutCode, 0..=1)
+    expect("if false").to_error(IfWithoutBlock, 0..=1)
 }
 #[test]
 fn if_true_block_else_if_true_without_block_error() {
-    expect("if true {} else if true").to_error(IfWithoutCode, 0..=17)
+    expect("if true {} else if true").to_error(IfWithoutBlock, 0..=17)
 }
 #[test]
 fn if_true_block_else_if_false_without_block_error() {
-    expect("if true {} else if false").to_error(IfWithoutCode, 0..=17)
+    expect("if true {} else if false").to_error(IfWithoutBlock, 0..=17)
 }
 #[test]
 fn if_false_block_else_if_true_without_block_error() {
-    expect("if false {} else if true").to_error(IfWithoutCode, 0..=18)
+    expect("if false {} else if true").to_error(IfWithoutBlock, 0..=18)
 }
 #[test]
 fn if_false_block_else_if_false_without_block_error() {
-    expect("if false {} else if false").to_error(IfWithoutCode, 0..=18)
+    expect("if false {} else if false").to_error(IfWithoutBlock, 0..=18)
 }
 
 #[test]
@@ -157,6 +170,10 @@ fn add_else_1() {
 #[test]
 fn add_1_if() {
     expect("1 + if").to_error(IfWithoutCondition, 4..=5)
+}
+#[test]
+fn add_1_if_block() {
+    expect("1 + if true { 2 }").to_error(IfWithoutCondition, 4..=5)
 }
 #[test]
 fn add_1_else() {
