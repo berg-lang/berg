@@ -84,7 +84,7 @@ impl<'a> BergValue<'a> for Tuple<'a> {
 
     fn next_val(mut self) -> Result<Option<NextVal<'a>>, ErrorVal<'a>> {
         match self.0.pop() {
-            Some(value) => Ok(Some(NextVal { head: value, tail: Ok(self.0.into()) })),
+            Some(value) => Ok(Some(NextVal { head: value, tail: Tuple(self.0).ok() })),
             None => Ok(None),
         }
     }
@@ -138,12 +138,6 @@ impl<'a> From<Tuple<'a>> for BergVal<'a> {
 impl<'a> From<Tuple<'a>> for EvalVal<'a> {
     fn from(from: Tuple<'a>) -> Self {
         BergVal::from(from).into()
-    }
-}
-
-impl<'a> From<Tuple<'a>> for Vec<BergVal<'a>> {
-    fn from(from: Tuple<'a>) -> Self {
-        from.0
     }
 }
 

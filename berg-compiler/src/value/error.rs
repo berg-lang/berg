@@ -78,6 +78,11 @@ pub enum BergError<'a> {
     NoSuchField(FieldIndex),
     FieldNotSet(FieldIndex),
     CircularDependency,
+    IfWithoutCode,
+    IfWithoutCondition,
+    ElseWithoutCode,
+    ElseWithoutIf,
+    IfWithoutElse,
     // TODO stop boxing BergVals
     // BadOperandType(Box<EvalResult<'a>>, &'static str),
     BadOperandType(Box<BergResult<'a>>, &'static str),
@@ -108,6 +113,11 @@ pub enum ErrorCode {
     RightSideOfDotMustBeIdentifier,
     OpenWithoutClose,
     CloseWithoutOpen,
+    IfWithoutCode,
+    IfWithoutCondition,
+    ElseWithoutCode,
+    ElseWithoutIf,
+    IfWithoutElse,
 
     // Compile errors related to type (checker)
     UnsupportedOperator = 1001,
@@ -216,11 +226,15 @@ impl<'a> Error<'a> {
                 SourceRange(expression.ast, range)
             }
 
-            DivideByZero | RightSideOfDotMustBeIdentifier => {
+            DivideByZero | RightSideOfDotMustBeIdentifier | IfWithoutElse => {
                 let operand = expression.expression().right_expression().root_index();
                 SourceExpression(expression.ast, operand)
             }
 
+            IfWithoutCode => {
+                let if_expression = expression.expression().left_expression().root_index();
+                SourceExpression(expression.ast, if_expression)
+            }
             OpenWithoutClose => {
                 let range =
                     expression.ast.token_ranges[expression.expression().open_operator()].clone();
@@ -232,6 +246,7 @@ impl<'a> Error<'a> {
                     expression.ast.token_ranges[expression.expression().close_operator()].clone();
                 SourceRange(expression.ast, range)
             }
+
 
             // Expression errors
             InvalidUtf8(..)
@@ -247,7 +262,9 @@ impl<'a> Error<'a> {
             | ImmutableFieldOnRoot(..)
             | PrivateField(..)
             | BadOperandType(..)
-            // | BadOperandType(..)
+            | IfWithoutCondition
+            | ElseWithoutCode
+            | ElseWithoutIf
             => ErrorLocation::SourceExpression(expression.ast, expression.root),
         }
     }
@@ -279,6 +296,11 @@ impl fmt::Display for ErrorCode {
             CircularDependency => "CircularDependency",
             PrivateField => "PrivateField",
             ImmutableField => "ImmutableField",
+            IfWithoutCode => "IfWithoutCode",
+            IfWithoutCondition => "IfWithoutCondition",
+            ElseWithoutCode => "ElseWithoutCode",
+            ElseWithoutIf => "ElseWithoutIf",
+            IfWithoutElse => "IfWithoutElse",
         };
         write!(f, "{}", string)
     }
@@ -397,8 +419,29 @@ impl<'a> fmt::Display for Error<'a> {
             ),
             NoSuchPublicFieldOnRoot(name) => write!(
                 f,
-                "No field '{}' exists on the root! Also, how did you manage to do '.' on the root?",
+                "No field '{}' exists on the root! By the way, how in the world did you manage to do '.' on the root? That's supposed to be impossible ...",
                 expression.ast.identifier_string(name)
+            ),
+            IfWithoutCondition => write!(
+                f,
+                "if statement missing a condition! Did you mean to add a condition, such as 'if (1 == 1)' or 'if 1 == 1'?"
+            ),
+            IfWithoutCode => write!(
+                f,
+                "if statement missing a block! if needs two arguments, a condition and then a block, such as '{} {{ do something here; }}'?",
+                expression.expression()
+            ),
+            ElseWithoutCode => write!(
+                f,
+                "else statement missing a block! else requires a block to run, such as '... else {{ do something here; }}'?"
+            ),
+            ElseWithoutIf => write!(
+                f,
+                "else statement without if! else can only happen after an if statement, like if 1 == 1 {{ }} else {{ }}"
+            ),
+            IfWithoutElse => write!(
+                f,
+                "Extra statement after if! if statements can only be followed by 'else' or 'else if'. Perhaps you meant to put the code in a block, or to insert a semicolon to terminate the if?"
             ),
             PrivateField(ref value, name) => write!(
                 f,
@@ -491,6 +534,11 @@ impl<'a> BergError<'a> {
             RightSideOfDotMustBeIdentifier => ErrorCode::RightSideOfDotMustBeIdentifier,
             OpenWithoutClose => ErrorCode::OpenWithoutClose,
             CloseWithoutOpen => ErrorCode::CloseWithoutOpen,
+            IfWithoutCondition => ErrorCode::IfWithoutCondition,
+            IfWithoutCode => ErrorCode::IfWithoutCode,
+            ElseWithoutCode => ErrorCode::ElseWithoutCode,
+            ElseWithoutIf => ErrorCode::ElseWithoutIf,
+            IfWithoutElse => ErrorCode::IfWithoutElse,
 
             // Compile errors related to type (checker)
             UnsupportedOperator(..) => ErrorCode::UnsupportedOperator,

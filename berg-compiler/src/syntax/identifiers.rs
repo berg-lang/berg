@@ -63,7 +63,8 @@ identifiers! {
 
     TRUE = "true",
     FALSE = "false",
-    IF = "if"
+    IF = "if",
+    ELSE = "else"
 }
 
 pub(crate) fn intern_all() -> StringInterner<IdentifierIndex> {

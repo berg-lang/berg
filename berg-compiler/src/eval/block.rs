@@ -317,8 +317,6 @@ impl<'a> BergValue<'a> for BlockRef<'a> {
         match operator {
             DOT => default_infix(self, operator, right),
             APPLY => self.apply(right)?.ok(),
-            // Blocks do not evaluate when used as statements.
-            SEMICOLON | NEWLINE => right.into_val()?.ok(),
             _ => self.clone_result().infix(operator, right),
         }
     }

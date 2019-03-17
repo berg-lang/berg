@@ -133,6 +133,18 @@ impl<'a, V: BergValue<'a>> RightOperand<'a, V> {
             Err(error) => error.reposition(ExpressionErrorPosition::Expression).err(),
         }
     }
+    ///
+    /// Process the value and give appropriate error locations to the result.
+    /// 
+    pub fn get(self) -> Result<RightOperand<'a, EvalVal<'a>>, ErrorVal<'a>> {
+        match self.0.eval_val() {
+            Ok(v) => match v.get() {
+                Ok(v) => Ok(RightOperand::from(v)),
+                Err(error) => error.reposition(ExpressionErrorPosition::Expression).err(),
+            }
+            Err(error) => error.reposition(ExpressionErrorPosition::Expression).err(),
+        }
+    }
 }
 
 impl<'a, T: BergValue<'a>> fmt::Display for RightOperand<'a, T> {
@@ -207,6 +219,7 @@ pub mod implement {
                         (None, None) => return true.ok(),
                         (Some(_), None) | (None, Some(_)) => return false.ok(),
                         (Some(left), Some(right)) => {
+                            println!("EQUAL {} == {}", left.head, right.head);
                             if left.head.infix(EQUAL_TO, right.head.into()).into_native::<bool>()? {
                                 left_next = left.tail.next_val()?;
                                 right_next = right.tail.next_val()?;

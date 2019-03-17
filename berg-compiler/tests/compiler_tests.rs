@@ -6,5 +6,6 @@ pub use std::iter::FromIterator;
 pub use std::str::FromStr;
 
 mod block;
+mod control;
 mod parser;
 mod primitives;
