@@ -147,6 +147,23 @@ fn if_false_block_else_if_false_without_block_error() {
 }
 
 #[test]
+fn add_if_1() {
+    expect("if + 1").to_error(IfWithoutCondition, 0..=1)
+}
+#[test]
+fn add_else_1() {
+    expect("else + 1").to_error(ElseWithoutIf, 0..=3)
+}
+#[test]
+fn add_1_if() {
+    expect("1 + if").to_error(IfWithoutCondition, 4..=5)
+}
+#[test]
+fn add_1_else() {
+    expect("1 + else").to_error(ElseWithoutIf, 4..=7)
+}
+
+#[test]
 fn if_runs_block_lazily() {
     expect(":a = 0; :b = (if (a += 1; true) { a += 2; a }); a,b,{ a }").to_yield(tuple!(1,3,3));
 }
