@@ -79,7 +79,7 @@ impl<'a> BergValue<'a> for EvalVal<'a> {
             If => IfWithoutCondition.err(),
             ConditionalVal(IfCondition, _) => IfWithoutCondition.operand_err(ExpressionErrorPosition::RightOperand),
             Else => BergError::ElseWithoutIf.err(),
-            ConditionalVal(ElseBlock, _) => ElseWithoutCode.err(),
+            ConditionalVal(ElseBlock, _) => ElseWithoutCode.operand_err(ExpressionErrorPosition::RightOperand),
             ConditionalVal(RunBlock, _) | ConditionalVal(IgnoreBlock, _) => IfWithoutCode.err(),
             ConditionalVal(MaybeElse, None) => BergVal::empty_tuple().ok(),
             ConditionalVal(MaybeElse, Some(v)) => v.ok(),
@@ -136,8 +136,9 @@ impl<'a> BergValue<'a> for EvalVal<'a> {
                 _ => PartialTuple(vec).into_val().infix(operator, right)
             }
             // if <condition>, if false else if <condition>
-            If | ConditionalVal(IfCondition, None) if operator == APPLY => {
-                if right.into_native::<bool>()? {
+            If if operator == APPLY => match right.get()? {
+                RightOperand(If, _) | RightOperand(Else, _) => IfWithoutCondition.operand_err(ExpressionErrorPosition::LeftOperand),
+                right => if right.into_native::<bool>()? {
                     ConditionalVal(RunBlock, None).ok()
                 } else {
                     ConditionalVal(IgnoreBlock, None).ok()
@@ -147,10 +148,8 @@ impl<'a> BergValue<'a> for EvalVal<'a> {
                 if operator == APPLY {
                     match state {
                         IfCondition => match right.get()? {
-                            // if if
-                            RightOperand(If, _) => IfWithoutCondition.operand_err(ExpressionErrorPosition::LeftOperand),
-                            // if else
-                            RightOperand(Else, _) => IfWithoutCondition.operand_err(ExpressionErrorPosition::LeftOperand),
+                            // if if, if else
+                            RightOperand(If, _) | RightOperand(Else, _) => IfWithoutCondition.operand_err(ExpressionErrorPosition::LeftRight),
                             // if <condition>
                             right => if result.is_none() && right.into_native::<bool>()? {
                                 ConditionalVal(RunBlock, result).ok()
@@ -160,7 +159,11 @@ impl<'a> BergValue<'a> for EvalVal<'a> {
                         }
                         // if true <block>
                         // if false {} else <block>
-                        RunBlock if result.is_none() => ConditionalVal(MaybeElse, Some(right.into_val()?)).ok(),
+                        RunBlock if result.is_none() => match right.get()? {
+                            // if true if, if true else
+                            RightOperand(If, _) | RightOperand(Else, _) => IfWithoutCode.operand_err(ExpressionErrorPosition::LeftOperand),
+                            right => ConditionalVal(MaybeElse, Some(right.into_val()?)).ok(),
+                        }
                         RunBlock => unreachable!(),
                         IgnoreBlock => match right.get()? {
                             // if false if
@@ -175,7 +178,7 @@ impl<'a> BergValue<'a> for EvalVal<'a> {
                             // else if
                             RightOperand(If, _) => ConditionalVal(IfCondition, result).ok(),
                             // else else
-                            RightOperand(Else, _) => ElseWithoutCode.operand_err(ExpressionErrorPosition::LeftOperand),
+                            RightOperand(Else, _) => ElseWithoutCode.operand_err(ExpressionErrorPosition::LeftRight),
                             right => match result {
                                 // else <block>
                                 None => right.into_val()?.ok(),

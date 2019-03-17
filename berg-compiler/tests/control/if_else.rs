@@ -46,61 +46,105 @@ fn dangling_if_error() {
     expect("if").to_error(IfWithoutCondition, 0..=1);
 }
 #[test]
+fn dangling_else_error() {
+    expect("else").to_error(ElseWithoutIf, 0..=3);
+}
+#[test]
 fn dangling_if_if_error() {
-    expect("if if").to_error(IfWithoutCondition, 3..=4);
+    expect("if if").to_error(IfWithoutCondition, 0..=1);
+}
+#[test]
+fn dangling_if_else_error() {
+    expect("if else").to_error(IfWithoutCondition, 0..=1);
 }
 #[test]
 fn dangling_if_true_if_error() {
-    expect("if true if").to_error(IfWithoutCondition, 8..=9);
+    expect("if true if").to_error(IfWithoutCode, 0..=1);
+}
+#[test]
+fn dangling_if_true_else_error() {
+    expect("if true else").to_error(IfWithoutCode, 0..=1);
 }
 #[test]
 fn dangling_if_false_if_error() {
     expect("if false if").to_error(IfWithoutCode, 0..=1);
 }
 #[test]
+fn dangling_if_false_else_error() {
+    expect("if false else").to_error(IfWithoutCode, 0..=1);
+}
+#[test]
 fn dangling_if_true_block_if_error() {
     expect("if true {} if").to_error(IfWithoutElse, 11..=12);
+}
+#[test]
+fn dangling_if_true_block_else_error() {
+    expect("if true {} else").to_error(ElseWithoutCode, 11..=14);
 }
 #[test]
 fn dangling_if_false_block_if_error() {
     expect("if false {} if").to_error(IfWithoutElse, 12..=13);
 }
 #[test]
+fn dangling_if_false_block_else_error() {
+    expect("if false {} else").to_error(ElseWithoutCode, 12..=15);
+}
+#[test]
 fn dangling_if_true_block_else_if_error() {
     expect("if true {} else if").to_error(IfWithoutCondition, 16..=17);
+}
+#[test]
+fn dangling_if_true_block_else_else_error() {
+    expect("if true {} else else").to_error(ElseWithoutCode, 11..=14);
 }
 #[test]
 fn dangling_if_false_block_else_if_error() {
     expect("if false {} else if").to_error(IfWithoutCondition, 17..=18);
 }
 #[test]
-fn dangling_if_true_block_else_if_if_error_yields_wrong_error_range_because_of_current_limitations_in_berg() {
-    expect("if true {} else if if").to_error(IfWithoutCondition, 0..=17);
+fn dangling_if_false_block_else_else_error() {
+    expect("if false {} else else").to_error(ElseWithoutCode, 12..=15);
+}
+#[test]
+fn dangling_if_true_block_else_if_if_error() {
+    expect("if true {} else if if").to_error(IfWithoutCondition, 16..=17);
+}
+#[test]
+fn dangling_if_true_block_else_if_else_error() {
+    expect("if true {} else if else").to_error(IfWithoutCondition, 16..=17);
 }
 #[test]
 fn dangling_if_false_block_else_if_if_error() {
-    expect("if false {} else if if").to_error(IfWithoutCondition, 20..=21);
+    expect("if false {} else if if").to_error(IfWithoutCondition, 17..=18);
 }
-// #[test]
-// fn if_true_without_block_error() {
-//     expect("if true").to_error(IfWithoutCode, 0..=1)
-// }
-// #[test]
-// fn if_false_without_block_error() {
-//     expect("if true").to_error(IfWithoutCode, 0..=1)
-// }
-// #[test]
-// fn else_only_error() {
-//     expect("else").to_error(ElseWithoutIf, 0..=3)
-// }
-// #[test]
-// fn else_after_else_error() {
-//     expect("if false {} else else").to_error(ElseWithoutIf, 17..=20)
-// }
-// #[test]
-// fn else_after_condition_error() {
-//     expect("if false else").to_error(ElseWithoutIf, 9..=12)
-// }
+#[test]
+fn dangling_if_false_block_else_if_else_error() {
+    expect("if false {} else if else").to_error(IfWithoutCondition, 17..=18);
+}
+#[test]
+fn if_true_without_block_error() {
+    expect("if true").to_error(IfWithoutCode, 0..=1)
+}
+#[test]
+fn if_false_without_block_error() {
+    expect("if false").to_error(IfWithoutCode, 0..=1)
+}
+#[test]
+fn if_true_block_else_if_true_without_block_error() {
+    expect("if true {} else if true").to_error(IfWithoutCode, 0..=17)
+}
+#[test]
+fn if_true_block_else_if_false_without_block_error() {
+    expect("if true {} else if false").to_error(IfWithoutCode, 0..=17)
+}
+#[test]
+fn if_false_block_else_if_true_without_block_error() {
+    expect("if false {} else if true").to_error(IfWithoutCode, 0..=18)
+}
+#[test]
+fn if_false_block_else_if_false_without_block_error() {
+    expect("if false {} else if false").to_error(IfWithoutCode, 0..=18)
+}
 
 #[test]
 fn if_runs_block_lazily() {
