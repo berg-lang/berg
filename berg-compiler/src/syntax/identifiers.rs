@@ -69,6 +69,7 @@ identifiers! {
     WHILE = "while",
     BREAK = "break",
     CONTINUE = "continue",
+    FOREACH = "foreach",
 }
 
 pub(crate) fn intern_all() -> StringInterner<IdentifierIndex> {

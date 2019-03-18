@@ -3,7 +3,7 @@ use crate::syntax::{
     AstIndex, AstRef, ByteRange, ExpressionTreeWalker, ExpressionRef, FieldIndex, Fixity, IdentifierIndex,
     LineColumnRange, LiteralIndex, RawLiteralIndex,
 };
-use crate::value::*;
+use crate::value::implement::*;
 use std::fmt;
 
 ///
@@ -89,6 +89,9 @@ pub enum BergError<'a> {
     WhileWithoutBlock,
     WhileConditionMustBeBlock,
     WhileBlockMustBeBlock,
+    ForeachWithoutInput,
+    ForeachWithoutBlock,
+    ForeachBlockMustBeBlock,
     // TODO stop boxing BergVals
     // BadOperandType(Box<EvalResult<'a>>, &'static str),
     BadOperandType(Box<BergResult<'a>>, &'static str),
@@ -134,6 +137,9 @@ pub enum ErrorCode {
     WhileWithoutBlock,
     WhileConditionMustBeBlock,
     WhileBlockMustBeBlock,
+    ForeachWithoutInput,
+    ForeachWithoutBlock,
+    ForeachBlockMustBeBlock,
 
     // Compile errors related to type (checker)
     UnsupportedOperator = 1001,
@@ -160,8 +166,8 @@ pub enum ErrorLocation<'a> {
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub enum ExpressionErrorPosition {
     Expression,
-    LeftOperand,
-    RightOperand,
+    Left,
+    Right,
     LeftLeft,
     LeftRight,
     RightLeft,
@@ -183,10 +189,10 @@ impl<'a> ErrorVal<'a> {
             ExpressionError(error, position) => match (new_position, position) {
                 (new_position, Expression) => ExpressionError(error, new_position),
                 (Expression, position) => ExpressionError(error, position),
-                (LeftOperand, LeftOperand) => ExpressionError(error, LeftLeft),
-                (LeftOperand, RightOperand) => ExpressionError(error, LeftRight),
-                (RightOperand, LeftOperand) => ExpressionError(error, RightLeft),
-                (RightOperand, RightOperand) => ExpressionError(error, RightRight),
+                (Left, Left) => ExpressionError(error, LeftLeft),
+                (Left, Right) => ExpressionError(error, LeftRight),
+                (Right, Left) => ExpressionError(error, RightLeft),
+                (Right, Right) => ExpressionError(error, RightRight),
                 _ => unreachable!("{:?} {:?} at {:?}", error, position, new_position),
             }
             _ => self,
@@ -296,6 +302,9 @@ impl<'a> Error<'a> {
             | WhileWithoutBlock
             | WhileConditionMustBeBlock
             | WhileBlockMustBeBlock
+            | ForeachWithoutInput
+            | ForeachWithoutBlock
+            | ForeachBlockMustBeBlock
             | BreakOutsideLoop
             | ContinueOutsideLoop
             => ErrorLocation::SourceExpression(expression.ast, expression.root),
@@ -340,6 +349,9 @@ impl fmt::Display for ErrorCode {
             WhileWithoutBlock => "WhileWithoutBlock",
             WhileConditionMustBeBlock => "WhileConditionMustBeBlock",
             WhileBlockMustBeBlock => "WhileBlockMustBeBlock",
+            ForeachWithoutInput => "ForeachWithoutInput",
+            ForeachWithoutBlock => "ForeachWithoutBlock",
+            ForeachBlockMustBeBlock => "ForeachBlockMustBeBlock",
             BreakOutsideLoop => "BreakOutsideLoop",
             ContinueOutsideLoop => "ContinueOutsideLoop",
         };
@@ -512,6 +524,19 @@ impl<'a> fmt::Display for Error<'a> {
                 "while block must be a block! Did you mean to add brackets here, like '{{ {} }}'?",
                 expression.expression()
             ),
+            ForeachWithoutInput => write!(
+                f,
+                "foreach is missing input and block! It should look like: foreach Collection {{ :value }}"
+            ),
+            ForeachWithoutBlock => write!(
+                f,
+                "foreach statement missing a block! while requires a block to run, such as 'while x < 10 {{ x++ }}'?"
+            ),
+            ForeachBlockMustBeBlock => write!(
+                f,
+                "foreach block must be a block! Did you mean to add brackets here, like '{{ {} }}'?",
+                expression.expression()
+            ),
             BreakOutsideLoop => write!(
                 f,
                 "break found outside loop! break must be called from within a while loop."
@@ -624,6 +649,9 @@ impl<'a> BergError<'a> {
             WhileBlockMustBeBlock => ErrorCode::WhileBlockMustBeBlock,
             BreakOutsideLoop => ErrorCode::BreakOutsideLoop,
             ContinueOutsideLoop => ErrorCode::ContinueOutsideLoop,
+            ForeachWithoutInput => ErrorCode::ForeachWithoutInput,
+            ForeachWithoutBlock => ErrorCode::ForeachWithoutBlock,
+            ForeachBlockMustBeBlock => ErrorCode::ForeachBlockMustBeBlock,
 
             // Compile errors related to type (checker)
             UnsupportedOperator(..) => ErrorCode::UnsupportedOperator,
@@ -681,23 +709,23 @@ impl<'a> BergValue<'a> for ErrorVal<'a> {
     }
 
     fn infix(self, _operator: IdentifierIndex, _right: RightOperand<'a, impl BergValue<'a>>) -> EvalResult<'a> {
-        self.reposition(ExpressionErrorPosition::LeftOperand).err()
+        self.reposition(Left).err()
     }
 
     fn infix_assign(self, _operator: IdentifierIndex, _right: RightOperand<'a, impl BergValue<'a>>) -> EvalResult<'a> {
-        self.reposition(ExpressionErrorPosition::LeftOperand).err()
+        self.reposition(Left).err()
     }
 
     fn postfix(self, _operator: IdentifierIndex) -> EvalResult<'a> {
-        self.reposition(ExpressionErrorPosition::LeftOperand).err()
+        self.reposition(Left).err()
     }
 
     fn prefix(self, _operator: IdentifierIndex) -> EvalResult<'a> {
-        self.reposition(ExpressionErrorPosition::RightOperand).err()
+        self.reposition(Right).err()
     }
 
     fn subexpression_result(self, _boundary: ExpressionBoundary) -> EvalResult<'a> {
-        self.reposition(ExpressionErrorPosition::RightOperand).err()
+        self.reposition(Right).err()
     }
 
     fn field(self, _name: IdentifierIndex) -> EvalResult<'a> {

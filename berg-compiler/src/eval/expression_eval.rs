@@ -163,10 +163,10 @@ impl<'p, 'a: 'p> ExpressionEvaluator<'p, 'a> {
         let expression = self.skip_implicit_groups();
         let result = match position {
             Expression => expression,
-            LeftOperand => expression.left_expression(),
+            Left => expression.left_expression(),
             LeftLeft => expression.left_expression().skip_implicit_groups().left_expression(),
             LeftRight => expression.left_expression().skip_implicit_groups().right_expression(),
-            RightOperand => expression.right_expression(),
+            Right => expression.right_expression(),
             RightLeft => expression.right_expression().skip_implicit_groups().left_expression(),
             RightRight => expression.right_expression().skip_implicit_groups().right_expression(),
         };

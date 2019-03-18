@@ -19,6 +19,10 @@ pub enum EvalVal<'a> {
     While,
     /// while <condition>
     WhileCondition(BlockRef<'a>),
+    /// foreach
+    Foreach,
+    /// foreach <input>
+    ForeachInput(BergVal<'a>),
     /// 1 + <here>
     MissingExpression,
     /// 1,2
@@ -68,7 +72,7 @@ impl<'a> EvalVal<'a> {
         use EvalVal::*;
         match self {
             Target(v) => v.get(),
-            Value(_) | If | Else | ConditionalVal(..) | While | WhileCondition(_) | MissingExpression | PartialTuple(_) | TrailingComma(_) | TrailingSemicolon | RawIdentifier(_) => self.ok(),
+            Value(_) | If | Else | ConditionalVal(..) | While | WhileCondition(_) | Foreach | ForeachInput(_) | MissingExpression | PartialTuple(_) | TrailingComma(_) | TrailingSemicolon | RawIdentifier(_) => self.ok(),
         }
     }
 }
@@ -84,14 +88,16 @@ impl<'a> BergValue<'a> for EvalVal<'a> {
             RawIdentifier(v) => v.into_val(),
 
             If => IfWithoutCondition.err(),
-            ConditionalVal(IfCondition, _) => IfWithoutCondition.operand_err(ExpressionErrorPosition::RightOperand),
+            ConditionalVal(IfCondition, _) => IfWithoutCondition.operand_err(Right),
             Else => ElseWithoutIf.err(),
-            ConditionalVal(ElseBlock, _) => ElseWithoutBlock.operand_err(ExpressionErrorPosition::RightOperand),
+            ConditionalVal(ElseBlock, _) => ElseWithoutBlock.operand_err(Right),
             ConditionalVal(RunBlock, _) | ConditionalVal(IgnoreBlock, _) => IfWithoutBlock.err(),
             ConditionalVal(MaybeElse, None) => BergVal::empty_tuple().ok(),
             ConditionalVal(MaybeElse, Some(v)) => v.ok(),
             While => WhileWithoutCondition.err(),
-            WhileCondition(_) => WhileWithoutBlock.operand_err(ExpressionErrorPosition::LeftOperand),
+            WhileCondition(_) => WhileWithoutBlock.operand_err(Left),
+            Foreach => ForeachWithoutInput.err(),
+            ForeachInput(_) => ForeachWithoutBlock.operand_err(Left),
             MissingExpression => MissingOperand.err(),
             PartialTuple(vec) | TrailingComma(vec) => Tuple::from(vec).ok(),
             TrailingSemicolon => BergVal::empty_tuple().ok(),
@@ -105,7 +111,7 @@ impl<'a> BergValue<'a> for EvalVal<'a> {
             Value(v) => v.eval_val(),
             Target(v) => v.eval_val(),
             RawIdentifier(v) => v.eval_val(),
-            MissingExpression | PartialTuple(_) | TrailingComma(_) | TrailingSemicolon | If | Else | ConditionalVal(..) | While | WhileCondition(_)  => self.ok(),
+            MissingExpression | PartialTuple(_) | TrailingComma(_) | TrailingSemicolon | If | Else | ConditionalVal(..) | While | WhileCondition(_) | Foreach | ForeachInput(_)  => self.ok(),
         }
     }
     fn evaluate(self) -> BergResult<'a> {
@@ -113,7 +119,7 @@ impl<'a> BergValue<'a> for EvalVal<'a> {
             Value(v) => v.evaluate(),
             Target(v) => v.evaluate(),
             RawIdentifier(v) => v.evaluate(),
-            MissingExpression | PartialTuple(_) | TrailingComma(_) | TrailingSemicolon | If | Else | ConditionalVal(..) | While | WhileCondition(_)  => self.into_val()?.evaluate(),
+            MissingExpression | PartialTuple(_) | TrailingComma(_) | TrailingSemicolon | If | Else | ConditionalVal(..) | While | WhileCondition(_) | Foreach | ForeachInput(_)  => self.into_val()?.evaluate(),
         }
     }
     fn next_val(self) -> Result<Option<NextVal<'a>>, ErrorVal<'a>> {
@@ -121,7 +127,7 @@ impl<'a> BergValue<'a> for EvalVal<'a> {
             Value(v) => v.next_val(),
             Target(v) => v.next_val(),
             RawIdentifier(v) => v.next_val(),
-            MissingExpression | PartialTuple(_) | TrailingComma(_) | TrailingSemicolon | If | Else | ConditionalVal(..) | While | WhileCondition(_)  => self.into_val()?.next_val(),
+            MissingExpression | PartialTuple(_) | TrailingComma(_) | TrailingSemicolon | If | Else | ConditionalVal(..) | While | WhileCondition(_) | Foreach | ForeachInput(_)  => self.into_val()?.next_val(),
         }
     }
     fn into_native<T: TryFromBergVal<'a>>(self) -> Result<T, ErrorVal<'a>> {
@@ -129,7 +135,7 @@ impl<'a> BergValue<'a> for EvalVal<'a> {
             Value(v) => v.into_native(),
             Target(v) => v.into_native(),
             RawIdentifier(v) => v.into_native(),
-            MissingExpression | PartialTuple(_) | TrailingComma(_) | TrailingSemicolon | If | Else | ConditionalVal(..) | While | WhileCondition(_)  => self.into_val()?.into_native(),
+            MissingExpression | PartialTuple(_) | TrailingComma(_) | TrailingSemicolon | If | Else | ConditionalVal(..) | While | WhileCondition(_) | Foreach | ForeachInput(_)  => self.into_val()?.into_native(),
         }
     }
     fn try_into_native<T: TryFromBergVal<'a>>(self) -> Result<Option<T>, ErrorVal<'a>> {
@@ -137,12 +143,12 @@ impl<'a> BergValue<'a> for EvalVal<'a> {
             Value(v) => v.try_into_native(),
             Target(v) => v.try_into_native(),
             RawIdentifier(v) => v.try_into_native(),
-            MissingExpression | PartialTuple(_) | TrailingComma(_) | TrailingSemicolon | If | Else | ConditionalVal(..) | While | WhileCondition(_)  => self.into_val()?.try_into_native(),
+            MissingExpression | PartialTuple(_) | TrailingComma(_) | TrailingSemicolon | If | Else | ConditionalVal(..) | While | WhileCondition(_) | Foreach | ForeachInput(_)  => self.into_val()?.try_into_native(),
         }
     }
 
     fn infix(self, operator: IdentifierIndex, right: RightOperand<'a, impl BergValue<'a>>) -> EvalResult<'a> {
-        use ExpressionErrorPosition::LeftRight;
+        use LeftRight;
         use BergError::*;
         use ConditionalState::*;
         match self {
@@ -157,7 +163,7 @@ impl<'a> BergValue<'a> for EvalVal<'a> {
             }
             // if <condition>, if false else if <condition>
             If if operator == APPLY => match right.get()? {
-                RightOperand(If, _) | RightOperand(Else, _) => IfWithoutCondition.operand_err(ExpressionErrorPosition::LeftOperand),
+                RightOperand(If, _) | RightOperand(Else, _) => IfWithoutCondition.operand_err(Left),
                 right => if right.into_native::<bool>()? {
                     ConditionalVal(RunBlock, None).ok()
                 } else {
@@ -169,7 +175,7 @@ impl<'a> BergValue<'a> for EvalVal<'a> {
                     match state {
                         IfCondition => match right.get()? {
                             // if if, if else
-                            RightOperand(If, _) | RightOperand(Else, _) => IfWithoutCondition.operand_err(ExpressionErrorPosition::LeftRight),
+                            RightOperand(If, _) | RightOperand(Else, _) => IfWithoutCondition.operand_err(LeftRight),
                             // if <condition>
                             right => if result.is_none() && right.into_native::<bool>()? {
                                 ConditionalVal(RunBlock, result).ok()
@@ -181,14 +187,14 @@ impl<'a> BergValue<'a> for EvalVal<'a> {
                             // if true {}
                             Ok(BergVal::BlockRef(block)) => ConditionalVal(MaybeElse, Some(block)).ok(),
                             // if true 1
-                            _ => IfBlockMustBeBlock.operand_err(ExpressionErrorPosition::RightOperand),
+                            _ => IfBlockMustBeBlock.operand_err(Right),
                         }
                         RunBlock => unreachable!(),
                         IgnoreBlock => match right.into_val() {
                             // if false {}
                             Ok(BergVal::BlockRef(_)) => ConditionalVal(MaybeElse, result).ok(),
                             // if false 1
-                            _ => IfBlockMustBeBlock.operand_err(ExpressionErrorPosition::RightOperand),
+                            _ => IfBlockMustBeBlock.operand_err(Right),
                         }
                         // else ^
                         ElseBlock => match right.get()? {
@@ -203,7 +209,7 @@ impl<'a> BergValue<'a> for EvalVal<'a> {
                                 }
                                 // if true|false else else
                                 // if true|false else 1
-                                _ => ElseBlockMustBeBlock.operand_err(ExpressionErrorPosition::RightOperand),
+                                _ => ElseBlockMustBeBlock.operand_err(Right),
                             }
                         }
                         // if true|false {} <something>
@@ -222,17 +228,27 @@ impl<'a> BergValue<'a> for EvalVal<'a> {
             // while <condition>
             While if operator == APPLY => match right.into_val()? {
                 BergVal::BlockRef(block) => WhileCondition(block).ok(),
-                _ => WhileConditionMustBeBlock.operand_err(ExpressionErrorPosition::RightOperand),
+                _ => WhileConditionMustBeBlock.operand_err(Right),
             }
             WhileCondition(condition) => if operator == APPLY {
                 match right.into_val()? {
                     BergVal::BlockRef(block) => run_while_loop(condition, block),
-                    _ => WhileBlockMustBeBlock.operand_err(ExpressionErrorPosition::RightOperand),
+                    _ => WhileBlockMustBeBlock.operand_err(Right),
                 }
             } else {
                 WhileCondition(condition).into_val().infix(operator, right)
             }
-            MissingExpression | TrailingSemicolon | TrailingComma(_) | If | Else | While => self.into_val().infix(operator, right),
+            // while <condition>
+            Foreach if operator == APPLY => ForeachInput(right.into_val()?).ok(),
+            ForeachInput(input) => if operator == APPLY {
+                match right.into_val()? {
+                    BergVal::BlockRef(block) => run_foreach(input, block),
+                    _ => ForeachBlockMustBeBlock.operand_err(Right),
+                }
+            } else {
+                ForeachInput(input).into_val().infix(operator, right)
+            }
+            MissingExpression | TrailingSemicolon | TrailingComma(_) | If | Else | While | Foreach => self.into_val().infix(operator, right),
         }
     }
 
@@ -241,7 +257,7 @@ impl<'a> BergValue<'a> for EvalVal<'a> {
             Value(v) => v.infix_assign(operator, right),
             Target(v) => v.infix_assign(operator, right),
             RawIdentifier(v) => v.infix_assign(operator, right),
-            MissingExpression | PartialTuple(_) | TrailingComma(_) | TrailingSemicolon | If | Else | ConditionalVal(..) | While | WhileCondition(_)  => self.into_val().infix_assign(operator, right),
+            MissingExpression | PartialTuple(_) | TrailingComma(_) | TrailingSemicolon | If | Else | ConditionalVal(..) | While | WhileCondition(_) | Foreach | ForeachInput(_)  => self.into_val().infix_assign(operator, right),
         }
     }
 
@@ -250,7 +266,7 @@ impl<'a> BergValue<'a> for EvalVal<'a> {
             Value(v) => v.prefix(operator),
             Target(v) => v.prefix(operator),
             RawIdentifier(v) => v.prefix(operator),
-            MissingExpression | PartialTuple(_) | TrailingComma(_) | TrailingSemicolon | If | Else | ConditionalVal(..) | While | WhileCondition(_)  => self.into_val().prefix(operator),
+            MissingExpression | PartialTuple(_) | TrailingComma(_) | TrailingSemicolon | If | Else | ConditionalVal(..) | While | WhileCondition(_) | Foreach | ForeachInput(_)  => self.into_val().prefix(operator),
         }
     }
 
@@ -259,7 +275,7 @@ impl<'a> BergValue<'a> for EvalVal<'a> {
             Value(v) => v.postfix(operator),
             Target(v) => v.postfix(operator),
             RawIdentifier(v) => v.prefix(operator),
-            MissingExpression | PartialTuple(_) | TrailingComma(_) | TrailingSemicolon | If | Else | ConditionalVal(..) | While | WhileCondition(_)  => self.into_val().postfix(operator),
+            MissingExpression | PartialTuple(_) | TrailingComma(_) | TrailingSemicolon | If | Else | ConditionalVal(..) | While | WhileCondition(_) | Foreach | ForeachInput(_)  => self.into_val().postfix(operator),
         }
     }
 
@@ -270,7 +286,7 @@ impl<'a> BergValue<'a> for EvalVal<'a> {
             Target(v) => v.subexpression_result(boundary),
             RawIdentifier(v) => v.subexpression_result(boundary),
             MissingExpression if boundary == Parentheses || boundary.is_block() => BergVal::empty_tuple().ok(),
-            MissingExpression | PartialTuple(_) | TrailingComma(_) | TrailingSemicolon | If | Else | ConditionalVal(..) | While | WhileCondition(_)  => self.into_val().subexpression_result(boundary),
+            MissingExpression | PartialTuple(_) | TrailingComma(_) | TrailingSemicolon | If | Else | ConditionalVal(..) | While | WhileCondition(_) | Foreach | ForeachInput(_)  => self.into_val().subexpression_result(boundary),
         }
     }
 
@@ -279,7 +295,7 @@ impl<'a> BergValue<'a> for EvalVal<'a> {
             Value(v) => v.field(name),
             Target(v) => v.field(name),
             RawIdentifier(v) => v.field(name),
-            MissingExpression | PartialTuple(_) | TrailingComma(_) | TrailingSemicolon | If | Else | ConditionalVal(..) | While | WhileCondition(_)  => self.into_val().field(name),
+            MissingExpression | PartialTuple(_) | TrailingComma(_) | TrailingSemicolon | If | Else | ConditionalVal(..) | While | WhileCondition(_) | Foreach | ForeachInput(_)  => self.into_val().field(name),
         }
     }
 
@@ -289,7 +305,7 @@ impl<'a> BergValue<'a> for EvalVal<'a> {
             Target(v) => v.set_field(name, value),
             RawIdentifier(v) => v.set_field(name, value),
             MissingExpression => BergError::MissingOperand.err(),
-            PartialTuple(_) | TrailingComma(_) | TrailingSemicolon | If | Else | ConditionalVal(..) | While | WhileCondition(_)  => panic!("not yet implemented: can't set field {} on {:?} to {}", name, self, value),
+            PartialTuple(_) | TrailingComma(_) | TrailingSemicolon | If | Else | ConditionalVal(..) | While | WhileCondition(_) | Foreach | ForeachInput(_)  => panic!("not yet implemented: can't set field {} on {:?} to {}", name, self, value),
         }
     }
 }
@@ -297,13 +313,12 @@ impl<'a> BergValue<'a> for EvalVal<'a> {
 fn run_while_loop<'a>(condition: BlockRef<'a>, block: BlockRef<'a>) -> EvalResult<'a> {
     use ErrorCode::*;
     loop {
-        println!("LOOP");
         // Check the condition, and break if false (or error).
         match condition.apply(BergVal::empty_tuple().into()).into_native::<bool>() {
             Ok(true) => {},
             Ok(false) => break,
             // (while APPLY { condition }) APPLY { block } means condition is the left operand's right operand
-            Err(error) => return error.reposition(ExpressionErrorPosition::LeftRight).err(),
+            Err(error) => return error.reposition(LeftRight).err(),
         };
 
         // Run the block.
@@ -314,7 +329,36 @@ fn run_while_loop<'a>(condition: BlockRef<'a>, block: BlockRef<'a>) -> EvalResul
                 BreakOutsideLoop => break,
                 ContinueOutsideLoop => continue,
                 // (while APPLY { condition }) APPLY { block } means block is right operand
-                _ => return error.reposition(ExpressionErrorPosition::LeftRight).err()
+                _ => return error.reposition(LeftRight).err()
+            }
+        }
+    }
+    BergVal::empty_tuple().ok()
+}
+
+fn run_foreach<'a>(input: BergVal<'a>, block: BlockRef<'a>) -> EvalResult<'a> {
+    use ErrorCode::*;
+    let mut remaining = input.ok();
+    loop {
+        // Grab the input.
+        let value = match remaining.next_val() {
+            Ok(Some(NextVal { head, tail })) => {
+                remaining = tail;
+                head
+            },
+            Ok(None) => break,
+            Err(error) => return error.reposition(Right).err(),
+        };
+
+        // Run the block.
+        let result = block.apply(value.into());
+        match result.into_val() {
+            Ok(_) => {},
+            Err(error) => match error.code() {
+                BreakOutsideLoop => break,
+                ContinueOutsideLoop => continue,
+                // (while APPLY { condition }) APPLY { block } means block is right operand
+                _ => return error.reposition(LeftRight).err()
             }
         }
     }
@@ -346,6 +390,8 @@ impl<'a> fmt::Display for EvalVal<'a> {
             ConditionalVal(MaybeElse, Some(v)) => write!(f, "complete if -> {}", v),
             While => write!(f, "while"),
             WhileCondition(condition) => write!(f, "while {}", condition),
+            Foreach => write!(f, "foreach"),
+            ForeachInput(input) => write!(f, "foreach {}", input),
          }
     }
 }
@@ -401,7 +447,7 @@ impl<'a> AssignmentTarget<'a> {
         use ExpressionErrorPosition::*;
         match result {
             Err(ErrorVal::ExpressionError(error, Expression)) => match self {
-                LocalFieldDeclaration(..) | ObjectFieldReference(..) => error.operand_err(RightOperand),
+                LocalFieldDeclaration(..) | ObjectFieldReference(..) => error.operand_err(Right),
                 LocalFieldReference(..) => error.err(),
             },
             Err(error) => Err(error),
@@ -440,37 +486,37 @@ impl<'a> BergValue<'a> for AssignmentTarget<'a> {
     }
     fn infix(mut self, operator: IdentifierIndex, right: RightOperand<'a, impl BergValue<'a>>) -> EvalResult<'a> {
         use AssignmentTarget::*;
-        use ExpressionErrorPosition::LeftOperand;
+        use Left;
         match (operator, &self) {
             // Handle <identifier>: <value>
-            (COLON, LocalFieldReference(..)) => self.set(right.into_val()?, LeftOperand),
+            (COLON, LocalFieldReference(..)) => self.set(right.into_val()?, Left),
             _ => self.get().infix(operator, right)
         }
     }
     fn infix_assign(mut self, operator: IdentifierIndex, right: RightOperand<'a, impl BergValue<'a>>) -> EvalResult<'a> {
-        use ExpressionErrorPosition::LeftOperand;
+        use Left;
         match operator {
-            EMPTY_STRING => self.set(right.into_val()?, LeftOperand),
-            operator => self.set(self.get().infix(operator, right).into_val()?, LeftOperand),
+            EMPTY_STRING => self.set(right.into_val()?, Left),
+            operator => self.set(self.get().infix(operator, right).into_val()?, Left),
         }
     }
 
     fn prefix(self, operator: IdentifierIndex) -> EvalResult<'a> {
         use AssignmentTarget::*;
-        use ExpressionErrorPosition::RightOperand;
+        use Right;
         match (operator, self) {
             (COLON, LocalFieldReference(scope, field)) => LocalFieldDeclaration(scope, field).ok(),
-            (PLUS_PLUS, mut right) => right.set(right.get().prefix(PLUS_ONE).into_val()?, RightOperand),
-            (DASH_DASH, mut right) => right.set(right.get().prefix(MINUS_ONE).into_val()?, RightOperand),
+            (PLUS_PLUS, mut right) => right.set(right.get().prefix(PLUS_ONE).into_val()?, Right),
+            (DASH_DASH, mut right) => right.set(right.get().prefix(MINUS_ONE).into_val()?, Right),
             (_, right) => right.get().prefix(operator),
         }
     }
 
     fn postfix(mut self, operator: IdentifierIndex) -> EvalResult<'a> {
-        use ExpressionErrorPosition::LeftOperand;
+        use Left;
         match operator {
-            PLUS_PLUS => self.set(self.get().postfix(PLUS_ONE).into_val()?, LeftOperand),
-            DASH_DASH => self.set(self.get().postfix(MINUS_ONE).into_val()?, LeftOperand),
+            PLUS_PLUS => self.set(self.get().postfix(PLUS_ONE).into_val()?, Left),
+            DASH_DASH => self.set(self.get().postfix(MINUS_ONE).into_val()?, Left),
             _ => self.get().postfix(operator)
         }
     }

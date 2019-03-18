@@ -27,7 +27,7 @@ struct RootData {
 /// includes the root scope).
 ///
 pub mod keywords {
-    fields! { TRUE, FALSE, IF, ELSE, WHILE, BREAK, CONTINUE, }
+    fields! { TRUE, FALSE, IF, ELSE, WHILE, FOREACH, BREAK, CONTINUE, }
 }
 
 impl Default for RootRef {
@@ -80,14 +80,17 @@ impl RootRef {
 
     pub fn local_field<'a>(&self, index: FieldIndex) -> EvalResult<'a> {
         use crate::eval::keywords::*;
+        use EvalVal::*;
+        use BergError::*;
         match index {
             TRUE => true.ok(),
             FALSE => false.ok(),
-            IF => EvalVal::If.ok(),
-            ELSE => EvalVal::Else.ok(),
-            WHILE => EvalVal::While.ok(),
-            BREAK => BergError::BreakOutsideLoop.err(),
-            CONTINUE => BergError::ContinueOutsideLoop.err(),
+            IF => If.ok(),
+            ELSE => Else.ok(),
+            WHILE => While.ok(),
+            FOREACH => Foreach.ok(),
+            BREAK => BreakOutsideLoop.err(),
+            CONTINUE => ContinueOutsideLoop.err(),
             _ => unreachable!(),
         }
     }

@@ -41,6 +41,7 @@ pub fn expect<T: AsRef<[u8]> + ?Sized>(source: &T) -> ExpectBerg {
 /// expect("1 / 0").to_error(DivideByZero, 4);
 /// ```
 /// 
+#[derive(Debug)]
 pub struct ExpectBerg<'a>(pub &'a [u8]);
 
 ///
@@ -50,18 +51,76 @@ pub struct ExpectBerg<'a>(pub &'a [u8]);
 /// implemented on:
 /// * `usize`: `to_error(DivideByZero, 4)` and
 /// * ranges:  (so you can write `expect_error(DivideByZero, 1..2))`).
+/// * &str and &[u8]: these will find the first instance of the substring in the
+///   source string, so you don't have to character count.
 /// 
-pub trait ExpectedErrorRange {
+pub trait ExpectedErrorRange: fmt::Debug {
     ///
     /// Convert this into an actual ByteRange.
     /// 
-    /// `len` will be the length of the actual source (in bytes), and is used
-    /// to create an explicit range for unbounded ranges (like `1..`). This
-    /// allows `expect("1/(0)").to_error(DivideByZero, 2..)` to match the actual
-    /// error range `2..5`.
+    /// `source` is the original source, and is used to calculate the end of
+    /// unbounded ranges and to find substrings.
     /// 
-    fn into_error_range(self, len: ByteIndex) -> ByteRange;
+    fn into_error_range(self, source: &[u8]) -> ByteRange;
+    ///
+    /// Find this error range within a particular line
+    /// 
+    fn line(self, line: usize) -> ExpectedErrorRangeWithin<Self, ExpectLine> where Self: Sized {
+        self.within(ExpectLine(line))
+    }
+    ///
+    /// Find this error range after the end of the other one.
+    /// 
+    fn after<T: ExpectedErrorRange>(self, after: T) -> ExpectedErrorRangeWithin<Self, ExpectedErrorRangeAfter<T>> where Self: Sized, T: Sized {
+        self.within(ExpectedErrorRangeAfter(after))
+    }
+    ///
+    /// Find this error range before the start of the other one.
+    /// 
+    fn before<T: ExpectedErrorRange>(self, before: T) -> ExpectedErrorRangeWithin<Self, ExpectedErrorRangeBefore<T>> where Self: Sized, T: Sized {
+        self.within(ExpectedErrorRangeBefore(before))
+    }
+    ///
+    /// Find this error range inside the other one.
+    /// 
+    fn within<T: ExpectedErrorRange>(self, within: T) -> ExpectedErrorRangeWithin<Self, T> where Self: Sized, T: Sized {
+        ExpectedErrorRangeWithin { error_range: self, within }
+    }
 }
+
+///
+/// Finds an error range within another range.
+/// 
+/// Used by [`ExpectedErrorRange::after()`].
+/// 
+#[derive(Debug)]
+pub struct ExpectedErrorRangeWithin<T: ExpectedErrorRange, Within: ExpectedErrorRange> {
+    error_range: T,
+    within: Within,
+}
+
+///
+/// Selects all source before the given range.
+/// 
+/// Used by [`ExpectedErrorRange::after()`].
+/// 
+#[derive(Debug)]
+pub struct ExpectedErrorRangeAfter<T: ExpectedErrorRange>(T);
+
+///
+/// Selects all source after the given range.
+/// 
+#[derive(Debug)]
+pub struct ExpectedErrorRangeBefore<T: ExpectedErrorRange>(T);
+
+
+///
+/// Represents the starting point of the line with the given number (starting at 1).
+/// 
+/// Used by [`ExpectedErrorRange::line()`].
+/// 
+#[derive(Debug)]
+pub struct ExpectLine(usize);
 
 impl<'a> ExpectBerg<'a> {
     ///
@@ -145,7 +204,7 @@ impl<'a> ExpectBerg<'a> {
         let ast = parser::parse(test_source(self.0));
         let expected_range = ast
             .char_data
-            .range(&expected_range.into_error_range(ast.char_data.size));
+            .range(&expected_range.into_error_range(self.0.as_ref()));
         let result = evaluate_ast(ast.clone());
         let result = result.and_then(Self::consume_all);
         assert!(
@@ -237,26 +296,97 @@ impl<'a> fmt::Display for ExpectBerg<'a> {
     }
 }
 
+impl ExpectedErrorRange for &str {
+    fn into_error_range(self, source: &[u8]) -> ByteRange {
+        find_substring_in_source(self.as_ref(), source)
+    }
+}
+impl ExpectedErrorRange for &[u8] {
+    fn into_error_range(self, source: &[u8]) -> ByteRange {
+        find_substring_in_source(self, source)
+    }
+}
 impl ExpectedErrorRange for usize {
-    fn into_error_range(self, len: ByteIndex) -> ByteRange {
-        ByteIndex::from(self).into_error_range(len)
+    fn into_error_range(self, source: &[u8]) -> ByteRange {
+        ByteIndex::from(self).into_error_range(source)
     }
 }
 impl ExpectedErrorRange for ByteIndex {
     #[allow(clippy::range_plus_one)]
-    fn into_error_range(self, _len: ByteIndex) -> ByteRange {
+    fn into_error_range(self, _source: &[u8]) -> ByteRange {
         Range {
             start: self,
             end: self + 1,
         }
     }
 }
-impl<R: BoundedRange<ByteIndex>, T: IntoRange<ByteIndex, Output = R>> ExpectedErrorRange for T {
-    fn into_error_range(self, len: ByteIndex) -> ByteRange {
-        let result = self.into_range().bounded_range(len);
+impl ExpectedErrorRange for ExpectLine {
+    fn into_error_range(self, source: &[u8]) -> ByteRange {
+        let start = find_line_start(self.0, source);
+        let end = next_line_start(&source[start..]);
+        start.into()..(start+end).into()
+    }
+}
+impl<T: ExpectedErrorRange, Within: ExpectedErrorRange> ExpectedErrorRange for ExpectedErrorRangeWithin<T, Within> {
+    fn into_error_range(self, source: &[u8]) -> ByteRange {
+        let within_range = self.within.into_error_range(source);
+        println!("within {:?}", within_range);
+        let mut range = self.error_range.into_error_range(&source[within_range.start.into()..within_range.end.into()]);
+        println!("range {:?}", range);
+        range.start += usize::from(within_range.start);
+        range.end += usize::from(within_range.start);
+        println!("result {:?}", range);
+        range
+    }
+}
+impl<T: ExpectedErrorRange> ExpectedErrorRange for ExpectedErrorRangeBefore<T> {
+    fn into_error_range(self, source: &[u8]) -> ByteRange {
+        let before_range = self.0.into_error_range(source);
+        ByteIndex(0)..before_range.start
+    }
+}
+impl<T: ExpectedErrorRange> ExpectedErrorRange for ExpectedErrorRangeAfter<T> {
+    fn into_error_range(self, source: &[u8]) -> ByteRange {
+        let after_range = self.0.into_error_range(source);
+        after_range.end..ByteIndex::from(source.len())
+    }
+}
+
+fn next_line_start(source: &[u8]) -> usize {
+    for i in 0..source.len() {
+        // If we find \n, \r or \r\n, return the position after it.
+        if source[i] == b'\n' {
+            return i+1;
+        } else if source[i] == b'\r' {
+            if let Some(b'\n') = source.get(i+1) {
+                return i+2;
+            } else {
+                return i+1;
+            }
+        }
+    }
+    source.len()
+}
+fn find_line_start(line: usize, source: &[u8]) -> usize {
+    let mut current_line = 1;
+    let mut current_line_start = 0;
+    while current_line < line {
+        current_line_start += next_line_start(&source[current_line_start..]);
+        current_line += 1;
+    }
+    current_line_start
+}
+impl<R: BoundedRange<ByteIndex>, T: IntoRange<ByteIndex, Output = R>+fmt::Debug> ExpectedErrorRange for T {
+    fn into_error_range(self, source: &[u8]) -> ByteRange {
+        let result = self.into_range().bounded_range(source.len().into());
         assert!(result.start + 1 != result.end);
         result
     }
+}
+
+fn find_substring_in_source(substring: &[u8], source: &[u8]) -> ByteRange {
+    let start = source.windows(substring.len()).position(|window| window == substring).unwrap();
+    ByteIndex::from(start)..ByteIndex::from(start+substring.len())
 }
 
 ///

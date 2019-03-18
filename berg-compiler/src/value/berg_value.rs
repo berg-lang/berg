@@ -1,6 +1,7 @@
 use std::marker::PhantomData;
 use crate::value::*;
 use std::fmt;
+use ExpressionErrorPosition::*;
 
 ///
 /// A value that can participate in Berg expressions.
@@ -113,13 +114,13 @@ impl<'a, V: BergValue<'a>> RightOperand<'a, V> {
     pub fn into_native<T: TryFromBergVal<'a>>(self) -> Result<T, ErrorVal<'a>> {
         match self.0.into_native() {
             Ok(value) => Ok(value),
-            Err(error) => error.reposition(ExpressionErrorPosition::RightOperand).err(),
+            Err(error) => error.reposition(Right).err(),
         }
     }
     pub fn try_into_native<T: TryFromBergVal<'a>>(self) -> Result<Option<T>, ErrorVal<'a>> {
         match self.0.try_into_native() {
             Ok(value) => Ok(value),
-            Err(error) => error.reposition(ExpressionErrorPosition::RightOperand).err(),
+            Err(error) => error.reposition(Right).err(),
         }
     }
     ///
@@ -127,31 +128,22 @@ impl<'a, V: BergValue<'a>> RightOperand<'a, V> {
     /// EvalVal values.
     /// 
     pub fn into_val(self) -> BergResult<'a> {
-        self.0.into_val().at_position(ExpressionErrorPosition::RightOperand)
+        self.0.into_val().at_position(Right)
     }
     ///
     /// Process the value and give appropriate error locations to the result.
     /// 
     pub fn eval_val(self) -> Result<RightOperand<'a, EvalVal<'a>>, ErrorVal<'a>> {
-        match self.0.eval_val() {
-            Ok(v) => Ok(RightOperand::from(v)),
-            Err(error) => error.reposition(ExpressionErrorPosition::Expression).err(),
-        }
+        Ok(self.0.eval_val()?.into())
     }
     pub fn evaluate(self) -> BergResult<'a> {
-        self.0.evaluate().at_position(ExpressionErrorPosition::RightOperand)
+        self.0.evaluate().at_position(Right)
     }
     ///
     /// Process the value and give appropriate error locations to the result.
     ///  
     pub fn get(self) -> Result<RightOperand<'a, EvalVal<'a>>, ErrorVal<'a>> {
-        match self.0.eval_val() {
-            Ok(v) => match v.get() {
-                Ok(v) => Ok(RightOperand::from(v)),
-                Err(error) => error.reposition(ExpressionErrorPosition::Expression).err(),
-            }
-            Err(error) => error.reposition(ExpressionErrorPosition::Expression).err(),
-        }
+        Ok(self.0.eval_val()?.get()?.into())
     }
 }
 
@@ -164,6 +156,9 @@ impl<'a, T: BergValue<'a>> fmt::Display for RightOperand<'a, T> {
 pub mod implement {
     pub use crate::value::*;
     pub use crate::syntax::ExpressionRef;
+    pub use crate::value::ExpressionErrorPosition::*;
+    pub use crate::value::BergError::*;
+
     use crate::syntax::Fixity;
 
     pub fn single_next_val<'a>(value: impl BergValue<'a>) -> Result<Option<NextVal<'a>>, ErrorVal<'a>> {
@@ -243,10 +238,10 @@ pub mod implement {
                 let left = left.into_val()?;
                 match right.try_into_native::<IdentifierIndex>()? {
                     Some(name) => AssignmentTarget::ObjectFieldReference(left, name).ok(),
-                    None => BergError::RightSideOfDotMustBeIdentifier.operand_err(ExpressionErrorPosition::RightOperand),
+                    None => BergError::RightSideOfDotMustBeIdentifier.operand_err(Right),
                 }
             }
-            COLON => BergError::AssignmentTargetMustBeIdentifier.operand_err(ExpressionErrorPosition::LeftOperand),
+            COLON => BergError::AssignmentTargetMustBeIdentifier.operand_err(Left),
             _ => BergError::UnsupportedOperator(Box::new(left.into_val()), Fixity::Infix, operator).err(),
         }
     }
@@ -256,7 +251,7 @@ pub mod implement {
         _operator: IdentifierIndex,
         _right: RightOperand<'a, impl BergValue<'a>>,
     ) -> EvalResult<'a> {
-        BergError::AssignmentTargetMustBeIdentifier.operand_err(ExpressionErrorPosition::LeftOperand)
+        BergError::AssignmentTargetMustBeIdentifier.operand_err(Left)
     }
 
     pub fn default_postfix<'a>(
@@ -265,7 +260,7 @@ pub mod implement {
     ) -> EvalResult<'a> {
         use crate::syntax::identifiers::{PLUS_PLUS, DASH_DASH};
         match operator {
-            PLUS_PLUS | DASH_DASH => BergError::AssignmentTargetMustBeIdentifier.operand_err(ExpressionErrorPosition::LeftOperand),
+            PLUS_PLUS | DASH_DASH => BergError::AssignmentTargetMustBeIdentifier.operand_err(Left),
             _ => BergError::UnsupportedOperator(Box::new(operand.into_val()), Fixity::Prefix, operator).err(),
         }
     }
@@ -277,7 +272,7 @@ pub mod implement {
         use crate::syntax::identifiers::{DOUBLE_EXCLAMATION_POINT, EXCLAMATION_POINT, PLUS_PLUS, DASH_DASH};
         match operator {
             DOUBLE_EXCLAMATION_POINT => operand.prefix(EXCLAMATION_POINT)?.prefix(EXCLAMATION_POINT),
-            PLUS_PLUS | DASH_DASH => BergError::AssignmentTargetMustBeIdentifier.operand_err(ExpressionErrorPosition::RightOperand),
+            PLUS_PLUS | DASH_DASH => BergError::AssignmentTargetMustBeIdentifier.operand_err(Right),
             _ => BergError::UnsupportedOperator(Box::new(operand.into_val()), Fixity::Prefix, operator).err(),
         }
     }
