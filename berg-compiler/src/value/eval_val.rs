@@ -30,11 +30,13 @@ pub enum EvalVal<'a> {
     /// catch
     Catch,
     /// <error> catch
+    TryCatch(BergResult<'a>),
+    /// <error> catch { block }
     CatchResult(BergResult<'a>),
     /// finally
     Finally,
     /// <anything> finally
-    FinallyResult(BergResult<'a>),
+    TryFinally(BergResult<'a>),
     /// 1 + <here>
     MissingExpression,
     /// 1,2
@@ -84,7 +86,7 @@ impl<'a> EvalVal<'a> {
         use EvalVal::*;
         match self {
             Target(v) => v.get(),
-            Value(_) | If | Else | ConditionalVal(..) | While | WhileCondition(_) | Foreach | ForeachInput(_) | Try | TryResult(_) | Catch | CatchResult(_) | Finally | FinallyResult(_) | MissingExpression | PartialTuple(_) | TrailingComma(_) | TrailingSemicolon | RawIdentifier(_) => self.ok(),
+            Value(_) | If | Else | ConditionalVal(..) | While | WhileCondition(_) | Foreach | ForeachInput(_) | Try | TryResult(_) | Catch | TryCatch(_) | CatchResult(_) |Finally | TryFinally(_) | MissingExpression | PartialTuple(_) | TrailingComma(_) | TrailingSemicolon | RawIdentifier(_) => self.ok(),
         }
     }
 }
@@ -113,9 +115,10 @@ impl<'a> BergValue<'a> for EvalVal<'a> {
             Try => TryWithoutBlock.err(),
             TryResult(_) => TryWithoutCatchOrFinally.err(),
             Catch => CatchWithoutResult.err(),
-            CatchResult(_) => CatchWithoutBlock.err(),
+            TryCatch(_) => CatchWithoutBlock.err(),
+            CatchResult(result) => result,
             Finally => FinallyWithoutResult.err(),
-            FinallyResult(_) => FinallyWithoutBlock.err(),
+            TryFinally(_) => FinallyWithoutBlock.err(),
 
             MissingExpression => MissingOperand.err(),
             PartialTuple(vec) | TrailingComma(vec) => Tuple::from(vec).ok(),
@@ -130,7 +133,7 @@ impl<'a> BergValue<'a> for EvalVal<'a> {
             Value(v) => v.eval_val(),
             Target(v) => v.eval_val(),
             RawIdentifier(v) => v.eval_val(),
-            MissingExpression | PartialTuple(_) | TrailingComma(_) | TrailingSemicolon | If | Else | ConditionalVal(..) | While | WhileCondition(_) | Foreach | ForeachInput(_) | Try | TryResult(_) | Catch | CatchResult(_) | Finally | FinallyResult(_) => self.ok(),
+            MissingExpression | PartialTuple(_) | TrailingComma(_) | TrailingSemicolon | If | Else | ConditionalVal(..) | While | WhileCondition(_) | Foreach | ForeachInput(_) | Try | TryResult(_) | Catch | TryCatch(_) | CatchResult(_) |Finally | TryFinally(_) => self.ok(),
         }
     }
     fn evaluate(self) -> BergResult<'a> {
@@ -138,7 +141,7 @@ impl<'a> BergValue<'a> for EvalVal<'a> {
             Value(v) => v.evaluate(),
             Target(v) => v.evaluate(),
             RawIdentifier(v) => v.evaluate(),
-            MissingExpression | PartialTuple(_) | TrailingComma(_) | TrailingSemicolon | If | Else | ConditionalVal(..) | While | WhileCondition(_) | Foreach | ForeachInput(_) | Try | TryResult(_) | Catch | CatchResult(_) | Finally | FinallyResult(_) => self.into_val()?.evaluate(),
+            MissingExpression | PartialTuple(_) | TrailingComma(_) | TrailingSemicolon | If | Else | ConditionalVal(..) | While | WhileCondition(_) | Foreach | ForeachInput(_) | Try | TryResult(_) | Catch | TryCatch(_) | CatchResult(_) |Finally | TryFinally(_) => self.into_val()?.evaluate(),
         }
     }
     fn next_val(self) -> Result<Option<NextVal<'a>>, ErrorVal<'a>> {
@@ -146,7 +149,7 @@ impl<'a> BergValue<'a> for EvalVal<'a> {
             Value(v) => v.next_val(),
             Target(v) => v.next_val(),
             RawIdentifier(v) => v.next_val(),
-            MissingExpression | PartialTuple(_) | TrailingComma(_) | TrailingSemicolon | If | Else | ConditionalVal(..) | While | WhileCondition(_) | Foreach | ForeachInput(_) | Try | TryResult(_) | Catch | CatchResult(_) | Finally | FinallyResult(_) => self.into_val()?.next_val(),
+            MissingExpression | PartialTuple(_) | TrailingComma(_) | TrailingSemicolon | If | Else | ConditionalVal(..) | While | WhileCondition(_) | Foreach | ForeachInput(_) | Try | TryResult(_) | Catch | TryCatch(_) | CatchResult(_) |Finally | TryFinally(_) => self.into_val()?.next_val(),
         }
     }
     fn into_native<T: TryFromBergVal<'a>>(self) -> Result<T, ErrorVal<'a>> {
@@ -154,7 +157,7 @@ impl<'a> BergValue<'a> for EvalVal<'a> {
             Value(v) => v.into_native(),
             Target(v) => v.into_native(),
             RawIdentifier(v) => v.into_native(),
-            MissingExpression | PartialTuple(_) | TrailingComma(_) | TrailingSemicolon | If | Else | ConditionalVal(..) | While | WhileCondition(_) | Foreach | ForeachInput(_) | Try | TryResult(_) | Catch | CatchResult(_) | Finally | FinallyResult(_) => self.into_val()?.into_native(),
+            MissingExpression | PartialTuple(_) | TrailingComma(_) | TrailingSemicolon | If | Else | ConditionalVal(..) | While | WhileCondition(_) | Foreach | ForeachInput(_) | Try | TryResult(_) | Catch | TryCatch(_) | CatchResult(_) |Finally | TryFinally(_) => self.into_val()?.into_native(),
         }
     }
     fn try_into_native<T: TryFromBergVal<'a>>(self) -> Result<Option<T>, ErrorVal<'a>> {
@@ -162,7 +165,7 @@ impl<'a> BergValue<'a> for EvalVal<'a> {
             Value(v) => v.try_into_native(),
             Target(v) => v.try_into_native(),
             RawIdentifier(v) => v.try_into_native(),
-            MissingExpression | PartialTuple(_) | TrailingComma(_) | TrailingSemicolon | If | Else | ConditionalVal(..) | While | WhileCondition(_) | Foreach | ForeachInput(_) | Try | TryResult(_) | Catch | CatchResult(_) | Finally | FinallyResult(_) => self.into_val()?.try_into_native(),
+            MissingExpression | PartialTuple(_) | TrailingComma(_) | TrailingSemicolon | If | Else | ConditionalVal(..) | While | WhileCondition(_) | Foreach | ForeachInput(_) | Try | TryResult(_) | Catch | TryCatch(_) | CatchResult(_) |Finally | TryFinally(_) => self.into_val()?.try_into_native(),
         }
     }
 
@@ -276,26 +279,40 @@ impl<'a> BergValue<'a> for EvalVal<'a> {
             TryResult(result) => if operator == APPLY {
                 match right.get() {
                     // try { ... } catch
-                    Ok(RightOperand(Catch, _)) => CatchResult(result).ok(),
-                    Ok(RightOperand(Finally, _)) => FinallyResult(result).ok(),
+                    Ok(RightOperand(Catch, _)) => TryCatch(result).ok(),
+                    Ok(RightOperand(Finally, _)) => TryFinally(result).ok(),
                     Ok(_) => TryWithoutCatchOrFinally.operand_err(LeftLeft),
                     Err(error) => error.err(),
                 }
             } else {
                 TryResult(result).into_val().infix(operator, right)
             }
-            CatchResult(result) => if operator == APPLY {
+            TryCatch(result) => if operator == APPLY {
                 match right.into_val() {
-                    Ok(BergVal::BlockRef(block)) => result.or_else(|error|
-                        block.apply(BergVal::CaughtError(error).into()).evaluate()
-                    )?.ok(),
+                    Ok(BergVal::BlockRef(block)) => {
+                        let result = result.or_else(|error| {
+                            let caught = BergVal::CaughtError(error).into();
+                            block.apply(caught)
+                        });
+                        CatchResult(result.evaluate()).ok()
+                    }
                     Ok(_) => CatchBlockMustBeBlock.operand_err(Right),
+                    Err(error) => error.err(),
+                }
+            } else {
+                TryCatch(result).into_val().infix(operator, right)
+            }
+            CatchResult(result) => if operator == APPLY {
+                match right.get() {
+                    // try { ... } catch { ... } finally
+                    Ok(RightOperand(Finally, _)) => TryFinally(result).ok(),
+                    Ok(_) => CatchWithoutFinally.operand_err(LeftLeft),
                     Err(error) => error.err(),
                 }
             } else {
                 CatchResult(result).into_val().infix(operator, right)
             }
-            FinallyResult(result) => if operator == APPLY {
+            TryFinally(result) => if operator == APPLY {
                 match right.into_val()? {
                     BergVal::BlockRef(block) => {
                         block.evaluate()?;
@@ -304,7 +321,7 @@ impl<'a> BergValue<'a> for EvalVal<'a> {
                     _ => FinallyBlockMustBeBlock.operand_err(Right),
                 }
             } else {
-                FinallyResult(result).into_val().infix(operator, right)
+                TryFinally(result).into_val().infix(operator, right)
             }
             MissingExpression | TrailingSemicolon | TrailingComma(_) | If | Else | While | Foreach | Try | Catch | Finally => self.into_val().infix(operator, right),
         }
@@ -315,7 +332,7 @@ impl<'a> BergValue<'a> for EvalVal<'a> {
             Value(v) => v.infix_assign(operator, right),
             Target(v) => v.infix_assign(operator, right),
             RawIdentifier(v) => v.infix_assign(operator, right),
-            MissingExpression | PartialTuple(_) | TrailingComma(_) | TrailingSemicolon | If | Else | ConditionalVal(..) | While | WhileCondition(_) | Foreach | ForeachInput(_) | Try | TryResult(_) | Catch | CatchResult(_) | Finally | FinallyResult(_) => self.into_val().infix_assign(operator, right),
+            MissingExpression | PartialTuple(_) | TrailingComma(_) | TrailingSemicolon | If | Else | ConditionalVal(..) | While | WhileCondition(_) | Foreach | ForeachInput(_) | Try | TryResult(_) | Catch | TryCatch(_) | CatchResult(_) |Finally | TryFinally(_) => self.into_val().infix_assign(operator, right),
         }
     }
 
@@ -324,7 +341,7 @@ impl<'a> BergValue<'a> for EvalVal<'a> {
             Value(v) => v.prefix(operator),
             Target(v) => v.prefix(operator),
             RawIdentifier(v) => v.prefix(operator),
-            MissingExpression | PartialTuple(_) | TrailingComma(_) | TrailingSemicolon | If | Else | ConditionalVal(..) | While | WhileCondition(_) | Foreach | ForeachInput(_) | Try | TryResult(_) | Catch | CatchResult(_) | Finally | FinallyResult(_) => self.into_val().prefix(operator),
+            MissingExpression | PartialTuple(_) | TrailingComma(_) | TrailingSemicolon | If | Else | ConditionalVal(..) | While | WhileCondition(_) | Foreach | ForeachInput(_) | Try | TryResult(_) | Catch | TryCatch(_) | CatchResult(_) |Finally | TryFinally(_) => self.into_val().prefix(operator),
         }
     }
 
@@ -333,7 +350,7 @@ impl<'a> BergValue<'a> for EvalVal<'a> {
             Value(v) => v.postfix(operator),
             Target(v) => v.postfix(operator),
             RawIdentifier(v) => v.prefix(operator),
-            MissingExpression | PartialTuple(_) | TrailingComma(_) | TrailingSemicolon | If | Else | ConditionalVal(..) | While | WhileCondition(_) | Foreach | ForeachInput(_) | Try | TryResult(_) | Catch | CatchResult(_) | Finally | FinallyResult(_) => self.into_val().postfix(operator),
+            MissingExpression | PartialTuple(_) | TrailingComma(_) | TrailingSemicolon | If | Else | ConditionalVal(..) | While | WhileCondition(_) | Foreach | ForeachInput(_) | Try | TryResult(_) | Catch | TryCatch(_) | CatchResult(_) |Finally | TryFinally(_) => self.into_val().postfix(operator),
         }
     }
 
@@ -344,7 +361,7 @@ impl<'a> BergValue<'a> for EvalVal<'a> {
             Target(v) => v.subexpression_result(boundary),
             RawIdentifier(v) => v.subexpression_result(boundary),
             MissingExpression if boundary == Parentheses || boundary.is_block() => BergVal::empty_tuple().ok(),
-            MissingExpression | PartialTuple(_) | TrailingComma(_) | TrailingSemicolon | If | Else | ConditionalVal(..) | While | WhileCondition(_) | Foreach | ForeachInput(_) | Try | TryResult(_) | Catch | CatchResult(_) | Finally | FinallyResult(_) => self.into_val().subexpression_result(boundary),
+            MissingExpression | PartialTuple(_) | TrailingComma(_) | TrailingSemicolon | If | Else | ConditionalVal(..) | While | WhileCondition(_) | Foreach | ForeachInput(_) | Try | TryResult(_) | Catch | TryCatch(_) | CatchResult(_) |Finally | TryFinally(_) => self.into_val().subexpression_result(boundary),
         }
     }
 
@@ -353,7 +370,7 @@ impl<'a> BergValue<'a> for EvalVal<'a> {
             Value(v) => v.field(name),
             Target(v) => v.field(name),
             RawIdentifier(v) => v.field(name),
-            MissingExpression | PartialTuple(_) | TrailingComma(_) | TrailingSemicolon | If | Else | ConditionalVal(..) | While | WhileCondition(_) | Foreach | ForeachInput(_) | Try | TryResult(_) | Catch | CatchResult(_) | Finally | FinallyResult(_) => self.into_val().field(name),
+            MissingExpression | PartialTuple(_) | TrailingComma(_) | TrailingSemicolon | If | Else | ConditionalVal(..) | While | WhileCondition(_) | Foreach | ForeachInput(_) | Try | TryResult(_) | Catch | TryCatch(_) | CatchResult(_) |Finally | TryFinally(_) => self.into_val().field(name),
         }
     }
 
@@ -363,7 +380,7 @@ impl<'a> BergValue<'a> for EvalVal<'a> {
             Target(v) => v.set_field(name, value),
             RawIdentifier(v) => v.set_field(name, value),
             MissingExpression => BergError::MissingOperand.err(),
-            PartialTuple(_) | TrailingComma(_) | TrailingSemicolon | If | Else | ConditionalVal(..) | While | WhileCondition(_) | Foreach | ForeachInput(_) | Try | TryResult(_) | Catch | CatchResult(_) | Finally | FinallyResult(_) => panic!("not yet implemented: can't set field {} on {:?} to {}", name, self, value),
+            PartialTuple(_) | TrailingComma(_) | TrailingSemicolon | If | Else | ConditionalVal(..) | While | WhileCondition(_) | Foreach | ForeachInput(_) | Try | TryResult(_) | Catch | TryCatch(_) | CatchResult(_) |Finally | TryFinally(_) => panic!("not yet implemented: can't set field {} on {:?} to {}", name, self, value),
         }
     }
 }
@@ -453,9 +470,10 @@ impl<'a> fmt::Display for EvalVal<'a> {
             Try => write!(f, "try"),
             TryResult(r) => write!(f, "try -> {}", r.display()),
             Catch => write!(f, "catch"),
-            CatchResult(r) => write!(f, "{} catch", r.display()),
+            TryCatch(r) => write!(f, "try catch -> {} catch", r.display()),
+            CatchResult(r) => write!(f, "try catch ... -> {}", r.display()),
             Finally => write!(f, "finally"),
-            FinallyResult(r) => write!(f, "{} finally", r.display()),
+            TryFinally(r) => write!(f, "{} finally", r.display()),
          }
     }
 }

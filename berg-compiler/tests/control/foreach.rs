@@ -4,11 +4,12 @@ use crate::*;
 fn foreach_tuple() {
     expect("
         :sum = 0
-        foreach 1,2,3 {
-            sum += :_
+        multiply: :x * :y
+        foreach 1,2,3,4 {
+            sum += multiply(:x, 2)
         }
         sum
-    ").to_yield(6);
+    ").to_yield(20);
 }
 
 #[test]

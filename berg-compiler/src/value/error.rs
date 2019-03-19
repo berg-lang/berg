@@ -98,6 +98,7 @@ pub enum BergError<'a> {
     CatchWithoutBlock,
     CatchBlockMustBeBlock,
     CatchWithoutResult,
+    CatchWithoutFinally,
     FinallyWithoutBlock,
     FinallyBlockMustBeBlock,
     FinallyWithoutResult,
@@ -155,6 +156,7 @@ pub enum ErrorCode {
     CatchWithoutBlock,
     CatchBlockMustBeBlock,
     CatchWithoutResult,
+    CatchWithoutFinally,
     FinallyWithoutBlock,
     FinallyBlockMustBeBlock,
     FinallyWithoutResult,
@@ -331,6 +333,7 @@ impl<'a> Error<'a> {
             | CatchWithoutBlock
             | CatchBlockMustBeBlock
             | CatchWithoutResult
+            | CatchWithoutFinally
             | FinallyWithoutBlock
             | FinallyBlockMustBeBlock
             | FinallyWithoutResult
@@ -387,6 +390,7 @@ impl fmt::Display for ErrorCode {
             CatchWithoutBlock => "CatchWithoutBlock",
             CatchBlockMustBeBlock => "CatchBlockMustBeBlock",
             CatchWithoutResult => "CatchWithoutResult",
+            CatchWithoutFinally => "CatchWithoutFinally",
             FinallyWithoutBlock => "FinallyWithoutBlock",
             FinallyBlockMustBeBlock => "FinallyBlockMustBeBlock",
             FinallyWithoutResult => "FinallyWithoutResult",
@@ -607,6 +611,10 @@ impl<'a> fmt::Display for Error<'a> {
                 f,
                 "catch statement must follow an expression! For example, '{{ 1/0 }} catch {{ :error.ErrorCode }}'?"
             ),
+            CatchWithoutFinally => write!(
+                f,
+                "catch must be followed by finally (or nothing)!"
+            ),
             FinallyWithoutBlock => write!(
                 f,
                 "finally statement missing a block! while requires a block to run, such as 'while x < 10 {{ x++ }}'?"
@@ -733,6 +741,7 @@ impl<'a> BergError<'a> {
             CatchWithoutBlock => ErrorCode::CatchWithoutBlock,
             CatchBlockMustBeBlock => ErrorCode::CatchBlockMustBeBlock,
             CatchWithoutResult => ErrorCode::CatchWithoutResult,
+            CatchWithoutFinally => ErrorCode::CatchWithoutFinally,
             FinallyWithoutBlock => ErrorCode::FinallyWithoutBlock,
             FinallyBlockMustBeBlock => ErrorCode::FinallyBlockMustBeBlock,
             FinallyWithoutResult => ErrorCode::FinallyWithoutResult,
@@ -792,17 +801,7 @@ impl<'a> BergValue<'a> for ErrorVal<'a> {
         self.reposition(new_position).err()
     }
 
-    fn infix(self, operator: IdentifierIndex, right: RightOperand<'a, impl BergValue<'a>>) -> EvalResult<'a> {
-        // Literally the only thing we support on errors are { } catch and { } finally
-        if operator == crate::syntax::identifiers::APPLY {
-            match right.get() {
-                // { } catch
-                Ok(RightOperand(EvalVal::Catch, _)) => return EvalVal::CatchResult(self.err()).ok(),
-                // { } finally
-                Ok(RightOperand(EvalVal::Finally, _)) => return EvalVal::FinallyResult(self.err()).ok(),
-                _ => {}
-            }
-        }
+    fn infix(self, _operator: IdentifierIndex, _right: RightOperand<'a, impl BergValue<'a>>) -> EvalResult<'a> {
         self.reposition(Left).err()
     }
 
