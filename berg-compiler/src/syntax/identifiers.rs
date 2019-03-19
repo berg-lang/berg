@@ -70,6 +70,11 @@ identifiers! {
     BREAK = "break",
     CONTINUE = "continue",
     FOREACH = "foreach",
+    TRY = "try",
+    CATCH = "catch",
+    FINALLY = "finally",
+
+    ERROR_CODE = "ErrorCode",
 }
 
 pub(crate) fn intern_all() -> StringInterner<IdentifierIndex> {

@@ -92,6 +92,15 @@ pub enum BergError<'a> {
     ForeachWithoutInput,
     ForeachWithoutBlock,
     ForeachBlockMustBeBlock,
+    TryWithoutBlock,
+    TryBlockMustBeBlock,
+    TryWithoutCatchOrFinally,
+    CatchWithoutBlock,
+    CatchBlockMustBeBlock,
+    CatchWithoutResult,
+    FinallyWithoutBlock,
+    FinallyBlockMustBeBlock,
+    FinallyWithoutResult,
     // TODO stop boxing BergVals
     // BadOperandType(Box<EvalResult<'a>>, &'static str),
     BadOperandType(Box<BergResult<'a>>, &'static str),
@@ -140,6 +149,15 @@ pub enum ErrorCode {
     ForeachWithoutInput,
     ForeachWithoutBlock,
     ForeachBlockMustBeBlock,
+    TryWithoutBlock,
+    TryBlockMustBeBlock,
+    TryWithoutCatchOrFinally,
+    CatchWithoutBlock,
+    CatchBlockMustBeBlock,
+    CatchWithoutResult,
+    FinallyWithoutBlock,
+    FinallyBlockMustBeBlock,
+    FinallyWithoutResult,
 
     // Compile errors related to type (checker)
     UnsupportedOperator = 1001,
@@ -307,6 +325,15 @@ impl<'a> Error<'a> {
             | ForeachBlockMustBeBlock
             | BreakOutsideLoop
             | ContinueOutsideLoop
+            | TryWithoutBlock
+            | TryBlockMustBeBlock
+            | TryWithoutCatchOrFinally
+            | CatchWithoutBlock
+            | CatchBlockMustBeBlock
+            | CatchWithoutResult
+            | FinallyWithoutBlock
+            | FinallyBlockMustBeBlock
+            | FinallyWithoutResult
             => ErrorLocation::SourceExpression(expression.ast, expression.root),
         }
     }
@@ -354,6 +381,15 @@ impl fmt::Display for ErrorCode {
             ForeachBlockMustBeBlock => "ForeachBlockMustBeBlock",
             BreakOutsideLoop => "BreakOutsideLoop",
             ContinueOutsideLoop => "ContinueOutsideLoop",
+            TryWithoutBlock => "TryWithoutBlock",
+            TryBlockMustBeBlock => "TryBlockMustBeBlock",
+            TryWithoutCatchOrFinally => "TryWithoutCatchOrFinally",
+            CatchWithoutBlock => "CatchWithoutBlock",
+            CatchBlockMustBeBlock => "CatchBlockMustBeBlock",
+            CatchWithoutResult => "CatchWithoutResult",
+            FinallyWithoutBlock => "FinallyWithoutBlock",
+            FinallyBlockMustBeBlock => "FinallyBlockMustBeBlock",
+            FinallyWithoutResult => "FinallyWithoutResult",
         };
         write!(f, "{}", string)
     }
@@ -545,6 +581,45 @@ impl<'a> fmt::Display for Error<'a> {
                 f,
                 "continue found outside loop! break must be called from within a while loop."
             ),
+            TryWithoutBlock => write!(
+                f,
+                "try statement missing a block! try requires a block to run, such as 'try {{ x++ }}'."
+            ),
+            TryBlockMustBeBlock => write!(
+                f,
+                "try block must be a block! Did you mean to add brackets here, like '{{ {} }}'?",
+                expression.expression()
+            ),
+            TryWithoutCatchOrFinally => write!(
+                f,
+                "try must be followed by catch or finally!"
+            ),
+            CatchWithoutBlock => write!(
+                f,
+                "catch statement missing a block! catch requires a block to run, such as 'try {{ 1/0 }} catch {{ :error.ErrorCode }}'."
+            ),
+            CatchBlockMustBeBlock => write!(
+                f,
+                "catch block must be a block! Did you mean to add brackets here, like '{{ {} }}'?",
+                expression.expression()
+            ),
+            CatchWithoutResult => write!(
+                f,
+                "catch statement must follow an expression! For example, '{{ 1/0 }} catch {{ :error.ErrorCode }}'?"
+            ),
+            FinallyWithoutBlock => write!(
+                f,
+                "finally statement missing a block! while requires a block to run, such as 'while x < 10 {{ x++ }}'?"
+            ),
+            FinallyBlockMustBeBlock => write!(
+                f,
+                "finally block must be a block! Did you mean to add brackets here, like '{{ {} }}'?",
+                expression.expression()
+            ),
+            FinallyWithoutResult => write!(
+                f,
+                "finally statement must follow an expression! For example, '{{ 1/0 }} finally {{ ... }}'?"
+            ),
             PrivateField(ref value, name) => write!(
                 f,
                 "Field '{}' on '{}' is private and cannot be accessed with '.'! Perhaps you meant to declare the field with ':{}' instead of '{}'?",
@@ -652,6 +727,15 @@ impl<'a> BergError<'a> {
             ForeachWithoutInput => ErrorCode::ForeachWithoutInput,
             ForeachWithoutBlock => ErrorCode::ForeachWithoutBlock,
             ForeachBlockMustBeBlock => ErrorCode::ForeachBlockMustBeBlock,
+            TryWithoutBlock => ErrorCode::TryWithoutBlock,
+            TryBlockMustBeBlock => ErrorCode::TryBlockMustBeBlock,
+            TryWithoutCatchOrFinally => ErrorCode::TryWithoutCatchOrFinally,
+            CatchWithoutBlock => ErrorCode::CatchWithoutBlock,
+            CatchBlockMustBeBlock => ErrorCode::CatchBlockMustBeBlock,
+            CatchWithoutResult => ErrorCode::CatchWithoutResult,
+            FinallyWithoutBlock => ErrorCode::FinallyWithoutBlock,
+            FinallyBlockMustBeBlock => ErrorCode::FinallyBlockMustBeBlock,
+            FinallyWithoutResult => ErrorCode::FinallyWithoutResult,
 
             // Compile errors related to type (checker)
             UnsupportedOperator(..) => ErrorCode::UnsupportedOperator,
@@ -708,7 +792,17 @@ impl<'a> BergValue<'a> for ErrorVal<'a> {
         self.reposition(new_position).err()
     }
 
-    fn infix(self, _operator: IdentifierIndex, _right: RightOperand<'a, impl BergValue<'a>>) -> EvalResult<'a> {
+    fn infix(self, operator: IdentifierIndex, right: RightOperand<'a, impl BergValue<'a>>) -> EvalResult<'a> {
+        // Literally the only thing we support on errors are { } catch and { } finally
+        if operator == crate::syntax::identifiers::APPLY {
+            match right.get() {
+                // { } catch
+                Ok(RightOperand(EvalVal::Catch, _)) => return EvalVal::CatchResult(self.err()).ok(),
+                // { } finally
+                Ok(RightOperand(EvalVal::Finally, _)) => return EvalVal::FinallyResult(self.err()).ok(),
+                _ => {}
+            }
+        }
         self.reposition(Left).err()
     }
 

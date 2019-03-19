@@ -1,5 +1,5 @@
 use crate::eval::BlockRef;
-use crate::value::*;
+use crate::value::implement::*;
 use num::BigRational;
 use std::fmt;
 
@@ -30,6 +30,8 @@ pub enum BergVal<'a> {
     BlockRef(BlockRef<'a>),
     /// [ 1, 2, 3 ]
     Tuple(Tuple<'a>),
+    /// try { 1/0 } catch { $_ }
+    CaughtError(ErrorVal<'a>),
 }
 
 #[derive(Debug, Clone)]
@@ -74,6 +76,7 @@ impl<'a> BergValue<'a> for BergVal<'a> {
             BigRational(value) => value.into_val(),
             BlockRef(value) => value.into_val(),
             Tuple(value) => value.into_val(),
+            CaughtError(_) => self.ok(),
         }
     }
     fn eval_val(self) -> EvalResult<'a> {
@@ -83,6 +86,7 @@ impl<'a> BergValue<'a> for BergVal<'a> {
             BigRational(value) => value.eval_val(),
             BlockRef(value) => value.eval_val(),
             Tuple(value) => value.eval_val(),
+            CaughtError(_) => self.ok(),
         }
     }
     fn evaluate(self) -> BergResult<'a> {
@@ -92,6 +96,7 @@ impl<'a> BergValue<'a> for BergVal<'a> {
             BigRational(value) => value.evaluate(),
             BlockRef(value) => value.evaluate(),
             Tuple(value) => value.evaluate(),
+            CaughtError(_) => self.ok(),
         }
     }
     fn at_position(self, new_position: ExpressionErrorPosition) -> BergResult<'a> {
@@ -101,6 +106,7 @@ impl<'a> BergValue<'a> for BergVal<'a> {
             BigRational(value) => value.at_position(new_position),
             BlockRef(value) => value.at_position(new_position),
             Tuple(value) => value.at_position(new_position),
+            CaughtError(error) => CaughtError(error.reposition(new_position)).ok(),
         }
     }
 
@@ -111,6 +117,7 @@ impl<'a> BergValue<'a> for BergVal<'a> {
             BigRational(value) => value.next_val(),
             BlockRef(value) => value.next_val(),
             Tuple(value) => value.next_val(),
+            CaughtError(_) => single_next_val(self),
         }
     }
 
@@ -120,7 +127,8 @@ impl<'a> BergValue<'a> for BergVal<'a> {
             Boolean(value) => value.into_native(),
             BigRational(value) => value.into_native(),
             BlockRef(value) => value.into_native(),
-            Tuple(value) => value.into_native()
+            Tuple(value) => value.into_native(),
+            CaughtError(_) => default_into_native(self),
         }
     }
 
@@ -130,7 +138,8 @@ impl<'a> BergValue<'a> for BergVal<'a> {
             Boolean(value) => value.try_into_native(),
             BigRational(value) => value.try_into_native(),
             BlockRef(value) => value.try_into_native(),
-            Tuple(value) => value.try_into_native()
+            Tuple(value) => value.try_into_native(),
+            CaughtError(_) => default_try_into_native(self),
         }
     }
 
@@ -141,6 +150,7 @@ impl<'a> BergValue<'a> for BergVal<'a> {
             BigRational(value) => value.infix(operator, right),
             BlockRef(value) => value.infix(operator, right),
             Tuple(value) => value.infix(operator, right),
+            CaughtError(_) => default_infix(self, operator, right),
         }
     }
 
@@ -151,6 +161,7 @@ impl<'a> BergValue<'a> for BergVal<'a> {
             BigRational(value) => value.infix_assign(operator, right),
             BlockRef(value) => value.infix_assign(operator, right),
             Tuple(value) => value.infix_assign(operator, right),
+            CaughtError(_) => default_infix_assign(self, operator, right),
         }
     }
 
@@ -161,6 +172,7 @@ impl<'a> BergValue<'a> for BergVal<'a> {
             BigRational(value) => value.postfix(operator),
             BlockRef(value) => value.postfix(operator),
             Tuple(value) => value.postfix(operator),
+            CaughtError(_) => default_postfix(self, operator),
         }
     }
 
@@ -171,6 +183,7 @@ impl<'a> BergValue<'a> for BergVal<'a> {
             BigRational(value) => value.prefix(operator),
             BlockRef(value) => value.prefix(operator),
             Tuple(value) => value.prefix(operator),
+            CaughtError(_) => default_prefix(self, operator),
         }
     }
 
@@ -181,6 +194,7 @@ impl<'a> BergValue<'a> for BergVal<'a> {
             BigRational(value) => value.subexpression_result(boundary),
             BlockRef(value) => value.subexpression_result(boundary),
             Tuple(value) => value.subexpression_result(boundary),
+            CaughtError(_) => default_subexpression_result(self, boundary),
         }
     }
 
@@ -191,6 +205,10 @@ impl<'a> BergValue<'a> for BergVal<'a> {
             BigRational(value) => value.field(name),
             BlockRef(value) => value.field(name),
             Tuple(value) => value.field(name),
+            CaughtError(error) => match name {
+                crate::syntax::identifiers::ERROR_CODE => (error.code() as usize).ok(),
+                _ => default_field(CaughtError(error), name)
+            }
         }
     }
 
@@ -205,6 +223,7 @@ impl<'a> BergValue<'a> for BergVal<'a> {
             BigRational(ref mut value) => value.set_field(name, field_value),
             BlockRef(ref mut value) => value.set_field(name, field_value),
             Tuple(ref mut value) => value.set_field(name, field_value),
+            CaughtError(ref mut value) => value.set_field(name, field_value),
         }
     }
 }
@@ -218,6 +237,7 @@ impl<'a> fmt::Debug for BergVal<'a> {
             BigRational(ref value) => write!(f, "{}", value)?,
             BlockRef(ref value) => write!(f, "{}", value)?,
             Tuple(ref value) => write!(f, "{}", value)?,
+            CaughtError(ref value) => write!(f, "{}", value)?,
         }
         write!(f, ")")
     }
@@ -231,6 +251,7 @@ impl<'a> fmt::Display for BergVal<'a> {
             BigRational(ref value) => write!(f, "{}", value),
             BlockRef(ref value) => write!(f, "{}", value),
             Tuple(ref value) => write!(f, "{}", value),
+            CaughtError(ref value) => write!(f, "{}", value),
         }
     }
 }

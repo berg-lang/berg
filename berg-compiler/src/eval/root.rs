@@ -27,7 +27,7 @@ struct RootData {
 /// includes the root scope).
 ///
 pub mod keywords {
-    fields! { TRUE, FALSE, IF, ELSE, WHILE, FOREACH, BREAK, CONTINUE, }
+    fields! { TRUE, FALSE, IF, ELSE, WHILE, FOREACH, BREAK, CONTINUE, TRY, CATCH, FINALLY, }
 }
 
 impl Default for RootRef {
@@ -91,6 +91,9 @@ impl RootRef {
             FOREACH => Foreach.ok(),
             BREAK => BreakOutsideLoop.err(),
             CONTINUE => ContinueOutsideLoop.err(),
+            TRY => Try.ok(),
+            CATCH => Catch.ok(),
+            FINALLY => Finally.ok(),
             _ => unreachable!(),
         }
     }

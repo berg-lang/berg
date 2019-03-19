@@ -191,7 +191,7 @@ pub mod implement {
         right: RightOperand<'a, impl BergValue<'a>>,
     ) -> EvalResult<'a> {
         use crate::syntax::identifiers::{
-            COLON, COMMA, DOT, EQUAL_TO, EXCLAMATION_POINT, NEWLINE, NOT_EQUAL_TO, SEMICOLON,
+            APPLY, COLON, COMMA, DOT, EQUAL_TO, EXCLAMATION_POINT, NEWLINE, NOT_EQUAL_TO, SEMICOLON,
         };
         match operator {
             COMMA => {
@@ -242,6 +242,13 @@ pub mod implement {
                 }
             }
             COLON => BergError::AssignmentTargetMustBeIdentifier.operand_err(Left),
+            APPLY => match right.get()? {
+                // { } catch
+                RightOperand(EvalVal::Catch, _) => EvalVal::CatchResult(left.evaluate()).ok(),
+                // { } finally
+                RightOperand(EvalVal::Finally, _) => EvalVal::FinallyResult(left.evaluate()).ok(),
+                _ => BergError::UnsupportedOperator(Box::new(left.into_val()), Fixity::Infix, operator).err(),
+            }
             _ => BergError::UnsupportedOperator(Box::new(left.into_val()), Fixity::Infix, operator).err(),
         }
     }
