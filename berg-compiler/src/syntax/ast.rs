@@ -6,7 +6,7 @@ use crate::syntax::{
     SourceOpenError, SourceReconstruction, SourceReconstructionReader, SourceRef, ExpressionToken, OperatorToken, Token,
 };
 use crate::util::indexed_vec::IndexedVec;
-use crate::value::BergError;
+use crate::value::CompilerError;
 use std::borrow::Cow;
 use std::io;
 use std::ops::Deref;
@@ -132,7 +132,7 @@ impl<'a> Ast<'a> {
     pub fn raw_literal_string(&self, index: RawLiteralIndex) -> &[u8] {
         &self.raw_literals[index]
     }
-    pub fn open_error(&self) -> &BergError<'a> {
+    pub fn open_error(&self) -> &CompilerError<'a> {
         &self.source_open_error.as_ref().unwrap().0
     }
     pub fn open_io_error(&self) -> &io::Error {

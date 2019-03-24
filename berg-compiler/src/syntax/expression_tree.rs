@@ -2,6 +2,7 @@ use crate::syntax::Fixity::*;
 use crate::syntax::{
     Ast, AstIndex, AstRef, ByteRange, ExpressionBoundary, ExpressionFormatter, ExpressionTreeFormatter, SourceReconstruction, Fixity, OperandPosition, Token, ExpressionToken, OperatorToken,
 };
+use crate::value::ExpressionErrorPosition;
 use std::borrow::Cow;
 use std::fmt;
 use std::ops::RangeInclusive;
@@ -42,6 +43,10 @@ impl<'a> ExpressionRef<'a> {
     }
     pub fn expression<'p>(&'p self) -> ExpressionTreeWalker<'p, 'a> {
         ExpressionTreeWalker::basic(&self.ast, self.root)
+    }
+    pub fn at_position(mut self, position: ExpressionErrorPosition) -> Self {
+        self.root = AstExpressionTree::new(&self.ast, self.root).at_position(position).root_index();
+        self
     }
 }
 impl<'a> fmt::Debug for ExpressionRef<'a> {
@@ -250,6 +255,34 @@ impl<'p, 'a: 'p> AstExpressionTree<'p, 'a> {
             Left | PostfixOperand => self.left_expression(),
             Right | PrefixOperand => self.right_expression(),
         }
+    }
+
+    fn skip_implicit_groups(self) -> Self {
+        let mut result = self;
+        while let Token::Expression(ExpressionToken::Open(_, boundary, _)) = result.token() {
+            if boundary.is_required() {
+                break;
+            }
+            result = result.inner_expression();
+        }
+        result
+    }
+
+    pub fn at_position(self, position: ExpressionErrorPosition) -> Self {
+        use ExpressionErrorPosition::*;
+        let expression = self.skip_implicit_groups();
+        let result = match position {
+            Expression => expression,
+            Left => expression.left_expression(),
+            LeftLeft => expression.left_expression().skip_implicit_groups().left_expression(),
+            LeftRight => expression.left_expression().skip_implicit_groups().right_expression(),
+            Right => expression.right_expression(),
+            RightLeft => expression.right_expression().skip_implicit_groups().left_expression(),
+            RightRight => expression.right_expression().skip_implicit_groups().right_expression(),
+        };
+        let result = result.skip_implicit_groups();
+        println!("error_location({:?} [{:?}]): result ({:?})={:?}", self, self.token(), position, result);
+        result
     }
 
     pub fn format(self) -> ExpressionTreeWalker<'p, 'a, ExpressionFormatter> {

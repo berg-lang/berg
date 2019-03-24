@@ -27,7 +27,7 @@ struct RootData {
 /// includes the root scope).
 ///
 pub mod keywords {
-    fields! { TRUE, FALSE, IF, ELSE, WHILE, FOREACH, BREAK, CONTINUE, TRY, CATCH, FINALLY, }
+    fields! { TRUE, FALSE, IF, ELSE, WHILE, FOREACH, BREAK, CONTINUE, TRY, CATCH, FINALLY, THROW, }
 }
 
 impl Default for RootRef {
@@ -67,10 +67,10 @@ impl RootRef {
         keywords::FIELD_NAMES.iter()
     }
 
-    fn field_index<'a>(&self, name: IdentifierIndex) -> Result<FieldIndex, ErrorVal<'a>> {
+    fn field_index<'a>(&self, name: IdentifierIndex) -> Result<FieldIndex, EvalException<'a>> {
         match self.field_names().enumerate().find(|&(_, n)| name == *n) {
             Some((index, _)) => Ok(FieldIndex(index as u32)),
-            None => BergError::NoSuchPublicFieldOnRoot(name).err(),
+            None => CompilerError::NoSuchPublicFieldOnRoot(name).err(),
         }
     }
 
@@ -81,7 +81,7 @@ impl RootRef {
     pub fn local_field<'a>(&self, index: FieldIndex) -> EvalResult<'a> {
         use crate::eval::keywords::*;
         use EvalVal::*;
-        use BergError::*;
+        use CompilerError::*;
         match index {
             TRUE => true.ok(),
             FALSE => false.ok(),
@@ -94,6 +94,7 @@ impl RootRef {
             TRY => Try.ok(),
             CATCH => Catch.ok(),
             FINALLY => Finally.ok(),
+            THROW => Throw.ok(),
             _ => unreachable!(),
         }
     }
@@ -103,11 +104,11 @@ impl RootRef {
         &self,
         index: FieldIndex,
         _value: BergVal<'a>,
-    ) -> Result<(), ErrorVal<'a>> {
-        BergError::ImmutableFieldOnRoot(index).err()
+    ) -> Result<(), EvalException<'a>> {
+        CompilerError::ImmutableFieldOnRoot(index).err()
     }
 
-    pub fn declare_field<'a>(&self, _index: FieldIndex) -> Result<(), ErrorVal<'a>> {
+    pub fn declare_field<'a>(&self, _index: FieldIndex) -> Result<(), EvalException<'a>> {
         // This should not be possible to do. We can fill in an error here when we find a testcase that triggers it.
         unreachable!()
     }

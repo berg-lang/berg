@@ -1,13 +1,14 @@
-use std::fmt;
-
-/// Convenience so we can do Display on BergResult.
-pub trait DisplayResult {
-    fn display(&self) -> DisplayResultVal<Self> {
-        DisplayResultVal(self)
+///
+/// Convenience to say X.ok(), which chains better than Ok(X)
+/// 
+pub trait OkShorthand<T>: Into<T> {
+    ///
+    /// Return `Ok(value.into())`
+    /// 
+    fn ok<E>(self) -> Result<T, E> {
+        Ok(self.into())
     }
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result;
 }
-pub struct DisplayResultVal<'p, T: DisplayResult+?Sized>(&'p T);
 
 ///
 /// Convenience to say X.err(), which chains better than Err(X)
@@ -22,33 +23,37 @@ pub trait ErrShorthand<E>: Into<E> {
 }
 
 ///
-/// Convenience to say X.ok(), which chains better than Ok(X)
+/// Convenience convert a Result into the return Result type.
 /// 
-pub trait OkShorthand<T>: Into<T> {
+pub trait ResShorthand: is_result::IsResult {
     ///
-    /// Return `Ok(value.into())`
+    /// Convert the Result into the return Result type.
     /// 
-    fn ok<E>(self) -> Result<T, E> {
-        Ok(self.into())
-    }
-}
-
-impl<E, T: Into<E>> ErrShorthand<E> for T {
-}
-
-impl<T, S: Into<T>> OkShorthand<T> for S {
-}
-
-impl<'p, T: fmt::Display, E: fmt::Display> DisplayResult for Result<T, E> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            Ok(value) => write!(f, "{}", value),
-            Err(error) => write!(f, "{}", error),
+    fn res<T: From<Self::Ok>, E: From<Self::Err>>(self) -> Result<T, E> {
+        match self.into_result() {
+            Ok(ok) => Ok(ok.into()),
+            Err(err) => Err(err.into()),
         }
     }
 }
-impl<'p, T: DisplayResult> fmt::Display for DisplayResultVal<'p, T> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        DisplayResult::fmt(self.0, f)
+
+pub mod is_result {
+    ///
+    /// Trait implemented on all results so that we can implement anything we want
+    /// on all results.
+    /// 
+    pub trait IsResult: Sized {
+        type Ok;
+        type Err;
+        fn into_result(self) -> Result<Self::Ok, Self::Err>;
+    }
+    impl<Ok, Err> IsResult for Result<Ok, Err> {
+        type Ok = Ok;
+        type Err = Err;
+        fn into_result(self) -> Result<Self::Ok, Self::Err> { self }
     }
 }
+
+impl<T, E> ResShorthand for Result<T, E> {}
+impl<E, T: Into<E>> ErrShorthand<E> for T {}
+impl<T, S: Into<T>> OkShorthand<T> for S {}

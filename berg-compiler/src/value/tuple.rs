@@ -58,61 +58,71 @@ impl<'a, 'p> IntoIterator for &'p Tuple<'a> {
     }
 }
 
-impl<'a> BergValue<'a> for Tuple<'a> {
-    fn infix(self, operator: IdentifierIndex, right: RightOperand<'a, impl BergValue<'a>>) -> EvalResult<'a> {
-        default_infix(self, operator, right)
-    }
-    fn infix_assign(self, operator: IdentifierIndex, right: RightOperand<'a, impl BergValue<'a>>) -> EvalResult<'a> {
-        default_infix_assign(self, operator, right)
-    }
-    fn postfix(self, operator: IdentifierIndex) -> EvalResult<'a> {
-        default_postfix(self, operator)
-    }
-    fn prefix(self, operator: IdentifierIndex) -> EvalResult<'a> {
-        default_prefix(self, operator)
-    }
-    fn subexpression_result(self, boundary: ExpressionBoundary) -> EvalResult<'a> {
-        default_subexpression_result(self, boundary)
-    }
+impl<'a> BergValue<'a> for Tuple<'a> {}
 
-    fn field(self, name: IdentifierIndex) -> EvalResult<'a> {
-        default_field(self, name)
+impl<'a> EvaluatableValue<'a> for Tuple<'a> {
+    fn evaluate(self) -> BergResult<'a> where Self: Sized {
+        self.ok()
     }
-    fn set_field(&mut self, name: IdentifierIndex, value: BergVal<'a>) -> Result<(), ErrorVal<'a>> {
-        default_set_field(self, name, value)
-    }
+}
 
-    fn next_val(mut self) -> Result<Option<NextVal<'a>>, ErrorVal<'a>> {
-        match self.0.pop() {
-            Some(value) => Ok(Some(NextVal { head: value, tail: Tuple(self.0).ok() })),
-            None => Ok(None),
-        }
-    }
-    fn into_val(self) -> BergResult<'a> {
+impl<'a> Value<'a> for Tuple<'a> {
+    fn lazy_val(self) -> Result<BergVal<'a>, EvalException<'a>> where Self: Sized {
         self.ok()
     }
-    fn eval_val(self) -> EvalResult<'a> {
+    fn eval_val(self) -> EvalResult<'a> where Self: Sized {
         self.ok()
     }
-    fn evaluate(self) -> BergResult<'a> {
-        self.into_val()
-    }
-    fn at_position(self, _new_position: ExpressionErrorPosition) -> BergResult<'a> {
-        self.ok()
-    }
-    fn into_native<T: TryFromBergVal<'a>>(mut self) -> Result<T, ErrorVal<'a>> {
+    fn into_native<T: TryFromBergVal<'a>>(mut self) -> Result<T, EvalException<'a>> {
         if self.0.len() == 1 {
             Ok(self.0.pop().unwrap().into_native()?)
         } else {
-            BergError::BadOperandType(Box::new(Ok(BergVal::Tuple(self))), T::TYPE_NAME).err()
+            CompilerError::BadOperandType(Box::new(BergVal::Tuple(self)), T::TYPE_NAME).err()
         }
     }
-    fn try_into_native<T: TryFromBergVal<'a>>(mut self) -> Result<Option<T>, ErrorVal<'a>> {
+    fn try_into_native<T: TryFromBergVal<'a>>(mut self) -> Result<Option<T>, EvalException<'a>> {
         if self.0.len() == 1 {
             Ok(Some(self.0.pop().unwrap().into_native()?))
         } else {
             Ok(None)
         }
+    }
+
+    fn display(&self) -> &std::fmt::Display {
+        self
+    }
+}
+
+impl<'a> IteratorValue<'a> for Tuple<'a> {
+    fn next_val(mut self) -> Result<NextVal<'a>, EvalException<'a>> {
+        NextVal { head: self.0.pop(), tail: self.into() }.ok()
+    }
+}
+
+impl<'a> ObjectValue<'a> for Tuple<'a> {
+    fn field(self, name: IdentifierIndex) -> EvalResult<'a> where Self: Sized {
+        default_field(self, name)
+    }
+    fn set_field(&mut self, name: IdentifierIndex, value: BergVal<'a>) -> Result<(), EvalException<'a>> {
+        default_set_field(self, name, value)
+    }
+}
+
+impl<'a> OperableValue<'a> for Tuple<'a> {
+    fn infix(self, operator: IdentifierIndex, right: RightOperand<'a, impl EvaluatableValue<'a>>) -> EvalResult<'a> where Self: Sized {
+        default_infix(self, operator, right)
+    }
+    fn infix_assign(self, operator: IdentifierIndex, right: RightOperand<'a, impl EvaluatableValue<'a>>) -> EvalResult<'a> where Self: Sized {
+        default_infix_assign(self, operator, right)
+    }
+    fn postfix(self, operator: IdentifierIndex) -> EvalResult<'a> where Self: Sized {
+        default_postfix(self, operator)
+    }
+    fn prefix(self, operator: IdentifierIndex) -> EvalResult<'a> where Self: Sized {
+        default_prefix(self, operator)
+    }
+    fn subexpression_result(self, boundary: ExpressionBoundary) -> EvalResult<'a> where Self: Sized {
+        default_subexpression_result(self, boundary)
     }
 }
 
@@ -146,8 +156,8 @@ impl<'a> From<Tuple<'a>> for EvalVal<'a> {
 
 impl<'a> TryFromBergVal<'a> for Tuple<'a> {
     const TYPE_NAME: &'static str = "Tuple";
-    fn try_from_berg_val(from: EvalVal<'a>) -> Result<Result<Self, BergVal<'a>>, ErrorVal<'a>> {
-        match from.into_val()? {
+    fn try_from_berg_val(from: EvalVal<'a>) -> Result<Result<Self, BergVal<'a>>, EvalException<'a>> {
+        match from.lazy_val()? {
             BergVal::Tuple(value) => Ok(Ok(value)),
             value => Ok(Err(value)),
         }

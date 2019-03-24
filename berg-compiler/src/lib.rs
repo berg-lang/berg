@@ -9,13 +9,15 @@ extern crate num;
 extern crate string_interner;
 
 // Explicitly expose just the interfaces we want to expose
-pub use crate::value::{BergResult, BergVal, BergValue, ErrorVal, Error, ErrorCode};
+pub use crate::value::{BergResult, BergVal, BergValue, EvalException, Exception, CompilerErrorCode};
 
 use crate::eval::{evaluate_ast, RootRef};
 use crate::parser::parse;
 use crate::syntax::SourceRef;
 use std::borrow::Cow;
 use std::path::Path;
+#[macro_use]
+extern crate matches;
 
 #[macro_use]
 pub(crate) mod util;

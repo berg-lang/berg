@@ -73,8 +73,9 @@ identifiers! {
     TRY = "try",
     CATCH = "catch",
     FINALLY = "finally",
+    THROW = "throw",
 
-    ERROR_CODE = "ErrorCode",
+    ERROR_CODE = "CompilerErrorCode",
 }
 
 pub(crate) fn intern_all() -> StringInterner<IdentifierIndex> {

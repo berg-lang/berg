@@ -25,10 +25,10 @@ impl<'p, 'a: 'p> ExpressionEvaluator<'p, 'a> {
     pub fn scope(self) -> &'p ScopeRef<'a> {
         self.context()
     }
-    pub fn evaluate(self) -> BergResult<'a> {
-        self.into_val()
+    pub fn evaluate_block(self, boundary: ExpressionBoundary) -> BergResult<'a> {
+        self.evaluate_inner(boundary).lazy_val().map_err(|e| e.at_location(self))
     }
-    fn evaluate_local(self) -> EvalResult<'a> {
+    fn evaluate_local(self) -> Result<EvalVal<'a>, Exception<'a>> {
         let indent = "  ".repeat(self.depth());
         println!("{}Evaluating {} ...", indent, self);
         use ExpressionToken::*;
@@ -59,9 +59,9 @@ impl<'p, 'a: 'p> ExpressionEvaluator<'p, 'a> {
                     //
                     // Syntax errors
                     //
-                    ErrorTerm(IdentifierStartsWithNumber, literal) => BergError::IdentifierStartsWithNumber(literal).err(),
-                    ErrorTerm(UnsupportedCharacters, literal) => BergError::UnsupportedCharacters(literal).err(),
-                    RawErrorTerm(InvalidUtf8, raw_literal) => BergError::InvalidUtf8(raw_literal).err(),
+                    ErrorTerm(IdentifierStartsWithNumber, literal) => self.throw(CompilerError::IdentifierStartsWithNumber(literal)),
+                    ErrorTerm(UnsupportedCharacters, literal) => self.throw(CompilerError::UnsupportedCharacters(literal)),
+                    RawErrorTerm(InvalidUtf8, raw_literal) => self.throw(CompilerError::InvalidUtf8(raw_literal)),
                 }
 
                 // A<op>
@@ -70,15 +70,15 @@ impl<'p, 'a: 'p> ExpressionEvaluator<'p, 'a> {
                 // (...), {...}
                 Open(None, boundary, delta) => if boundary.is_block() {
                     let block_index = self.ast().close_block_index(self.root_index() + delta);
-                    Ok(self.scope().create_child_block(self.root_index(), block_index).into())
+                    self.scope().create_child_block(self.root_index(), block_index).ok()
                 } else {
                     self.evaluate_inner(boundary)
                 }
 
                 // ( and { syntax errors
-                Open(Some(OpenError), ..) => self.ast().open_error().clone().err(),
-                Open(Some(OpenWithoutClose), ..) => BergError::OpenWithoutClose.err(),
-                Open(Some(CloseWithoutOpen), ..) => BergError::CloseWithoutOpen.err(),
+                Open(Some(OpenError), ..) => self.throw(self.ast().open_error().clone()),
+                Open(Some(OpenWithoutClose), ..) => self.throw(CompilerError::OpenWithoutClose),
+                Open(Some(CloseWithoutOpen), ..) => self.throw(CompilerError::CloseWithoutOpen),
             }
             Token::Operator(token) => match token {
                 //
@@ -100,6 +100,7 @@ impl<'p, 'a: 'p> ExpressionEvaluator<'p, 'a> {
                 Close(..) | CloseBlock(..) => unreachable!(),
             }
         };
+        let result = result.map_err(|e| e.at_location(self));
         println!(
             "{}Evaluated {} to {}",
             indent,
@@ -109,132 +110,64 @@ impl<'p, 'a: 'p> ExpressionEvaluator<'p, 'a> {
         result
     }
 
-    pub fn evaluate_inner(self, boundary: ExpressionBoundary) -> EvalResult<'a> {
-        let mut result = self.inner_expression().evaluate_local();
-        if boundary.is_required() { result = result.subexpression_result(boundary) }
-        self.delocalize_errors(result)
+    fn throw<T, E: From<Exception<'a>>>(&self, error: CompilerError<'a>) -> Result<T, E> {
+        Err(E::from(error.at_location(*self)))
+    }
+
+    fn evaluate_inner(self, boundary: ExpressionBoundary) -> EvalResult<'a> {
+        let result = self.inner_expression().evaluate_local();
+        if boundary.is_required() {
+            result.subexpression_result(boundary)
+        } else {
+            result.res()
+        }
     }
 
     fn evaluate_infix(self, operator: IdentifierIndex) -> EvalResult<'a> {
         let left = self.left_expression().evaluate_local();
         let right = RightOperand::from(self.right_expression());
-        self.delocalize_errors(left.infix(operator, right))
+        left.infix(operator, right)
     }
 
     fn evaluate_infix_assign(self, operator: IdentifierIndex) -> EvalResult<'a> {
         let left = self.left_expression().evaluate_local();
         let right = RightOperand::from(self.right_expression());
-        self.delocalize_errors(left.infix_assign(operator, right))
+        left.infix_assign(operator, right)
     }
 
     fn evaluate_prefix(self, operator: IdentifierIndex) -> EvalResult<'a> {
         let right = self.right_expression().evaluate_local();
-        self.delocalize_errors(right.prefix(operator))
+        right.prefix(operator)
     }
 
     fn evaluate_postfix(self, operator: IdentifierIndex) -> EvalResult<'a> {
         let left = self.left_expression().evaluate_local();
-        self.delocalize_errors(left.postfix(operator))
-    }
-
-    ///
-    /// Remove ExpressionError from result and point at real error locations.
-    /// 
-    fn delocalize_errors<T: fmt::Debug>(self, result: Result<T, ErrorVal<'a>>) -> Result<T, ErrorVal<'a>> {
-        match result {
-            Err(ErrorVal::ExpressionError(error, position)) => error.at_location(self.error_location(position)).err(),
-            Ok(_) | Err(ErrorVal::Error(_)) => result,
-        }
-    }
-
-    fn skip_implicit_groups(self) -> Self {
-        let mut result = self;
-        while let Token::Expression(ExpressionToken::Open(_, boundary, _)) = result.token() {
-            if boundary.is_required() {
-                break;
-            }
-            result = result.inner_expression();
-        }
-        result
-    }
-
-    fn error_location(self, position: ExpressionErrorPosition) -> ExpressionEvaluator<'p, 'a> {
-        use ExpressionErrorPosition::*;
-        let expression = self.skip_implicit_groups();
-        let result = match position {
-            Expression => expression,
-            Left => expression.left_expression(),
-            LeftLeft => expression.left_expression().skip_implicit_groups().left_expression(),
-            LeftRight => expression.left_expression().skip_implicit_groups().right_expression(),
-            Right => expression.right_expression(),
-            RightLeft => expression.right_expression().skip_implicit_groups().left_expression(),
-            RightRight => expression.right_expression().skip_implicit_groups().right_expression(),
-        };
-        let result = result.skip_implicit_groups();
-        println!("error_location({:?} [{:?}]): result ({:?})={:?}", self, self.token(), position, result);
-        result
+        left.postfix(operator)
     }
 }
 
+impl<'p, 'a: 'p> EvaluatableValue<'a> for ExpressionEvaluator<'p, 'a> {
+    fn evaluate(self) -> BergResult<'a> where Self: Sized {
+        self.evaluate_local().lazy_val().map_err(|e| e.at_location(self)).evaluate()
+    }
+}
 
-impl<'p, 'a: 'p> BergValue<'a> for ExpressionEvaluator<'p, 'a> {
-    fn into_val(self) -> BergResult<'a> {
-        self.delocalize_errors(self.evaluate_local().into_val())
+impl<'p, 'a: 'p> Value<'a> for ExpressionEvaluator<'p, 'a> {
+    fn lazy_val(self) -> Result<BergVal<'a>, EvalException<'a>> where Self: Sized {
+        self.evaluate_local().lazy_val().map_err(|e| e.at_location(self).into())
     }
-    fn eval_val(self) -> EvalResult<'a> {
-        self.delocalize_errors(self.evaluate_local().eval_val())
-    }
-    fn evaluate(self) -> BergResult<'a> {
-        self.delocalize_errors(self.evaluate_local().evaluate())
-    }
-    fn at_position(self, new_position: ExpressionErrorPosition) -> BergResult<'a> {
-        self.into_val().at_position(new_position)
-    }
-
-    fn into_native<T: TryFromBergVal<'a>>(self) -> Result<T, ErrorVal<'a>> {
-        self.delocalize_errors(self.evaluate_local().into_native())
+    fn eval_val(self) -> EvalResult<'a> where Self: Sized {
+        self.evaluate_local().eval_val().map_err(|e| e.at_location(self).into())
     }
 
-    fn try_into_native<T: TryFromBergVal<'a>>(self) -> Result<Option<T>, ErrorVal<'a>> {
-       self.delocalize_errors(self.evaluate_local().try_into_native())
+    fn into_native<T: TryFromBergVal<'a>>(self) -> Result<T, EvalException<'a>> {
+        self.evaluate_local().into_native().map_err(|e| e.at_location(self).into())
     }
 
-    fn next_val(self) -> Result<Option<NextVal<'a>>, ErrorVal<'a>> {
-        unreachable!()
+    fn try_into_native<T: TryFromBergVal<'a>>(self) -> Result<Option<T>, EvalException<'a>> {
+       self.evaluate_local().try_into_native().map_err(|e| e.at_location(self).into())
     }
-
-    #[allow(unused_variables)]
-    fn infix(self, operator: IdentifierIndex, right: RightOperand<'a, impl BergValue<'a>>) -> EvalResult<'a> {
-        unreachable!()
-    }
-
-    #[allow(unused_variables)]
-    fn infix_assign(self, operator: IdentifierIndex, right: RightOperand<'a, impl BergValue<'a>>) -> EvalResult<'a> {
-        unreachable!()
-    }
-
-    #[allow(unused_variables)]
-    fn prefix(self, operator: IdentifierIndex) -> EvalResult<'a> {
-        unreachable!()
-    }
-
-    #[allow(unused_variables)]
-    fn postfix(self, operator: IdentifierIndex) -> EvalResult<'a> {
-        unreachable!()
-    }
-
-    #[allow(unused_variables)]
-    fn subexpression_result(self, boundary: ExpressionBoundary) -> EvalResult<'a> {
-        unreachable!()
-    }
-
-    #[allow(unused_variables)]
-    fn field(self, name: IdentifierIndex) -> EvalResult<'a> {
-        unreachable!()
-    }
-
-    #[allow(unused_variables)]
-    fn set_field(&mut self, name: IdentifierIndex, value: BergVal<'a>) -> Result<(), ErrorVal<'a>> {
-        unreachable!()
+    fn display(&self) -> &fmt::Display {
+        self
     }
 }

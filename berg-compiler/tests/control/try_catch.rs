@@ -114,3 +114,11 @@ fn dangling_try_catch() {
 fn dangling_try_finally() {
     expect("try finally").to_error(FinallyWithoutResult, "finally")
 }
+#[test]
+fn throw() {
+    expect("throw 1").to_error(1, "throw 1")
+}
+#[test]
+fn dangling_throw() {
+    expect("throw").to_error(ThrowWithoutException, "throw")
+}

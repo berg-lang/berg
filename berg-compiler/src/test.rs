@@ -8,7 +8,7 @@ use crate::value::*;
 use std::fmt;
 use std::io;
 use std::ops::Range;
-pub use ErrorCode::*;
+pub use CompilerErrorCode::*;
 
 ///
 /// Test a string containing Berg source code.
@@ -43,6 +43,23 @@ pub fn expect<T: AsRef<[u8]> + ?Sized>(source: &T) -> ExpectBerg {
 /// 
 #[derive(Debug)]
 pub struct ExpectBerg<'a>(pub &'a [u8]);
+
+///
+/// An expected value.
+/// 
+pub trait ExpectedValue<'a>: fmt::Display+Clone {
+    fn matches(self, actual: BergVal<'a>) -> Result<bool, EvalException<'a>>;
+}
+impl<'a> ExpectedValue<'a> for CompilerErrorCode {
+    fn matches(self, actual: BergVal<'a>) -> Result<bool, EvalException<'a>> {
+        Ok(self == actual.into_native::<CompilerError>()?.code())
+    }
+}
+impl<'a, T: Into<BergVal<'a>>+fmt::Display+Clone> ExpectedValue<'a> for T {
+    fn matches(self, actual: BergVal<'a>) -> Result<bool, EvalException<'a>> {
+        self.into().infix(EQUAL_TO, actual.into())?.into_native::<bool>()
+    }
+}
 
 ///
 /// An expected error range.
@@ -141,24 +158,20 @@ impl<'a> ExpectBerg<'a> {
     /// ```
     /// 
     #[allow(clippy::needless_pass_by_value, clippy::wrong_self_convention)]
-    pub fn to_yield<V: Into<BergVal<'a>> + fmt::Display>(self, expected: V)
-    where
-        BergVal<'a>: From<V>,
+    pub fn to_yield(self, expected: impl ExpectedValue<'a>)
     {
         println!("Source:");
         println!("{}", String::from_utf8_lossy(self.0));
         println!("");
         let actual = evaluate_ast(self.parse())
-            .unwrap_or_else(|error| panic!("Unexpected error: {}", error));
-        let expected = BergVal::from(expected);
+            .unwrap_or_else(|e| panic!("Unexpected error from {}: {}", self, e));
         println!("actual: {}, expected: {}", actual, expected);
-        let equal = bergvals_equal(expected.clone(), actual.clone());
         assert!(
-            equal.clone().unwrap_or(false),
-            "Wrong value returned! expected: {}, actual: {}. Equal: {}",
+            expected.clone().matches(actual.clone()).unwrap_or_else(|e| panic!("Unexpected error from {}: {}", self, e)),
+            "Wrong value returned from {}! expected: {}, actual: {}.",
+            self,
             expected,
             actual,
-            equal.display()
         );
     }
 
@@ -197,7 +210,8 @@ impl<'a> ExpectBerg<'a> {
     ///   ```
     /// 
     #[allow(clippy::wrong_self_convention)]
-    pub fn to_error(self, code: ErrorCode, expected_range: impl ExpectedErrorRange) {
+    pub fn to_error(self, expected_value: impl ExpectedValue<'a>, expected_range: impl ExpectedErrorRange) {
+        // Run the Berg
         println!("Source:");
         println!("{}", String::from_utf8_lossy(self.0));
         println!("");
@@ -211,35 +225,27 @@ impl<'a> ExpectBerg<'a> {
             result.is_err(),
             "No error produced by {}: expected {}, got value {}",
             self,
-            self.error_string(code, expected_range, &ast),
+            self.error_string(&expected_value, expected_range, &ast),
             result.as_ref().unwrap()
         );
-        match result.unwrap_err() {
-            ErrorVal::Error(actual) => {
-                assert_eq!(
-                    code,
-                    actual.code(),
-                    "Wrong error code from {}! Expected {}, got {}",
-                    self,
-                    self.error_string(code, expected_range, &ast),
-                    self.error_string(actual.code(), actual.location().range(), &ast)
-                );
-                assert_eq!(
-                    expected_range,
-                    actual.location().range(),
-                    "Wrong error range from {}! Expected {}, got {}",
-                    self,
-                    self.error_string(code, expected_range, &ast),
-                    self.error_string(actual.code(), actual.location().range(), &ast)
-                );
-            },
-            actual => panic!(
-                "Result of {} is an error, but of an unexpected type! Expected {}, got {}",
-                self,
-                self.error_string(code, expected_range, &ast),
-                actual
-            ),
-        }
+
+        let actual = result.unwrap_err();
+        let actual_range = actual.location().range();
+        assert!(
+            expected_value.clone().matches(actual.value.clone()).unwrap_or_else(|e| panic!("Unexpected error: {}", e)),
+            "Wrong error returned from {}! expected: {}, actual: {}.",
+            self,
+            self.error_string(&expected_value, expected_range, &ast),
+            self.error_string(&actual.value, actual_range, &ast)
+        );
+        assert_eq!(
+            expected_range,
+            actual_range,
+            "Wrong error range from {}! Expected {}, got {}",
+            self,
+            self.error_string(&expected_value, expected_range, &ast),
+            self.error_string(&actual.value, actual_range, &ast)
+        )
     }
 
     fn parse(&self) -> AstRef<'a> {
@@ -255,23 +261,35 @@ impl<'a> ExpectBerg<'a> {
         ast
     }
 
-    fn consume_all(mut value: BergVal<'a>) -> BergResult<'a> {
+    fn consume_all(mut value: BergVal<'a>) -> Result<BergVal<'a>, Exception<'a>> {
         let mut values = vec![];
         loop {
-            match value.next_val()? {
+            use EvalException::*;
+            let NextVal { head, tail } = value.next_val()
+                // Strip the EvalExceptions (which absolutely will not be happening
+                // because the errors are being thrown by a BlockVal).
+                // TODO this makes it clear that the external interface needs work:
+                // If we truly expect this not to throw "local" errors, which I think
+                // we do, then we need a result type that only returns Exception.
+                .map_err(|e| match e { Error(e) => e, Thrown(..) => unreachable!() })?;
+
+            match head {
                 None => break,
-                Some(NextVal { head, tail }) => {
+                Some(head) => {
                     values.push(head);
-                    value = tail?;
+                    value = tail;
                 }
             }
         }
         Ok(values.into())
     }
 
-    fn error_string(&self, code: ErrorCode, range: LineColumnRange, ast: &AstRef<'a>) -> String {
+    fn error_string(&self, value: &fmt::Display, range: LineColumnRange, ast: &AstRef<'a>) -> String {
+        format!("{} at {}", value, self.error_range_string(range, ast))
+    }
+    fn error_range_string(&self, range: LineColumnRange, ast: &AstRef<'a>) -> String {
         let byte_range = ast.char_data.byte_range(range).into_range();
-        format!("{} at {} ({})", code, range, String::from_utf8_lossy(&self.0[byte_range]))
+        format!("{} ({})", range, String::from_utf8_lossy(&self.0[byte_range]))
     }
 }
 
@@ -387,11 +405,4 @@ impl<R: BoundedRange<ByteIndex>, T: IntoRange<ByteIndex, Output = R>+fmt::Debug>
 fn find_substring_in_source(substring: &[u8], source: &[u8]) -> ByteRange {
     let start = source.windows(substring.len()).position(|window| window == substring).unwrap();
     ByteIndex::from(start)..ByteIndex::from(start+substring.len())
-}
-
-///
-/// Check if two BergVals are equal. Just calls `infix`.
-/// 
-fn bergvals_equal<'a>(expected: BergVal<'a>, actual: BergVal<'a>) -> Result<bool, ErrorVal<'a>> {
-    Ok(expected.infix(EQUAL_TO, actual.into())?.into_native::<bool>()?)
 }

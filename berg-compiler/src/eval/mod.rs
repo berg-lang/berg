@@ -10,7 +10,7 @@ pub use self::root::RootRef;
 pub use self::scope::ScopeRef;
 
 use crate::syntax::AstRef;
-use crate::value::BergResult;
+use crate::value::*;
 
 pub fn evaluate_ast(ast: AstRef) -> BergResult {
     let scope = ScopeRef::AstRef(ast.clone());

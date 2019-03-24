@@ -3,45 +3,54 @@ use crate::value::implement::*;
 
 impl<'a> TryFromBergVal<'a> for IdentifierIndex {
     const TYPE_NAME: &'static str = "identifier";
-    fn try_from_berg_val(from: EvalVal<'a>) -> Result<Result<Self, BergVal<'a>>, ErrorVal<'a>> {
+    fn try_from_berg_val(from: EvalVal<'a>) -> Result<Result<Self, BergVal<'a>>, EvalException<'a>> {
         match from {
             EvalVal::RawIdentifier(value) => Ok(Ok(value)),
-            from => Ok(Err(from.into_val()?))
+            from => Ok(Err(from.lazy_val()?))
         }
     }
 }
 
 // Implementations for common types
-impl<'a> BergValue<'a> for IdentifierIndex {
-    fn into_val(self) -> BergResult<'a> {
-        self.eval_val().into_val()
+impl<'a> Value<'a> for IdentifierIndex {
+    fn lazy_val(self) -> Result<BergVal<'a>, EvalException<'a>> where Self: Sized {
+        self.eval_val().lazy_val()
     }
 
-    fn eval_val(self) -> EvalResult<'a> {
+    fn eval_val(self) -> EvalResult<'a> where Self: Sized {
         EvalVal::RawIdentifier(self).ok()
     }
 
-    fn evaluate(self) -> BergResult<'a> {
-        self.into_val()
-    }
-
-    fn at_position(self, new_position: ExpressionErrorPosition) -> BergResult<'a> {
-        self.into_val().at_position(new_position)
-    }
-
-    fn into_native<T: TryFromBergVal<'a>>(self) -> Result<T, ErrorVal<'a>> {
+    fn into_native<T: TryFromBergVal<'a>>(self) -> Result<T, EvalException<'a>> {
         default_into_native(self)
     }
 
-    fn try_into_native<T: TryFromBergVal<'a>>(self) -> Result<Option<T>, ErrorVal<'a>> {
+    fn try_into_native<T: TryFromBergVal<'a>>(self) -> Result<Option<T>, EvalException<'a>> {
         default_try_into_native(self)
     }
 
-    fn next_val(self) -> Result<Option<NextVal<'a>>, ErrorVal<'a>> {
+    fn display(&self) -> &std::fmt::Display {
+        self
+    }
+}
+
+impl<'a> IteratorValue<'a> for IdentifierIndex {
+    fn next_val(self) -> Result<NextVal<'a>, EvalException<'a>> {
         single_next_val(self)
     }
+}
 
-    fn infix(self, operator: IdentifierIndex, right: RightOperand<'a, impl BergValue<'a>>) -> EvalResult<'a> {
+impl<'a> ObjectValue<'a> for IdentifierIndex {
+    fn field(self, name: IdentifierIndex) -> EvalResult<'a> where Self: Sized {
+        default_field(self, name)
+    }
+    fn set_field(&mut self, name: IdentifierIndex, value: BergVal<'a>) -> Result<(), EvalException<'a>> {
+        default_set_field(self, name, value)
+    }
+}
+
+impl<'a> OperableValue<'a> for IdentifierIndex {
+    fn infix(self, operator: IdentifierIndex, right: RightOperand<'a, impl EvaluatableValue<'a>>) -> EvalResult<'a> where Self: Sized {
         match operator {
             EQUAL_TO => match right.try_into_native::<IdentifierIndex>()? {
                 Some(right) => self == right,
@@ -51,26 +60,19 @@ impl<'a> BergValue<'a> for IdentifierIndex {
         }
     }
 
-    fn infix_assign(self, operator: IdentifierIndex, right: RightOperand<'a, impl BergValue<'a>>) -> EvalResult<'a> {
+    fn infix_assign(self, operator: IdentifierIndex, right: RightOperand<'a, impl EvaluatableValue<'a>>) -> EvalResult<'a> where Self: Sized {
         default_infix_assign(self, operator, right)
     }
 
-    fn prefix(self, operator: IdentifierIndex) -> EvalResult<'a> {
+    fn prefix(self, operator: IdentifierIndex) -> EvalResult<'a> where Self: Sized {
         default_prefix(self, operator)
     }
 
-    fn postfix(self, operator: IdentifierIndex) -> EvalResult<'a> {
+    fn postfix(self, operator: IdentifierIndex) -> EvalResult<'a> where Self: Sized {
         default_postfix(self, operator)
     }
 
-    fn subexpression_result(self, boundary: ExpressionBoundary) -> EvalResult<'a> {
+    fn subexpression_result(self, boundary: ExpressionBoundary) -> EvalResult<'a> where Self: Sized {
         default_subexpression_result(self, boundary)
-    }
-
-    fn field(self, name: IdentifierIndex) -> EvalResult<'a> {
-        default_field(self, name)
-    }
-    fn set_field(&mut self, name: IdentifierIndex, value: BergVal<'a>) -> Result<(), ErrorVal<'a>> {
-        default_set_field(self, name, value)
     }
 }

@@ -9,6 +9,7 @@ num = "0.1"
 fnv = "1"
 clippy = {version = "*", optional = true}
 string-interner = "0.7.0"
+matches = "*"
 
 [dev-dependencies]
 clippy = {version = "*"}

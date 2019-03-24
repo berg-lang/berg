@@ -1,30 +1,8 @@
 use crate::eval::BlockRef;
-use crate::syntax::{
-    AstIndex, AstRef, ByteRange, ExpressionTreeWalker, ExpressionRef, FieldIndex, Fixity, IdentifierIndex,
-    LineColumnRange, LiteralIndex, RawLiteralIndex,
-};
+use crate::syntax::{ExpressionRef, FieldIndex, Fixity, IdentifierIndex, LiteralIndex, RawLiteralIndex};
+use crate::syntax::identifiers::ERROR_CODE;
 use crate::value::implement::*;
 use std::fmt;
-
-///
-/// Standard berg error, either with or without a full error location.
-/// 
-#[derive(Debug, Clone)]
-pub enum ErrorVal<'a> {
-    ExpressionError(BergError<'a>, ExpressionErrorPosition),
-    Error(Error<'a>),
-}
-
-///
-/// Standard berg error.
-/// 
-/// Contains a BergError and a stack of error locations.
-///
-#[derive(Debug, Clone)]
-pub struct Error<'a> {
-    pub error: BergError<'a>,
-    pub expression: ExpressionRef<'a>,
-}
 
 ///
 /// Standard berg error.
@@ -35,7 +13,7 @@ pub struct Error<'a> {
 /// can actually be reported.
 /// 
 #[derive(Debug, Clone)]
-pub enum BergError<'a> {
+pub enum CompilerError<'a> {
     // File open errors
 
     ///
@@ -73,7 +51,7 @@ pub enum BergError<'a> {
     RightSideOfDotMustBeIdentifier,
     OpenWithoutClose,
     CloseWithoutOpen,
-    UnsupportedOperator(Box<BergResult<'a>>, Fixity, IdentifierIndex),
+    UnsupportedOperator(Box<BergValue<'a>+'a>, Fixity, IdentifierIndex),
     DivideByZero,
     NoSuchField(FieldIndex),
     FieldNotSet(FieldIndex),
@@ -102,14 +80,17 @@ pub enum BergError<'a> {
     FinallyWithoutBlock,
     FinallyBlockMustBeBlock,
     FinallyWithoutResult,
+    ThrowWithoutException,
+
     // TODO stop boxing BergVals
     // BadOperandType(Box<EvalResult<'a>>, &'static str),
-    BadOperandType(Box<BergResult<'a>>, &'static str),
+    BadOperandType(Box<BergValue<'a>+'a>, &'static str),
     PrivateField(BlockRef<'a>, IdentifierIndex),
     NoSuchPublicField(BlockRef<'a>, IdentifierIndex),
-    NoSuchPublicFieldOnValue(Box<BergResult<'a>>, IdentifierIndex),
+    NoSuchPublicFieldOnValue(Box<BergValue<'a>+'a>, IdentifierIndex),
     NoSuchPublicFieldOnRoot(IdentifierIndex),
     ImmutableFieldOnRoot(FieldIndex),
+    ImmutableFieldOnValue(Box<BergValue<'a>+'a>, IdentifierIndex),
 
     // These are control values--only errors if nobody catches them.
     BreakOutsideLoop,
@@ -117,7 +98,7 @@ pub enum BergError<'a> {
 }
 
 #[derive(Debug, Copy, Clone, PartialEq)]
-pub enum ErrorCode {
+pub enum CompilerErrorCode {
     // Compile errors related to system (source)
     SourceNotFound = 101,
     IoOpenError,
@@ -160,6 +141,7 @@ pub enum ErrorCode {
     FinallyWithoutBlock,
     FinallyBlockMustBeBlock,
     FinallyWithoutResult,
+    ThrowWithoutException,
 
     // Compile errors related to type (checker)
     UnsupportedOperator = 1001,
@@ -175,176 +157,111 @@ pub enum ErrorCode {
     ContinueOutsideLoop,
 }
 
-#[derive(Debug, Clone)]
-pub enum ErrorLocation<'a> {
-    Generic,
-    SourceOnly(AstRef<'a>),
-    SourceExpression(AstRef<'a>, AstIndex),
-    SourceRange(AstRef<'a>, ByteRange),
-}
+impl<'a> BergValue<'a> for CompilerError<'a> {}
 
-#[derive(Debug, Copy, Clone, PartialEq)]
-pub enum ExpressionErrorPosition {
-    Expression,
-    Left,
-    Right,
-    LeftLeft,
-    LeftRight,
-    RightLeft,
-    RightRight,
-}
-
-impl<'a> ErrorVal<'a> {
-    pub fn code(&self) -> ErrorCode {
-        use ErrorVal::*;
-        match self {
-            ExpressionError(error, _) => error.code(),            
-            Error(error) => error.code(),
-        }
-    }
-    pub fn reposition(self, new_position: ExpressionErrorPosition) -> ErrorVal<'a> {
-        use ErrorVal::*;
-        use ExpressionErrorPosition::*;
-        match self {
-            ExpressionError(error, position) => match (new_position, position) {
-                (new_position, Expression) => ExpressionError(error, new_position),
-                (Expression, position) => ExpressionError(error, position),
-                (Left, Left) => ExpressionError(error, LeftLeft),
-                (Left, Right) => ExpressionError(error, LeftRight),
-                (Right, Left) => ExpressionError(error, RightLeft),
-                (Right, Right) => ExpressionError(error, RightRight),
-                _ => unreachable!("{:?} {:?} at {:?}", error, position, new_position),
-            }
-            _ => self,
-        }
-
+impl<'a> EvaluatableValue<'a> for CompilerError<'a> {
+    fn evaluate(self) -> BergResult<'a> where Self: Sized {
+        self.ok()
     }
 }
-impl<'a> ErrorLocation<'a> {
-    pub fn range(&self) -> LineColumnRange {
-        match self {
-            ErrorLocation::SourceExpression(ast, _) | ErrorLocation::SourceRange(ast, _) => {
-                ast.char_data.range(&self.byte_range())
-            }
-            _ => unreachable!(),
+
+impl<'a> Value<'a> for CompilerError<'a> {
+    fn lazy_val(self) -> Result<BergVal<'a>, EvalException<'a>> where Self: Sized {
+        self.ok()
+    }
+
+    fn eval_val(self) -> EvalResult<'a> where Self: Sized {
+        self.ok()
+    }
+
+    fn into_native<T: TryFromBergVal<'a>>(self) -> Result<T, EvalException<'a>> {
+        default_into_native(self)
+    }
+
+    fn try_into_native<T: TryFromBergVal<'a>>(self) -> Result<Option<T>, EvalException<'a>> {
+        default_try_into_native(self)
+    }
+
+    fn display(&self) -> &std::fmt::Display {
+        self
+    }
+}
+
+impl<'a> IteratorValue<'a> for CompilerError<'a> {
+    fn next_val(self) -> Result<NextVal<'a>, EvalException<'a>> {
+        single_next_val(self)
+    }
+}
+
+impl<'a> ObjectValue<'a> for CompilerError<'a> {
+    fn field(self, name: IdentifierIndex) -> EvalResult<'a> where Self: Sized {
+        match name {
+            ERROR_CODE => (self.code() as usize).ok(),
+            _ => default_field(self, name)
         }
     }
-    pub fn byte_range(&self) -> ByteRange {
-        match self {
-            ErrorLocation::SourceExpression(ast, index) => {
-                ExpressionTreeWalker::new((), ast, *index).byte_range()
-            }
-            ErrorLocation::SourceRange(_, range) => range.clone(),
-            _ => unreachable!(),
+
+    fn set_field(&mut self, name: IdentifierIndex, value: BergVal<'a>) -> Result<(), EvalException<'a>> {
+        match name {
+            ERROR_CODE => CompilerError::ImmutableFieldOnValue(Box::new(self.clone()), name).err(),
+            _ => default_set_field(self, name, value),
         }
     }
 }
 
-impl<'a> Error<'a> {
-    pub fn new(error: BergError<'a>, expression: ExpressionRef<'a>) -> Self {
-        Error {
-            error,
-            expression,
-        }
+impl<'a> OperableValue<'a> for CompilerError<'a> {
+    fn infix(self, operator: IdentifierIndex, right: RightOperand<'a, impl EvaluatableValue<'a>>) -> EvalResult<'a> where Self: Sized {
+        default_infix(self, operator, right)
     }
 
-    pub fn code(&self) -> ErrorCode {
-        self.error.code()
+    fn infix_assign(self, operator: IdentifierIndex, right: RightOperand<'a, impl EvaluatableValue<'a>>) -> EvalResult<'a> where Self: Sized {
+        default_infix_assign(self, operator, right)
     }
 
-    pub fn expression(&self) -> ExpressionRef<'a> {
-        self.expression.clone()
+    fn prefix(self, operator: IdentifierIndex) -> EvalResult<'a> where Self: Sized {
+        default_prefix(self, operator)
     }
 
-    pub fn location(&self) -> ErrorLocation<'a> {
-        use self::BergError::*;
-        use self::ErrorLocation::*;
-        let expression = self.expression();
-        match self.error {
-            // File open errors
-            CurrentDirectoryError => ErrorLocation::Generic,
-            SourceNotFound | IoOpenError | IoReadError | SourceTooLarge(..) => {
-                SourceOnly(expression.ast)
-            }
+    fn postfix(self, operator: IdentifierIndex) -> EvalResult<'a> where Self: Sized {
+        default_postfix(self, operator)
+    }
 
-            MissingOperand => {
-                let range = expression.ast.token_ranges[expression.expression().parent_expression().root_index()].clone();
-                SourceRange(expression.ast, range)
-            }
+    fn subexpression_result(self, boundary: ExpressionBoundary) -> EvalResult<'a> where Self: Sized {
+        default_subexpression_result(self, boundary)
+    }
+}
 
-            UnsupportedOperator(..) => {
-                let range = expression.ast.token_ranges[expression.expression().root_index()].clone();
-                SourceRange(expression.ast, range)
-            }
-
-            DivideByZero | RightSideOfDotMustBeIdentifier | IfFollowedByNonElse => {
-                let operand = expression.expression().right_expression().root_index();
-                SourceExpression(expression.ast, operand)
-            }
-
-            IfWithoutBlock => {
-                let if_expression = expression.expression().left_expression().root_index();
-                SourceExpression(expression.ast, if_expression)
-            }
-            OpenWithoutClose => {
-                let range =
-                    expression.ast.token_ranges[expression.expression().open_operator()].clone();
-                SourceRange(expression.ast, range)
-            }
-
-            CloseWithoutOpen => {
-                let range =
-                    expression.ast.token_ranges[expression.expression().close_operator()].clone();
-                SourceRange(expression.ast, range)
-            }
-
-
-            // Expression errors
-            InvalidUtf8(..)
-            | UnsupportedCharacters(..)
-            | IdentifierStartsWithNumber(..)
-            | AssignmentTargetMustBeIdentifier
-            | NoSuchField(..)
-            | NoSuchPublicField(..)
-            | NoSuchPublicFieldOnValue(..)
-            | NoSuchPublicFieldOnRoot(..)
-            | FieldNotSet(..)
-            | CircularDependency
-            | ImmutableFieldOnRoot(..)
-            | PrivateField(..)
-            | BadOperandType(..)
-            | IfWithoutCondition
-            | ElseWithoutBlock
-            | ElseWithoutIf
-            | IfBlockMustBeBlock
-            | ElseBlockMustBeBlock
-            | WhileWithoutCondition
-            | WhileWithoutBlock
-            | WhileConditionMustBeBlock
-            | WhileBlockMustBeBlock
-            | ForeachWithoutInput
-            | ForeachWithoutBlock
-            | ForeachBlockMustBeBlock
-            | BreakOutsideLoop
-            | ContinueOutsideLoop
-            | TryWithoutBlock
-            | TryBlockMustBeBlock
-            | TryWithoutCatchOrFinally
-            | CatchWithoutBlock
-            | CatchBlockMustBeBlock
-            | CatchWithoutResult
-            | CatchWithoutFinally
-            | FinallyWithoutBlock
-            | FinallyBlockMustBeBlock
-            | FinallyWithoutResult
-            => ErrorLocation::SourceExpression(expression.ast, expression.root),
+impl<'a> TryFromBergVal<'a> for CompilerError<'a> {
+    const TYPE_NAME: &'static str = "CompilerError";
+    fn try_from_berg_val(from: EvalVal<'a>) -> Result<Result<Self, BergVal<'a>>, EvalException<'a>> {
+        match from.lazy_val()?.evaluate()? {
+            BergVal::CompilerError(value) => Ok(Ok(value)),
+            from => Ok(Err(from))
         }
     }
 }
 
-impl fmt::Display for ErrorCode {
+impl<'a> From<CompilerError<'a>> for BergVal<'a> {
+    fn from(from: CompilerError<'a>) -> Self {
+        BergVal::CompilerError(from)
+    }
+}
+
+impl<'a> From<CompilerError<'a>> for EvalVal<'a> {
+    fn from(from: CompilerError<'a>) -> Self {
+        BergVal::from(from).into()
+    }
+}
+
+impl<'a> fmt::Display for CompilerError<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        use self::ErrorCode::*;
+        write!(f, "{:?}", self)
+    }
+}
+
+impl fmt::Display for CompilerErrorCode {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        use self::CompilerErrorCode::*;
         let string = match *self {
             SourceNotFound => "SourceNotFound",
             IoOpenError => "IoOpenError",
@@ -394,17 +311,18 @@ impl fmt::Display for ErrorCode {
             FinallyWithoutBlock => "FinallyWithoutBlock",
             FinallyBlockMustBeBlock => "FinallyBlockMustBeBlock",
             FinallyWithoutResult => "FinallyWithoutResult",
+            ThrowWithoutException => "ThrowWithoutException",
         };
         write!(f, "{}", string)
     }
 }
 
-impl<'a> fmt::Display for ErrorVal<'a> {
+impl<'a> fmt::Display for EvalException<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        use ErrorVal::*;
+        use EvalException::*;
         match self {
             Error(error) => write!(f, "{}", error),
-            ExpressionError(error, position) => match position {
+            Thrown(error, position) => match position {
                 ExpressionErrorPosition::Expression => write!(f, "{:?}", error),
                 _ => write!(f, "{:?} at {:?}", error, position)
             }
@@ -412,11 +330,161 @@ impl<'a> fmt::Display for ErrorVal<'a> {
     }
 }
 
-impl<'a> fmt::Display for Error<'a> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        use BergError::*;
-        let expression = self.expression();
-        match self.error {
+impl<'a> CompilerError<'a> {
+    pub fn at_location(self, expression: impl Into<ExpressionRef<'a>>) -> Exception<'a> {
+        Exception::new(self.into(), expression.into())
+    }
+
+    pub fn operand_err<T>(self, position: ExpressionErrorPosition) -> Result<T, EvalException<'a>> {
+        Err(EvalException::Thrown(self.into(), position))
+    }
+
+    pub fn code(&self) -> CompilerErrorCode {
+        use self::CompilerError::*;
+        match *self {
+            // File open errors
+            SourceNotFound => CompilerErrorCode::SourceNotFound,
+            IoOpenError => CompilerErrorCode::IoOpenError,
+            IoReadError => CompilerErrorCode::IoReadError,
+            CurrentDirectoryError => CompilerErrorCode::CurrentDirectoryError,
+            SourceTooLarge(..) => CompilerErrorCode::SourceTooLarge,
+
+            // Expression errors
+            InvalidUtf8(..) => CompilerErrorCode::InvalidUtf8,
+            UnsupportedCharacters(..) => CompilerErrorCode::UnsupportedCharacters,
+            IdentifierStartsWithNumber(..) => CompilerErrorCode::IdentifierStartsWithNumber,
+            MissingOperand => CompilerErrorCode::MissingOperand,
+            AssignmentTargetMustBeIdentifier => CompilerErrorCode::AssignmentTargetMustBeIdentifier,
+            RightSideOfDotMustBeIdentifier => CompilerErrorCode::RightSideOfDotMustBeIdentifier,
+            OpenWithoutClose => CompilerErrorCode::OpenWithoutClose,
+            CloseWithoutOpen => CompilerErrorCode::CloseWithoutOpen,
+            IfWithoutCondition => CompilerErrorCode::IfWithoutCondition,
+            IfWithoutBlock => CompilerErrorCode::IfWithoutBlock,
+            ElseWithoutBlock => CompilerErrorCode::ElseWithoutBlock,
+            ElseWithoutIf => CompilerErrorCode::ElseWithoutIf,
+            IfFollowedByNonElse => CompilerErrorCode::IfFollowedByNonElse,
+            IfBlockMustBeBlock => CompilerErrorCode::IfBlockMustBeBlock,
+            ElseBlockMustBeBlock => CompilerErrorCode::ElseBlockMustBeBlock,
+            WhileWithoutCondition => CompilerErrorCode::WhileWithoutCondition,
+            WhileWithoutBlock => CompilerErrorCode::WhileWithoutBlock,
+            WhileConditionMustBeBlock => CompilerErrorCode::WhileConditionMustBeBlock,
+            WhileBlockMustBeBlock => CompilerErrorCode::WhileBlockMustBeBlock,
+            BreakOutsideLoop => CompilerErrorCode::BreakOutsideLoop,
+            ContinueOutsideLoop => CompilerErrorCode::ContinueOutsideLoop,
+            ForeachWithoutInput => CompilerErrorCode::ForeachWithoutInput,
+            ForeachWithoutBlock => CompilerErrorCode::ForeachWithoutBlock,
+            ForeachBlockMustBeBlock => CompilerErrorCode::ForeachBlockMustBeBlock,
+            TryWithoutBlock => CompilerErrorCode::TryWithoutBlock,
+            TryBlockMustBeBlock => CompilerErrorCode::TryBlockMustBeBlock,
+            TryWithoutCatchOrFinally => CompilerErrorCode::TryWithoutCatchOrFinally,
+            CatchWithoutBlock => CompilerErrorCode::CatchWithoutBlock,
+            CatchBlockMustBeBlock => CompilerErrorCode::CatchBlockMustBeBlock,
+            CatchWithoutResult => CompilerErrorCode::CatchWithoutResult,
+            CatchWithoutFinally => CompilerErrorCode::CatchWithoutFinally,
+            FinallyWithoutBlock => CompilerErrorCode::FinallyWithoutBlock,
+            FinallyBlockMustBeBlock => CompilerErrorCode::FinallyBlockMustBeBlock,
+            FinallyWithoutResult => CompilerErrorCode::FinallyWithoutResult,
+            ThrowWithoutException => CompilerErrorCode::ThrowWithoutException,
+
+            // Compile errors related to type (checker)
+            UnsupportedOperator(..) => CompilerErrorCode::UnsupportedOperator,
+            DivideByZero => CompilerErrorCode::DivideByZero,
+            NoSuchField(..) => CompilerErrorCode::NoSuchField,
+            NoSuchPublicField(..) | NoSuchPublicFieldOnValue(..) | NoSuchPublicFieldOnRoot(..) => {
+                CompilerErrorCode::NoSuchPublicField
+            }
+            PrivateField(..) => CompilerErrorCode::PrivateField,
+            FieldNotSet(..) => CompilerErrorCode::FieldNotSet,
+            CircularDependency => CompilerErrorCode::CircularDependency,
+            ImmutableFieldOnValue(..) | ImmutableFieldOnRoot(..) => CompilerErrorCode::ImmutableField,
+            BadOperandType(..) => CompilerErrorCode::BadOperandType,
+        }
+    }
+
+    pub fn location(&self, expression: ExpressionRef<'a>) -> ErrorLocation<'a> {
+        use self::CompilerError::*;
+        use self::ErrorLocation::*;
+        match self {
+            // File open errors
+            CurrentDirectoryError => ErrorLocation::Generic,
+            SourceNotFound | IoOpenError | IoReadError | SourceTooLarge(..) => {
+                SourceOnly(expression.ast)
+            }
+
+            MissingOperand => {
+                let range = expression.ast.token_ranges[expression.expression().parent_expression().root_index()].clone();
+                SourceRange(expression.ast, range)
+            }
+
+            UnsupportedOperator(..) => {
+                let range = expression.ast.token_ranges[expression.expression().root_index()].clone();
+                SourceRange(expression.ast, range)
+            }
+
+            OpenWithoutClose => {
+                let range =
+                    expression.ast.token_ranges[expression.expression().open_operator()].clone();
+                SourceRange(expression.ast, range)
+            }
+
+            CloseWithoutOpen => {
+                let range =
+                    expression.ast.token_ranges[expression.expression().close_operator()].clone();
+                SourceRange(expression.ast, range)
+            }
+
+
+            // Expression errors
+            InvalidUtf8(..)
+            | UnsupportedCharacters(..)
+            | IdentifierStartsWithNumber(..)
+            | AssignmentTargetMustBeIdentifier
+            | NoSuchField(..)
+            | NoSuchPublicField(..)
+            | NoSuchPublicFieldOnValue(..)
+            | NoSuchPublicFieldOnRoot(..)
+            | FieldNotSet(..)
+            | CircularDependency
+            | ImmutableFieldOnValue(..)
+            | ImmutableFieldOnRoot(..)
+            | PrivateField(..)
+            | BadOperandType(..)
+            | DivideByZero
+            | RightSideOfDotMustBeIdentifier
+            | IfWithoutCondition
+            | ElseWithoutBlock
+            | ElseWithoutIf
+            | IfBlockMustBeBlock
+            | ElseBlockMustBeBlock
+            | IfFollowedByNonElse
+            | IfWithoutBlock
+            | WhileWithoutCondition
+            | WhileWithoutBlock
+            | WhileConditionMustBeBlock
+            | WhileBlockMustBeBlock
+            | ForeachWithoutInput
+            | ForeachWithoutBlock
+            | ForeachBlockMustBeBlock
+            | BreakOutsideLoop
+            | ContinueOutsideLoop
+            | TryWithoutBlock
+            | TryBlockMustBeBlock
+            | TryWithoutCatchOrFinally
+            | CatchWithoutBlock
+            | CatchBlockMustBeBlock
+            | CatchWithoutResult
+            | CatchWithoutFinally
+            | FinallyWithoutBlock
+            | FinallyBlockMustBeBlock
+            | FinallyWithoutResult
+            | ThrowWithoutException
+            => ErrorLocation::SourceExpression(expression.ast, expression.root),
+        }
+    }
+
+    pub fn fmt_display(&self, expression: &ExpressionRef<'a>, f: &mut fmt::Formatter) -> fmt::Result {
+        use CompilerError::*;
+        match *self {
             SourceNotFound => write!(
                 f,
                 "I/O error getting current directory path {:?} ({}): {}",
@@ -485,8 +553,7 @@ impl<'a> fmt::Display for Error<'a> {
             ),
             DivideByZero => write!(
                 f,
-                "Division by zero is illegal. Perhaps you meant a different number on the right hand side of the '{}'?",
-                expression.expression().token().to_string(&expression.ast)
+                "Division by zero is illegal. Perhaps you meant a different number on the right hand side of the '/'?"
             ),
             NoSuchField(field_index) => write!(
                 f,
@@ -522,7 +589,7 @@ impl<'a> fmt::Display for Error<'a> {
             IfWithoutBlock => write!(
                 f,
                 "if statement missing a block! if needs two arguments, a condition and then a block, such as '{} {{ do something here; }}'?",
-                expression.expression()
+                expression.expression().parent_expression()
             ),
             IfBlockMustBeBlock => write!(
                 f,
@@ -600,7 +667,7 @@ impl<'a> fmt::Display for Error<'a> {
             ),
             CatchWithoutBlock => write!(
                 f,
-                "catch statement missing a block! catch requires a block to run, such as 'try {{ 1/0 }} catch {{ :error.ErrorCode }}'."
+                "catch statement missing a block! catch requires a block to run, such as 'try {{ 1/0 }} catch {{ :error.CompilerErrorCode }}'."
             ),
             CatchBlockMustBeBlock => write!(
                 f,
@@ -609,7 +676,7 @@ impl<'a> fmt::Display for Error<'a> {
             ),
             CatchWithoutResult => write!(
                 f,
-                "catch statement must follow an expression! For example, '{{ 1/0 }} catch {{ :error.ErrorCode }}'?"
+                "catch statement must follow an expression! For example, '{{ 1/0 }} catch {{ :error.CompilerErrorCode }}'?"
             ),
             CatchWithoutFinally => write!(
                 f,
@@ -628,6 +695,10 @@ impl<'a> fmt::Display for Error<'a> {
                 f,
                 "finally statement must follow an expression! For example, '{{ 1/0 }} finally {{ ... }}'?"
             ),
+            ThrowWithoutException => write!(
+                f,
+                "throw must be passed a value to throw! For example, 'throw 1'"
+            ),
             PrivateField(ref value, name) => write!(
                 f,
                 "Field '{}' on '{}' is private and cannot be accessed with '.'! Perhaps you meant to declare the field with ':{}' instead of '{}'?",
@@ -640,6 +711,12 @@ impl<'a> fmt::Display for Error<'a> {
                 f,
                 "'{}' cannot be modified!",
                 expression.ast.field_name(field_index)
+            ),
+            ImmutableFieldOnValue(ref value, name) => write!(
+                f,
+                "'{}' on '{}' cannot be modified!",
+                expression.ast.identifier_string(name),
+                value.display()
             ),
             IdentifierStartsWithNumber(literal) => write!(
                 f,
@@ -666,10 +743,9 @@ impl<'a> fmt::Display for Error<'a> {
             ),
             RightSideOfDotMustBeIdentifier => write!(
                 f,
-                "The field access operator '{operator}' must have an identifier on the right side (like \"{left}.FieldName\"): currently it is '{right}'.",
-                operator = expression.expression().token().to_string(&expression.ast),
-                left = expression.expression().left_expression(),
-                right = expression.expression().right_expression(),
+                "The field access operator '.' must have an identifier on the right side (like \"{left}.FieldName\"): currently it is '{right}'.",
+                left = expression.expression().parent_expression().left_expression(),
+                right = expression.expression(),
             ),
             BadOperandType(ref actual_value,expected_type) => write!(
                 f,
@@ -691,141 +767,8 @@ impl<'a> fmt::Display for Error<'a> {
     }
 }
 
-impl<'a> BergError<'a> {
-    pub fn at_location(self, expression: impl Into<ExpressionRef<'a>>) -> Error<'a> {
-        Error::new(self, expression.into())
-    }
-
-    pub fn operand_err<T>(self, position: ExpressionErrorPosition) -> Result<T, ErrorVal<'a>> {
-        Err(ErrorVal::ExpressionError(self, position))
-    }
-
-    pub fn code(&self) -> ErrorCode {
-        use self::BergError::*;
-        match *self {
-            // File open errors
-            SourceNotFound => ErrorCode::SourceNotFound,
-            IoOpenError => ErrorCode::IoOpenError,
-            IoReadError => ErrorCode::IoReadError,
-            CurrentDirectoryError => ErrorCode::CurrentDirectoryError,
-            SourceTooLarge(..) => ErrorCode::SourceTooLarge,
-
-            // Expression errors
-            InvalidUtf8(..) => ErrorCode::InvalidUtf8,
-            UnsupportedCharacters(..) => ErrorCode::UnsupportedCharacters,
-            IdentifierStartsWithNumber(..) => ErrorCode::IdentifierStartsWithNumber,
-            MissingOperand => ErrorCode::MissingOperand,
-            AssignmentTargetMustBeIdentifier => ErrorCode::AssignmentTargetMustBeIdentifier,
-            RightSideOfDotMustBeIdentifier => ErrorCode::RightSideOfDotMustBeIdentifier,
-            OpenWithoutClose => ErrorCode::OpenWithoutClose,
-            CloseWithoutOpen => ErrorCode::CloseWithoutOpen,
-            IfWithoutCondition => ErrorCode::IfWithoutCondition,
-            IfWithoutBlock => ErrorCode::IfWithoutBlock,
-            ElseWithoutBlock => ErrorCode::ElseWithoutBlock,
-            ElseWithoutIf => ErrorCode::ElseWithoutIf,
-            IfFollowedByNonElse => ErrorCode::IfFollowedByNonElse,
-            IfBlockMustBeBlock => ErrorCode::IfBlockMustBeBlock,
-            ElseBlockMustBeBlock => ErrorCode::ElseBlockMustBeBlock,
-            WhileWithoutCondition => ErrorCode::WhileWithoutCondition,
-            WhileWithoutBlock => ErrorCode::WhileWithoutBlock,
-            WhileConditionMustBeBlock => ErrorCode::WhileConditionMustBeBlock,
-            WhileBlockMustBeBlock => ErrorCode::WhileBlockMustBeBlock,
-            BreakOutsideLoop => ErrorCode::BreakOutsideLoop,
-            ContinueOutsideLoop => ErrorCode::ContinueOutsideLoop,
-            ForeachWithoutInput => ErrorCode::ForeachWithoutInput,
-            ForeachWithoutBlock => ErrorCode::ForeachWithoutBlock,
-            ForeachBlockMustBeBlock => ErrorCode::ForeachBlockMustBeBlock,
-            TryWithoutBlock => ErrorCode::TryWithoutBlock,
-            TryBlockMustBeBlock => ErrorCode::TryBlockMustBeBlock,
-            TryWithoutCatchOrFinally => ErrorCode::TryWithoutCatchOrFinally,
-            CatchWithoutBlock => ErrorCode::CatchWithoutBlock,
-            CatchBlockMustBeBlock => ErrorCode::CatchBlockMustBeBlock,
-            CatchWithoutResult => ErrorCode::CatchWithoutResult,
-            CatchWithoutFinally => ErrorCode::CatchWithoutFinally,
-            FinallyWithoutBlock => ErrorCode::FinallyWithoutBlock,
-            FinallyBlockMustBeBlock => ErrorCode::FinallyBlockMustBeBlock,
-            FinallyWithoutResult => ErrorCode::FinallyWithoutResult,
-
-            // Compile errors related to type (checker)
-            UnsupportedOperator(..) => ErrorCode::UnsupportedOperator,
-            DivideByZero => ErrorCode::DivideByZero,
-            NoSuchField(..) => ErrorCode::NoSuchField,
-            NoSuchPublicField(..) | NoSuchPublicFieldOnValue(..) | NoSuchPublicFieldOnRoot(..) => {
-                ErrorCode::NoSuchPublicField
-            }
-            PrivateField(..) => ErrorCode::PrivateField,
-            FieldNotSet(..) => ErrorCode::FieldNotSet,
-            CircularDependency => ErrorCode::CircularDependency,
-            ImmutableFieldOnRoot(..) => ErrorCode::ImmutableField,
-            BadOperandType(..) => ErrorCode::BadOperandType,
-        }
-    }
-}
-
-impl<'a> From<BergError<'a>> for ErrorVal<'a> {
-    fn from(from: BergError<'a>) -> Self {
-        ErrorVal::ExpressionError(from, ExpressionErrorPosition::Expression)
-    }
-}
-
-impl<'a> From<Error<'a>> for ErrorVal<'a> {
-    fn from(from: Error<'a>) -> Self {
-        ErrorVal::Error(from)
-    }
-}
-
-impl<'a> BergValue<'a> for ErrorVal<'a> {
-    fn next_val(self) -> Result<Option<NextVal<'a>>, ErrorVal<'a>> {
-        self.err()
-    }
-
-    fn into_native<T: TryFromBergVal<'a>>(self) -> Result<T, ErrorVal<'a>> {
-        self.err()
-    }
-
-    fn try_into_native<T: TryFromBergVal<'a>>(self) -> Result<Option<T>, ErrorVal<'a>> {
-        self.err()
-    }
-
-    fn into_val(self) -> BergResult<'a> {
-        self.err()
-    }
-
-    fn eval_val(self) -> EvalResult<'a> {
-        self.err()
-    }
-    fn evaluate(self) -> BergResult<'a> {
-        self.err()
-    }
-    fn at_position(self, new_position: ExpressionErrorPosition) -> BergResult<'a> {
-        self.reposition(new_position).err()
-    }
-
-    fn infix(self, _operator: IdentifierIndex, _right: RightOperand<'a, impl BergValue<'a>>) -> EvalResult<'a> {
-        self.reposition(Left).err()
-    }
-
-    fn infix_assign(self, _operator: IdentifierIndex, _right: RightOperand<'a, impl BergValue<'a>>) -> EvalResult<'a> {
-        self.reposition(Left).err()
-    }
-
-    fn postfix(self, _operator: IdentifierIndex) -> EvalResult<'a> {
-        self.reposition(Left).err()
-    }
-
-    fn prefix(self, _operator: IdentifierIndex) -> EvalResult<'a> {
-        self.reposition(Right).err()
-    }
-
-    fn subexpression_result(self, _boundary: ExpressionBoundary) -> EvalResult<'a> {
-        self.reposition(Right).err()
-    }
-
-    fn field(self, _name: IdentifierIndex) -> EvalResult<'a> {
-        self.err()
-    }
-
-    fn set_field(&mut self, _name: IdentifierIndex, _value: BergVal<'a>) -> Result<(), ErrorVal<'a>> where Self: Clone {
-        self.clone().err()
+impl<'a, V: Into<BergVal<'a>>> From<V> for EvalException<'a> {
+    fn from(from: V) -> Self {
+        EvalException::Thrown(from.into(), ExpressionErrorPosition::Expression)
     }
 }

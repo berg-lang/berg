@@ -35,7 +35,7 @@ enum SourceData<'a> {
 }
 
 #[derive(Debug)]
-pub struct SourceOpenError<'a>(pub BergError<'a>, pub io::Error);
+pub struct SourceOpenError<'a>(pub CompilerError<'a>, pub io::Error);
 
 #[derive(Debug)]
 pub struct SourceBuffer<'a> {
@@ -62,7 +62,7 @@ impl<'a> SourceRef<'a> {
             SourceData::Memory(name, ..) => name.into(),
         }
     }
-    pub fn absolute_path<'p>(&'p self) -> Result<Cow<'p, Path>, ErrorVal<'a>>
+    pub fn absolute_path<'p>(&'p self) -> Result<Cow<'p, Path>, EvalException<'a>>
     where
         'a: 'p,
     {
@@ -82,7 +82,7 @@ impl<'a> SourceRef<'a> {
         // Grab the path relative to the root, so that we can open it.
         let path = match absolute_path(path, root) {
             Ok(path) => path,
-            Err(_) => return SourceBuffer::error(SourceOpenError::new(BergError::CurrentDirectoryError, io::ErrorKind::Other, "current directory error: you should NOT be seeing this error! You should see root.root_path's error instead.")),
+            Err(_) => return SourceBuffer::error(SourceOpenError::new(CompilerError::CurrentDirectoryError, io::ErrorKind::Other, "current directory error: you should NOT be seeing this error! You should see root.root_path's error instead.")),
         };
 
         // Open the file.
@@ -90,8 +90,8 @@ impl<'a> SourceRef<'a> {
             Ok(file) => file,
             Err(io_error) => {
                 let error = match io_error.kind() {
-                    io::ErrorKind::NotFound => BergError::SourceNotFound,
-                    _ => BergError::IoOpenError,
+                    io::ErrorKind::NotFound => CompilerError::SourceNotFound,
+                    _ => CompilerError::IoOpenError,
                 };
                 return SourceBuffer::from_slice(&[], Some(SourceOpenError(error, io_error)));
             }
@@ -101,7 +101,7 @@ impl<'a> SourceRef<'a> {
         let mut buffer = Vec::new();
         let source_open_error = match file.read_to_end(&mut buffer) {
             Ok(_) => check_source_too_large(buffer.len()),
-            Err(io_error) => Some(SourceOpenError(BergError::IoReadError, io_error)),
+            Err(io_error) => Some(SourceOpenError(CompilerError::IoReadError, io_error)),
         };
         SourceBuffer::from_cow(Cow::Owned(buffer), source_open_error)
     }
@@ -116,18 +116,18 @@ fn check_source_too_large<'a>(size: usize) -> Option<SourceOpenError<'a>> {
         None
     } else {
         Some(SourceOpenError::new(
-            BergError::SourceTooLarge(size),
+            CompilerError::SourceTooLarge(size),
             io::ErrorKind::Other,
             "source too large",
         ))
     }
 }
 
-fn absolute_path<'a>(path: Cow<'a, Path>, root: &RootRef) -> Result<Cow<'a, Path>, ErrorVal<'a>> {
+fn absolute_path<'a>(path: Cow<'a, Path>, root: &RootRef) -> Result<Cow<'a, Path>, EvalException<'a>> {
     if path.is_relative() {
         match *root.root_path() {
             Ok(ref root_path) => Ok(Cow::Owned(root_path.join(path))),
-            Err(_) => BergError::CurrentDirectoryError.err(),
+            Err(_) => CompilerError::CurrentDirectoryError.err(),
         }
     } else {
         Ok(path)
@@ -141,7 +141,7 @@ impl<'a> fmt::Display for SourceRef<'a> {
 }
 
 impl<'a> SourceOpenError<'a> {
-    pub fn new(error: BergError<'a>, io_error_kind: io::ErrorKind, io_error_message: &str) -> Self {
+    pub fn new(error: CompilerError<'a>, io_error_kind: io::ErrorKind, io_error_message: &str) -> Self {
         SourceOpenError(error, io::Error::new(io_error_kind, io_error_message))
     }
 }
