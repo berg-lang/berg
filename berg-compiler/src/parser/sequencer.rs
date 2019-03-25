@@ -40,6 +40,11 @@ pub struct Sequencer<'a> {
     tokenizer: Tokenizer<'a>,
 }
 
+#[derive(Default, Clone)]
+struct Scanner {
+    index: ByteIndex,
+}
+
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub enum CharType {
     Digit,
@@ -51,9 +56,10 @@ pub enum CharType {
     CloseCurly,
     Separator,
     Colon,
-    Space,
+    Hash,
     Newline,
     LineEnding,
+    Space,
     HorizontalWhitespace,
     Unsupported,
     InvalidUtf8,
@@ -92,6 +98,7 @@ impl<'a> Sequencer<'a> {
                 CloseParen => self.tokenizer.on_close(Parentheses, start..scanner.index),
                 OpenCurly => self.tokenizer.on_open(CurlyBraces, start..scanner.index),
                 CloseCurly => self.tokenizer.on_close(CurlyBraces, start..scanner.index),
+                Hash => self.comment(buffer, start, &mut scanner),
                 Newline => self.newline(buffer, start, &scanner),
                 LineEnding => self.line_ending(buffer, start, &scanner),
                 Space => self.space(buffer, start, &mut scanner),
@@ -291,6 +298,16 @@ impl<'a> Sequencer<'a> {
         self.tokenizer.on_space(start)
     }
 
+    // # <comment>
+    fn comment(&mut self, buffer: &ByteSlice, start: ByteIndex, scanner: &mut Scanner) {
+        scanner.next_until_eol(buffer);
+        self.ast_mut().char_data.append_comment(
+            &buffer[start..scanner.index],
+            start,
+        );
+        self.tokenizer.on_space(start);
+    }
+
     fn unsupported(&mut self, buffer: &ByteSlice, start: ByteIndex, scanner: &mut Scanner) {
         scanner.next_while(Unsupported, buffer);
         self.utf8_syntax_error(ErrorTermError::UnsupportedCharacters, buffer, start, scanner)
@@ -312,11 +329,6 @@ impl<'a> Sequencer<'a> {
             start,
         );
     }
-}
-
-#[derive(Default, Clone)]
-struct Scanner {
-    index: ByteIndex,
 }
 
 impl Scanner {
@@ -344,6 +356,16 @@ impl Scanner {
             true
         } else {
             false
+        }
+    }
+
+    fn next_until_eol(&mut self, buffer: &ByteSlice) {
+        loop {
+            let (char_type, char_length) = CharType::read(buffer, self.index);
+            if char_type.ends_line() {
+                return;
+            }
+            self.advance(char_length);
         }
     }
 
@@ -453,7 +475,7 @@ impl CharType {
 
     pub(crate) fn is_whitespace(self) -> bool {
         match self {
-            Space | Newline | HorizontalWhitespace | Unsupported | InvalidUtf8 | Eof => true,
+            Space | Newline | HorizontalWhitespace | Unsupported | InvalidUtf8 | Hash | Eof => true,
             _ => false,
         }
     }
@@ -461,6 +483,13 @@ impl CharType {
     pub(crate) fn is_horizontal_whitespace(self) -> bool {
         match self {
             Space | HorizontalWhitespace => true,
+            _ => false,
+        }
+    }
+
+    pub(crate) fn ends_line(self) -> bool {
+        match self {
+            Newline | LineEnding | Eof => true,
             _ => false,
         }
     }
@@ -520,15 +549,16 @@ impl ByteType {
             b'}' => Char(CloseCurly),
             b';' | b',' => Char(Separator),
             b':' => Char(Colon),
+            b'#' => Char(Hash),
             b' ' => Char(Space),
             b'\t' => Char(HorizontalWhitespace),
             b'\n' => Char(Newline),
             b'\r' => ByteType::CarriageReturn,
-            _ => ByteType::from_generic(byte),
+            _ => ByteType::generic(byte),
         }
     }
 
-    fn from_generic(byte: u8) -> Self {
+    fn generic(byte: u8) -> Self {
         match byte {
             0b0000_0000...0b0111_1111 => Char(CharType::Unsupported),
             0b1100_0000...0b1101_1111 => Utf8LeadingByte(Delta(ByteIndex(2))),

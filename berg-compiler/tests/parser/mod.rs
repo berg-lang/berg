@@ -1,3 +1,4 @@
+mod comments;
 mod newline_sequences;
 mod parentheses;
 mod parse_errors;

@@ -1,4 +1,4 @@
-use crate::syntax::identifiers::{NEWLINE, SEMICOLON};
+use crate::syntax::identifiers::{SEMICOLON};
 use crate::syntax::{ExpressionTreeWalker, ExpressionBoundary, Fixity, Token, ExpressionToken, OperatorToken, TermToken};
 use std::fmt;
 
@@ -66,7 +66,7 @@ impl<'p, 'a: 'p> fmt::Display for ExpressionTreeWalker<'p, 'a, ExpressionFormatt
                     }
                 }
                 Close(..) | CloseBlock(..) => unreachable!(),
-                InfixOperator(SEMICOLON) | InfixOperator(NEWLINE) => write!(f, "{}{} {}", self.left_expression(), string, self.right_expression()),
+                InfixOperator(SEMICOLON) | NewlineSequence(_) => write!(f, "{}{} {}", self.left_expression(), string, self.right_expression()),
                 InfixOperator(_) | InfixAssignment(_) => write!(f, "{} {} {}", self.left_expression(), string, self.right_expression()),
             }
         }

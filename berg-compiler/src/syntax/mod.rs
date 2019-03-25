@@ -7,7 +7,7 @@ pub use self::identifiers::IdentifierIndex;
 pub use self::token::ExpressionBoundary;
 
 pub(crate) use self::ast::{
-    Ast, AstDelta, AstIndex, AstRef, LiteralIndex, OperandPosition, RawLiteralIndex,
+    Ast, AstDelta, AstIndex, AstRef, LiteralIndex, OperandPosition, RawLiteralIndex, WhitespaceIndex,
 };
 pub(crate) use self::block::{AstBlock, BlockIndex, Field, FieldError, FieldIndex};
 pub(crate) use self::source::{

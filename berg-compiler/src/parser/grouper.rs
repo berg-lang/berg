@@ -65,7 +65,7 @@ impl<'a> Grouper<'a> {
             Close(_, boundary) => self.on_close_token(boundary, range),
 
             // Infix tokens may have left->right or right->left precedence.
-            InfixOperator(_) | InfixAssignment(_) => {
+            InfixOperator(_) | NewlineSequence(_) | InfixAssignment(_) => {
                 // Close parent groups that don't want us as a child.
                 while !self.open_expression_wants_child(token) {
                     self.close_top(None, range.start..range.start);

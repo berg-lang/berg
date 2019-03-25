@@ -1,11 +1,10 @@
-use crate::syntax::{ByteIndex, ByteRange};
+use crate::syntax::{ByteIndex, ByteRange, WhitespaceIndex};
 use crate::util::indexed_vec::Delta;
 use std::cmp::Ordering;
 use std::fmt::{Display, Formatter, Result};
-use std::num::NonZeroU32;
 use std::str;
 use std::u32;
-use string_interner::{StringInterner, Symbol};
+use string_interner::StringInterner;
 
 ///
 /// Debug data about the original source.
@@ -37,7 +36,21 @@ pub struct CharData {
     /// Ordered list of whitespace ranges, except ' ' and '\n'
     /// (which are the default for space and line ranges, respectively).
     /// 
+    /// Only the starting byte index is stored, since the length is stored in
+    /// [`whitespace_characters`].
+    /// 
     pub whitespace_ranges: Vec<(WhitespaceIndex, ByteIndex)>,
+
+    ///
+    /// Ordered list of comments in the document.
+    /// 
+    /// These include the # character at the beginning of the comment and do *not*
+    /// include the line ending character.
+    /// 
+    /// Comments may include non-UTF-8 characters. (This is why it's Vec<u8> and
+    /// not String.)
+    /// 
+    pub comments: Vec<(Vec<u8>, ByteIndex)>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -56,9 +69,6 @@ pub struct LineColumnRange {
 ///
 /// An index into [`Whitespace::whitespace_characters`]
 /// 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Ord, PartialOrd)]
-pub struct WhitespaceIndex(NonZeroU32);
-
 impl Default for CharData {
     fn default() -> Self {
         CharData {
@@ -66,6 +76,7 @@ impl Default for CharData {
             line_starts: vec![ByteIndex::from(0)],
             whitespace_characters: StringInterner::new(),
             whitespace_ranges: Default::default(),
+            comments: Default::default(),
         }
     }
 }
@@ -81,9 +92,12 @@ impl CharData {
     /// * Panics if ByteIndex == u32::MAX
     /// 
     pub fn append_whitespace(&mut self, whitespace: &str, start: ByteIndex) {
-        // Read Unicode characters (which is not the same as bytes)
         let whitespace_index = self.whitespace_characters.get_or_intern(whitespace);
         self.whitespace_ranges.push((whitespace_index, start));
+    }
+
+    pub fn append_comment(&mut self, bytes: &[u8], start: ByteIndex) {
+        self.comments.push((bytes.into(), start))
     }
 
     pub fn location(&self, index: ByteIndex) -> LineColumn {
@@ -182,17 +196,5 @@ impl Display for LineColumnRange {
         } else {
             write!(f, "{}:{}<0>", self.start.line, self.start.column)
         }
-    }
-}
-
-// For StringInterner
-impl Symbol for WhitespaceIndex {
-    fn from_usize(val: usize) -> Self {
-        assert!(val < u32::MAX as usize);
-        WhitespaceIndex(unsafe { NonZeroU32::new_unchecked((val + 1) as u32) })
-    }
-
-    fn to_usize(self) -> usize {
-        (self.0.get() as usize) - 1
     }
 }

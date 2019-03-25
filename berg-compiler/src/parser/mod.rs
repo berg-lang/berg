@@ -30,5 +30,9 @@ pub fn parse(source: SourceRef) -> AstRef {
     println!();
     println!("Parsed:");
     print!("{}", ast.expression().format_tree());
+    for i in 0..ast.tokens.len() {
+        use crate::syntax::AstIndex;
+        println!("{:?} = {:?}", ast.token_ranges[AstIndex::from(i)], ast.tokens[AstIndex::from(i)])
+    }
     ast
 }

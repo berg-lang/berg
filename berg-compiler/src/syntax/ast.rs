@@ -10,9 +10,10 @@ use crate::value::CompilerError;
 use std::borrow::Cow;
 use std::io;
 use std::ops::Deref;
+use std::num::NonZeroU32;
 use std::rc::Rc;
 use std::u32;
-use string_interner::{StringInterner, Sym};
+use string_interner::{StringInterner, Sym, Symbol};
 
 index_type! {
     pub struct AstIndex(pub u32) with Display,Debug <= u32::MAX;
@@ -26,6 +27,9 @@ pub type TokenRanges = IndexedVec<ByteRange, AstIndex>;
 
 // So we can signify that something is meant to be a *difference* between indices.
 pub type AstDelta = Delta<AstIndex>;
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Ord, PartialOrd)]
+pub struct WhitespaceIndex(NonZeroU32);
 
 // TODO stuff Ast into SourceData, and don't have AstRef anymore.
 #[derive(Debug, Clone)]
@@ -132,6 +136,9 @@ impl<'a> Ast<'a> {
     pub fn raw_literal_string(&self, index: RawLiteralIndex) -> &[u8] {
         &self.raw_literals[index]
     }
+    pub fn whitespace_string(&self, index: WhitespaceIndex) -> &str {
+        self.char_data.whitespace_characters.resolve(index).unwrap()
+    }
     pub fn open_error(&self) -> &CompilerError<'a> {
         &self.source_open_error.as_ref().unwrap().0
     }
@@ -219,5 +226,17 @@ impl fmt::Display for OperandPosition {
             Right | PrefixOperand => "right side",
         };
         write!(f, "{}", string)
+    }
+}
+
+// For StringInterner
+impl Symbol for WhitespaceIndex {
+    fn from_usize(val: usize) -> Self {
+        assert!(val < u32::MAX as usize);
+        WhitespaceIndex(unsafe { NonZeroU32::new_unchecked((val + 1) as u32) })
+    }
+
+    fn to_usize(self) -> usize {
+        (self.0.get() as usize) - 1
     }
 }

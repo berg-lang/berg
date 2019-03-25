@@ -2,7 +2,7 @@ use crate::syntax::identifiers::*;
 use crate::syntax::precedence::Precedence;
 use crate::syntax::ExpressionBoundary::*;
 use crate::syntax::{
-    Ast, AstDelta, BlockIndex, FieldIndex, IdentifierIndex, LiteralIndex, RawLiteralIndex,
+    Ast, AstDelta, BlockIndex, FieldIndex, IdentifierIndex, LiteralIndex, RawLiteralIndex, WhitespaceIndex,
 };
 use std::borrow::Cow;
 use std::fmt;
@@ -66,7 +66,7 @@ pub enum ExpressionToken {
     /// The [`AstDelta`] is the distance to the close token. Use
     /// `ast.close_token(index + delta)` or `ast.close_block_token(index + delta)`
     /// to get to the close token (depending on boundary.is_block()).
-    /// 
+    ///
     Open(Option<ExpressionBoundaryError>, ExpressionBoundary, AstDelta),
 }
 
@@ -92,6 +92,22 @@ pub enum OperatorToken {
     /// [`syntax::identifiers`].
     /// 
     InfixOperator(IdentifierIndex),
+    ///
+    /// A newline sequence.
+    /// 
+    /// For example:
+    /// 
+    /// ```berg
+    /// :x = 1
+    /// x++
+    /// ```
+    /// 
+    /// The operator identifier for this is always NEWLINE.
+    /// 
+    /// If the value is None, it represents a "\n."
+    /// If the value is Some(WhitespaceIndex), it is an index into char_data.whitespace_characters.
+    /// 
+    NewlineSequence(Option<WhitespaceIndex>),
     ///
     /// An infix assignment operator.
     /// 
@@ -302,6 +318,13 @@ impl Token {
             Expression(token) => token.takes_right_child(right),
         }
     }
+    pub fn original_bytes<'p, 'a: 'p>(&self, ast: &'p Ast<'a>) -> Cow<'p, [u8]> {
+        use Token::*;
+        match self {
+            Expression(token) => token.original_bytes(ast),
+            Operator(token) => token.original_bytes(ast),
+        }
+    }
 }
 
 impl fmt::Debug for Token {
@@ -340,13 +363,21 @@ impl ExpressionToken {
     pub fn takes_right_child(self, right: impl Into<Token>) -> bool {
         self.fixity().takes_right_child(right.into().fixity())
     }
+    pub fn original_bytes<'p, 'a: 'p>(&self, ast: &'p Ast<'a>) -> Cow<'p, [u8]> {
+        use ExpressionToken::*;
+        match self {
+            Term(token) => token.original_bytes(ast),
+            PrefixOperator(identifier) => ast.identifier_string(*identifier).as_bytes().into(),
+            Open(_, boundary, _) => boundary.open_string().as_bytes().into(),
+        }
+    }
 }
 
 impl OperatorToken {
     pub fn fixity(self) -> Fixity {
         use OperatorToken::*;
         match self {
-            InfixOperator(_) | InfixAssignment(_) => Fixity::Infix,
+            InfixOperator(_) | NewlineSequence(_) | InfixAssignment(_) => Fixity::Infix,
             PostfixOperator(_) => Fixity::Postfix,
             Close { .. } | CloseBlock { .. } => Fixity::Close,
         }
@@ -370,7 +401,8 @@ impl OperatorToken {
     pub fn to_string<'p, 'a: 'p>(self, ast: &'p Ast<'a>) -> Cow<'p, str> {
         use OperatorToken::*;
         match self {
-            InfixOperator(NEWLINE) => "\\n".into(),
+            NewlineSequence(None) => "\\n".into(),
+            NewlineSequence(Some(whitespace)) => ast.whitespace_string(whitespace).into(),
             InfixOperator(APPLY) => "".into(),
             InfixOperator(identifier)
             | PostfixOperator(identifier) => ast.identifier_string(identifier).into(),
@@ -386,6 +418,29 @@ impl OperatorToken {
             (left, right) => left.takes_right_child(right.fixity())
         }
     }
+
+    pub fn original_bytes<'p, 'a: 'p>(self, ast: &'p Ast<'a>) -> Cow<'p, [u8]> {
+        use OperatorToken::*;
+        match self {
+            NewlineSequence(None) => Cow::Borrowed(b"\n"),
+            NewlineSequence(Some(index)) => ast.whitespace_string(index).as_bytes().into(),
+            InfixOperator(APPLY) => Cow::Borrowed(b""),
+
+            InfixOperator(identifier)
+            | PostfixOperator(identifier) => ast.identifier_string(identifier).as_bytes().into(),
+
+            InfixAssignment(identifier) => {
+                // Because of how InfixAssignment works, we store the str for the "+" and assume the "="
+                let bytes = ast.identifier_string(identifier).as_bytes();
+                let mut vec = Vec::with_capacity(bytes.len() + 1);
+                vec.extend_from_slice(bytes);
+                vec.push(b'=');
+                vec.into()
+            }
+
+            Close(_, boundary) | CloseBlock(_, boundary) => boundary.close_string().as_bytes().into(),
+        }
+    }
 }
 
 impl TermToken {
@@ -399,6 +454,18 @@ impl TermToken {
             RawIdentifier(identifier) => ast.identifier_string(identifier).into(),
             MissingExpression  => "".into(),
         }
+    }
+    pub fn original_bytes<'p, 'a: 'p>(self, ast: &'p Ast<'a>) -> Cow<'p, [u8]> {
+        use TermToken::*;
+        match self {
+            IntegerLiteral(literal) | ErrorTerm(.., literal) => ast.literal_string(literal).as_bytes(),
+            RawErrorTerm(.., raw_literal) => &ast.raw_literals[raw_literal],
+
+            FieldReference(field) => ast.identifier_string(ast.fields[field].name).as_bytes(),
+
+            RawIdentifier(identifier) => ast.identifier_string(identifier).as_bytes(),
+            MissingExpression => unreachable!(),
+        }.into()
     }
 }
 

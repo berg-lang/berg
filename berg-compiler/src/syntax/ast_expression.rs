@@ -1,6 +1,7 @@
 use crate::syntax::{
     Ast, AstIndex, ExpressionVisitor, Expression, VisitResult, Fixity, ExpressionToken, OperatorToken
 };
+use crate::syntax::identifiers::NEWLINE;
 
 
 ///
@@ -48,6 +49,7 @@ impl<'p, 'a: 'p> Expression for AstExpression<'p, 'a> {
             use OperatorToken::*;
             next = match operator_token {
                 InfixOperator(operator) => walker.infix(next.result, operator, false, next.walk_state.operand(Fixity::Infix)),
+                NewlineSequence(_) => walker.infix(next.result, NEWLINE, false, next.walk_state.operand(Fixity::Infix)),
                 InfixAssignment(operator) => walker.infix(next.result, operator, true, next.walk_state.operand(Fixity::Infix)),
                 PostfixOperator(operator) => next.walk_state.result(walker.postfix(next.result, operator)),
                 Close(..) | CloseBlock(..) => unreachable!(), // next.walk_state.result(next.result),

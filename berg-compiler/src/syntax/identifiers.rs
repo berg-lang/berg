@@ -122,7 +122,7 @@ impl fmt::Display for IdentifierIndex {
         if let Some(string) = self.as_str() {
             write!(f, "{}", string)
         } else {
-            write!(f, "#{}", self.to_usize())
+            write!(f, "{}", self.to_usize())
         }
     }
 }
@@ -131,7 +131,7 @@ impl fmt::Debug for IdentifierIndex {
         if let Some(string) = self.as_str() {
             write!(f, "{}", string)
         } else {
-            write!(f, "#{}", self.to_usize())
+            write!(f, "{}", self.to_usize())
         }
     }
 }

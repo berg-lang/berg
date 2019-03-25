@@ -2,6 +2,7 @@ use crate::eval::ScopeRef;
 use crate::syntax::{
     ErrorTermError, ExpressionTreeWalker, ExpressionBoundary, ExpressionBoundaryError, ExpressionRef, ExpressionToken, IdentifierIndex, OperatorToken, RawErrorTermError, TermToken, Token
 };
+use crate::syntax::identifiers::NEWLINE;
 use crate::value::implement::*;
 use num::BigRational;
 use std::fmt;
@@ -87,6 +88,7 @@ impl<'p, 'a: 'p> ExpressionEvaluator<'p, 'a> {
 
                 // A <op> B
                 InfixOperator(operator) => self.evaluate_infix(operator),
+                NewlineSequence(_) => self.evaluate_infix(NEWLINE),
                 // A <op>= B
                 InfixAssignment(operator) => self.evaluate_infix_assign(operator),
 
