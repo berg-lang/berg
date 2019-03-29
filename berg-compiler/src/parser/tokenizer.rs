@@ -78,14 +78,41 @@ impl<'a> Tokenizer<'a> {
         self.close_term(start);
     }
 
-    // Newline is space, so it closes terms just like space. If the last line ended in a evaluate
-    // expression, we may be about to create a newline sequence. Save the first newline until we know
+    ///
+    /// Called when a non-empty line starts (when a line has non-horizontal
+    /// whitespace).
+    /// 
+    /// This handles indentation of declaration blocks so we can close them on
+    /// unindent, and of regular blocks ({}) so that we can ensure said blocks
+    /// are indented and recover from errors properly when they are unbalanced.
+    /// 
+    /// [`on_line_ending()`] and [`on_space()`] (if there is any space) are called
+    /// before [`on_line_start()`].
+    ///
+    /// - [`indent`] is the byte range of the horizontal whitespace at the
+    ///   beginning of the line, and may be empty.
+    /// - [`indent`] will *not* include the line ending character.
+    /// - Lines include the first and last line, even if the last line is not
+    ///   terminated by a line ending.
+    /// 
+    pub fn on_indent(&mut self, indent: ByteRange) {
+        self.grouper.on_indent(indent)
+    }
+
+    ///
+    /// Handle line endings.
+    /// 
+    /// This causes terms to close, just like on_space.
+    /// 
+    /// If this is the first newline since we processed tokens, saves it.
+    /// Newline is space, so it closes terms just like space. If the last line ended in a evaluate
+    /// expression, we may be about to create a newline sequence. Save the first newline until we know
     // whether the next real line is an operator (continuation) or a new expression.
-    pub fn on_line_ending(&mut self, start: ByteIndex, length: u8) {
-        self.close_term(start);
-        if !self.prev_was_operator && self.newline_length == 0 {
-            self.newline_start = start;
-            self.newline_length = length;
+    pub fn on_line_ending(&mut self, newline: ByteRange) {
+        self.close_term(newline.start);
+        if self.newline_length == 0 {
+            self.newline_start = newline.start;
+            self.newline_length = usize::from(newline.end - newline.start) as u8;
         }
     }
 

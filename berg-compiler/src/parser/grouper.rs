@@ -5,8 +5,9 @@ use crate::syntax::ExpressionToken::*;
 use crate::syntax::OperatorToken::*;
 use crate::syntax::TermToken::*;
 use crate::syntax::{
-    Ast, AstDelta, AstIndex, ByteRange, ExpressionBoundary, ExpressionBoundaryError, Token, OperatorToken, ExpressionToken
+    Ast, AstDelta, AstIndex, ByteIndex, ByteRange, ExpressionBoundary, ExpressionBoundaryError, Token, OperatorToken, ExpressionToken
 };
+use crate::util::indexed_vec::Delta;
 
 // Handles nesting and precedence: balances (), {}, and compound terms, and
 // inserts "precedence groups," and removes compound terms and precedence
@@ -15,14 +16,122 @@ use crate::syntax::{
 pub struct Grouper<'a> {
     binder: Binder<'a>,
     open_expressions: Vec<OpenExpression>,
+//    current_line_indent: Delta<ByteIndex>,
     start_auto_block: bool,
 }
 
+// ///
+// /// Represents an unclosed expression (parentheses, block, precedence, etc.).
+// /// 
+// #[derive(Debug)]
+// enum OpenExpression {
+//     ///
+//     /// An explicit grouping.
+//     ///
+//     /// For example the `(` in `(1 + 2)` and then `{` in `{ :x = 1; x }`
+//     /// 
+//     /// [`AstIndex`] points to the token that opened the group.
+//     /// [`Delta<ByteIndex>`] is the indent of the line the open token was on.
+//     /// 
+//     /// Any line *less* indented or with the *same* indent as the group start
+//     /// will end it with an "open without close" error.
+//     /// 
+//     Explicit(AstIndex, ExpressionBoundary, Delta<ByteIndex>),
+
+//     ///
+//     /// A precedence group.
+//     /// 
+//     /// For example, in `a + b * c`, when we see `+`, we open a precedence group
+//     /// for `(b * c)` and store the `+` so we can check whether future operators
+//     /// are or are not part of the precedence group.
+//     /// 
+//     /// [`AstIndex`] points to the `OperatorToken` that started this group.
+//     /// 
+//     Precedence(AstIndex),
+
+//     ///
+//     /// A compound term (expression with no whitespace).
+//     /// 
+//     /// For example, `1+2` or `3+4` in `1+2 * 3+4`.
+//     /// [`AstIndex`] points to the `ExpressionToken` that started this group.
+//     /// 
+//     Term(AstIndex),
+
+//     ///
+//     /// A possible AutoBlock.
+//     /// 
+//     /// This is used when an AutoBlock operator has been seen and we don't yet
+//     /// know whether the expression will be on the *same* line, or the *next*
+//     /// line.
+//     /// 
+//     /// For example: the `XPlusOneSquared:` in `XPlusOneSquared: (X+1)*(X+1)` or
+//     /// 
+//     ///     XPlusOneSquared:
+//     ///         :X1 = X+1
+//     ///         X1*X1
+//     /// 
+//     /// [`AstIndex`] points to the operator that started the auto block (e.g. `:`).
+//     /// 
+//     /// This will change to Precedence or AutoBlock depending on whether a token
+//     /// is found on the next line.
+//     /// 
+//     MaybeAutoBlock(AstIndex),
+
+//     ///
+//     /// An auto block with indent.
+//     /// 
+//     /// For example:
+//     /// 
+//     ///     OriginPoint:
+//     ///         X: 0
+//     ///         Y: 0
+//     /// 
+//     /// It is possible for the first line to be non-empty and it still be a block.
+//     /// To wit:
+//     /// 
+//     ///     PrintNumbers: while x < 10
+//     ///         print x
+//     ///         x++
+//     /// 
+//     /// [`AstIndex`] points to the OpenBlock token that was inserted after the
+//     /// operator. `Delta<ByteIndex>` is the indent of the line the `:` was on.
+//     /// All lines more indented than that are part of the block.
+//     /// 
+//     AutoBlock(AstIndex, Delta<ByteIndex>),
+// }
+
+///
+/// An open expression group.
+/// 
+/// Represents parentheses, blocks, precedence, terms.
+/// 
 #[derive(Debug)]
 struct OpenExpression {
+    ///
+    /// The infix operator that opened this group (if it is a precedence expression).
+    /// 
+    /// For example, in `a + b * c`, when we see `+`, we open a precedence group
+    /// for `(b * c)` and store the `+` so we can check whether future operators
+    /// are or are not part of the precedence group.
+    /// 
     infix: Option<(OperatorToken, AstIndex)>,
+    ///
+    /// The index of the open token for this expression.
+    /// 
+    /// If [`boundary.is_required()`] is false, the token hasn't been added yet
+    /// so this is the *intended insertion point*. If it's true, it's the index
+    /// of the actual token.
+    /// 
     open_index: AstIndex,
+    ///
+    /// The type of expression group.
+    /// 
     boundary: ExpressionBoundary,
+    // ///
+    // /// The indent level of the current block. If `None`, the block has not yet
+    // /// had an indented line.
+    // ///
+    // indent: Option<Delta<ByteIndex>>,
 }
 
 impl<'a> Grouper<'a> {
@@ -102,12 +211,14 @@ impl<'a> Grouper<'a> {
         // e.g. 1*2>3+4 -> 1*2>(3+ ...
         // e.g. 1+2>3*4 -> 1+2>(3* ...
         // e.g. 1>2+3*4 -> 1>(2+(3* ...
-        if let Some((infix, index)) = self.open_expression().infix {
+        let open_expression = self.open_expression();
+        if let Some((infix, index)) = open_expression.infix {
             if infix.takes_right_child(next_infix) {
                 self.open_expressions.push(OpenExpression {
                     open_index: index + 1,
                     boundary: PrecedenceGroup,
                     infix: None,
+                    // indent: open_expression.indent
                 });
             }
         }
@@ -134,6 +245,10 @@ impl<'a> Grouper<'a> {
     fn open_expression(&self) -> &OpenExpression {
         self.open_expressions.last().unwrap()
     }
+
+    // fn on_indent(&mut self, indent: ByteRange) {
+    //     self.open_block()
+    // }
 
     fn on_close_token(
         &mut self,

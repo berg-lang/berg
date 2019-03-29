@@ -73,7 +73,7 @@ impl Default for CharData {
     fn default() -> Self {
         CharData {
             size: Default::default(),
-            line_starts: vec![ByteIndex::from(0)],
+            line_starts: Default::default(),
             whitespace_characters: StringInterner::new(),
             whitespace_ranges: Default::default(),
             comments: Default::default(),
