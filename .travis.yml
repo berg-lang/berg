@@ -1,7 +1,6 @@
 language: rust
 language: rust
 
-before_install: cd rust/berg-compiler
 install: cargo build $BUILD_FLAGS --verbose
 script: cargo build $BUILD_FLAGS --verbose && cargo test $BUILD_FLAGS --verbose
 
