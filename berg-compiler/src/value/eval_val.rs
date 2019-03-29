@@ -628,8 +628,8 @@ impl<'a> fmt::Display for AssignmentTarget<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         use AssignmentTarget::*;
         match self {
-            LocalFieldReference(scope, field) => write!(f, "{}", scope.ast().fields[*field].name),
-            LocalFieldDeclaration(scope, field) => write!(f, "{}", scope.ast().fields[*field].name),
+            LocalFieldReference(scope, field) => write!(f, "{}", scope.ast().identifier_string(scope.ast().fields[*field].name)),
+            LocalFieldDeclaration(scope, field) => write!(f, "{}", scope.ast().identifier_string(scope.ast().fields[*field].name)),
             ObjectFieldReference(object, name) => write!(f, "{}.{}", object, name),
         }
     }

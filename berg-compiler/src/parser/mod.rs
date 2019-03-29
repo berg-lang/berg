@@ -25,14 +25,20 @@ pub fn parse(source: SourceRef) -> AstRef {
         buffer,
         source_open_error,
     } = source.open();
-    let sequencer = Sequencer::new(Ast::new(source, source_open_error));
-    let ast = AstRef::new(sequencer.parse_buffer(&buffer));
+    let sequencer = Sequencer::new(Ast::new(source, source_open_error), &buffer);
+    let ast = AstRef::new(sequencer.parse());
     println!();
     println!("Parsed:");
-    print!("{}", ast.expression().format_tree());
+    let mut level = 0;
     for i in 0..ast.tokens.len() {
-        use crate::syntax::AstIndex;
-        println!("{:?} = {:?}", ast.token_ranges[AstIndex::from(i)], ast.tokens[AstIndex::from(i)])
+        use crate::syntax::{Token, ExpressionToken, OperatorToken};
+        let token = ast.token(i.into());
+        let token_range = ast.token_range(i.into());
+        if let Token::Operator(OperatorToken::Close(..)) = token { level -= 1 }
+        if let Token::Operator(OperatorToken::CloseBlock(..)) = token { level -= 1 }
+        println!("{:>3} {:<indent$}{:<16} | {:?}  at {}..{}", i, "", ast.visible_token_string(i.into()), token, token_range.start, token_range.end, indent = level*4);
+        if let Token::Expression(ExpressionToken::Open(..)) = token { level += 1 }
     }
+    println!();
     ast
 }

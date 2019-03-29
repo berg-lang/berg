@@ -41,7 +41,7 @@ impl From<IdentifierIndex> for Precedence {
             COLON => ColonDeclaration,
             APPLY => Apply,
             SEMICOLON => SemicolonSequence,
-            NEWLINE => NewlineSequence,
+            NEWLINE_SEQUENCE => NewlineSequence,
             _ => DEFAULT_PRECEDENCE,
         }
     }

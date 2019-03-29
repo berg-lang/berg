@@ -280,9 +280,7 @@ impl<'p, 'a: 'p> AstExpressionTree<'p, 'a> {
             RightLeft => expression.right_expression().skip_implicit_groups().left_expression(),
             RightRight => expression.right_expression().skip_implicit_groups().right_expression(),
         };
-        let result = result.skip_implicit_groups();
-        println!("error_location({:?} [{:?}]): result ({:?})={:?}", self, self.token(), position, result);
-        result
+        result.skip_implicit_groups()
     }
 
     pub fn format(self) -> ExpressionTreeWalker<'p, 'a, ExpressionFormatter> {

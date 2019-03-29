@@ -271,7 +271,7 @@ pub mod implement {
         right: RightOperand<'a, impl EvaluatableValue<'a>>,
     ) -> EvalResult<'a> {
         use crate::syntax::identifiers::{
-            COLON, COMMA, DOT, EQUAL_TO, EXCLAMATION_POINT, NEWLINE, NOT_EQUAL_TO, SEMICOLON,
+            COLON, COMMA, DOT, EQUAL_TO, EXCLAMATION_POINT, NEWLINE_SEQUENCE, NOT_EQUAL_TO, SEMICOLON,
         };
         match operator {
             COMMA => {
@@ -290,7 +290,7 @@ pub mod implement {
                     right => right.lazy_val()?.evaluate()?.ok(),
                 }
             }
-            NEWLINE => {
+            NEWLINE_SEQUENCE => {
                 left.lazy_val()?.evaluate()?;
                 right.lazy_val()?.evaluate()?.ok()
             }

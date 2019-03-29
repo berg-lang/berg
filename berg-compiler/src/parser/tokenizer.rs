@@ -1,39 +1,142 @@
+use crate::parser::sequencer::IndentLevel;
 use crate::parser::Grouper;
-use crate::syntax::ExpressionToken::*;
 use crate::syntax::OperatorToken::*;
 use crate::syntax::TermToken::*;
-use crate::syntax::{Ast, ByteIndex, ByteRange, ExpressionBoundary, ExpressionBoundaryError, ExpressionToken, OperatorToken, Token};
-use crate::syntax::identifiers::{NEWLINE, APPLY};
+use crate::syntax::{Ast, ByteIndex, ByteRange, ExpressionBoundary, ExpressionBoundaryError, ExpressionToken, OperatorToken};
+use crate::syntax::identifiers::{NEWLINE_SEQUENCE, APPLY};
+use WhitespaceState::*;
 
-// This builds up a valid expression from the incoming sequences, doing two things:
-// 1. Inserting apply, newline sequence, and missing expression as appropriate
-//    when two operators or two terms are next to each other.
-// 2. Opening and closing terms (series of tokens with no space between operators/operands).
+///
+/// This builds up a valid expression from the incoming sequences.
+/// 
+/// It does these things:
+/// 
+/// 1. Inserting apply, newline sequence, and missing expression as appropriate
+///    when two operators or two terms are next to each other.
+/// 2. Opening and closing terms (series of tokens with no space between operators/operands).
+/// 3. Handling indented blocks.
+///
 #[derive(Debug)]
 pub struct Tokenizer<'a> {
+    ///
+    /// The grouper (where we send tokens when we produce them).
+    /// 
     pub grouper: Grouper<'a>,
-    pub in_term: bool,
+
+    ///
+    /// Whether the previous token was an operator that needs an operand, or not.
+    /// 
     pub prev_was_operator: bool,
-    newline_start: ByteIndex,
-    newline_length: u8,
+
+    ///
+    /// Where we are with respect to whitespace groupings (vertical text blocks with indent and
+    /// horizontal expressions without space)
+    /// 
+    whitespace_state: WhitespaceState,
+
+    ///
+    /// The indent level of all open indented text blocks.
+    /// 
+    /// This has 4 open blocks at 0, 4, 8 and 12:
+    /// 
+    /// ```text
+    /// MyClass:
+    ///     MyFunction:
+    ///         if x == 10
+    ///             if y == 20
+    /// ```
+    /// 
+    indented_blocks: Vec<(IndentLevel,ExpressionBoundary)>,
+}
+
+///
+/// State respect to whitespace groupings.
+/// 
+/// This tells us whether we are on a new line, and whether we are inside a compact term (an expression
+/// with no space).
+/// 
+#[derive(Debug,Copy,Clone,PartialEq,Eq)]
+enum WhitespaceState {
+    ///
+    /// An expression has already started on the current line, and we are in a compact term.
+    ///
+    /// ```text
+    /// x = 10
+    /// y = 1+...
+    /// ```
+    ///
+    /// ```text
+    /// x = 10
+    /// y = 1+2...
+    /// ```
+    ///
+    InTerm,
+    ///
+    /// An expression has already started on the current line, and we are not in a term.
+    /// 
+    /// ```text
+    /// print ...
+    /// ```
+    /// 
+    /// ```text
+    /// x * ...
+    /// ```
+    /// 
+    /// ```text
+    /// x*(...
+    /// ```
+    /// 
+    NotInTerm,
+    ///
+    /// We are at the start of a line with the same indent level as the last one.
+    /// 
+    /// ```text
+    /// a = 10
+    /// ...
+    /// ```
+    /// 
+    /// ```text
+    /// a = 10 +
+    /// ...
+    /// ```
+    /// 
+    NextLine,
+    ///
+    /// We are at the start of a line *more* indented than the last one.
+    ///
+    /// ```text
+    /// if x > 10
+    ///    ...
+    /// ```
+    /// 
+    /// ```text
+    /// if x > 10 &&
+    ///   ...
+    /// ```
+    /// 
+    IndentedLine(IndentLevel),
 }
 
 impl<'a> Tokenizer<'a> {
     pub fn new(ast: Ast<'a>) -> Self {
         Tokenizer {
             grouper: Grouper::new(ast),
-            in_term: false,
             prev_was_operator: true,
-            newline_start: ByteIndex(0),
-            newline_length: 0,
+            whitespace_state: NotInTerm,
+            indented_blocks: vec![(0.into(),ExpressionBoundary::Source)],
         }
     }
 
     pub fn ast(&self) -> &Ast<'a> {
         self.grouper.ast()
     }
+
     pub fn ast_mut(&mut self) -> &mut Ast<'a> {
         self.grouper.ast_mut()
+    }
+
+    pub fn in_term(&self) -> bool {
+        self.whitespace_state == InTerm
     }
 
     fn source_error(&self) -> Option<ExpressionBoundaryError> {
@@ -46,14 +149,7 @@ impl<'a> Tokenizer<'a> {
 
     // The start of source emits the "open source" token.
     pub fn on_source_start(&mut self, start: ByteIndex) {
-        let mut open_token = ExpressionBoundary::Source.placeholder_open_token(self.source_error());
-        if self.ast().source_open_error.is_some() {
-            if let Open(ref mut error, ..) = open_token {
-                *error = Some(ExpressionBoundaryError::OpenError);
-            } else {
-                unreachable!()
-            }
-        }
+        let open_token = ExpressionBoundary::Source.placeholder_open_token(self.source_error());
         self.emit_expression_token(open_token, start..start)
     }
 
@@ -65,96 +161,130 @@ impl<'a> Tokenizer<'a> {
         self.grouper.on_source_end()
     }
 
-    // Signifies this token is inside a compound term with no spaces, like "1+2".
-    // If a term hasn't started, this will start it.
-    pub fn on_term_token(&mut self, token: impl Into<Token>, range: ByteRange) {
+    pub fn on_expression_token(&mut self, token: impl Into<ExpressionToken>, range: ByteRange) {
         assert!(range.start < range.end);
+        let token = token.into();
+
+        // If we need to insert an operator, insert either NEWLINE_SEQUENCE or APPLY.
+        let prev_was_operator = self.prev_was_operator;
+        if !self.prev_was_operator {
+            let operator = if self.whitespace_state == NextLine { NEWLINE_SEQUENCE } else { APPLY };
+            self.emit_operator_token(InfixOperator(operator), range.start..range.start);
+        }
+
+        // If this is a new indented line, open up a new indented block.
+        // An important note: because this only happens in on_expression_token(), an indented line
+        // that starts with an operator or comment will *not* open a new indented block. This is
+        // intentional.
+        if let IndentedLine(indent) = self.whitespace_state {
+            let boundary = if prev_was_operator {
+                ExpressionBoundary::IndentedExpression
+            } else {
+                ExpressionBoundary::IndentedBlock
+            };
+            let open_indent = boundary.placeholder_open_token(None);
+            self.emit_expression_token(open_indent, range.start..range.start);
+            self.indented_blocks.push((indent, boundary));
+        }
+
+        // If we weren't in a term, we are now!
         self.open_term(range.start);
-        self.emit_token(token.into(), range);
+
+        // Send the token
+        self.emit_expression_token(token, range);
     }
 
-    // Space after a term closes it.
-    pub fn on_space(&mut self, start: ByteIndex) {
-        self.close_term(start);
+    pub fn on_operator_token(&mut self, token: OperatorToken, range: ByteRange) {
+        assert!(range.start < range.end);
+        self.emit_operator_token(token, range);
     }
 
-    // Newline is space, so it closes terms just like space. If the last line ended in a evaluate
-    // expression, we may be about to create a newline sequence. Save the first newline until we know
-    // whether the next real line is an operator (continuation) or a new expression.
-    pub fn on_line_ending(&mut self, start: ByteIndex, length: u8) {
-        self.close_term(start);
-        if !self.prev_was_operator && self.newline_length == 0 {
-            self.newline_start = start;
-            self.newline_length = length;
+    ///
+    /// Handle space, which closes compound terms.
+    ///
+    pub fn on_space(&mut self, range: ByteRange) {
+        self.close_term(range.start);
+    }
+
+    ///
+    /// Handle space, which closes any compound terms.
+    ///
+    pub fn on_comment(&mut self, range: ByteRange) {
+        // Comment after a term closes it.
+        // We don't have delimited comments, so a+/*comment*/b is impossible.
+        self.close_term(range.start);
+    }
+
+    ///
+    /// Handle new lines.
+    /// 
+    /// This closes any open blocks with lower indent, and then prepares us to possibly create a
+    /// new block (if the next token is an expression rather than an operator or comment).
+    /// 
+    pub fn on_line_start(&mut self, start: ByteIndex, indent: IndentLevel, matching_indent: IndentLevel) {
+        // Close any open indented blocks (at least one block will be equal to 0, and that will never be closed).
+        let mut top = self.indented_blocks.last().unwrap();
+        while indent < top.0 {
+            let close_token = top.1.placeholder_close_token();
+            self.emit_operator_token(close_token, start..start);
+            self.indented_blocks.pop();
+            top = self.indented_blocks.last().unwrap();
+        }
+        // Mark indented blocks with errors on mismatched indent (spaces vs tabs, etc.).
+        if matching_indent < top.0 {
+            let mismatch_level = self.indented_blocks.iter().position(|(block_indent,_)| matching_indent < *block_indent).unwrap();
+            self.grouper.on_indent_mismatch(mismatch_level);
+        }
+        // Remember this indent; we'll start a new block if we ever get an expression token.
+        if indent == top.0 {
+            self.whitespace_state = NextLine;
+        } else {
+            assert!(indent > top.0);
+            self.whitespace_state = IndentedLine(indent);
         }
     }
 
     // ( or {. If the ( is after a space, opens a new term. But once we're in the ( a new term will
     // be started.
     pub fn on_open(&mut self, boundary: ExpressionBoundary, range: ByteRange) {
-        assert!(range.start < range.end);
-        let token = boundary.placeholder_open_token(None);
-        self.open_term(range.start);
-        self.emit_expression_token(token, range);
-        self.in_term = false;
+        self.on_expression_token(boundary.placeholder_open_token(None), range);
+        self.whitespace_state = NotInTerm;
     }
 
     // ) or }. If the ) is in a term, it closes it. After the ), we are definitely in a term,
     // however--part of the outer (...) term.
     pub fn on_close(&mut self, boundary: ExpressionBoundary, range: ByteRange) {
-        assert!(range.start < range.end);
-        let token = boundary.placeholder_close_token();
-        self.close_term(range.start);
-        self.emit_operator_token(token, range);
-        self.in_term = true;
+        self.on_operator_token(boundary.placeholder_close_token(), range);
+        self.whitespace_state = InTerm;
     }
 
     // ; , or :. If it is in a term, the term is closed before the separator.
     // Afterwards, we are looking to start a new term, so it's still closed.
     pub fn on_separator(&mut self, token: OperatorToken, range: ByteRange) {
-        assert!(range.start < range.end);
         self.close_term(range.start);
-        self.emit_operator_token(token, range);
+        self.on_operator_token(token, range);
     }
 
     fn open_term(&mut self, index: ByteIndex) {
-        if !self.in_term {
-            let open_token = ExpressionBoundary::CompoundTerm
-                .placeholder_open_token(None);
-            self.emit_expression_token(open_token, index..index);
-            self.in_term = true;
+        if !self.in_term() {
+            let open_term = ExpressionBoundary::CompoundTerm.placeholder_open_token(None);
+            self.emit_expression_token(open_term, index..index);
+            self.whitespace_state = InTerm;
         }
     }
 
     fn close_term(&mut self, index: ByteIndex) {
-        if self.in_term {
-            self.in_term = false;
+        if self.in_term() {
+            self.whitespace_state = NotInTerm;
             let close_token = ExpressionBoundary::CompoundTerm
                 .placeholder_close_token();
             self.emit_operator_token(close_token, index..index)
         }
     }
 
-    fn emit_token(&mut self, token: Token, range: ByteRange) {
-        match token {
-            Token::Expression(token) => self.emit_expression_token(token, range),
-            Token::Operator(token) => self.emit_operator_token(token, range),
-        }
-    }
     fn emit_expression_token(&mut self, token: ExpressionToken, range: ByteRange) {
-        if !self.prev_was_operator {
-            if self.newline_length > 0 {
-                let newline_start = self.newline_start;
-                let newline_end = newline_start + (self.newline_length as usize);
-                self.emit_operator_token(InfixOperator(NEWLINE), newline_start..newline_end);
-            } else {
-                self.emit_operator_token(InfixOperator(APPLY), range.start..range.start);
-            }
-        }
         self.grouper.on_expression_token(token, range);
         self.prev_was_operator = token.has_right_operand();
-        // Now that this token is emitted, we wait for the *next* newline as a statement separator.
-        self.newline_length = 0;
     }
     fn emit_operator_token(&mut self, token: OperatorToken, range: ByteRange) {
         if self.prev_was_operator {
@@ -162,7 +292,5 @@ impl<'a> Tokenizer<'a> {
         }
         self.grouper.on_operator_token(token, range);
         self.prev_was_operator = token.has_right_operand();
-        // Now that this token is emitted, we wait for the *next* newline as a statement separator.
-        self.newline_length = 0;
     }
 }

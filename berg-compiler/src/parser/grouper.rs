@@ -8,9 +8,12 @@ use crate::syntax::{
     Ast, AstDelta, AstIndex, ByteRange, ExpressionBoundary, ExpressionBoundaryError, Token, OperatorToken, ExpressionToken
 };
 
-// Handles nesting and precedence: balances (), {}, and compound terms, and
-// inserts "precedence groups," and removes compound terms and precedence
-// groups where it can.
+///
+/// Handles nesting and precedence: balances open/close pairs like (), {},
+/// indented blocks and compound terms; and inserts "precedence groups."
+/// 
+/// The Grouper elides superfluous precedence groups where it can.
+///
 #[derive(Debug)]
 pub struct Grouper<'a> {
     binder: Binder<'a>,
@@ -18,10 +21,32 @@ pub struct Grouper<'a> {
     start_auto_block: bool,
 }
 
+///
+/// An open expression group.
+/// 
+/// Represents parentheses, blocks, precedence, terms.
+/// 
 #[derive(Debug)]
 struct OpenExpression {
+    ///
+    /// The infix operator that opened this group (if it is a precedence expression).
+    /// 
+    /// For example, in `a + b * c`, when we see `+`, we open a precedence group
+    /// for `(b * c)` and store the `+` so we can check whether future operators
+    /// are or are not part of the precedence group.
+    /// 
     infix: Option<(OperatorToken, AstIndex)>,
+    ///
+    /// The index of the open token for this expression.
+    /// 
+    /// If [`boundary.is_required()`] is false, the token hasn't been added yet
+    /// so this is the *intended insertion point*. If it's true, it's the index
+    /// of the actual token.
+    /// 
     open_index: AstIndex,
+    ///
+    /// The type of expression group.
+    /// 
     boundary: ExpressionBoundary,
 }
 
@@ -65,7 +90,7 @@ impl<'a> Grouper<'a> {
             Close(_, boundary) => self.on_close_token(boundary, range),
 
             // Infix tokens may have left->right or right->left precedence.
-            InfixOperator(_) | NewlineSequence(_) | InfixAssignment(_) => {
+            InfixOperator(_) | InfixAssignment(_) => {
                 // Close parent groups that don't want us as a child.
                 while !self.open_expression_wants_child(token) {
                     self.close_top(None, range.start..range.start);
@@ -90,6 +115,10 @@ impl<'a> Grouper<'a> {
         }
     }
 
+    pub fn on_indent_mismatch(&self, _mismatch_level: usize) {
+        // TODO fill this in
+    }
+
     pub fn on_source_end(self) -> Ast<'a> {
         self.binder.on_source_end()
     }
@@ -102,7 +131,8 @@ impl<'a> Grouper<'a> {
         // e.g. 1*2>3+4 -> 1*2>(3+ ...
         // e.g. 1+2>3*4 -> 1+2>(3* ...
         // e.g. 1>2+3*4 -> 1>(2+(3* ...
-        if let Some((infix, index)) = self.open_expression().infix {
+        let open_expression = self.open_expression();
+        if let Some((infix, index)) = open_expression.infix {
             if infix.takes_right_child(next_infix) {
                 self.open_expressions.push(OpenExpression {
                     open_index: index + 1,
@@ -117,10 +147,7 @@ impl<'a> Grouper<'a> {
         use crate::syntax::ExpressionBoundary::*;
         let infix = match self.open_expression().boundary {
             // The autoblock wants whatever its *parent* infix wants.
-            AutoBlock => {
-                println!("{:?}", self.open_expressions[self.open_expressions.len() - 2]);
-                self.open_expressions[self.open_expressions.len() - 2].infix
-            },
+            AutoBlock => self.open_expressions[self.open_expressions.len() - 2].infix,
             PrecedenceGroup => self.open_expression().infix,
             _ => return true,
         };
@@ -135,11 +162,7 @@ impl<'a> Grouper<'a> {
         self.open_expressions.last().unwrap()
     }
 
-    fn on_close_token(
-        &mut self,
-        boundary: ExpressionBoundary,
-        range: ByteRange,
-    ) {
+    fn on_close_token(&mut self, boundary: ExpressionBoundary, range: ByteRange) {
         // We never get PrecedenceGroup close tokens. Using > here in case another
         // boundary type is inserted with lower precedence than PrecedenceGroup,
         // to trigger an error and force this to be rethought.

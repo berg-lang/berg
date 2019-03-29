@@ -34,7 +34,7 @@ identifiers! {
     OPEN_CURLY = "{",
     CLOSE_CURLY = "}",
     SEMICOLON = ";",
-    NEWLINE = "\n",
+    NEWLINE_SEQUENCE = "<newline sequence>",
     COLON = ":",
     DOT = ".",
     COMMA = ",",

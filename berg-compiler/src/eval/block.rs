@@ -140,19 +140,33 @@ impl<'a> BlockRef<'a> {
             block.fields.resize(ast.blocks[index].scope_count.into(), BlockFieldValue::NotDeclared);
             (ast, block.expression, index)
         };
-        // Run the block and stash the result
+
+        // Run the block
         let scope = ScopeRef::BlockRef(self.clone());
         let expression = ExpressionEvaluator::new(&scope, &ast, expression);
-        let indent = "  ".repeat(expression.depth());
-        println!("{}|----------------------------------------", indent);
-        println!("{}| Block evaluating {:?}", indent, expression);
+        println!("{}----------------------------------------", self.indent());
+        println!("{} Block evaluating {:?}", self.indent(), expression);
+        if let Some(input) = &self.0.borrow().input {
+            println!("{} Input: {}", self.indent(), input.display());
+        }
         let result = expression.evaluate_block(ast.blocks[index].boundary);
-        println!("{}|       evaluated to {}", indent, result.display());
+
+        // Stash the result and return
         self.0.borrow_mut().state = BlockState::Complete(result);
-        println!("{}| Block state after evaluation: {}", indent, self);
-        println!("{}| Block evaluated {:?} to {}", indent, expression, self.clone_result().display());
-        println!("{}", indent);
+        println!("{} Block state after evaluation: {}", self.indent(), self);
+        println!("{}________________________________________", self.indent());
+        println!();
         Ok(())
+    }
+
+    fn indent(&self) -> String {
+        let block = self.0.borrow();
+        let scope = ScopeRef::BlockRef(self.clone());
+        let ast = block.ast();
+        let expression = ExpressionEvaluator::new(&scope, &ast, block.expression);
+        let mut result = "  ".repeat(expression.depth());
+        result.push_str("|");
+        result
     }
 
     pub fn local_field(&self, index: FieldIndex, ast: &Ast) -> EvalResult<'a> {
@@ -215,6 +229,10 @@ impl<'a> BlockRef<'a> {
         let block_field_index = {
             let block = self.0.borrow();
             let scope_start = ast.blocks[block.index].scope_start;
+            if field_index < scope_start {
+                return block.parent.declare_field(field_index, ast);
+            }
+
             // The index we intend to insert this at
             let block_field_index: usize = (field_index - scope_start).into();
             if let NotDeclared = block.fields[block_field_index] {
@@ -228,8 +246,10 @@ impl<'a> BlockRef<'a> {
 
         // Get the value *before* we mutably borrow, so that next_val can read
         // current field values if it needs to.
-        let value = self.next_input()?.map(Val).unwrap_or(NotSet);
-
+        let next = self.next_input();
+        let name = ast.identifier_string(ast.fields[field_index].name);
+        println!("{} Received argument {} = {:?}", self.indent(), name, next);
+        let value = next?.map(Val).unwrap_or(NotSet);
         self.0.borrow_mut().fields[block_field_index] = value;
 
         Ok(())
@@ -250,7 +270,8 @@ impl<'a> BlockRef<'a> {
                 .set_local_field(field_index, value, ast);
         }
         println!(
-            "Set {} to {:?}: {}",
+            "{}Set {} to {:?}: {}",
+            self.indent(),
             ast.identifier_string(ast.fields[field_index].name),
             value,
             self
@@ -260,7 +281,6 @@ impl<'a> BlockRef<'a> {
             let index: usize = (field_index - scope_start).into();
             block.fields[index] = BlockFieldValue::Val(value);
         }
-        println!("Now we are {}", self);
         Ok(())
     }
 
@@ -353,19 +373,20 @@ impl<'a> IteratorValue<'a> for BlockRef<'a> {
 impl<'a> ObjectValue<'a> for BlockRef<'a> {
     fn field(self, name: IdentifierIndex) -> EvalResult<'a> where Self: Sized {
         println!(
-            "====> get {} on {}",
+            "{}====> get {} on {}",
+            self.indent(),
             self.ast().identifier_string(name),
             self
         );
         // Always try to get the field from the inner result first
         let current = self.clone_result();
-        println!("got from {:?}", self);
+        println!("{}got from {:?}", self.indent(), self);
         let current = current?;
-        println!("current = {}", current);
+        println!("{}current = {}", self.indent(), current);
         match current.field(name) {
             // If we couldn't find the field on the inner value, see if our block has the field
             Err(EvalException::Thrown(BergVal::CompilerError(ref error), ExpressionErrorPosition::Expression)) if error.code() == CompilerErrorCode::NoSuchPublicField => {
-                println!("====> no such public {} on current", self.ast().identifier_string(name));
+                println!("{}====> no such public {} on current", self.indent(), self.ast().identifier_string(name));
                 let ast = self.ast();
                 let index = {
                     let block = self.0.borrow();
@@ -375,8 +396,8 @@ impl<'a> ObjectValue<'a> for BlockRef<'a> {
                 };
                 self.local_field(index, &ast)
             }
-            Ok(value) => { println!("====> got {:?} for {} on {}", value, self.ast().identifier_string(name), self); Ok(value) }
-            Err(error) => { println!("====> error {} for {} on {}", error, self.ast().identifier_string(name), self); Err(error) }
+            Ok(value) => { println!("{}====> got {:?} for {} on {}", self.indent(), value, self.ast().identifier_string(name), self); Ok(value) }
+            Err(error) => { println!("{}====> error {} for {} on {}", self.indent(), error, self.ast().identifier_string(name), self); Err(error) }
             // result => result,
         }
     }

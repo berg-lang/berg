@@ -240,8 +240,7 @@ impl<'p, 'a: 'p> SourceReconstructionIterator<'p, 'a> {
 
             // We may have to skip a few line starts if some of them had alternate
             // line endings like \r or \r\n in them (and therefore we found the space
-            // string in next_whitespace()) or if they were used as newline sequences
-            // (and therefore we found the string in next_token()).
+            // string in next_whitespace()).
             self.line_start_index += 1;
             if *line_start == self.index + 1 {
                 return Some("\n".as_bytes().into());
@@ -253,8 +252,8 @@ impl<'p, 'a: 'p> SourceReconstructionIterator<'p, 'a> {
 }
 
 fn find_ast_index(ast: &Ast, index: ByteIndex) -> AstIndex {
-    // Get the first comment that ends after the index
-    let ast_index = ast.token_ranges.iter().position(|range| range.end > index && range.start < range.end);
+    // Get the first token that ends after the index and is non-empty
+    let ast_index = ast.token_ranges.iter().position(|range| range.end > index && range.end > range.start);
     ast_index.unwrap_or_else(|| ast.token_ranges.len().into())
 }
 

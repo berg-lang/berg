@@ -50,7 +50,7 @@ pub mod is_result {
     impl<Ok, Err> IsResult for Result<Ok, Err> {
         type Ok = Ok;
         type Err = Err;
-        fn into_result(self) -> Result<Self::Ok, Self::Err> { self }
+        fn into_result(self) -> Result<Ok, Err> { self }
     }
 }
 

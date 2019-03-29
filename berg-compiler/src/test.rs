@@ -162,8 +162,8 @@ impl<'a> ExpectBerg<'a> {
     {
         println!("Source:");
         println!("{}", String::from_utf8_lossy(self.0));
-        println!("");
-        let actual = evaluate_ast(self.parse())
+        println!();
+        let actual = evaluate_ast(self.parse()).and_then(Self::evaluate_all)
             .unwrap_or_else(|e| panic!("Unexpected error from {}: {}", self, e));
         println!("actual: {}, expected: {}", actual, expected);
         assert!(
@@ -171,7 +171,7 @@ impl<'a> ExpectBerg<'a> {
             "Wrong value returned from {}! expected: {}, actual: {}.",
             self,
             expected,
-            actual,
+            actual
         );
     }
 
@@ -214,13 +214,13 @@ impl<'a> ExpectBerg<'a> {
         // Run the Berg
         println!("Source:");
         println!("{}", String::from_utf8_lossy(self.0));
-        println!("");
+        println!();
         let ast = parser::parse(test_source(self.0));
         let expected_range = ast
             .char_data
             .range(&expected_range.into_error_range(self.0.as_ref()));
         let result = evaluate_ast(ast.clone());
-        let result = result.and_then(Self::consume_all);
+        let result = result.and_then(Self::evaluate_all);
         assert!(
             result.is_err(),
             "No error produced by {}: expected {}, got value {}",
@@ -261,7 +261,12 @@ impl<'a> ExpectBerg<'a> {
         ast
     }
 
-    fn consume_all(mut value: BergVal<'a>) -> Result<BergVal<'a>, Exception<'a>> {
+    fn evaluate_all(value: BergVal<'a>) -> Result<BergVal<'a>, Exception<'a>> {
+        let mut value = value.evaluate()?;
+        if value.is_single_primitive() {
+            return value.ok();
+        }
+
         let mut values = vec![];
         loop {
             use EvalException::*;
@@ -275,7 +280,9 @@ impl<'a> ExpectBerg<'a> {
 
             match head {
                 None => break,
-                Some(head) => {
+                Some(mut head) => {
+                    // Consume recursively
+                    head = Self::evaluate_all(head)?;
                     values.push(head);
                     value = tail;
                 }
