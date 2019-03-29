@@ -1,15 +1,9 @@
 language: rust
-language: rust
-
-install: cargo build $BUILD_FLAGS --verbose
-script: cargo build $BUILD_FLAGS --verbose && cargo test $BUILD_FLAGS --verbose
-
+rust:
+  - stable
+  - beta
+  - nightly
 matrix:
-  include:
-  - rust: stable
-    env: { BUILD_FLAGS: --no-default-features }
-  - rust: beta
-    env: { BUILD_FLAGS: --no-default-features }
-  - rust: nightly
   allow_failures:
     - rust: nightly
+  fast_finish: true
