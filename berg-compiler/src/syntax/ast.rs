@@ -192,6 +192,9 @@ impl<'a> Ast<'a> {
     pub fn intern_identifier(&mut self, string: impl Into<String> + AsRef<str>) -> IdentifierIndex {
         self.identifiers.get_or_intern(string)
     }
+    pub fn intern_literal(&mut self, string: impl Into<String> + AsRef<str>) -> LiteralIndex {
+        self.literals.get_or_intern(string)
+    }
 }
 
 impl<'a> fmt::Debug for Ast<'a> {

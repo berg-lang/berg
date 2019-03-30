@@ -16,8 +16,8 @@ use crate::util::indexed_vec::Delta;
 pub struct Grouper<'a> {
     binder: Binder<'a>,
     open_expressions: Vec<OpenExpression>,
-//    current_line_indent: Delta<ByteIndex>,
     start_auto_block: bool,
+    current_line_indent: Delta<ByteIndex>,
 }
 
 // ///
@@ -140,6 +140,7 @@ impl<'a> Grouper<'a> {
             binder: Binder::new(ast),
             open_expressions: Default::default(),
             start_auto_block: false,
+            current_line_indent: 0.into(),
         }
     }
 
@@ -174,7 +175,7 @@ impl<'a> Grouper<'a> {
             Close(_, boundary) => self.on_close_token(boundary, range),
 
             // Infix tokens may have left->right or right->left precedence.
-            InfixOperator(_) | NewlineSequence(_) | InfixAssignment(_) => {
+            InfixOperator(_) | InfixAssignment(_) => {
                 // Close parent groups that don't want us as a child.
                 while !self.open_expression_wants_child(token) {
                     self.close_top(None, range.start..range.start);
@@ -245,10 +246,6 @@ impl<'a> Grouper<'a> {
     fn open_expression(&self) -> &OpenExpression {
         self.open_expressions.last().unwrap()
     }
-
-    // fn on_indent(&mut self, indent: ByteRange) {
-    //     self.open_block()
-    // }
 
     fn on_close_token(
         &mut self,

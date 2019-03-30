@@ -66,7 +66,7 @@ impl<'p, 'a: 'p> fmt::Display for ExpressionTreeWalker<'p, 'a, ExpressionFormatt
                     }
                 }
                 Close(..) | CloseBlock(..) => unreachable!(),
-                InfixOperator(SEMICOLON) | NewlineSequence(_) => write!(f, "{}{} {}", self.left_expression(), string, self.right_expression()),
+                InfixOperator(SEMICOLON) => write!(f, "{}{} {}", self.left_expression(), string, self.right_expression()),
                 InfixOperator(_) | InfixAssignment(_) => write!(f, "{} {} {}", self.left_expression(), string, self.right_expression()),
             }
         }

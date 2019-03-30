@@ -25,8 +25,8 @@ pub fn parse(source: SourceRef) -> AstRef {
         buffer,
         source_open_error,
     } = source.open();
-    let sequencer = Sequencer::new(Ast::new(source, source_open_error));
-    let ast = AstRef::new(sequencer.parse_buffer(&buffer));
+    let sequencer = Sequencer::new(Ast::new(source, source_open_error), &buffer);
+    let ast = AstRef::new(sequencer.parse());
     println!();
     println!("Parsed:");
     print!("{}", ast.expression().format_tree());

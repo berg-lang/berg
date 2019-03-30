@@ -2,7 +2,7 @@ use crate::syntax::identifiers::*;
 use crate::syntax::precedence::Precedence;
 use crate::syntax::ExpressionBoundary::*;
 use crate::syntax::{
-    Ast, AstDelta, BlockIndex, FieldIndex, IdentifierIndex, LiteralIndex, RawLiteralIndex, WhitespaceIndex,
+    Ast, AstDelta, BlockIndex, FieldIndex, IdentifierIndex, LiteralIndex, RawLiteralIndex,
 };
 use std::borrow::Cow;
 use std::fmt;
@@ -92,22 +92,6 @@ pub enum OperatorToken {
     /// [`syntax::identifiers`].
     /// 
     InfixOperator(IdentifierIndex),
-    ///
-    /// A newline sequence.
-    /// 
-    /// For example:
-    /// 
-    /// ```berg
-    /// :x = 1
-    /// x++
-    /// ```
-    /// 
-    /// The operator identifier for this is always NEWLINE.
-    /// 
-    /// If the value is None, it represents a "\n."
-    /// If the value is Some(WhitespaceIndex), it is an index into char_data.whitespace_characters.
-    /// 
-    NewlineSequence(Option<WhitespaceIndex>),
     ///
     /// An infix assignment operator.
     /// 
@@ -377,7 +361,7 @@ impl OperatorToken {
     pub fn fixity(self) -> Fixity {
         use OperatorToken::*;
         match self {
-            InfixOperator(_) | NewlineSequence(_) | InfixAssignment(_) => Fixity::Infix,
+            InfixOperator(_) | InfixAssignment(_) => Fixity::Infix,
             PostfixOperator(_) => Fixity::Postfix,
             Close { .. } | CloseBlock { .. } => Fixity::Close,
         }
@@ -401,9 +385,7 @@ impl OperatorToken {
     pub fn to_string<'p, 'a: 'p>(self, ast: &'p Ast<'a>) -> Cow<'p, str> {
         use OperatorToken::*;
         match self {
-            NewlineSequence(None) => "\\n".into(),
-            NewlineSequence(Some(whitespace)) => ast.whitespace_string(whitespace).into(),
-            InfixOperator(APPLY) => "".into(),
+            InfixOperator(NEWLINE_SEQUENCE) | InfixOperator(APPLY) => "".into(),
             InfixOperator(identifier)
             | PostfixOperator(identifier) => ast.identifier_string(identifier).into(),
 
@@ -422,9 +404,7 @@ impl OperatorToken {
     pub fn original_bytes<'p, 'a: 'p>(self, ast: &'p Ast<'a>) -> Cow<'p, [u8]> {
         use OperatorToken::*;
         match self {
-            NewlineSequence(None) => Cow::Borrowed(b"\n"),
-            NewlineSequence(Some(index)) => ast.whitespace_string(index).as_bytes().into(),
-            InfixOperator(APPLY) => Cow::Borrowed(b""),
+            InfixOperator(NEWLINE_SEQUENCE) | InfixOperator(APPLY) => Cow::Borrowed(b""),
 
             InfixOperator(identifier)
             | PostfixOperator(identifier) => ast.identifier_string(identifier).as_bytes().into(),

@@ -73,7 +73,7 @@ impl Default for CharData {
     fn default() -> Self {
         CharData {
             size: Default::default(),
-            line_starts: Default::default(),
+            line_starts: vec!(0.into()),
             whitespace_characters: StringInterner::new(),
             whitespace_ranges: Default::default(),
             comments: Default::default(),
@@ -91,9 +91,10 @@ impl CharData {
     /// * Panics if `append()` is not called with `start` increasing each time.
     /// * Panics if ByteIndex == u32::MAX
     /// 
-    pub fn append_whitespace(&mut self, whitespace: &str, start: ByteIndex) {
+    pub fn append_whitespace(&mut self, whitespace: &str, start: ByteIndex) -> WhitespaceIndex{
         let whitespace_index = self.whitespace_characters.get_or_intern(whitespace);
         self.whitespace_ranges.push((whitespace_index, start));
+        whitespace_index
     }
 
     pub fn append_comment(&mut self, bytes: &[u8], start: ByteIndex) {

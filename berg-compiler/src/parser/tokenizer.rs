@@ -1,9 +1,9 @@
+use crate::parser::sequencer::IndentLevel;
 use crate::parser::Grouper;
-use crate::syntax::ExpressionToken::*;
 use crate::syntax::OperatorToken::*;
 use crate::syntax::TermToken::*;
-use crate::syntax::{Ast, ByteIndex, ByteRange, ExpressionBoundary, ExpressionBoundaryError, ExpressionToken, OperatorToken, Token};
-use crate::syntax::identifiers::{NEWLINE, APPLY};
+use crate::syntax::{Ast, ByteIndex, ByteRange, ExpressionBoundary, ExpressionBoundaryError, ExpressionToken, OperatorToken};
+use crate::syntax::identifiers::{NEWLINE_SEQUENCE, APPLY};
 
 // This builds up a valid expression from the incoming sequences, doing two things:
 // 1. Inserting apply, newline sequence, and missing expression as appropriate
@@ -14,8 +14,7 @@ pub struct Tokenizer<'a> {
     pub grouper: Grouper<'a>,
     pub in_term: bool,
     pub prev_was_operator: bool,
-    newline_start: ByteIndex,
-    newline_length: u8,
+    pub at_line_start: bool,
 }
 
 impl<'a> Tokenizer<'a> {
@@ -24,8 +23,7 @@ impl<'a> Tokenizer<'a> {
             grouper: Grouper::new(ast),
             in_term: false,
             prev_was_operator: true,
-            newline_start: ByteIndex(0),
-            newline_length: 0,
+            at_line_start: true,
         }
     }
 
@@ -46,14 +44,7 @@ impl<'a> Tokenizer<'a> {
 
     // The start of source emits the "open source" token.
     pub fn on_source_start(&mut self, start: ByteIndex) {
-        let mut open_token = ExpressionBoundary::Source.placeholder_open_token(self.source_error());
-        if self.ast().source_open_error.is_some() {
-            if let Open(ref mut error, ..) = open_token {
-                *error = Some(ExpressionBoundaryError::OpenError);
-            } else {
-                unreachable!()
-            }
-        }
+        let open_token = ExpressionBoundary::Source.placeholder_open_token(self.source_error());
         self.emit_expression_token(open_token, start..start)
     }
 
@@ -67,62 +58,57 @@ impl<'a> Tokenizer<'a> {
 
     // Signifies this token is inside a compound term with no spaces, like "1+2".
     // If a term hasn't started, this will start it.
-    pub fn on_term_token(&mut self, token: impl Into<Token>, range: ByteRange) {
+    pub fn on_term_token(&mut self, token: impl Into<ExpressionToken>, range: ByteRange) {
         assert!(range.start < range.end);
         self.open_term(range.start);
-        self.emit_token(token.into(), range);
+        self.emit_expression_token(token.into(), range);
     }
 
-    // Space after a term closes it.
-    pub fn on_space(&mut self, start: ByteIndex) {
-        self.close_term(start);
-    }
-
-    ///
-    /// Called when a non-empty line starts (when a line has non-horizontal
-    /// whitespace).
-    /// 
-    /// This handles indentation of declaration blocks so we can close them on
-    /// unindent, and of regular blocks ({}) so that we can ensure said blocks
-    /// are indented and recover from errors properly when they are unbalanced.
-    /// 
-    /// [`on_line_ending()`] and [`on_space()`] (if there is any space) are called
-    /// before [`on_line_start()`].
-    ///
-    /// - [`indent`] is the byte range of the horizontal whitespace at the
-    ///   beginning of the line, and may be empty.
-    /// - [`indent`] will *not* include the line ending character.
-    /// - Lines include the first and last line, even if the last line is not
-    ///   terminated by a line ending.
-    /// 
-    pub fn on_indent(&mut self, indent: ByteRange) {
-        self.grouper.on_indent(indent)
+    pub fn on_term_operator_token(&mut self, token: OperatorToken, range: ByteRange) {
+        assert!(range.start < range.end);
+        self.open_term(range.start);
+        self.emit_operator_token(token, range);
     }
 
     ///
-    /// Handle line endings.
+    /// Handle space.
+    ///
+    pub fn on_space(&mut self, range: ByteRange) {
+        self.close_term(range.start);
+    }
+
+    pub fn on_comment(&mut self, range: ByteRange) {
+        // Comment after a term closes it.
+        // We don't have delimited comments, so a+/*comment*/b is impossible.
+        self.close_term(range.start);
+    }
+
+    ///
+    /// Handle newlines (tells us we want to do a newline sequence)
     /// 
-    /// This causes terms to close, just like on_space.
+    pub fn on_line_ending(&mut self, range: ByteRange) {
+        self.close_term(range.start);
+        self.at_line_start = true;
+    }
+
+    ///
+    /// Handle indenting into a new block.
     /// 
-    /// If this is the first newline since we processed tokens, saves it.
-    /// Newline is space, so it closes terms just like space. If the last line ended in a evaluate
-    /// expression, we may be about to create a newline sequence. Save the first newline until we know
-    // whether the next real line is an operator (continuation) or a new expression.
-    pub fn on_line_ending(&mut self, newline: ByteRange) {
-        self.close_term(newline.start);
-        if self.newline_length == 0 {
-            self.newline_start = newline.start;
-            self.newline_length = usize::from(newline.end - newline.start) as u8;
-        }
+    pub fn on_indent(&mut self, _indent: IndentLevel, _indented_from: IndentLevel) {
+    }
+
+    pub fn on_undent(&mut self, _indent: IndentLevel, _undented_from: IndentLevel) {
+    }
+
+    pub fn on_indent_mismatch(&mut self, _indent: IndentLevel, _mismatch_at: IndentLevel) {
     }
 
     // ( or {. If the ( is after a space, opens a new term. But once we're in the ( a new term will
     // be started.
     pub fn on_open(&mut self, boundary: ExpressionBoundary, range: ByteRange) {
         assert!(range.start < range.end);
-        let token = boundary.placeholder_open_token(None);
         self.open_term(range.start);
-        self.emit_expression_token(token, range);
+        self.emit_expression_token(boundary.placeholder_open_token(None), range);
         self.in_term = false;
     }
 
@@ -162,26 +148,17 @@ impl<'a> Tokenizer<'a> {
         }
     }
 
-    fn emit_token(&mut self, token: Token, range: ByteRange) {
-        match token {
-            Token::Expression(token) => self.emit_expression_token(token, range),
-            Token::Operator(token) => self.emit_operator_token(token, range),
-        }
-    }
     fn emit_expression_token(&mut self, token: ExpressionToken, range: ByteRange) {
         if !self.prev_was_operator {
-            if self.newline_length > 0 {
-                let newline_start = self.newline_start;
-                let newline_end = newline_start + (self.newline_length as usize);
-                self.emit_operator_token(InfixOperator(NEWLINE), newline_start..newline_end);
+            if self.at_line_start {
+                self.emit_operator_token(InfixOperator(NEWLINE_SEQUENCE), range.start..range.start);
             } else {
                 self.emit_operator_token(InfixOperator(APPLY), range.start..range.start);
             }
         }
         self.grouper.on_expression_token(token, range);
         self.prev_was_operator = token.has_right_operand();
-        // Now that this token is emitted, we wait for the *next* newline as a statement separator.
-        self.newline_length = 0;
+        self.at_line_start = false;
     }
     fn emit_operator_token(&mut self, token: OperatorToken, range: ByteRange) {
         if self.prev_was_operator {
@@ -189,7 +166,6 @@ impl<'a> Tokenizer<'a> {
         }
         self.grouper.on_operator_token(token, range);
         self.prev_was_operator = token.has_right_operand();
-        // Now that this token is emitted, we wait for the *next* newline as a statement separator.
-        self.newline_length = 0;
+        self.at_line_start = false;
     }
 }
