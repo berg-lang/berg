@@ -367,7 +367,7 @@ impl<'a, 'p> Sequencer<'a, 'p> {
             }
             // The old indent and new indent are entirely space characters.
             (None, None) => None,
-        }.map(|i| i.into())
+        }.map(Into::into)
     }
 
     fn read_space(&mut self, start: ByteIndex) -> Option<WhitespaceIndex> {

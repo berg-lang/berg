@@ -410,7 +410,7 @@ impl<Inner: Iterator, Idx: IndexType> IndexedIter<Inner, Idx> {
     where
         P: FnMut(Inner::Item) -> bool,
     {
-        self.0.position(predicate).map(|i| i.into())
+        self.0.position(predicate).map(Into::into)
     }
     pub fn rposition<P>(&mut self, predicate: P) -> Option<Idx>
     where
@@ -418,7 +418,7 @@ impl<Inner: Iterator, Idx: IndexType> IndexedIter<Inner, Idx> {
         Self: ExactSizeIterator + DoubleEndedIterator,
         Inner: ExactSizeIterator + DoubleEndedIterator,
     {
-        self.0.rposition(predicate).map(|i| i.into())
+        self.0.rposition(predicate).map(Into::into)
     }
 
     // Functions we want to keep the index for (make it still possible to get valid indices):
