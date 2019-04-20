@@ -42,6 +42,13 @@ impl<'a> BergVal<'a> {
     pub fn throw<T>(self) -> Result<T, EvalException<'a>> {
         EvalException::Thrown(self, ExpressionErrorPosition::Expression).err()
     }
+    pub fn is_single_primitive(&self) -> bool {
+        use BergVal::*;
+        match self {
+            Boolean(_) | BigRational(_) | CaughtException(_) | CompilerError(_) => true,
+            BlockRef(_) | Tuple(_) => false,
+        }
+    }
 }
 
 pub fn empty_tuple<'a>() -> BergVal<'a> {

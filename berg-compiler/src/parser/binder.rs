@@ -27,7 +27,7 @@ impl<'a> Binder<'a> {
     pub fn new(ast: Ast<'a>) -> Self {
         // Grab the root field names
         let scope = (0..ast.source.root().field_names().len())
-            .map(|i| i.into())
+            .map(Into::into)
             .collect();
         let mut result = Binder {
             ast,
@@ -176,10 +176,8 @@ impl<'a> Binder<'a> {
         range: ByteRange,
     ) {
         let (index, ast_block) = {
-            // As long as scope openers are the highest precedence, scope openers will only ever be
-            // inserted right after the previously opened scope. Test that assumption here.
             let open_scope = self.open_scope();
-            assert_eq!(open_scope.open_index, open_index - 1);
+            assert!(open_index > open_scope.open_index, "Expected open {:?} to be inserted after {:?}, but it's being before it ({:?}) instead ...", boundary, self.ast.token(open_scope.open_index), self.ast.token(open_index - 1));
 
             let open_block = &self.ast.blocks[open_scope.index];
 
@@ -192,6 +190,7 @@ impl<'a> Binder<'a> {
                 delta,
                 boundary,
             };
+        println!("insert block {:?} at {}", ast_block, index);
             (index, ast_block)
         };
 
@@ -207,10 +206,19 @@ impl<'a> Binder<'a> {
 
         // Fix all parent indices after the block. They are guaranteed to be our children since this
         // will only happen after closing any children.
-        for (i, b) in self.ast.blocks[(index + 1)..].iter_mut().enumerate() {
-            let i = (index + 1) + i;
-            assert!(i - b.parent >= index);
-            b.parent += 1;
+        for (i, block) in self.ast.blocks.iter_mut().enumerate().skip((index + 1).into()) {
+            assert!(i - block.parent >= index);
+            block.parent += 1;
+        }
+
+        // Fix all block indices up to this point, since they are about to change.
+        // TODO This is slow and by itself justifies us not doing binding at the same time as
+        // open/close matching.
+        for token in self.ast.tokens.iter_mut().skip(open_index.into()) {
+            if let Token::Operator(OperatorToken::CloseBlock(ref mut other_index, _)) = token {
+                assert!(*other_index >= index);
+                *other_index += 1;
+            }
         }
 
         // Insert the token. No token adjustment necessary since everything does deltas.
@@ -256,6 +264,7 @@ impl<'a> Binder<'a> {
             block.scope_count = FieldIndex(self.ast.fields.len() as u32) - block.scope_start;
             block.delta = delta;
         }
+        println!("push close scope {:?}", self.ast.blocks[open_scope.index]);
         self.scope.truncate(open_scope.scope_start);
         open_scope.index
     }

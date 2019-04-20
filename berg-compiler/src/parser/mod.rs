@@ -29,10 +29,16 @@ pub fn parse(source: SourceRef) -> AstRef {
     let ast = AstRef::new(sequencer.parse());
     println!();
     println!("Parsed:");
-    print!("{}", ast.expression().format_tree());
+    let mut level = 0;
     for i in 0..ast.tokens.len() {
-        use crate::syntax::AstIndex;
-        println!("{:?} = {:?}", ast.token_ranges[AstIndex::from(i)], ast.tokens[AstIndex::from(i)])
+        use crate::syntax::{Token, ExpressionToken, OperatorToken};
+        let token = ast.token(i.into());
+        let token_range = ast.token_range(i.into());
+        if let Token::Operator(OperatorToken::Close(..)) = token { level -= 1 }
+        if let Token::Operator(OperatorToken::CloseBlock(..)) = token { level -= 1 }
+        println!("{:>3} {:<indent$}{:<16} | {:?}  at {}..{}", i, "", ast.visible_token_string(i.into()), token, token_range.start, token_range.end, indent = level*4);
+        if let Token::Expression(ExpressionToken::Open(..)) = token { level += 1 }
     }
+    println!();
     ast
 }

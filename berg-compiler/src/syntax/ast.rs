@@ -124,6 +124,9 @@ impl<'a> Ast<'a> {
     pub fn token_string(&self, index: AstIndex) -> Cow<str> {
         self.tokens[index].to_string(self)
     }
+    pub fn visible_token_string(&self, index: AstIndex) -> Cow<str> {
+        self.tokens[index].to_visible_string(self)
+    }
     pub fn token_range(&self, index: AstIndex) -> ByteRange {
         self.token_ranges[index].clone()
     }
@@ -169,6 +172,7 @@ impl<'a> Ast<'a> {
 
     pub fn push_token(&mut self, token: impl Into<Token>, range: ByteRange) -> AstIndex {
         let token = token.into();
+        println!("PUSH {:?}", token);
         // Validate that we push tokens in increasing order
         assert!(match self.token_ranges.last() {
             Some(last) => range.start >= last.end,
@@ -179,9 +183,11 @@ impl<'a> Ast<'a> {
     }
 
     pub fn insert_token(&mut self, index: AstIndex, token: impl Into<Token>, range: ByteRange) {
+        let token = token.into();
+        println!("INSERT {:?} AT {}", token, index);
         assert!(index == 0 || range.start >= self.token_ranges[index - 1].end);
         assert!(index == self.token_ranges.len() || range.end <= self.token_ranges[index].start);
-        self.tokens.insert(index, token.into());
+        self.tokens.insert(index, token);
         self.token_ranges.insert(index, range);
     }
 

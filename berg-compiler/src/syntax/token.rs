@@ -239,18 +239,20 @@ pub enum ExpressionBoundaryError {
 ///
 /// The type of an open/close pair.
 /// 
-#[derive(Debug, Copy, Clone, PartialEq, PartialOrd)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum ExpressionBoundary {
     PrecedenceGroup,
     CompoundTerm,
     Parentheses,
     AutoBlock,
     CurlyBraces,
+    IndentedExpression,
+    IndentedBlock,
     Source,
     Root,
 }
 
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum Fixity {
     Term,
     Infix,
@@ -293,6 +295,13 @@ impl Token {
         match *self {
             Expression(token) => token.to_string(ast),
             Operator(token) => token.to_string(ast),
+        }
+    }
+    pub fn to_visible_string<'p, 'a: 'p>(&self, ast: &'p Ast<'a>) -> Cow<'p, str> {
+        use Token::*;
+        match *self {
+            Expression(token) => token.to_visible_string(ast),
+            Operator(token) => token.to_visible_string(ast),
         }
     }
     pub fn takes_right_child(self, right: impl Into<Token>) -> bool {
@@ -338,10 +347,26 @@ impl ExpressionToken {
     }
     pub fn to_string<'p, 'a: 'p>(&self, ast: &'p Ast<'a>) -> Cow<'p, str> {
         use ExpressionToken::*;
+        use ExpressionBoundaryError::*;
         match *self {
             Term(token) => token.to_string(ast),
             PrefixOperator(identifier) => ast.identifier_string(identifier).into(),
-            Open(_, boundary, _) => boundary.open_string().into(),
+            Open(Some(CloseWithoutOpen), boundary, _) => format!("missing {}", boundary.open_string()).into(),
+            Open(Some(OpenWithoutClose), boundary, _) => format!("unclosed {}", boundary.open_string()).into(),
+            Open(Some(OpenError), boundary, _) => format!("openerror {}", boundary.open_string()).into(),
+            Open(None, boundary, _) => boundary.open_string().into(),
+        }
+    }
+    pub fn to_visible_string<'p, 'a: 'p>(&self, ast: &'p Ast<'a>) -> Cow<'p, str> {
+        use ExpressionToken::*;
+        use ExpressionBoundaryError::*;
+        match *self {
+            Term(token) => token.to_visible_string(ast),
+            Open(Some(CloseWithoutOpen), boundary, _) => format!("missing {}", boundary.visible_open_string()).into(),
+            Open(Some(OpenWithoutClose), boundary, _) => format!("unclosed {}", boundary.visible_open_string()).into(),
+            Open(Some(OpenError), boundary, _) => format!("openerror {}", boundary.visible_open_string()).into(),
+            Open(None, boundary, _) => boundary.visible_open_string().into(),
+            _ => self.to_string(ast),
         }
     }
     pub fn takes_right_child(self, right: impl Into<Token>) -> bool {
@@ -393,6 +418,15 @@ impl OperatorToken {
             Close(_, boundary) | CloseBlock(_, boundary) => boundary.close_string().into(),
         }
     }
+    pub fn to_visible_string<'p, 'a: 'p>(self, ast: &'p Ast<'a>) -> Cow<'p, str> {
+        use OperatorToken::*;
+        match self {
+            InfixOperator(NEWLINE_SEQUENCE) => "<\\n>".into(),
+            InfixOperator(APPLY) => "< >".into(),
+            Close(_, boundary) | CloseBlock(_, boundary) => boundary.visible_close_string().into(),
+            _ => self.to_string(ast),
+        }
+    }
     pub fn takes_right_child(self, right: impl Into<Token>) -> bool {
         use Fixity::*;
         match (self.fixity(), right.into()) {
@@ -435,6 +469,13 @@ impl TermToken {
             MissingExpression  => "".into(),
         }
     }
+    pub fn to_visible_string<'p, 'a: 'p>(self, ast: &'p Ast<'a>) -> Cow<'p, str> {
+        use TermToken::*;
+        match self {
+            MissingExpression  => "<missing>".into(),
+            _ => self.to_string(ast),
+        }
+    }
     pub fn original_bytes<'p, 'a: 'p>(self, ast: &'p Ast<'a>) -> Cow<'p, [u8]> {
         use TermToken::*;
         match self {
@@ -453,15 +494,15 @@ impl ExpressionBoundary {
     /// Tells whether this expression boundary represents a block.
     pub(crate) fn is_block(self) -> bool {
         match self {
-            CurlyBraces | Source | Root | AutoBlock  => true,
-            Parentheses | PrecedenceGroup | CompoundTerm => false,
+            CurlyBraces | Source | Root | AutoBlock | IndentedBlock => true,
+            Parentheses | PrecedenceGroup | CompoundTerm | IndentedExpression => false,
         }
     }
     /// Tells whether this boundary type MUST be in the expression tree (because
     /// it represents actual user syntax, or opens a scope).
     pub(crate) fn is_required(self) -> bool {
         match self {
-            Root | Source | CurlyBraces | Parentheses | AutoBlock => true,
+            Root | Source | CurlyBraces | Parentheses | AutoBlock | IndentedBlock | IndentedExpression => true,
             PrecedenceGroup | CompoundTerm  => false,
         }
     }
@@ -469,7 +510,7 @@ impl ExpressionBoundary {
     /// by the grouper automatically.
     pub(crate) fn is_closed_automatically(self) -> bool {
         match self {
-            PrecedenceGroup | CompoundTerm | AutoBlock  => true,
+            PrecedenceGroup | CompoundTerm | AutoBlock | IndentedBlock | IndentedExpression => true,
             Root | Source | CurlyBraces | Parentheses => false,
         }
     }
@@ -483,14 +524,40 @@ impl ExpressionBoundary {
         match self {
             CurlyBraces => OPEN_CURLY.well_known_str(),
             Parentheses => OPEN_PAREN.well_known_str(),
-            PrecedenceGroup | AutoBlock | CompoundTerm | Source | Root => "",
+            PrecedenceGroup | AutoBlock | IndentedBlock | IndentedExpression | CompoundTerm | Source | Root => "",
+        }
+    }
+    pub(crate) fn visible_open_string(self) -> &'static str {
+        match self {
+            CurlyBraces => OPEN_CURLY.well_known_str(),
+            Parentheses => OPEN_PAREN.well_known_str(),
+            PrecedenceGroup => "precedence (",
+            AutoBlock => "auto {",
+            IndentedBlock => "indent {",
+            IndentedExpression => "indent (",
+            CompoundTerm => "term (",
+            Source => "source {",
+            Root => "root {",
         }
     }
     pub(crate) fn close_string(self) -> &'static str {
         match self {
             CurlyBraces => CLOSE_CURLY.well_known_str(),
             Parentheses => CLOSE_PAREN.well_known_str(),
-            PrecedenceGroup | AutoBlock | CompoundTerm | Source | Root => "",
+            PrecedenceGroup | AutoBlock | IndentedBlock | IndentedExpression | CompoundTerm | Source | Root => "",
+        }
+    }
+    pub(crate) fn visible_close_string(self) -> &'static str {
+        match self {
+            CurlyBraces => CLOSE_CURLY.well_known_str(),
+            Parentheses => CLOSE_PAREN.well_known_str(),
+            PrecedenceGroup => ") precedence",
+            AutoBlock => "} auto",
+            IndentedBlock => "} indent",
+            IndentedExpression => ") indent",
+            CompoundTerm => ") term",
+            Source => "} source",
+            Root => "} root",
         }
     }
 }

@@ -215,6 +215,10 @@ impl<'a> BlockRef<'a> {
         let block_field_index = {
             let block = self.0.borrow();
             let scope_start = ast.blocks[block.index].scope_start;
+            if field_index < scope_start {
+                return block.parent.declare_field(field_index, ast);
+            }
+
             // The index we intend to insert this at
             let block_field_index: usize = (field_index - scope_start).into();
             if let NotDeclared = block.fields[block_field_index] {

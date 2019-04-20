@@ -16,14 +16,17 @@ impl<'p, 'a: 'p> ExpressionTreeWalker<'p, 'a, ExpressionFormatter> {
             ExpressionToken::Open(_, boundary, _) => boundary,
             _ => unreachable!(),
         };
+        use ExpressionBoundary::*;
         match boundary {
-            ExpressionBoundary::AutoBlock => ("auto{", "}"),
-            ExpressionBoundary::PrecedenceGroup => ("prec(", ")"),
-            ExpressionBoundary::CompoundTerm => ("term(", ")"),
-            ExpressionBoundary::Parentheses => ("(", ")"),
-            ExpressionBoundary::CurlyBraces => ("{ ", " }"),
-            ExpressionBoundary::Source => ("source{ ", " }"),
-            ExpressionBoundary::Root => ("root{ ", " }"),
+            AutoBlock => ("auto{", "}"),
+            IndentedBlock => ("indent{", "}"),
+            IndentedExpression => ("indent(", ")"),
+            PrecedenceGroup => ("prec(", ")"),
+            CompoundTerm => ("term(", ")"),
+            Parentheses => ("(", ")"),
+            CurlyBraces => ("{ ", " }"),
+            Source => ("source{ ", " }"),
+            Root => ("root{ ", " }"),
         }
     }
 }
