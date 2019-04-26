@@ -5,8 +5,20 @@ fn foreach_tuple() {
     expect("
         :sum = 0
         multiply: :x * :y
+        foreach (1,2,3,4) {
+            sum += (multiply :x, 2)
+        }
+        sum
+    ").to_yield(20);
+}
+
+#[test]
+fn foreach_raw_tuple() {
+    expect("
+        :sum = 0
+        multiply: :x * :y
         foreach 1,2,3,4 {
-            sum += multiply(:x, 2)
+            sum += (multiply :x, 2)
         }
         sum
     ").to_yield(20);

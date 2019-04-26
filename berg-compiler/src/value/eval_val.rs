@@ -226,7 +226,10 @@ impl<'a> OperableValue<'a> for EvalVal<'a> {
             TrailingSemicolon if operator == SEMICOLON => CompilerError::MissingOperand.operand_err(LeftRight),
             TrailingComma(_) if operator == COMMA => CompilerError::MissingOperand.operand_err(LeftRight),
             PartialTuple(mut vec) => match operator {
-                COMMA => { vec.push(right.lazy_val()?); PartialTuple(vec).ok() }
+                COMMA => match right.get()? {
+                    RightOperand(MissingExpression, _) => TrailingComma(vec).ok(),
+                    value => { vec.push(value.lazy_val()?); PartialTuple(vec).ok() }
+                }
                 _ => PartialTuple(vec).lazy_val().infix(operator, right)
             }
             // if <condition>, if false else if <condition>

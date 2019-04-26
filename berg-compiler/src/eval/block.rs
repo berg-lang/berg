@@ -426,7 +426,17 @@ impl<'a> OperableValue<'a> for BlockRef<'a> {
 
         match operator {
             DOT => default_infix(self, operator, right),
-            APPLY => self.apply(right.lazy_val()?)?.ok(),
+            APPLY => {
+                let arguments = right.get()?;
+                let input = match arguments {
+                    // Any commas are treated as separate arguments, so `f 1,2,3` is
+                    // 3 arguments. `f (1,2,3), (4,5,6)` however,  is two arguments.
+                    RightOperand(EvalVal::PartialTuple(_), _) | RightOperand(EvalVal::TrailingComma(_), _) => arguments.lazy_val()?,
+                    // f (1,2,3) is a single argument which is itself a tuple.
+                    _ => BergVal::from(vec![arguments.lazy_val()?])
+                };
+                self.apply(input)?.ok()
+            }
             _ => self.clone_result().infix(operator, right),
         }
     }

@@ -1,16 +1,44 @@
 use crate::*;
 
 #[test]
-fn function() {
+fn function_single_arg_space() {
     expect("Square: :x*x; Square 10").to_yield(100)
 }
 #[test]
-fn function_multiple_args() {
-    expect("Multiply: :a*:b; Multiply(2,3)").to_yield(6)
+fn function_single_arg_trailing_comma() {
+    expect("Square: :x*x; Square 10,").to_yield(100)
+}
+#[test]
+fn function_single_arg_paren() {
+    expect("Square: :x*x; Square(10)").to_yield(100)
+}
+#[test]
+fn function_single_arg_space_paren() {
+    expect("Square: :x*x; Square (10)").to_yield(100)
+}
+#[test]
+fn function_single_arg_block() {
+    expect("Square: :x*x; Square { 10 }").to_yield(100)
+}
+#[test]
+fn function_single_tuple_arg() {
+    expect("Duplicate: (:a,a); Duplicate (1,2)").to_yield(tuple!((1,2),(1,2)))
+}
+#[test]
+fn function_single_block_tuple_arg() {
+    expect("Duplicate: (:a,a); Duplicate { 1,2 }").to_yield(tuple!((1,2),(1,2)))
 }
 #[test]
 fn function_multiple_args_space() {
     expect("Multiply: :a*:b; Multiply 2,3").to_yield(6)
+}
+#[test]
+fn function_multiple_args_trailing_comma() {
+    expect("Multiply: :a*:b; Multiply 2,3,").to_yield(6)
+}
+#[test]
+fn function_multiple_args_paren() {
+    expect("Multiply: :a*:b; Multiply(2,3)").to_yield(6)
 }
 #[test]
 fn function_result() {

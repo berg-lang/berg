@@ -6,6 +6,10 @@ mod literals {
         expect("1,2").to_yield(tuple!(1, 2))
     }
     #[test]
+    fn comma_sequence_trailing_comma() {
+        expect("1,2,").to_yield(tuple!(1, 2))
+    }
+    #[test]
     fn comma_sequence_three() {
         expect("1,2,3").to_yield(tuple!(1, 2, 3))
     }
@@ -67,6 +71,10 @@ mod literals {
     #[test]
     fn right_double_comma() {
         expect("1,,").to_error(MissingOperand, 1)
+    }
+    #[test]
+    fn right_double_comma_after_multiple() {
+        expect("1,2,,").to_error(MissingOperand, 3)
     }
     #[test]
     fn both_double_comma() {
