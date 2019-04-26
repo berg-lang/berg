@@ -12,7 +12,7 @@ pub enum Precedence {
     CommaSequence,
     Assign,
     ColonDeclaration,
-    Apply,
+    FollowedBy,
     SemicolonSequence,
     NewlineSequence,
 }
@@ -39,7 +39,7 @@ impl From<IdentifierIndex> for Precedence {
             OR_OR => Or,
             COMMA => CommaSequence,
             COLON => ColonDeclaration,
-            APPLY => Apply,
+            FOLLOWED_BY | IMMEDIATELY_FOLLOWED_BY => FollowedBy,
             SEMICOLON => SemicolonSequence,
             NEWLINE_SEQUENCE => NewlineSequence,
             _ => DEFAULT_PRECEDENCE,
@@ -85,19 +85,19 @@ impl Precedence {
                 }
                 _ => false,
             },
-            Apply => match right {
+            FollowedBy => match right {
                 Dot | TimesDivide | PlusMinus | Comparison | And | Or | CommaSequence | Assign
                 | ColonDeclaration => true,
                 _ => false,
             },
             SemicolonSequence => match right {
                 Dot | TimesDivide | PlusMinus | Comparison | And | Or | CommaSequence | Assign
-                | ColonDeclaration | Apply => true,
+                | ColonDeclaration | FollowedBy => true,
                 _ => false,
             },
             NewlineSequence => match right {
                 Dot | TimesDivide | PlusMinus | Comparison | And | Or | CommaSequence | Assign
-                | ColonDeclaration | SemicolonSequence | Apply => true,
+                | ColonDeclaration | SemicolonSequence | FollowedBy => true,
                 _ => false,
             },
         }

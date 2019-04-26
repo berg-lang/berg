@@ -38,6 +38,8 @@ identifiers! {
     COLON = ":",
     DOT = ".",
     COMMA = ",",
+    IMMEDIATELY_FOLLOWED_BY = "<immediately followed by>",
+    FOLLOWED_BY = "<followed by>",
     APPLY = "<apply>",
     EMPTY_STRING = "",
 
@@ -91,6 +93,9 @@ pub(crate) fn intern_all() -> StringInterner<IdentifierIndex> {
 impl IdentifierIndex {
     pub fn well_known_str(self) -> &'static str {
         self.as_str().unwrap()
+    }
+    pub fn is_followed_by(self) -> bool {
+        self == FOLLOWED_BY || self == IMMEDIATELY_FOLLOWED_BY
     }
     pub(crate) fn as_str(self) -> Option<&'static str> {
         if self >= IDENTIFIER_RANGE.start && self < IDENTIFIER_RANGE.end {

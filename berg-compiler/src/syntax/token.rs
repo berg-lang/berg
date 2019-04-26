@@ -410,7 +410,7 @@ impl OperatorToken {
     pub fn to_string<'p, 'a: 'p>(self, ast: &'p Ast<'a>) -> Cow<'p, str> {
         use OperatorToken::*;
         match self {
-            InfixOperator(NEWLINE_SEQUENCE) | InfixOperator(APPLY) => "".into(),
+            InfixOperator(NEWLINE_SEQUENCE) | InfixOperator(FOLLOWED_BY) | InfixOperator(IMMEDIATELY_FOLLOWED_BY) => "".into(),
             InfixOperator(identifier)
             | PostfixOperator(identifier) => ast.identifier_string(identifier).into(),
 
@@ -422,7 +422,8 @@ impl OperatorToken {
         use OperatorToken::*;
         match self {
             InfixOperator(NEWLINE_SEQUENCE) => "<\\n>".into(),
-            InfixOperator(APPLY) => "< >".into(),
+            InfixOperator(FOLLOWED_BY) => "< >".into(),
+            InfixOperator(IMMEDIATELY_FOLLOWED_BY) => "<>".into(),
             Close(_, boundary) | CloseBlock(_, boundary) => boundary.visible_close_string().into(),
             _ => self.to_string(ast),
         }
@@ -438,7 +439,7 @@ impl OperatorToken {
     pub fn original_bytes<'p, 'a: 'p>(self, ast: &'p Ast<'a>) -> Cow<'p, [u8]> {
         use OperatorToken::*;
         match self {
-            InfixOperator(NEWLINE_SEQUENCE) | InfixOperator(APPLY) => Cow::Borrowed(b""),
+            InfixOperator(NEWLINE_SEQUENCE) | InfixOperator(FOLLOWED_BY) | InfixOperator(IMMEDIATELY_FOLLOWED_BY) => Cow::Borrowed(b""),
 
             InfixOperator(identifier)
             | PostfixOperator(identifier) => ast.identifier_string(identifier).as_bytes().into(),

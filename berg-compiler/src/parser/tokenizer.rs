@@ -3,7 +3,7 @@ use crate::parser::Grouper;
 use crate::syntax::OperatorToken::*;
 use crate::syntax::TermToken::*;
 use crate::syntax::{Ast, ByteIndex, ByteRange, ExpressionBoundary, ExpressionBoundaryError, ExpressionToken, OperatorToken};
-use crate::syntax::identifiers::{NEWLINE_SEQUENCE, APPLY};
+use crate::syntax::identifiers::{NEWLINE_SEQUENCE, FOLLOWED_BY, APPLY};
 use WhitespaceState::*;
 
 ///
@@ -165,10 +165,18 @@ impl<'a> Tokenizer<'a> {
         assert!(range.start < range.end);
         let token = token.into();
 
-        // If we need to insert an operator, insert either NEWLINE_SEQUENCE or APPLY.
+        // If we need to insert an operator, insert either NEWLINE_SEQUENCE or FOLLOWED_BY.
         let prev_was_operator = self.prev_was_operator;
         if !self.prev_was_operator {
-            let operator = if self.whitespace_state == NextLine { NEWLINE_SEQUENCE } else { APPLY };
+            let operator = match self.whitespace_state {
+                // x\ny resolves to x NEWLINE_SEQUENCE y
+                NextLine => NEWLINE_SEQUENCE,
+                // x y resolves to x FOLLOWED BY y
+                // (x)y resolves to (x) FOLLOWED_BY y
+                // x(y) is handled in on_open() and resolves to x APPLY y
+                // x\n<indent>y resolves to x FOLLOWED_BY <IndentedBlock> y </IndentedBlock>
+                InTerm | NotInTerm | IndentedLine(_) => FOLLOWED_BY,
+            };
             self.emit_operator_token(InfixOperator(operator), range.start..range.start);
         }
 
@@ -244,10 +252,22 @@ impl<'a> Tokenizer<'a> {
         }
     }
 
-    // ( or {. If the ( is after a space, opens a new term. But once we're in the ( a new term will
-    // be started.
+    // ( or {.
     pub fn on_open(&mut self, boundary: ExpressionBoundary, range: ByteRange) {
+        // `f(x,y)` is f APPLY x, y (two arguments), to distinguish it from `f (x,y)`,
+        // which is f with a single argument, the tuple `(x,y)`.
+        //
+        // For comparison, this will also be used for the distinction between
+        // `f[1]` and `f [1]` (one is an indexer, the other means "call f with
+        // the first arg being a single-element array `[1]`").
+        if !self.prev_was_operator && self.in_term() && boundary == ExpressionBoundary::Parentheses {
+            self.emit_operator_token(InfixOperator(APPLY), range.start..range.start);
+        }
+
+        // Otherwise, just put the open token like normal.
         self.on_expression_token(boundary.placeholder_open_token(None), range);
+
+        // Inside the (, a new expression term is started.
         self.whitespace_state = NotInTerm;
     }
 

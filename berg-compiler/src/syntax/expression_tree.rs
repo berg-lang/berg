@@ -346,7 +346,7 @@ fn right_operand_root(ast: &Ast, root: AstIndex) -> AstIndex {
     match ast.tokens[root] {
         // If this is prefix, it cannot have postfix or infix children, so its immediate right is the child.
         Expression(PrefixOperator(_)) => return start,
-        // If this is a group term, APPLY inner() and return.
+        // If this is a group term, FOLLOWED_BY inner() and return.
         Expression(Open(..)) => return inner_root(ast, root),
         // Otherwise, it's guaranteed to be infix.
         _ => assert!(ast.tokens[root].fixity() == Fixity::Infix),

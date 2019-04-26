@@ -1,6 +1,10 @@
 use crate::*;
 
 #[test]
+fn function_no_args() {
+    expect("Ten: 10; Ten()").to_yield(10)
+}
+#[test]
 fn function_single_arg_space() {
     expect("Square: :x*x; Square 10").to_yield(100)
 }
@@ -22,7 +26,11 @@ fn function_single_arg_block() {
 }
 #[test]
 fn function_single_tuple_arg() {
-    expect("Duplicate: (:a,a); Duplicate (1,2)").to_yield(tuple!((1,2),(1,2)))
+    expect("Duplicate: (:a,a); Duplicate (1,2)").to_yield(tuple!([1,2],[1,2]))
+}
+#[test]
+fn function_single_empty_tuple_arg() {
+    expect("Duplicate: (:a,a); Duplicate ()").to_yield(tuple!([],[]))
 }
 #[test]
 fn function_single_block_tuple_arg() {

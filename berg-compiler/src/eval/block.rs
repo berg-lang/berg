@@ -423,15 +423,17 @@ impl<'a> ObjectValue<'a> for BlockRef<'a> {
 impl<'a> OperableValue<'a> for BlockRef<'a> {
     fn infix(self, operator: IdentifierIndex, right: RightOperand<'a, impl EvaluatableValue<'a>>) -> EvalResult<'a> where Self: Sized {
         use crate::syntax::identifiers::*;
+        use EvalVal::*;
 
         match operator {
             DOT => default_infix(self, operator, right),
-            APPLY => {
+            FOLLOWED_BY | APPLY => {
                 let arguments = right.get()?;
                 let input = match arguments {
                     // Any commas are treated as separate arguments, so `f 1,2,3` is
-                    // 3 arguments. `f (1,2,3), (4,5,6)` however,  is two arguments.
-                    RightOperand(EvalVal::PartialTuple(_), _) | RightOperand(EvalVal::TrailingComma(_), _) => arguments.lazy_val()?,
+                    // 3 arguments. `f (1,2,3), (4,5,6)` however, is two arguments.
+                    RightOperand(PartialTuple(_), _) | RightOperand(TrailingComma(_), _) => arguments.lazy_val()?,
+                    RightOperand(MissingExpression, _) if operator == APPLY => empty_tuple(),
                     // f (1,2,3) is a single argument which is itself a tuple.
                     _ => BergVal::from(vec![arguments.lazy_val()?])
                 };

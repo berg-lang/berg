@@ -233,7 +233,7 @@ impl<'a> OperableValue<'a> for EvalVal<'a> {
                 _ => PartialTuple(vec).lazy_val().infix(operator, right)
             }
             // if <condition>, if false else if <condition>
-            If if operator == APPLY => match right.get()? {
+            If if operator.is_followed_by() => match right.get()? {
                 RightOperand(If, _) | RightOperand(Else, _) => IfWithoutCondition.operand_err(Left),
                 right => if right.into_native::<bool>()? {
                     ConditionalVal(RunBlock, None).ok()
@@ -242,7 +242,7 @@ impl<'a> OperableValue<'a> for EvalVal<'a> {
                 }
             }
             ConditionalVal(state, result) => {
-                if operator == APPLY {
+                if operator.is_followed_by() {
                     match state {
                         IfCondition => match right.get()? {
                             // if if, if else
@@ -297,11 +297,11 @@ impl<'a> OperableValue<'a> for EvalVal<'a> {
                 }
             }
             // while <condition>
-            While if operator == APPLY => match right.lazy_val()? {
+            While if operator.is_followed_by() => match right.lazy_val()? {
                 BergVal::BlockRef(block) => WhileCondition(block).ok(),
                 _ => WhileConditionMustBeBlock.operand_err(Right),
             }
-            WhileCondition(condition) => if operator == APPLY {
+            WhileCondition(condition) => if operator.is_followed_by() {
                 match right.lazy_val()? {
                     BergVal::BlockRef(block) => run_while_loop(condition, block),
                     _ => WhileBlockMustBeBlock.operand_err(Right),
@@ -310,8 +310,8 @@ impl<'a> OperableValue<'a> for EvalVal<'a> {
                 WhileCondition(condition).lazy_val().infix(operator, right)
             }
             // while <condition>
-            Foreach if operator == APPLY => ForeachInput(right.lazy_val()).ok(),
-            ForeachInput(input) => if operator == APPLY {
+            Foreach if operator.is_followed_by() => ForeachInput(right.lazy_val()).ok(),
+            ForeachInput(input) => if operator.is_followed_by() {
                 match right.lazy_val()? {
                     BergVal::BlockRef(block) => run_foreach(input, block),
                     _ => ForeachBlockMustBeBlock.operand_err(Right),
@@ -319,11 +319,11 @@ impl<'a> OperableValue<'a> for EvalVal<'a> {
             } else {
                 ForeachInput(input).lazy_val().infix(operator, right)
             }
-            Try if operator == APPLY => match right.lazy_val()? {
+            Try if operator.is_followed_by() => match right.lazy_val()? {
                 BergVal::BlockRef(block) => TryResult(block.evaluate()).ok(),
                 _ => TryBlockMustBeBlock.operand_err(Right),
             }
-            TryResult(result) => if operator == APPLY {
+            TryResult(result) => if operator.is_followed_by() {
                 match right.get() {
                     // try { ... } catch
                     Ok(RightOperand(Catch, _)) => TryCatch(result).ok(),
@@ -334,7 +334,7 @@ impl<'a> OperableValue<'a> for EvalVal<'a> {
             } else {
                 TryResult(result).lazy_val().infix(operator, right)
             }
-            TryCatch(result) => if operator == APPLY {
+            TryCatch(result) => if operator.is_followed_by() {
                 match right.lazy_val() {
                     Ok(BergVal::BlockRef(block)) => {
                         let result = result.or_else(|exception| block.apply(exception.catch().into()));
@@ -346,7 +346,7 @@ impl<'a> OperableValue<'a> for EvalVal<'a> {
             } else {
                 TryCatch(result).lazy_val().infix(operator, right)
             }
-            CatchResult(result) => if operator == APPLY {
+            CatchResult(result) => if operator.is_followed_by() {
                 match right.get() {
                     // try { ... } catch { ... } finally
                     Ok(RightOperand(Finally, _)) => TryFinally(result).ok(),
@@ -356,7 +356,7 @@ impl<'a> OperableValue<'a> for EvalVal<'a> {
             } else {
                 CatchResult(result).lazy_val().infix(operator, right)
             }
-            TryFinally(result) => if operator == APPLY {
+            TryFinally(result) => if operator.is_followed_by() {
                 match right.lazy_val()? {
                     BergVal::BlockRef(block) => {
                         block.evaluate()?;
@@ -367,7 +367,7 @@ impl<'a> OperableValue<'a> for EvalVal<'a> {
             } else {
                 TryFinally(result).lazy_val().infix(operator, right)
             }
-            Throw if operator == APPLY => right.lazy_val()?.throw(),
+            Throw if operator.is_followed_by() => right.lazy_val()?.throw(),
             MissingExpression | TrailingSemicolon | TrailingComma(_) | If | Else | While | Foreach | Try | Catch | Finally | Throw => self.lazy_val().infix(operator, right),
         }
     }
@@ -420,7 +420,7 @@ fn run_while_loop<'a>(condition: BlockRef<'a>, block: BlockRef<'a>) -> EvalResul
             Err(error) => match error.code() {
                 Some(BreakOutsideLoop) => break,
                 Some(ContinueOutsideLoop) => continue,
-                // (while APPLY { condition }) APPLY { block } means block is right operand
+                // (while FOLLOWED_BY { condition }) FOLLOWED_BY { block } means block is right operand
                 _ => return error.err()
             }
         }
@@ -440,7 +440,7 @@ fn run_foreach<'a>(input: Result<BergVal<'a>, EvalException<'a>>, block: BlockRe
             Err(error) => match error.code() {
                 Some(BreakOutsideLoop) => break,
                 Some(ContinueOutsideLoop) => continue,
-                // (while APPLY { condition }) APPLY { block } means block is right operand
+                // (while FOLLOWED_BY { condition }) FOLLOWED_BY { block } means block is right operand
                 _ => return error.reposition(LeftRight).err()
             }
         }

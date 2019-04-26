@@ -2,6 +2,7 @@ use crate::eval::ScopeRef;
 use crate::syntax::{
     ErrorTermError, ExpressionTreeWalker, ExpressionBoundary, ExpressionBoundaryError, ExpressionRef, ExpressionToken, IdentifierIndex, OperatorToken, RawErrorTermError, TermToken, Token
 };
+use crate::syntax::identifiers::APPLY;
 use crate::value::implement::*;
 use num::BigRational;
 use std::fmt;
@@ -86,6 +87,7 @@ impl<'p, 'a: 'p> ExpressionEvaluator<'p, 'a> {
                 //
 
                 // A <op> B
+                InfixOperator(APPLY) => self.evaluate_apply(),
                 InfixOperator(operator) => self.evaluate_infix(operator),
                 // A <op>= B
                 InfixAssignment(operator) => self.evaluate_infix_assign(operator),
@@ -121,6 +123,12 @@ impl<'p, 'a: 'p> ExpressionEvaluator<'p, 'a> {
         } else {
             result.res()
         }
+    }
+
+    fn evaluate_apply(self) -> EvalResult<'a> {
+        let left = self.left_expression().evaluate_local();
+        let right = RightOperand::from(self.right_expression().inner_expression());
+        left.infix(APPLY, right)
     }
 
     fn evaluate_infix(self, operator: IdentifierIndex) -> EvalResult<'a> {
