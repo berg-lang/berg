@@ -216,7 +216,6 @@ impl<'a> OperableValue<'a> for EvalVal<'a> {
     // TODO Yes, bad, must fix.
     #[allow(clippy::cyclomatic_complexity)]
     fn infix(self, operator: IdentifierIndex, right: RightOperand<'a, impl EvaluatableValue<'a>>) -> EvalResult<'a> where Self: Sized {
-        use LeftRight;
         use CompilerError::*;
         use ConditionalState::*;
         match self {
@@ -577,7 +576,6 @@ impl<'a> ObjectValue<'a> for AssignmentTarget<'a> {
         self.get().field(name)
     }
     fn set_field(&mut self, name: IdentifierIndex, value: BergVal<'a>) -> Result<(), EvalException<'a>> {
-        use ExpressionErrorPosition::Expression;
         let mut obj = self.get().lazy_val()?;
         obj.set_field(name, value)?;
         self.set(obj, Expression).and(Ok(()))
@@ -587,7 +585,6 @@ impl<'a> ObjectValue<'a> for AssignmentTarget<'a> {
 impl<'a> OperableValue<'a> for AssignmentTarget<'a> {
     fn infix(mut self, operator: IdentifierIndex, right: RightOperand<'a, impl EvaluatableValue<'a>>) -> EvalResult<'a> {
         use AssignmentTarget::*;
-        use Left;
         match (operator, &self) {
             // Handle <identifier>: <value>
             (COLON, LocalFieldReference(..)) => self.set(right.lazy_val()?, Left),
@@ -595,7 +592,6 @@ impl<'a> OperableValue<'a> for AssignmentTarget<'a> {
         }
     }
     fn infix_assign(mut self, operator: IdentifierIndex, right: RightOperand<'a, impl EvaluatableValue<'a>>) -> EvalResult<'a> {
-        use Left;
         match operator {
             EMPTY_STRING => self.set(right.lazy_val()?, Left),
             operator => self.set(self.get().infix(operator, right).lazy_val()?, Left),
@@ -604,7 +600,6 @@ impl<'a> OperableValue<'a> for AssignmentTarget<'a> {
 
     fn prefix(self, operator: IdentifierIndex) -> EvalResult<'a> where Self: Sized {
         use AssignmentTarget::*;
-        use Right;
         match (operator, self) {
             (COLON, LocalFieldReference(scope, field)) => LocalFieldDeclaration(scope, field).ok(),
             (PLUS_PLUS, mut right) => right.set(right.get().prefix(PLUS_ONE).lazy_val()?, Right),
@@ -614,7 +609,6 @@ impl<'a> OperableValue<'a> for AssignmentTarget<'a> {
     }
 
     fn postfix(mut self, operator: IdentifierIndex) -> EvalResult<'a> {
-        use Left;
         match operator {
             PLUS_PLUS => self.set(self.get().postfix(PLUS_ONE).lazy_val()?, Left),
             DASH_DASH => self.set(self.get().postfix(MINUS_ONE).lazy_val()?, Left),
