@@ -67,7 +67,7 @@ pub trait Value<'a>: fmt::Debug {
     ///
     /// Get a [`Display`]able version of this value.
     /// 
-    fn display(&self) -> &fmt::Display;
+    fn display(&self) -> &dyn fmt::Display;
 }
 
 pub trait EvaluatableValue<'a>: Value<'a> {
@@ -149,16 +149,16 @@ pub trait BoxCloneBergValue<'a> {
     ///
     /// Clone this BergValue into a Box.
     /// 
-    fn box_clone(&self) -> Box<BergValue<'a>+'a>;
+    fn box_clone(&self) -> Box<dyn BergValue<'a>+'a>;
 }
 
 impl<'a, T: BergValue<'a>+Clone+'a> BoxCloneBergValue<'a> for T {
-    fn box_clone(&self) -> Box<BergValue<'a>+'a> {
+    fn box_clone(&self) -> Box<dyn BergValue<'a>+'a> {
         Box::new(self.clone())
     }
 }
 
-impl<'a> Clone for Box<BergValue<'a>+'a> {
+impl<'a> Clone for Box<dyn BergValue<'a>+'a> {
     fn clone(&self) -> Self {
         self.box_clone()
     }

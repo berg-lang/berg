@@ -175,7 +175,7 @@ impl<'a> Value<'a> for EvalVal<'a> {
         }
     }
 
-    fn display(&self) -> &fmt::Display {
+    fn display(&self) -> &dyn fmt::Display {
         self
     }
 }
@@ -561,7 +561,7 @@ impl<'a> Value<'a> for AssignmentTarget<'a> {
     fn try_into_native<T: TryFromBergVal<'a>>(self) -> Result<Option<T>, EvalException<'a>> {
         self.get().try_into_native()
     }
-    fn display(&self) -> &fmt::Display {
+    fn display(&self) -> &dyn fmt::Display {
         self
     }
 }

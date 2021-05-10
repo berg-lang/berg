@@ -29,7 +29,7 @@ impl<'a> Value<'a> for IdentifierIndex {
         default_try_into_native(self)
     }
 
-    fn display(&self) -> &std::fmt::Display {
+    fn display(&self) -> &dyn std::fmt::Display {
         self
     }
 }

@@ -25,7 +25,7 @@ impl<'a> Value<'a> for BigRational {
     fn try_into_native<T: TryFromBergVal<'a>>(self) -> Result<Option<T>, EvalException<'a>> {
         default_try_into_native(self)
     }
-    fn display(&self) -> &std::fmt::Display {
+    fn display(&self) -> &dyn std::fmt::Display {
         self
     }
 }

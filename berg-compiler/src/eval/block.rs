@@ -346,7 +346,7 @@ impl<'a> Value<'a> for BlockRef<'a> {
     fn try_into_native<T: TryFromBergVal<'a>>(self) -> Result<Option<T>, EvalException<'a>> {
         self.clone_result().try_into_native()
     }
-    fn display(&self) -> &fmt::Display {
+    fn display(&self) -> &dyn fmt::Display {
         self
     }
 }

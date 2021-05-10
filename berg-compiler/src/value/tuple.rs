@@ -88,7 +88,7 @@ impl<'a> Value<'a> for Tuple<'a> {
         }
     }
 
-    fn display(&self) -> &std::fmt::Display {
+    fn display(&self) -> &dyn std::fmt::Display {
         self
     }
 }

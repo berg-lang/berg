@@ -175,7 +175,7 @@ impl<'p, 'a: 'p> Value<'a> for ExpressionEvaluator<'p, 'a> {
     fn try_into_native<T: TryFromBergVal<'a>>(self) -> Result<Option<T>, EvalException<'a>> {
        self.evaluate_local().try_into_native().map_err(|e| e.at_location(self).into())
     }
-    fn display(&self) -> &fmt::Display {
+    fn display(&self) -> &dyn fmt::Display {
         self
     }
 }

@@ -612,8 +612,8 @@ impl ByteType {
             b'+' | b'-' | b'*' | b'/' | b'=' | b'>' | b'<' | b'&' | b'|' | b'!' | b'.' => {
                 Char(Operator)
             }
-            b'0'...b'9' => Char(Digit),
-            b'a'...b'z' | b'A'...b'Z' | b'_' => Char(Identifier),
+            b'0'..=b'9' => Char(Digit),
+            b'a'..=b'z' | b'A'..=b'Z' | b'_' => Char(Identifier),
             b'(' => Char(OpenParen),
             b'{' => Char(OpenCurly),
             b')' => Char(CloseParen),
@@ -631,10 +631,10 @@ impl ByteType {
 
     fn generic(byte: u8) -> Self {
         match byte {
-            0b0000_0000...0b0111_1111 => Char(CharType::Unsupported),
-            0b1100_0000...0b1101_1111 => Utf8LeadingByte(Delta(ByteIndex(2))),
-            0b1110_0000...0b1110_1111 => Utf8LeadingByte(Delta(ByteIndex(3))),
-            0b1111_0000...0b1111_0111 => Utf8LeadingByte(Delta(ByteIndex(4))),
+            0b0000_0000..=0b0111_1111 => Char(CharType::Unsupported),
+            0b1100_0000..=0b1101_1111 => Utf8LeadingByte(Delta(ByteIndex(2))),
+            0b1110_0000..=0b1110_1111 => Utf8LeadingByte(Delta(ByteIndex(3))),
+            0b1111_0000..=0b1111_0111 => Utf8LeadingByte(Delta(ByteIndex(4))),
             _ => Char(CharType::InvalidUtf8),
         }
     }

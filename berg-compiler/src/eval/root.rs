@@ -16,9 +16,9 @@ pub struct RootRef(Rc<RootData>);
 struct RootData {
     root_path: io::Result<PathBuf>,
     #[allow(dead_code)]
-    out: Box<Write>,
+    out: Box<dyn Write>,
     #[allow(dead_code)]
-    err: Box<Write>,
+    err: Box<dyn Write>,
 }
 
 ///
@@ -40,7 +40,7 @@ impl Default for RootRef {
 // Implementation
 //
 impl RootRef {
-    pub fn new(root_path: io::Result<PathBuf>, out: Box<Write>, err: Box<Write>) -> Self {
+    pub fn new(root_path: io::Result<PathBuf>, out: Box<dyn Write>, err: Box<dyn Write>) -> Self {
         RootRef(Rc::new(RootData {
             root_path,
             out,

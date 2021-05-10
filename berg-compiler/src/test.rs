@@ -291,7 +291,7 @@ impl<'a> ExpectBerg<'a> {
         Ok(values.into())
     }
 
-    fn error_string(&self, value: &fmt::Display, range: LineColumnRange, ast: &AstRef<'a>) -> String {
+    fn error_string(&self, value: &dyn fmt::Display, range: LineColumnRange, ast: &AstRef<'a>) -> String {
         format!("{} at {}", value, self.error_range_string(range, ast))
     }
     fn error_range_string(&self, range: LineColumnRange, ast: &AstRef<'a>) -> String {

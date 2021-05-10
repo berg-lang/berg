@@ -51,7 +51,7 @@ pub enum CompilerError<'a> {
     RightSideOfDotMustBeIdentifier,
     OpenWithoutClose,
     CloseWithoutOpen,
-    UnsupportedOperator(Box<BergValue<'a>+'a>, Fixity, IdentifierIndex),
+    UnsupportedOperator(Box<dyn BergValue<'a>+'a>, Fixity, IdentifierIndex),
     DivideByZero,
     NoSuchField(FieldIndex),
     FieldNotSet(FieldIndex),
@@ -84,13 +84,13 @@ pub enum CompilerError<'a> {
 
     // TODO stop boxing BergVals
     // BadOperandType(Box<EvalResult<'a>>, &'static str),
-    BadOperandType(Box<BergValue<'a>+'a>, &'static str),
+    BadOperandType(Box<dyn BergValue<'a>+'a>, &'static str),
     PrivateField(BlockRef<'a>, IdentifierIndex),
     NoSuchPublicField(BlockRef<'a>, IdentifierIndex),
-    NoSuchPublicFieldOnValue(Box<BergValue<'a>+'a>, IdentifierIndex),
+    NoSuchPublicFieldOnValue(Box<dyn BergValue<'a>+'a>, IdentifierIndex),
     NoSuchPublicFieldOnRoot(IdentifierIndex),
     ImmutableFieldOnRoot(FieldIndex),
-    ImmutableFieldOnValue(Box<BergValue<'a>+'a>, IdentifierIndex),
+    ImmutableFieldOnValue(Box<dyn BergValue<'a>+'a>, IdentifierIndex),
 
     // These are control values--only errors if nobody catches them.
     BreakOutsideLoop,
@@ -182,7 +182,7 @@ impl<'a> Value<'a> for CompilerError<'a> {
         default_try_into_native(self)
     }
 
-    fn display(&self) -> &std::fmt::Display {
+    fn display(&self) -> &dyn std::fmt::Display {
         self
     }
 }

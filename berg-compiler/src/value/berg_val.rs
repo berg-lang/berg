@@ -115,7 +115,7 @@ impl<'a> Value<'a> for BergVal<'a> {
         }
     }
 
-    fn display(&self) -> &std::fmt::Display {
+    fn display(&self) -> &dyn std::fmt::Display {
         self
     }
 }
@@ -312,7 +312,7 @@ impl<'a, V: Value<'a>+'a, E: Value<'a>+'a> Value<'a> for Result<V, E> {
         }
     }
 
-    fn display(&self) -> &fmt::Display {
+    fn display(&self) -> &dyn fmt::Display {
         match self {
             Ok(v) => v.display(),
             Err(v) => v.display(),

@@ -190,7 +190,7 @@ impl<'a> Value<'a> for EvalException<'a> {
         }
     }
 
-    fn display(&self) -> &std::fmt::Display {
+    fn display(&self) -> &dyn std::fmt::Display {
         self
     }
 }
@@ -290,7 +290,7 @@ impl<'a> Value<'a> for Exception<'a> {
         self.err()
     }
 
-    fn display(&self) -> &fmt::Display {
+    fn display(&self) -> &dyn fmt::Display {
         self
     }
 }
@@ -358,7 +358,7 @@ impl<'a> Value<'a> for CaughtException<'a> {
         self.ok()
     }
 
-    fn display(&self) -> &fmt::Display {
+    fn display(&self) -> &dyn fmt::Display {
         self
     }
 }
