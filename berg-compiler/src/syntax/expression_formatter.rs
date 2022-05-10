@@ -1,5 +1,8 @@
-use crate::syntax::identifiers::{SEMICOLON};
-use crate::syntax::{ExpressionTreeWalker, ExpressionBoundary, Fixity, Token, ExpressionToken, OperatorToken, TermToken};
+use crate::syntax::identifiers::SEMICOLON;
+use crate::syntax::{
+    ExpressionBoundary, ExpressionToken, ExpressionTreeWalker, Fixity, OperatorToken, TermToken,
+    Token,
+};
 use std::fmt;
 
 #[derive(Copy, Clone, Debug)]
@@ -33,10 +36,10 @@ impl<'p, 'a: 'p> ExpressionTreeWalker<'p, 'a, ExpressionFormatter> {
 
 impl<'p, 'a: 'p> fmt::Display for ExpressionTreeWalker<'p, 'a, ExpressionFormatter> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        use Token::*;
         use ExpressionToken::*;
         use OperatorToken::*;
         use TermToken::*;
+        use Token::*;
         let token = self.token();
         let string = self.token_string();
         match token {
@@ -44,7 +47,7 @@ impl<'p, 'a: 'p> fmt::Display for ExpressionTreeWalker<'p, 'a, ExpressionFormatt
                 Term(token) => match token {
                     MissingExpression => write!(f, "<missing>"),
                     _ => write!(f, "{}", token.to_string(self.ast())),
-                }
+                },
                 PrefixOperator(_) => {
                     let right = self.right_expression();
                     if self.ast().tokens[self.root_index() - 1].has_left_operand() {
@@ -58,7 +61,7 @@ impl<'p, 'a: 'p> fmt::Display for ExpressionTreeWalker<'p, 'a, ExpressionFormatt
                     let inner = self.inner_expression();
                     write!(f, "{}{}{}", open, inner, close)
                 }
-            }
+            },
             Operator(token) => match token {
                 PostfixOperator(_) => {
                     let left = self.left_expression();
@@ -69,9 +72,21 @@ impl<'p, 'a: 'p> fmt::Display for ExpressionTreeWalker<'p, 'a, ExpressionFormatt
                     }
                 }
                 Close(..) | CloseBlock(..) => unreachable!(),
-                InfixOperator(SEMICOLON) => write!(f, "{}{} {}", self.left_expression(), string, self.right_expression()),
-                InfixOperator(_) | InfixAssignment(_) => write!(f, "{} {} {}", self.left_expression(), string, self.right_expression()),
-            }
+                InfixOperator(SEMICOLON) => write!(
+                    f,
+                    "{}{} {}",
+                    self.left_expression(),
+                    string,
+                    self.right_expression()
+                ),
+                InfixOperator(_) | InfixAssignment(_) => write!(
+                    f,
+                    "{} {} {}",
+                    self.left_expression(),
+                    string,
+                    self.right_expression()
+                ),
+            },
         }
     }
 }

@@ -86,12 +86,23 @@ fn unsupported_then_invalid() {
 #[test]
 fn unsupported_then_invalid_multibyte() {
     // 0xE28C82 is ⌂
-    expect(&[0xE2,0x8C,0x82, 0b1000_0000]).to_error(UnsupportedCharacters, 0..=2)
+    expect(&[0xE2, 0x8C, 0x82, 0b1000_0000]).to_error(UnsupportedCharacters, 0..=2)
 }
 #[test]
 fn unsupported_then_invalid_multiple() {
     // 0xE28C82 is ⌂
-    expect(&[0xE2,0x8C,0x82, b'`', 0xE2,0x8C,0x82, 0b1000_0000, 0b1000_0000]).to_error(UnsupportedCharacters, 0..=6)
+    expect(&[
+        0xE2,
+        0x8C,
+        0x82,
+        b'`',
+        0xE2,
+        0x8C,
+        0x82,
+        0b1000_0000,
+        0b1000_0000,
+    ])
+    .to_error(UnsupportedCharacters, 0..=6)
 }
 #[test]
 fn invalid_then_unsupported() {
@@ -100,10 +111,21 @@ fn invalid_then_unsupported() {
 #[test]
 fn invalid_then_unsupported_multibyte() {
     // 0xE28C82 is ⌂
-    expect(&[0b1000_0000, 0xE2,0x8C,0x82]).to_error(InvalidUtf8, 0)
+    expect(&[0b1000_0000, 0xE2, 0x8C, 0x82]).to_error(InvalidUtf8, 0)
 }
 #[test]
 fn invalid_then_unsupported_multiple() {
     // 0xE28C82 is ⌂
-    expect(&[0b1000_0000, 0b1000_0000, 0xE2,0x8C,0x82, b'`', 0xE2,0x8C,0x82]).to_error(InvalidUtf8, 0..=1)
+    expect(&[
+        0b1000_0000,
+        0b1000_0000,
+        0xE2,
+        0x8C,
+        0x82,
+        b'`',
+        0xE2,
+        0x8C,
+        0x82,
+    ])
+    .to_error(InvalidUtf8, 0..=1)
 }

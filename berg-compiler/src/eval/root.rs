@@ -1,5 +1,5 @@
-use string_interner::StringInterner;
 use string_interner::backend::StringBackend;
+use string_interner::StringInterner;
 
 use crate::syntax::{identifiers, FieldIndex, IdentifierIndex};
 use crate::value::*;
@@ -81,8 +81,8 @@ impl RootRef {
 
     pub fn local_field<'a>(&self, index: FieldIndex) -> EvalResult<'a> {
         use crate::eval::keywords::*;
-        use EvalVal::*;
         use CompilerError::*;
+        use EvalVal::*;
         match index {
             TRUE => true.ok(),
             FALSE => false.ok(),

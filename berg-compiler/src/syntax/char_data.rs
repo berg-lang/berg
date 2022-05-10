@@ -4,14 +4,14 @@ use std::cmp::Ordering;
 use std::fmt::{Display, Formatter, Result};
 use std::str;
 use std::u32;
-use string_interner::StringInterner;
 use string_interner::backend::StringBackend;
+use string_interner::StringInterner;
 
 ///
 /// Debug data about the original source.
-/// 
+///
 /// Includes enough character data to reconstruct the original source.
-/// 
+///
 #[derive(Debug)]
 pub struct CharData {
     // size in bytes
@@ -22,7 +22,6 @@ pub struct CharData {
     // time retrieved
     // time modified
     // system retrieved on
-    
     ///
     /// Beginning index of each line.
     ///
@@ -30,27 +29,27 @@ pub struct CharData {
 
     ///
     /// Whitespace characters found in the document.
-    /// 
+    ///
     pub whitespace_characters: StringInterner<StringBackend<WhitespaceIndex>>,
 
     ///
     /// Ordered list of whitespace ranges, except ' ' and '\n'
     /// (which are the default for space and line ranges, respectively).
-    /// 
+    ///
     /// Only the starting byte index is stored, since the length is stored in
     /// [`whitespace_characters`].
-    /// 
+    ///
     pub whitespace_ranges: Vec<(WhitespaceIndex, ByteIndex)>,
 
     ///
     /// Ordered list of comments in the document.
-    /// 
+    ///
     /// These include the # character at the beginning of the comment and do *not*
     /// include the line ending character.
-    /// 
+    ///
     /// Comments may include non-UTF-8 characters. (This is why it's Vec<u8> and
     /// not String.)
-    /// 
+    ///
     pub comments: Vec<(Vec<u8>, ByteIndex)>,
 }
 
@@ -69,12 +68,12 @@ pub struct LineColumnRange {
 
 ///
 /// An index into [`Whitespace::whitespace_characters`]
-/// 
+///
 impl Default for CharData {
     fn default() -> Self {
         CharData {
             size: Default::default(),
-            line_starts: vec!(0.into()),
+            line_starts: vec![0.into()],
             whitespace_characters: StringInterner::new(),
             whitespace_ranges: Default::default(),
             comments: Default::default(),
@@ -85,14 +84,14 @@ impl Default for CharData {
 impl CharData {
     ///
     /// Add the run of whitespace to the whitespace list.
-    /// 
+    ///
     /// # Panics
-    /// 
+    ///
     /// * Panics if spaces.len() == 0
     /// * Panics if `append()` is not called with `start` increasing each time.
     /// * Panics if ByteIndex == u32::MAX
-    /// 
-    pub fn append_whitespace(&mut self, whitespace: &str, start: ByteIndex) -> WhitespaceIndex{
+    ///
+    pub fn append_whitespace(&mut self, whitespace: &str, start: ByteIndex) -> WhitespaceIndex {
         let whitespace_index = self.whitespace_characters.get_or_intern(whitespace);
         self.whitespace_ranges.push((whitespace_index, start));
         whitespace_index
@@ -128,14 +127,14 @@ impl CharData {
     }
 
     pub fn byte_index(&self, location: LineColumn) -> ByteIndex {
-        self.line_starts[(location.line-1) as usize] + location.column - 1
+        self.line_starts[(location.line - 1) as usize] + location.column - 1
     }
 
     #[allow(clippy::range_plus_one)]
     pub fn byte_range(&self, range: LineColumnRange) -> ByteRange {
         let start = self.byte_index(range.start);
         match range.end {
-            Some(end) => start..(self.byte_index(end)+1),
+            Some(end) => start..(self.byte_index(end) + 1),
             None => start..start,
         }
     }

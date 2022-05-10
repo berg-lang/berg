@@ -2,19 +2,20 @@ use crate::eval::RootRef;
 use crate::syntax::char_data::CharData;
 use crate::syntax::OperandPosition::*;
 use crate::syntax::{
-    AstBlock, BlockIndex, ByteRange, ExpressionTreeWalker, Field, FieldIndex, IdentifierIndex,
-    SourceOpenError, SourceReconstruction, SourceReconstructionReader, SourceRef, ExpressionToken, OperatorToken, Token,
+    AstBlock, BlockIndex, ByteRange, ExpressionToken, ExpressionTreeWalker, Field, FieldIndex,
+    IdentifierIndex, OperatorToken, SourceOpenError, SourceReconstruction,
+    SourceReconstructionReader, SourceRef, Token,
 };
 use crate::util::indexed_vec::IndexedVec;
 use crate::value::CompilerError;
 use std::borrow::Cow;
 use std::io;
-use std::ops::Deref;
 use std::num::NonZeroU32;
+use std::ops::Deref;
 use std::rc::Rc;
 use std::u32;
 use string_interner::backend::StringBackend;
-use string_interner::{StringInterner, DefaultSymbol, Symbol};
+use string_interner::{DefaultSymbol, StringInterner, Symbol};
 
 index_type! {
     pub struct AstIndex(pub u32) with Display,Debug <= u32::MAX;
@@ -175,10 +176,16 @@ impl<'a> Ast<'a> {
         let token = token.into();
         println!("PUSH {:?}", token);
         // Validate that we push tokens in increasing order
-        assert!(match self.token_ranges.last() {
-            Some(last) => range.start >= last.end,
-            None => true,
-        }, "Pushing token {:?} too early! Last token ended at {} and this one starts at {}", token, self.token_ranges.last().unwrap().end, range.start);
+        assert!(
+            match self.token_ranges.last() {
+                Some(last) => range.start >= last.end,
+                None => true,
+            },
+            "Pushing token {:?} too early! Last token ended at {} and this one starts at {}",
+            token,
+            self.token_ranges.last().unwrap().end,
+            range.start
+        );
         self.tokens.push(token);
         self.token_ranges.push(range)
     }
@@ -243,7 +250,9 @@ impl fmt::Display for OperandPosition {
 impl Symbol for WhitespaceIndex {
     fn try_from_usize(val: usize) -> Option<Self> {
         if val < u32::MAX as usize {
-            Some(WhitespaceIndex(unsafe { NonZeroU32::new_unchecked((val + 1) as u32) }))
+            Some(WhitespaceIndex(unsafe {
+                NonZeroU32::new_unchecked((val + 1) as u32)
+            }))
         } else {
             None
         }

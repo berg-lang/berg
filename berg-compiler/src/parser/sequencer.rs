@@ -1,14 +1,17 @@
-use std::cmp::min;
-use crate::parser::Tokenizer;
 use crate::parser::sequencer::ByteType::*;
 use crate::parser::sequencer::CharType::*;
-use crate::syntax::ExpressionBoundary::*;
-use crate::syntax::OperatorToken::*;
-use crate::syntax::ExpressionToken::*;
-use crate::syntax::TermToken::*;
+use crate::parser::Tokenizer;
 use crate::syntax::ErrorTermError::*;
-use crate::syntax::{Ast, ByteIndex, ByteRange, ByteSlice, ErrorTermError, IdentifierIndex, LiteralIndex, RawErrorTermError, WhitespaceIndex};
+use crate::syntax::ExpressionBoundary::*;
+use crate::syntax::ExpressionToken::*;
+use crate::syntax::OperatorToken::*;
+use crate::syntax::TermToken::*;
+use crate::syntax::{
+    Ast, ByteIndex, ByteRange, ByteSlice, ErrorTermError, IdentifierIndex, LiteralIndex,
+    RawErrorTermError, WhitespaceIndex,
+};
 use crate::util::indexed_vec::Delta;
+use std::cmp::min;
 use std::str;
 
 ///
@@ -50,7 +53,7 @@ pub struct Sequencer<'a, 'p> {
 
 ///
 /// Scans UTF-8 identifying characters.
-/// 
+///
 #[derive(Debug, Clone)]
 struct Scanner<'p> {
     /// The buffer we're scanning.
@@ -61,7 +64,7 @@ struct Scanner<'p> {
 
 ///
 /// The amount of indent on a line.
-/// 
+///
 pub type IndentLevel = Delta<ByteIndex>;
 
 #[derive(Debug, Copy, Clone, PartialEq)]
@@ -170,21 +173,13 @@ impl<'a, 'p> Sequencer<'a, 'p> {
         self.tokenizer.ast_mut()
     }
 
-    fn utf8_syntax_error(
-        &mut self,
-        error: ErrorTermError,
-        start: ByteIndex,
-    ) {
+    fn utf8_syntax_error(&mut self, error: ErrorTermError, start: ByteIndex) {
         let literal = unsafe { self.intern_utf8_literal(start) };
         self.tokenizer
             .on_expression_token(ErrorTerm(error, literal), self.range(start));
     }
 
-    fn raw_syntax_error(
-        &mut self,
-        error: RawErrorTermError,
-        start: ByteIndex,
-    ) {
+    fn raw_syntax_error(&mut self, error: RawErrorTermError, start: ByteIndex) {
         let bytes = self.bytes(start);
         let raw_literal = self.ast_mut().raw_literals.push(bytes.into());
         self.tokenizer
@@ -194,7 +189,7 @@ impl<'a, 'p> Sequencer<'a, 'p> {
     fn integer(&mut self, start: ByteIndex) {
         self.scanner.next_while(Digit);
         if self.scanner.next_while_identifier() {
-            return self.utf8_syntax_error(IdentifierStartsWithNumber,start);
+            return self.utf8_syntax_error(IdentifierStartsWithNumber, start);
         }
         let literal = unsafe { self.intern_utf8_literal(start) };
         self.tokenizer
@@ -228,12 +223,13 @@ impl<'a, 'p> Sequencer<'a, 'p> {
         // operator, it is prefix. i.e. "+1"
         } else if !self.tokenizer.in_term() && !term_is_about_to_end {
             let operator = unsafe { self.intern_utf8_identifier(start) };
-            self.tokenizer.on_expression_token(PrefixOperator(operator), self.range(start));
+            self.tokenizer
+                .on_expression_token(PrefixOperator(operator), self.range(start));
         // Otherwise, it's infix. i.e. "1+2" or "1 + 2"
         } else {
             let token = if Self::is_assignment_operator(self.bytes(start)) {
                 let with_equal_sign = unsafe { self.utf8(start) };
-                let without_equal_sign = &with_equal_sign[0..with_equal_sign.len()-1];
+                let without_equal_sign = &with_equal_sign[0..with_equal_sign.len() - 1];
                 let operator = self.ast_mut().intern_identifier(without_equal_sign);
                 InfixAssignment(operator)
             } else {
@@ -317,37 +313,63 @@ impl<'a, 'p> Sequencer<'a, 'p> {
 
         // Send "indent" unless we're a blank line.
         if !self.scanner.peek().ends_line() {
-            let indent = self.scanner.index-start;
-            self.tokenizer.on_line_start(start, indent, self.matching_indent(indent, indent_whitespace));
+            let indent = self.scanner.index - start;
+            self.tokenizer.on_line_start(
+                start,
+                indent,
+                self.matching_indent(indent, indent_whitespace),
+            );
             self.current_indent = indent;
             self.current_indent_whitespace = indent_whitespace;
         }
     }
 
     // Get the matching indent level--the number of characters shared by indent and indent_whitespace.
-    fn matching_indent(&self, indent: IndentLevel, indent_whitespace: Option<WhitespaceIndex>) -> IndentLevel {
+    fn matching_indent(
+        &self,
+        indent: IndentLevel,
+        indent_whitespace: Option<WhitespaceIndex>,
+    ) -> IndentLevel {
         match (indent_whitespace, self.current_indent_whitespace) {
             // The old indent and new indent are entirely space characters.
             (None, None) => indent,
             // The old indent and new indent both have non-space characters.
             (Some(indent_whitespace), Some(current_whitespace)) => {
                 let indent_whitespace = self.ast().whitespace_string(indent_whitespace).as_bytes();
-                let current_whitespace = self.ast().whitespace_string(current_whitespace).as_bytes();
-                let current_whitespace = &current_whitespace[0..min(indent_whitespace.len(), current_whitespace.len())];
-                indent_whitespace.iter().zip(current_whitespace.iter()).position(|(a,b)| a != b).unwrap_or_else(|| indent.into()).into()
+                let current_whitespace =
+                    self.ast().whitespace_string(current_whitespace).as_bytes();
+                let current_whitespace =
+                    &current_whitespace[0..min(indent_whitespace.len(), current_whitespace.len())];
+                indent_whitespace
+                    .iter()
+                    .zip(current_whitespace.iter())
+                    .position(|(a, b)| a != b)
+                    .unwrap_or_else(|| indent.into())
+                    .into()
             }
             // The old indent is all spaces, and the new indent has other space characters in it.
-            // As long as the 
+            // As long as the
             (Some(indent_whitespace), None) => {
                 let indent_whitespace = self.ast().whitespace_string(indent_whitespace).as_bytes();
-                let indent_whitespace = &indent_whitespace[0..min(indent.into(), indent_whitespace.len())];
-                indent_whitespace.iter().position(|b| *b != b' ').unwrap_or_else(|| indent.into()).into()
+                let indent_whitespace =
+                    &indent_whitespace[0..min(indent.into(), indent_whitespace.len())];
+                indent_whitespace
+                    .iter()
+                    .position(|b| *b != b' ')
+                    .unwrap_or_else(|| indent.into())
+                    .into()
             }
             // The new indent is all spaces, and the old indent has other space characters in it.
             (None, Some(current_whitespace)) => {
-                let current_whitespace = self.ast().whitespace_string(current_whitespace).as_bytes();
-                let current_whitespace = &current_whitespace[0..min(indent.into(), current_whitespace.len())];
-                current_whitespace.iter().position(|b| *b != b' ').unwrap_or_else(|| indent.into()).into()
+                let current_whitespace =
+                    self.ast().whitespace_string(current_whitespace).as_bytes();
+                let current_whitespace =
+                    &current_whitespace[0..min(indent.into(), current_whitespace.len())];
+                current_whitespace
+                    .iter()
+                    .position(|b| *b != b' ')
+                    .unwrap_or_else(|| indent.into())
+                    .into()
             }
         }
     }

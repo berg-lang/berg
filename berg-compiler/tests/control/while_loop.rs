@@ -2,18 +2,22 @@ use crate::*;
 
 #[test]
 fn while_1_through_5() {
-    expect("
+    expect(
+        "
         :x = 1
         while { x <= 5 } {
             x++
         }
         x
-    ").to_yield(6);
+    ",
+    )
+    .to_yield(6);
 }
 
 #[test]
 fn while_condition_error_exits_early() {
-    expect("
+    expect(
+        "
         :x = 1
         :y = 1
         while { x/y <= 5 } {
@@ -21,12 +25,15 @@ fn while_condition_error_exits_early() {
             y = 0
         }
         x
-    ").to_error(DivideByZero, "y".within("x/y"));
+    ",
+    )
+    .to_error(DivideByZero, "y".within("x/y"));
 }
 
 #[test]
 fn while_block_error_exits_early() {
-    expect("
+    expect(
+        "
         :x = 1
         :y = 1
         while { x <= 5 } {
@@ -35,49 +42,63 @@ fn while_block_error_exits_early() {
             y = 0
         }
         x
-    ").to_error(DivideByZero, "y".within("x/y"));
+    ",
+    )
+    .to_error(DivideByZero, "y".within("x/y"));
 }
 
 #[test]
 fn while_int_condition_bad_type() {
-    expect("
+    expect(
+        "
         :x = 1
         while { 1 } {
             x++
         }
         x
-    ").to_error(BadOperandType, "{ 1 }");
+    ",
+    )
+    .to_error(BadOperandType, "{ 1 }");
 }
 
 #[test]
 fn while_empty_condition_bad_type() {
-    expect("
+    expect(
+        "
         :x = 1
         while {} {
             x++
         }
         x
-    ").to_error(BadOperandType, "{}");
+    ",
+    )
+    .to_error(BadOperandType, "{}");
 }
 
 #[test]
 fn while_non_block_condition() {
-    expect("
+    expect(
+        "
         :x = 1
         while ( x <= 5 ) {
             x++
         }
         x
-    ").to_error(WhileConditionMustBeBlock, "( x <= 5 )");
+    ",
+    )
+    .to_error(WhileConditionMustBeBlock, "( x <= 5 )");
 }
 
 #[test]
 fn while_non_block_block() {
-    expect("
+    expect(
+        "
         :x = 1
         while { x <= 5 } ( x++ )
         x
-    ").to_error(WhileBlockMustBeBlock, "( x++ )");
+    ",
+    )
+    .to_error(WhileBlockMustBeBlock, "( x++ )");
 }
 
 #[test]
@@ -87,11 +108,14 @@ fn while_missing_condition() {
 
 #[test]
 fn while_missing_block() {
-    expect("
+    expect(
+        "
         :x = 1
         while { x <= 5 }
         x
-    ").to_error(WhileWithoutBlock, "while");
+    ",
+    )
+    .to_error(WhileWithoutBlock, "while");
 }
 
 #[test]
@@ -106,15 +130,19 @@ fn add_1_while() {
 
 #[test]
 fn add_1_while_block() {
-    expect("
+    expect(
+        "
         :x = 1
         1 + while { x <= 5 } { x++ }
-    ").to_error(WhileWithoutCondition, "while")
+    ",
+    )
+    .to_error(WhileWithoutCondition, "while")
 }
 
 #[test]
 fn break_exits_while() {
-    expect("
+    expect(
+        "
         :x = 1
         :y = 1
         while { x <= 5 } {
@@ -123,12 +151,15 @@ fn break_exits_while() {
             y++
         }
         x,y
-    ").to_yield(tuple!(2,1))
+    ",
+    )
+    .to_yield(tuple!(2, 1))
 }
 
 #[test]
 fn break_exits_while_from_nested_block() {
-    expect("
+    expect(
+        "
         :x = 1
         :y = 1
         while { x <= 5 } {
@@ -137,11 +168,14 @@ fn break_exits_while_from_nested_block() {
             y++
         }
         x,y
-    ").to_yield(tuple!(2,1))
+    ",
+    )
+    .to_yield(tuple!(2, 1))
 }
 #[test]
 fn break_exits_while_from_if() {
-    expect("
+    expect(
+        "
         :x = 1
         :y = 1
         while { x <= 5 } {
@@ -150,11 +184,14 @@ fn break_exits_while_from_if() {
             y++
         }
         x,y
-    ").to_yield(tuple!(3,2))
+    ",
+    )
+    .to_yield(tuple!(3, 2))
 }
 #[test]
 fn break_exits_while_from_callback() {
-    expect("
+    expect(
+        "
         :DoThisIf = { (:cond,:arg); if cond { arg } else { } }
         :x = 1
         :y = 1
@@ -164,12 +201,15 @@ fn break_exits_while_from_callback() {
             y++
         }
         x,y
-    ").to_yield(tuple!(3,2))
+    ",
+    )
+    .to_yield(tuple!(3, 2))
 }
 
 #[test]
 fn continue_skips_remaining_block() {
-    expect("
+    expect(
+        "
         :x = 1
         :y = 1
         while { x <= 5 } {
@@ -178,12 +218,15 @@ fn continue_skips_remaining_block() {
             y++
         }
         x,y
-    ").to_yield(tuple!(6,1))
+    ",
+    )
+    .to_yield(tuple!(6, 1))
 }
 
 #[test]
 fn continue_skips_remaining_block_from_nested_block() {
-    expect("
+    expect(
+        "
         :x = 1
         :y = 1
         while { x <= 5 } {
@@ -192,11 +235,14 @@ fn continue_skips_remaining_block_from_nested_block() {
             y++
         }
         x,y
-    ").to_yield(tuple!(6,1))
+    ",
+    )
+    .to_yield(tuple!(6, 1))
 }
 #[test]
 fn continue_skips_remaining_block_from_if() {
-    expect("
+    expect(
+        "
         :x = 1
         :y = 1
         while { x <= 5 } {
@@ -205,11 +251,14 @@ fn continue_skips_remaining_block_from_if() {
             y++
         }
         x,y
-    ").to_yield(tuple!(6,2))
+    ",
+    )
+    .to_yield(tuple!(6, 2))
 }
 #[test]
 fn continue_skips_remaining_block_from_callback() {
-    expect("
+    expect(
+        "
         :DoThisIf = { (:cond,:arg); if cond { arg } else { } }
         :x = 1
         :y = 1
@@ -219,7 +268,9 @@ fn continue_skips_remaining_block_from_callback() {
             y++
         }
         x,y
-    ").to_yield(tuple!(6,2))
+    ",
+    )
+    .to_yield(tuple!(6, 2))
 }
 
 #[test]

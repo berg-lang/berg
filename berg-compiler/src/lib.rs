@@ -9,7 +9,9 @@ extern crate num;
 extern crate string_interner;
 
 // Explicitly expose just the interfaces we want to expose
-pub use crate::value::{BergResult, BergVal, BergValue, EvalException, Exception, CompilerErrorCode};
+pub use crate::value::{
+    BergResult, BergVal, BergValue, CompilerErrorCode, EvalException, Exception,
+};
 
 use crate::eval::{evaluate_ast, RootRef};
 use crate::parser::parse;
@@ -23,8 +25,8 @@ extern crate matches;
 pub(crate) mod util;
 #[macro_use]
 pub(crate) mod syntax;
-pub(crate) mod parser;
 pub(crate) mod eval;
+pub(crate) mod parser;
 pub(crate) mod value;
 
 pub mod test;

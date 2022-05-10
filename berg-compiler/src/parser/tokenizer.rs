@@ -1,16 +1,19 @@
 use crate::parser::sequencer::IndentLevel;
 use crate::parser::Grouper;
+use crate::syntax::identifiers::{APPLY, FOLLOWED_BY, NEWLINE_SEQUENCE};
 use crate::syntax::OperatorToken::*;
 use crate::syntax::TermToken::*;
-use crate::syntax::{Ast, ByteIndex, ByteRange, ExpressionBoundary, ExpressionBoundaryError, ExpressionToken, OperatorToken};
-use crate::syntax::identifiers::{NEWLINE_SEQUENCE, FOLLOWED_BY, APPLY};
+use crate::syntax::{
+    Ast, ByteIndex, ByteRange, ExpressionBoundary, ExpressionBoundaryError, ExpressionToken,
+    OperatorToken,
+};
 use WhitespaceState::*;
 
 ///
 /// This builds up a valid expression from the incoming sequences.
-/// 
+///
 /// It does these things:
-/// 
+///
 /// 1. Inserting apply, newline sequence, and missing expression as appropriate
 ///    when two operators or two terms are next to each other.
 /// 2. Opening and closing terms (series of tokens with no space between operators/operands).
@@ -20,42 +23,42 @@ use WhitespaceState::*;
 pub struct Tokenizer<'a> {
     ///
     /// The grouper (where we send tokens when we produce them).
-    /// 
+    ///
     pub grouper: Grouper<'a>,
 
     ///
     /// Whether the previous token was an operator that needs an operand, or not.
-    /// 
+    ///
     pub prev_was_operator: bool,
 
     ///
     /// Where we are with respect to whitespace groupings (vertical text blocks with indent and
     /// horizontal expressions without space)
-    /// 
+    ///
     whitespace_state: WhitespaceState,
 
     ///
     /// The indent level of all open indented text blocks.
-    /// 
+    ///
     /// This has 4 open blocks at 0, 4, 8 and 12:
-    /// 
+    ///
     /// ```text
     /// MyClass:
     ///     MyFunction:
     ///         if x == 10
     ///             if y == 20
     /// ```
-    /// 
-    indented_blocks: Vec<(IndentLevel,ExpressionBoundary)>,
+    ///
+    indented_blocks: Vec<(IndentLevel, ExpressionBoundary)>,
 }
 
 ///
 /// State respect to whitespace groupings.
-/// 
+///
 /// This tells us whether we are on a new line, and whether we are inside a compact term (an expression
 /// with no space).
-/// 
-#[derive(Debug,Copy,Clone,PartialEq,Eq)]
+///
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 enum WhitespaceState {
     ///
     /// An expression has already started on the current line, and we are in a compact term.
@@ -73,33 +76,33 @@ enum WhitespaceState {
     InTerm,
     ///
     /// An expression has already started on the current line, and we are not in a term.
-    /// 
+    ///
     /// ```text
     /// print ...
     /// ```
-    /// 
+    ///
     /// ```text
     /// x * ...
     /// ```
-    /// 
+    ///
     /// ```text
     /// x*(...
     /// ```
-    /// 
+    ///
     NotInTerm,
     ///
     /// We are at the start of a line with the same indent level as the last one.
-    /// 
+    ///
     /// ```text
     /// a = 10
     /// ...
     /// ```
-    /// 
+    ///
     /// ```text
     /// a = 10 +
     /// ...
     /// ```
-    /// 
+    ///
     NextLine,
     ///
     /// We are at the start of a line *more* indented than the last one.
@@ -108,12 +111,12 @@ enum WhitespaceState {
     /// if x > 10
     ///    ...
     /// ```
-    /// 
+    ///
     /// ```text
     /// if x > 10 &&
     ///   ...
     /// ```
-    /// 
+    ///
     IndentedLine(IndentLevel),
 }
 
@@ -123,7 +126,7 @@ impl<'a> Tokenizer<'a> {
             grouper: Grouper::new(ast),
             prev_was_operator: true,
             whitespace_state: NotInTerm,
-            indented_blocks: vec![(0.into(),ExpressionBoundary::Source)],
+            indented_blocks: vec![(0.into(), ExpressionBoundary::Source)],
         }
     }
 
@@ -225,11 +228,16 @@ impl<'a> Tokenizer<'a> {
 
     ///
     /// Handle new lines.
-    /// 
+    ///
     /// This closes any open blocks with lower indent, and then prepares us to possibly create a
     /// new block (if the next token is an expression rather than an operator or comment).
-    /// 
-    pub fn on_line_start(&mut self, start: ByteIndex, indent: IndentLevel, matching_indent: IndentLevel) {
+    ///
+    pub fn on_line_start(
+        &mut self,
+        start: ByteIndex,
+        indent: IndentLevel,
+        matching_indent: IndentLevel,
+    ) {
         // Close any open indented blocks (at least one block will be equal to 0, and that will never be closed).
         let mut top = self.indented_blocks.last().unwrap();
         while indent < top.0 {
@@ -240,7 +248,11 @@ impl<'a> Tokenizer<'a> {
         }
         // Mark indented blocks with errors on mismatched indent (spaces vs tabs, etc.).
         if matching_indent < top.0 {
-            let mismatch_level = self.indented_blocks.iter().position(|(block_indent,_)| matching_indent < *block_indent).unwrap();
+            let mismatch_level = self
+                .indented_blocks
+                .iter()
+                .position(|(block_indent, _)| matching_indent < *block_indent)
+                .unwrap();
             self.grouper.on_indent_mismatch(mismatch_level);
         }
         // Remember this indent; we'll start a new block if we ever get an expression token.
@@ -260,7 +272,8 @@ impl<'a> Tokenizer<'a> {
         // For comparison, this will also be used for the distinction between
         // `f[1]` and `f [1]` (one is an indexer, the other means "call f with
         // the first arg being a single-element array `[1]`").
-        if !self.prev_was_operator && self.in_term() && boundary == ExpressionBoundary::Parentheses {
+        if !self.prev_was_operator && self.in_term() && boundary == ExpressionBoundary::Parentheses
+        {
             self.emit_operator_token(InfixOperator(APPLY), range.start..range.start);
         }
 
@@ -296,8 +309,7 @@ impl<'a> Tokenizer<'a> {
     fn close_term(&mut self, index: ByteIndex) {
         if self.in_term() {
             self.whitespace_state = NotInTerm;
-            let close_token = ExpressionBoundary::CompoundTerm
-                .placeholder_close_token();
+            let close_token = ExpressionBoundary::CompoundTerm.placeholder_close_token();
             self.emit_operator_token(close_token, index..index)
         }
     }

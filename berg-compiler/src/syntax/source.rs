@@ -123,7 +123,10 @@ fn check_source_too_large<'a>(size: usize) -> Option<SourceOpenError<'a>> {
     }
 }
 
-fn absolute_path<'a>(path: Cow<'a, Path>, root: &RootRef) -> Result<Cow<'a, Path>, EvalException<'a>> {
+fn absolute_path<'a>(
+    path: Cow<'a, Path>,
+    root: &RootRef,
+) -> Result<Cow<'a, Path>, EvalException<'a>> {
     if path.is_relative() {
         match *root.root_path() {
             Ok(ref root_path) => Ok(Cow::Owned(root_path.join(path))),
@@ -141,7 +144,11 @@ impl<'a> fmt::Display for SourceRef<'a> {
 }
 
 impl<'a> SourceOpenError<'a> {
-    pub fn new(error: CompilerError<'a>, io_error_kind: io::ErrorKind, io_error_message: &str) -> Self {
+    pub fn new(
+        error: CompilerError<'a>,
+        io_error_kind: io::ErrorKind,
+        io_error_message: &str,
+    ) -> Self {
         SourceOpenError(error, io::Error::new(io_error_kind, io_error_message))
     }
 }

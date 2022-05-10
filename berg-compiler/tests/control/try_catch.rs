@@ -2,7 +2,8 @@ use crate::*;
 
 #[test]
 fn try_catch_error() {
-    expect("
+    expect(
+        "
         :try_progress = 0
         :catch_ran = false
         :try_result = (
@@ -17,12 +18,15 @@ fn try_catch_error() {
             }
         )
         try_result,try_progress,catch_ran
-    ").to_yield(tuple!(20,1,true));
+    ",
+    )
+    .to_yield(tuple!(20, 1, true));
 }
 
 #[test]
 fn try_catch_ok() {
-    expect("
+    expect(
+        "
         :try_progress = 0
         :catch_ran = false
         :try_result = (
@@ -35,12 +39,15 @@ fn try_catch_ok() {
             }
         )
         try_result,try_progress,catch_ran
-    ").to_yield(tuple!(10,1,false));
+    ",
+    )
+    .to_yield(tuple!(10, 1, false));
 }
 
 #[test]
 fn try_catch_finally_ok() {
-    expect("
+    expect(
+        "
         :try_progress = 0
         :catch_ran = false
         :finally_ran = false
@@ -57,12 +64,15 @@ fn try_catch_finally_ok() {
             }
         )
         try_result,try_progress,catch_ran,finally_ran
-    ").to_yield(tuple!(10,1,false,true));
+    ",
+    )
+    .to_yield(tuple!(10, 1, false, true));
 }
 
 #[test]
 fn try_catch_finally_error() {
-    expect("
+    expect(
+        "
         :try_progress = 0
         :catch_ran = false
         :finally_ran = false
@@ -81,7 +91,9 @@ fn try_catch_finally_error() {
             }
         )
         try_result,try_progress,catch_ran,finally_ran
-    ").to_yield(tuple!(20,1,true,true));
+    ",
+    )
+    .to_yield(tuple!(20, 1, true, true));
 }
 
 #[test]

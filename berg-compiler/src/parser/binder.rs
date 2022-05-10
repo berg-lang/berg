@@ -1,8 +1,8 @@
 use crate::syntax::identifiers::*;
 use crate::syntax::{
     Ast, AstBlock, AstDelta, AstIndex, BlockIndex, ByteRange, ExpressionBoundary,
-    ExpressionBoundaryError, Field, FieldIndex, IdentifierIndex, Token, ExpressionToken,
-    OperatorToken, TermToken
+    ExpressionBoundaryError, ExpressionToken, Field, FieldIndex, IdentifierIndex, OperatorToken,
+    TermToken, Token,
 };
 use crate::util::indexed_vec::Delta;
 
@@ -73,10 +73,11 @@ impl<'a> Binder<'a> {
                 {
                     self.push_field_reference(name, range)
                 }
-                IntegerLiteral(_) | RawIdentifier(_) | ErrorTerm(..) | RawErrorTerm(..) | MissingExpression => self.ast.push_token(token, range),
+                IntegerLiteral(_) | RawIdentifier(_) | ErrorTerm(..) | RawErrorTerm(..)
+                | MissingExpression => self.ast.push_token(token, range),
                 // The binder generates these tokens, so should not receive them as input.
                 FieldReference(_) => unreachable!(),
-            }
+            },
             Open(_, boundary, _) if boundary.is_block() => {
                 let open_block_index = self.open_block_index();
                 self.push_open_scope(boundary, Some(open_block_index));
@@ -100,18 +101,26 @@ impl<'a> Binder<'a> {
         }
     }
 
-    pub fn insert_open_token(&mut self, index: AstIndex, error: Option<ExpressionBoundaryError>, boundary: ExpressionBoundary, delta: AstDelta, range: ByteRange) {
+    pub fn insert_open_token(
+        &mut self,
+        index: AstIndex,
+        error: Option<ExpressionBoundaryError>,
+        boundary: ExpressionBoundary,
+        delta: AstDelta,
+        range: ByteRange,
+    ) {
         if boundary.is_block() {
             self.insert_open_scope(index, boundary, error, delta, range)
         } else {
-            self.ast.insert_token(index, ExpressionToken::Open(error, boundary, delta), range)
+            self.ast
+                .insert_token(index, ExpressionToken::Open(error, boundary, delta), range)
         }
     }
 
     fn push_field_reference(&mut self, name: IdentifierIndex, range: ByteRange) -> AstIndex {
-        use Token::*;
         use ExpressionToken::*;
         use TermToken::*;
+        use Token::*;
         let is_declaration = match self.ast.tokens.last() {
             Some(&Expression(PrefixOperator(COLON))) => true,
             _ => false,
@@ -125,10 +134,14 @@ impl<'a> Binder<'a> {
         self.ast.push_token(FieldReference(field), range)
     }
 
-    fn push_declaration_with_default(&mut self, token: OperatorToken, range: ByteRange) -> AstIndex {
-        use Token::*;
+    fn push_declaration_with_default(
+        &mut self,
+        token: OperatorToken,
+        range: ByteRange,
+    ) -> AstIndex {
         use ExpressionToken::*;
         use TermToken::*;
+        use Token::*;
         let prev_token_index = self.ast.tokens.last_index();
         let prev_token = self.ast.tokens[prev_token_index];
         // Flip the field public now that we know it's a declaration.
@@ -190,7 +203,7 @@ impl<'a> Binder<'a> {
                 delta,
                 boundary,
             };
-        println!("insert block {:?} at {}", ast_block, index);
+            println!("insert block {:?} at {}", ast_block, index);
             (index, ast_block)
         };
 
@@ -206,7 +219,13 @@ impl<'a> Binder<'a> {
 
         // Fix all parent indices after the block. They are guaranteed to be our children since this
         // will only happen after closing any children.
-        for (i, block) in self.ast.blocks.iter_mut().enumerate().skip((index + 1).into()) {
+        for (i, block) in self
+            .ast
+            .blocks
+            .iter_mut()
+            .enumerate()
+            .skip((index + 1).into())
+        {
             assert!(i - block.parent >= index);
             block.parent += 1;
         }

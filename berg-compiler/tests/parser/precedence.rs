@@ -99,7 +99,6 @@ fn parenadd_missing_operator_precedence() {
     expect("( + 1)").to_error(MissingOperand, 2)
 }
 
-
 #[test]
 fn trailing_neg() {
     expect("0-").to_error(UnsupportedOperator, 1)

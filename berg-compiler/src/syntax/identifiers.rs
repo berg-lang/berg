@@ -2,7 +2,7 @@ use std::fmt;
 use std::num::NonZeroU32;
 use std::ops::Range;
 use std::u32;
-use string_interner::{StringInterner, Symbol, backend::StringBackend};
+use string_interner::{backend::StringBackend, StringInterner, Symbol};
 
 #[derive(Copy, Clone, PartialEq, Eq, Ord, PartialOrd)]
 pub struct IdentifierIndex(NonZeroU32);
@@ -114,7 +114,9 @@ impl Symbol for IdentifierIndex {
     /// If the given `usize` is greater than `u32::MAX - 1`.
     fn try_from_usize(val: usize) -> Option<Self> {
         if val < u32::MAX as usize {
-            Some(IdentifierIndex(unsafe { NonZeroU32::new_unchecked((val + 1) as u32) }))
+            Some(IdentifierIndex(unsafe {
+                NonZeroU32::new_unchecked((val + 1) as u32)
+            }))
         } else {
             None
         }

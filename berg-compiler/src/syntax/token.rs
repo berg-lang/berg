@@ -9,9 +9,9 @@ use std::fmt;
 
 ///
 /// One atomic unit of an expression.
-/// 
+///
 /// This is what is stored in [`AstData::tokens`].
-/// 
+///
 #[derive(Copy, Clone, PartialEq)]
 pub enum Token {
     Expression(ExpressionToken),
@@ -30,203 +30,207 @@ fn token_size_is_16bytes_even_though_we_want_it_to_be_8() {
 
 ///
 /// An atomic unit of an expression that has no left operand.
-/// 
+///
 /// For example, `1`, `true` and the `-` in `-1`.
-/// 
+///
 /// Returned by [`AstData::expression_token()`], which is generally used
 /// by forward-moving walkers that know for certain that the next token is
 /// an expression token since the previous one requires an operand. Since the
 /// tree is well-formed, the fact that it is a token is absolutely certain.
-/// 
+///
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub enum ExpressionToken {
     ///
     /// A term, or atomic noun, such as `123` or `abc`.
-    /// 
+    ///
     Term(TermToken),
     ///
     /// A prefix operator, such as the `-` in `-1`.
-    /// 
+    ///
     /// The [`IdentifierIndex`] refers to the operator itself (like `-`). For a
     /// list of standard operators to compare against, look in
     /// [`syntax::identifiers`].
-    /// 
+    ///
     PrefixOperator(IdentifierIndex),
     ///
     /// An open operator, such as `(` or `{`.
-    /// 
+    ///
     /// The [`ExpressionBoundaryError`] indicates that there was an error parsing
     /// the operation, such as an open operator without a close, or a close operator
     /// without an open.
-    /// 
+    ///
     /// The [`ExpressionBoundary`] indicates the kind of group (whether it was
     /// parentheses, curly braces, or even automatic blocks like compound terms,
     /// the automatic block after `:`, and precedence groups.
-    /// 
+    ///
     /// The [`AstDelta`] is the distance to the close token. Use
     /// `ast.close_token(index + delta)` or `ast.close_block_token(index + delta)`
     /// to get to the close token (depending on boundary.is_block()).
     ///
-    Open(Option<ExpressionBoundaryError>, ExpressionBoundary, AstDelta),
+    Open(
+        Option<ExpressionBoundaryError>,
+        ExpressionBoundary,
+        AstDelta,
+    ),
 }
 
 ///
 /// An atomic unit of an expression that has a left operand.
-/// 
+///
 /// For example, `)`, the `+` in `1 + 2` and the `++` in `a++`.
-/// 
+///
 /// Returned by [`AstData::operator_token()`], which is generally used
 /// by forward-moving walkers that know for certain that the next token is
 /// an expression token since the previous one requires an operand. Since the
 /// tree is well-formed, the fact that it is a token is absolutely certain.
-/// 
+///
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub enum OperatorToken {
     ///
     /// An infix operator.
-    /// 
+    ///
     /// For example, the `+` in `a + b`.
-    /// 
+    ///
     /// The [`IdentifierIndex`] refers to the operator itself (like `+`). For a
     /// list of standard operators to compare against, look in
     /// [`syntax::identifiers`].
-    /// 
+    ///
     InfixOperator(IdentifierIndex),
     ///
     /// An infix assignment operator.
-    /// 
+    ///
     /// For example, the `+=` in `a += b`.
-    /// 
+    ///
     /// The [`IdentifierIndex`] refers to the non-assignment version of the
     /// operation (i.e. `+` instead of `+=`), so that one can easily
     /// invoke the readonly version of the operation and then perform the
     /// assignment. In `a = b`, the identifier will refer to
     /// [`syntax::identifiers::EMPTY_STRING`].
-    /// 
+    ///
     /// For a list of standard operators to compare against, look in
     /// [`syntax::identifiers`].
-    /// 
+    ///
     InfixAssignment(IdentifierIndex),
     ///
     /// A prefix operator, such as the `++` in `a++`.
-    /// 
+    ///
     /// The [`IdentifierIndex`] refers to the operator itself (like `++`). For a
     /// list of standard operators to compare against, look in
     /// [`syntax::identifiers`].
-    /// 
+    ///
     PostfixOperator(IdentifierIndex),
     ///
     /// A close token for a *non-block*, such as `()` or a compound term.
-    /// 
+    ///
     /// The [`AstDelta`] gives the distance to the corresponding
     /// `PrefixToken::Open`. Use `ast.open_token(index - delta)` to get to the
     /// open token.
-    /// 
+    ///
     /// The [`ExpressionBoundary`] indicates the kind of group (whether it was
     /// parentheses, or even automatic blocks like compound terms,
     /// the automatic block after `:`, and precedence groups.
-    /// 
+    ///
     Close(AstDelta, ExpressionBoundary),
     ///
     /// The [`AstDelta`] gives the distance to the corresponding
     /// `PostfixToken::Close` or `PostfixToken::CloseBlock`.
-    /// 
+    ///
     /// The [`BlockIndex`] can be used to look up block-specific data like
     /// fields from [`ast::blocks`].
-    /// 
+    ///
     /// Use `ast.open_token(index - ast.blocks[block_index].delta)` to get to
     /// the open token.
-    /// 
+    ///
     CloseBlock(BlockIndex, ExpressionBoundary),
 }
 
 ///
 /// An atomic unit of an expression with no operands (a noun).
-/// 
+///
 /// For example, `a` or `1`.
-/// 
+///
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub enum TermToken {
     ///
     /// Integer (`1` or `1210312`).
-    /// 
+    ///
     /// The [`LiteralIndex`] can be used to look up the actual string of digits
     /// in [`AstData::literals`].
-    /// 
+    ///
     /// # Note
-    /// 
+    ///
     /// `-1` is not an integer literal: it is prefix `-` followed by integer
     /// literal `1`.
-    /// 
+    ///
     IntegerLiteral(LiteralIndex),
     ///
     /// A reference to a field.
-    /// 
+    ///
     /// The [`FieldIndex`] can be used to look up the field name and publicity
     /// from [`AstData::fields`].
-    /// 
+    ///
     /// This differs from [`RawIdentifier`] in that it is bound to a particular
     /// block: in `{ a: 1; 1 + a + { a: 2; 2 + a } }, `1 + a` refers to the first
     /// `a`, and `2 + a` refers to the second `a`.
-    /// 
+    ///
     FieldReference(FieldIndex),
     ///
     /// An identifier.
-    /// 
+    ///
     /// Used as the right hand side of `.`, for example the `a` in `x.a`. For
     /// raw variable references without a `.`, a [`FieldReference`] will be
     /// produced.
-    /// 
+    ///
     /// The [`IdentifierIndex`] is globally unique per name and can be compared
     /// for equality against another `IdentifierIndex`.
-    /// 
+    ///
     RawIdentifier(IdentifierIndex),
     ///
     /// An unparseable set of text.
-    /// 
+    ///
     /// Used for things we don't understand that are nonetheless valid
     /// UTF-8, such as `123abc`.
-    /// 
+    ///
     /// The [`LiteralIndex`] here can be used to look up the actual string that
     /// caused the error from [`AstData::literals`].
-    /// 
+    ///
     ErrorTerm(ErrorTermError, LiteralIndex),
     ///
     /// An unparseable set of non-UTF-8 text.
-    /// 
+    ///
     /// Berg only supports UTF-8, so when an invalid UTF-8 byte sequence is found,
     /// this is used to record the error instead of `ErrorTerm`.
-    /// 
+    ///
     /// The [`RawLiteralIndex`] here can be used to look up the actual string that
     /// caused the error from [`AstData::raw_literals`].
-    /// 
+    ///
     RawErrorTerm(RawErrorTermError, RawLiteralIndex),
     ///
     /// Used when the source has an operator with no operand.
-    /// 
+    ///
     /// For example, `(a + )` has a `MissingExpression` just in front of the `)`.
-    /// 
+    ///
     MissingExpression,
 }
 
 ///
 /// Indicates an error making us uncertain of the block's contents.
-/// 
+///
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub enum ExpressionBoundaryError {
     ///
     /// Indicates a close operator was found (such as `)`) but that no corresponding
     /// open operator.
-    /// 
+    ///
     /// For example: `1 + 2)`
-    /// 
+    ///
     CloseWithoutOpen,
     ///
     /// Indicates an open operator was found (such as `(`) but that no corresponding
     /// close operator.
-    /// 
+    ///
     /// For example, `(1 + 2`.
-    /// 
+    ///
     OpenWithoutClose,
     ///
     /// Indicates there was an issue opening the source code.
@@ -238,7 +242,7 @@ pub enum ExpressionBoundaryError {
 
 ///
 /// The type of an open/close pair.
-/// 
+///
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum ExpressionBoundary {
     PrecedenceGroup,
@@ -346,25 +350,37 @@ impl ExpressionToken {
         self.fixity().has_right_operand()
     }
     pub fn to_string<'p, 'a: 'p>(&self, ast: &'p Ast<'a>) -> Cow<'p, str> {
-        use ExpressionToken::*;
         use ExpressionBoundaryError::*;
+        use ExpressionToken::*;
         match *self {
             Term(token) => token.to_string(ast),
             PrefixOperator(identifier) => ast.identifier_string(identifier).into(),
-            Open(Some(CloseWithoutOpen), boundary, _) => format!("missing {}", boundary.open_string()).into(),
-            Open(Some(OpenWithoutClose), boundary, _) => format!("unclosed {}", boundary.open_string()).into(),
-            Open(Some(OpenError), boundary, _) => format!("openerror {}", boundary.open_string()).into(),
+            Open(Some(CloseWithoutOpen), boundary, _) => {
+                format!("missing {}", boundary.open_string()).into()
+            }
+            Open(Some(OpenWithoutClose), boundary, _) => {
+                format!("unclosed {}", boundary.open_string()).into()
+            }
+            Open(Some(OpenError), boundary, _) => {
+                format!("openerror {}", boundary.open_string()).into()
+            }
             Open(None, boundary, _) => boundary.open_string().into(),
         }
     }
     pub fn to_visible_string<'p, 'a: 'p>(&self, ast: &'p Ast<'a>) -> Cow<'p, str> {
-        use ExpressionToken::*;
         use ExpressionBoundaryError::*;
+        use ExpressionToken::*;
         match *self {
             Term(token) => token.to_visible_string(ast),
-            Open(Some(CloseWithoutOpen), boundary, _) => format!("missing {}", boundary.visible_open_string()).into(),
-            Open(Some(OpenWithoutClose), boundary, _) => format!("unclosed {}", boundary.visible_open_string()).into(),
-            Open(Some(OpenError), boundary, _) => format!("openerror {}", boundary.visible_open_string()).into(),
+            Open(Some(CloseWithoutOpen), boundary, _) => {
+                format!("missing {}", boundary.visible_open_string()).into()
+            }
+            Open(Some(OpenWithoutClose), boundary, _) => {
+                format!("unclosed {}", boundary.visible_open_string()).into()
+            }
+            Open(Some(OpenError), boundary, _) => {
+                format!("openerror {}", boundary.visible_open_string()).into()
+            }
             Open(None, boundary, _) => boundary.visible_open_string().into(),
             _ => self.to_string(ast),
         }
@@ -410,9 +426,12 @@ impl OperatorToken {
     pub fn to_string<'p, 'a: 'p>(self, ast: &'p Ast<'a>) -> Cow<'p, str> {
         use OperatorToken::*;
         match self {
-            InfixOperator(NEWLINE_SEQUENCE) | InfixOperator(FOLLOWED_BY) | InfixOperator(IMMEDIATELY_FOLLOWED_BY) => "".into(),
-            InfixOperator(identifier)
-            | PostfixOperator(identifier) => ast.identifier_string(identifier).into(),
+            InfixOperator(NEWLINE_SEQUENCE)
+            | InfixOperator(FOLLOWED_BY)
+            | InfixOperator(IMMEDIATELY_FOLLOWED_BY) => "".into(),
+            InfixOperator(identifier) | PostfixOperator(identifier) => {
+                ast.identifier_string(identifier).into()
+            }
 
             InfixAssignment(identifier) => format!("{}=", ast.identifier_string(identifier)).into(),
             Close(_, boundary) | CloseBlock(_, boundary) => boundary.close_string().into(),
@@ -431,18 +450,23 @@ impl OperatorToken {
     pub fn takes_right_child(self, right: impl Into<Token>) -> bool {
         use Fixity::*;
         match (self.fixity(), right.into()) {
-            (Infix, Token::Operator(right)) if right.fixity() == Infix => Precedence::from(self).takes_right_child(Precedence::from(right)),
-            (left, right) => left.takes_right_child(right.fixity())
+            (Infix, Token::Operator(right)) if right.fixity() == Infix => {
+                Precedence::from(self).takes_right_child(Precedence::from(right))
+            }
+            (left, right) => left.takes_right_child(right.fixity()),
         }
     }
 
     pub fn original_bytes<'p, 'a: 'p>(self, ast: &'p Ast<'a>) -> Cow<'p, [u8]> {
         use OperatorToken::*;
         match self {
-            InfixOperator(NEWLINE_SEQUENCE) | InfixOperator(FOLLOWED_BY) | InfixOperator(IMMEDIATELY_FOLLOWED_BY) => Cow::Borrowed(b""),
+            InfixOperator(NEWLINE_SEQUENCE)
+            | InfixOperator(FOLLOWED_BY)
+            | InfixOperator(IMMEDIATELY_FOLLOWED_BY) => Cow::Borrowed(b""),
 
-            InfixOperator(identifier)
-            | PostfixOperator(identifier) => ast.identifier_string(identifier).as_bytes().into(),
+            InfixOperator(identifier) | PostfixOperator(identifier) => {
+                ast.identifier_string(identifier).as_bytes().into()
+            }
 
             InfixAssignment(identifier) => {
                 // Because of how InfixAssignment works, we store the str for the "+" and assume the "="
@@ -453,7 +477,9 @@ impl OperatorToken {
                 vec.into()
             }
 
-            Close(_, boundary) | CloseBlock(_, boundary) => boundary.close_string().as_bytes().into(),
+            Close(_, boundary) | CloseBlock(_, boundary) => {
+                boundary.close_string().as_bytes().into()
+            }
         }
     }
 }
@@ -467,27 +493,30 @@ impl TermToken {
             RawErrorTerm(code, ..) => format!("error({:?})", code).into(),
             FieldReference(field) => ast.identifier_string(ast.fields[field].name).into(),
             RawIdentifier(identifier) => ast.identifier_string(identifier).into(),
-            MissingExpression  => "".into(),
+            MissingExpression => "".into(),
         }
     }
     pub fn to_visible_string<'p, 'a: 'p>(self, ast: &'p Ast<'a>) -> Cow<'p, str> {
         use TermToken::*;
         match self {
-            MissingExpression  => "<missing>".into(),
+            MissingExpression => "<missing>".into(),
             _ => self.to_string(ast),
         }
     }
     pub fn original_bytes<'p, 'a: 'p>(self, ast: &'p Ast<'a>) -> Cow<'p, [u8]> {
         use TermToken::*;
         match self {
-            IntegerLiteral(literal) | ErrorTerm(.., literal) => ast.literal_string(literal).as_bytes(),
+            IntegerLiteral(literal) | ErrorTerm(.., literal) => {
+                ast.literal_string(literal).as_bytes()
+            }
             RawErrorTerm(.., raw_literal) => &ast.raw_literals[raw_literal],
 
             FieldReference(field) => ast.identifier_string(ast.fields[field].name).as_bytes(),
 
             RawIdentifier(identifier) => ast.identifier_string(identifier).as_bytes(),
             MissingExpression => unreachable!(),
-        }.into()
+        }
+        .into()
     }
 }
 
@@ -503,8 +532,9 @@ impl ExpressionBoundary {
     /// it represents actual user syntax, or opens a scope).
     pub(crate) fn is_required(self) -> bool {
         match self {
-            Root | Source | CurlyBraces | Parentheses | AutoBlock | IndentedBlock | IndentedExpression => true,
-            PrecedenceGroup | CompoundTerm  => false,
+            Root | Source | CurlyBraces | Parentheses | AutoBlock | IndentedBlock
+            | IndentedExpression => true,
+            PrecedenceGroup | CompoundTerm => false,
         }
     }
     /// Tells whether we expect a close token for this boundary or if it's handled
@@ -515,7 +545,10 @@ impl ExpressionBoundary {
             Root | Source | CurlyBraces | Parentheses => false,
         }
     }
-    pub(crate) fn placeholder_open_token(self, error: Option<ExpressionBoundaryError>) -> ExpressionToken {
+    pub(crate) fn placeholder_open_token(
+        self,
+        error: Option<ExpressionBoundaryError>,
+    ) -> ExpressionToken {
         ExpressionToken::Open(error, self, Default::default())
     }
     pub(crate) fn placeholder_close_token(self) -> OperatorToken {
@@ -525,7 +558,8 @@ impl ExpressionBoundary {
         match self {
             CurlyBraces => OPEN_CURLY.well_known_str(),
             Parentheses => OPEN_PAREN.well_known_str(),
-            PrecedenceGroup | AutoBlock | IndentedBlock | IndentedExpression | CompoundTerm | Source | Root => "",
+            PrecedenceGroup | AutoBlock | IndentedBlock | IndentedExpression | CompoundTerm
+            | Source | Root => "",
         }
     }
     pub(crate) fn visible_open_string(self) -> &'static str {
@@ -545,7 +579,8 @@ impl ExpressionBoundary {
         match self {
             CurlyBraces => CLOSE_CURLY.well_known_str(),
             Parentheses => CLOSE_PAREN.well_known_str(),
-            PrecedenceGroup | AutoBlock | IndentedBlock | IndentedExpression | CompoundTerm | Source | Root => "",
+            PrecedenceGroup | AutoBlock | IndentedBlock | IndentedExpression | CompoundTerm
+            | Source | Root => "",
         }
     }
     pub(crate) fn visible_close_string(self) -> &'static str {
@@ -616,7 +651,7 @@ impl Fixity {
             // Terms are always OK as a right child
             (_, Term) | (_, Prefix) | (_, Open) => true,
             // Term, postfix and close don't take right children at all.
-            (Term, _) | (Postfix, _) | (Close, _)=> false,
+            (Term, _) | (Postfix, _) | (Close, _) => false,
             // Prefix doesn't take any operators as right child
             (Prefix, Postfix) | (Prefix, Infix) | (Prefix, Close) => false,
             // Open takes all operators as right child

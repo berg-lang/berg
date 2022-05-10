@@ -42,17 +42,23 @@ fn expression_before_same_line() {
 }
 #[test]
 fn expression_before() {
-    expect("
+    expect(
+        "
         1
         # comment
-    ").to_yield(1)
+    ",
+    )
+    .to_yield(1)
 }
 #[test]
 fn expression_after() {
-    expect("
+    expect(
+        "
         # comment
         1
-    ").to_yield(1)
+    ",
+    )
+    .to_yield(1)
 }
 #[test]
 fn expression_immediately_after() {
@@ -60,11 +66,14 @@ fn expression_immediately_after() {
 }
 #[test]
 fn comment_between_sequence() {
-    expect("
+    expect(
+        "
         :x = 1
         # comment
         x
-    ").to_yield(1)
+    ",
+    )
+    .to_yield(1)
 }
 #[test]
 fn comment_ends_term() {
@@ -76,26 +85,35 @@ fn term_starts_after_comment() {
 }
 #[test]
 fn comment_before_infix() {
-    expect("
+    expect(
+        "
         1
         # comment
         + 2
-    ").to_yield(3)
+    ",
+    )
+    .to_yield(3)
 }
 #[test]
 fn comment_after_infix() {
-    expect("
+    expect(
+        "
         1 +
         # comment
         2
-    ").to_yield(3)
+    ",
+    )
+    .to_yield(3)
 }
 #[test]
 fn comment_after_infix_same_line() {
-    expect("
+    expect(
+        "
         1 + # comment
         2
-    ").to_yield(3)
+    ",
+    )
+    .to_yield(3)
 }
 #[test]
 fn comment_immediately_after_infix_same_line() {
@@ -103,69 +121,93 @@ fn comment_immediately_after_infix_same_line() {
 }
 #[test]
 fn comment_with_infix_operator_same_line() {
-    expect("
+    expect(
+        "
         1
         + # comment
         2
-    ").to_yield(3)
+    ",
+    )
+    .to_yield(3)
 }
 #[test]
 fn comment_immediately_with_infix_operator_same_line() {
-    expect("
+    expect(
+        "
         1
         +# comment
         2
-    ").to_yield(3)
+    ",
+    )
+    .to_yield(3)
 }
 #[test]
 fn comment_in_curly_braces() {
-    expect("
+    expect(
+        "
         {
             :x = 1
             # comment
             x
         }
-    ").to_yield(1)
+    ",
+    )
+    .to_yield(1)
 }
 #[test]
 fn comment_in_parentheses() {
-    expect("
+    expect(
+        "
         {
             :x = 1
             # comment
             x
         }
-    ").to_yield(1)
+    ",
+    )
+    .to_yield(1)
 }
 #[test]
 fn comment_does_not_end_curly_braces() {
-    expect("
+    expect(
+        "
         {
         # }
         }
-    ").to_yield(tuple!())
+    ",
+    )
+    .to_yield(tuple!())
 }
 #[test]
 fn comment_on_same_line_does_not_end_curly_braces() {
-    expect("
+    expect(
+        "
         { # }
         }
-    ").to_yield(tuple!())
+    ",
+    )
+    .to_yield(tuple!())
 }
 #[test]
 fn comment_does_not_end_parentheses() {
-    expect("
+    expect(
+        "
         (
         # )
         )
-    ").to_yield(tuple!())
+    ",
+    )
+    .to_yield(tuple!())
 }
 #[test]
 fn comment_on_same_line_does_not_end_parentheses() {
-    expect("
+    expect(
+        "
         ( # )
         )
-    ").to_yield(tuple!())
+    ",
+    )
+    .to_yield(tuple!())
 }
 
 #[test]
@@ -254,12 +296,24 @@ fn unsupported_then_invalid() {
 #[test]
 fn unsupported_then_invalid_multibyte() {
     // 0xE28C82 is ⌂
-    expect(&[b'#', 0xE2,0x8C,0x82, 0b1000_0000]).to_yield(tuple!())
+    expect(&[b'#', 0xE2, 0x8C, 0x82, 0b1000_0000]).to_yield(tuple!())
 }
 #[test]
 fn unsupported_then_invalid_multiple() {
     // 0xE28C82 is ⌂
-    expect(&[b'#', 0xE2,0x8C,0x82, b'`', 0xE2,0x8C,0x82, 0b1000_0000, 0b1000_0000]).to_yield(tuple!())
+    expect(&[
+        b'#',
+        0xE2,
+        0x8C,
+        0x82,
+        b'`',
+        0xE2,
+        0x8C,
+        0x82,
+        0b1000_0000,
+        0b1000_0000,
+    ])
+    .to_yield(tuple!())
 }
 #[test]
 fn invalid_then_unsupported() {
@@ -268,10 +322,22 @@ fn invalid_then_unsupported() {
 #[test]
 fn invalid_then_unsupported_multibyte() {
     // 0xE28C82 is ⌂
-    expect(&[b'#', 0b1000_0000, 0xE2,0x8C,0x82]).to_yield(tuple!())
+    expect(&[b'#', 0b1000_0000, 0xE2, 0x8C, 0x82]).to_yield(tuple!())
 }
 #[test]
 fn invalid_then_unsupported_multiple() {
     // 0xE28C82 is ⌂
-    expect(&[b'#', 0b1000_0000, 0b1000_0000, 0xE2,0x8C,0x82, b'`', 0xE2,0x8C,0x82]).to_yield(tuple!())
+    expect(&[
+        b'#',
+        0b1000_0000,
+        0b1000_0000,
+        0xE2,
+        0x8C,
+        0x82,
+        b'`',
+        0xE2,
+        0x8C,
+        0x82,
+    ])
+    .to_yield(tuple!())
 }

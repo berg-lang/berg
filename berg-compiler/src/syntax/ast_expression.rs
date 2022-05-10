@@ -1,10 +1,11 @@
 use crate::syntax::{
-    Ast, AstIndex, ExpressionVisitor, Expression, VisitResult, Fixity, ExpressionToken, OperatorToken
+    Ast, AstIndex, Expression, ExpressionToken, ExpressionVisitor, Fixity, OperatorToken,
+    VisitResult,
 };
 
 ///
 /// An expression in an AST.
-/// 
+///
 /// ParentFixity gives information about the parent operator: either Infix,
 /// Prefix or Open. This is necessary to determine how long the operand is
 /// (which type of operators to consume before the parent operator can run).
@@ -31,7 +32,9 @@ impl<'p, 'a: 'p> Expression for AstExpression<'p, 'a> {
                     let block_index = self.ast.close_block_index(self.index + delta);
                     walker.block(block_index, error, self.operand(Fixity::Open))
                 }
-                Open(error, boundary, _) => walker.subexpression(boundary, error, self.operand(Fixity::Open)),
+                Open(error, boundary, _) => {
+                    walker.subexpression(boundary, error, self.operand(Fixity::Open))
+                }
             }
         };
 
@@ -46,9 +49,21 @@ impl<'p, 'a: 'p> Expression for AstExpression<'p, 'a> {
         while let Some(operator_token) = next.walk_state.take_next_operator() {
             use OperatorToken::*;
             next = match operator_token {
-                InfixOperator(operator) => walker.infix(next.result, operator, false, next.walk_state.operand(Fixity::Infix)),
-                InfixAssignment(operator) => walker.infix(next.result, operator, true, next.walk_state.operand(Fixity::Infix)),
-                PostfixOperator(operator) => next.walk_state.result(walker.postfix(next.result, operator)),
+                InfixOperator(operator) => walker.infix(
+                    next.result,
+                    operator,
+                    false,
+                    next.walk_state.operand(Fixity::Infix),
+                ),
+                InfixAssignment(operator) => walker.infix(
+                    next.result,
+                    operator,
+                    true,
+                    next.walk_state.operand(Fixity::Infix),
+                ),
+                PostfixOperator(operator) => next
+                    .walk_state
+                    .result(walker.postfix(next.result, operator)),
                 Close(..) | CloseBlock(..) => unreachable!(), // next.walk_state.result(next.result),
             };
         }
@@ -56,20 +71,30 @@ impl<'p, 'a: 'p> Expression for AstExpression<'p, 'a> {
     }
 }
 
-
 impl<'p, 'a: 'p> AstExpression<'p, 'a> {
     ///
     /// Helper to create an operand and advance index by one.
-    /// 
+    ///
     fn operand(self, parent_fixity: Fixity) -> AstExpression<'p, 'a> {
-        AstExpression { ast: self.ast, index: self.index + 1, parent_fixity }
+        AstExpression {
+            ast: self.ast,
+            index: self.index + 1,
+            parent_fixity,
+        }
     }
 
     ///
     /// Helper to take the result and advance index by one.
-    /// 
+    ///
     fn result<V: ExpressionVisitor>(self, result: V::Result) -> VisitResult<V, Self> {
-        VisitResult { result, walk_state: AstExpression { ast: self.ast, index: self.index + 1, parent_fixity: self.parent_fixity } }
+        VisitResult {
+            result,
+            walk_state: AstExpression {
+                ast: self.ast,
+                index: self.index + 1,
+                parent_fixity: self.parent_fixity,
+            },
+        }
     }
 
     ///
@@ -78,7 +103,10 @@ impl<'p, 'a: 'p> AstExpression<'p, 'a> {
     fn take_next_operator(&self) -> Option<OperatorToken> {
         if self.index < self.ast.tokens.len() {
             let operator_token = self.ast.operator_token(self.index);
-            if self.parent_fixity.takes_right_child(operator_token.fixity()) {
+            if self
+                .parent_fixity
+                .takes_right_child(operator_token.fixity())
+            {
                 return Some(operator_token);
             }
         }

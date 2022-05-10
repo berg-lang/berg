@@ -6,9 +6,9 @@ use std::io::Read;
 
 ///
 /// Reconstructs a range of source from the parsed AST.
-/// 
+///
 /// All data in an AST is preserved, which is what makes this possible.
-/// 
+///
 pub struct SourceReconstruction<'p, 'a: 'p> {
     ast: &'p Ast<'a>,
     range: ByteRange,
@@ -16,9 +16,9 @@ pub struct SourceReconstruction<'p, 'a: 'p> {
 
 ///
 /// An io::Reader over an AST that yields the same data as the original source.
-/// 
+///
 /// Uses [`SourceReconstruction`] to do the formatting.
-/// 
+///
 pub struct SourceReconstructionReader<'p, 'a: 'p> {
     iterator: SourceReconstructionIterator<'p, 'a>,
     buffered: Option<Cow<'p, [u8]>>,
@@ -26,10 +26,10 @@ pub struct SourceReconstructionReader<'p, 'a: 'p> {
 
 ///
 /// Iterates through the AST, yielding &strs that reconstruct the file.
-/// 
+///
 /// Works by iterating in parallel through tokens, whitespace and line starts,
 /// and picking whichever one covers the current range.
-/// 
+///
 struct SourceReconstructionIterator<'p, 'a: 'p> {
     /// The AST we're reconstructing.
     ast: &'p Ast<'a>,
@@ -50,12 +50,12 @@ struct SourceReconstructionIterator<'p, 'a: 'p> {
 impl<'p, 'a: 'p> SourceReconstruction<'p, 'a> {
     ///
     /// Create a reconstructor for the given range.
-    /// 
+    ///
     /// # Arguments
-    /// 
+    ///
     /// * `ast` - The AST containing the parsed information
-    /// * 
-    /// 
+    /// *
+    ///
     pub fn new(ast: &'p Ast<'a>, range: ByteRange) -> Self {
         SourceReconstruction { ast, range }
     }
@@ -171,18 +171,25 @@ impl<'p, 'a: 'p> SourceReconstructionIterator<'p, 'a> {
             self.ast_index += 1;
             // Skip empty tokens
             if *end > *start {
-                let token = self.ast.tokens[self.ast_index-1];
-                return self.truncate(*start, token.original_bytes(self.ast))
+                let token = self.ast.tokens[self.ast_index - 1];
+                return self.truncate(*start, token.original_bytes(self.ast));
             }
         }
         None
     }
 
     fn next_comment(&mut self) -> Option<Cow<'p, [u8]>> {
-        if let Some((comment, comment_start)) = self.ast.char_data.comments.get(self.comment_index) {
+        if let Some((comment, comment_start)) = self.ast.char_data.comments.get(self.comment_index)
+        {
             if *comment_start <= self.index {
                 self.comment_index += 1;
-                assert!(*comment_start + comment.len() > self.index, "comment {:?} at {} got skipped somehow! Current index is {}.", comment, comment_start, self.index);
+                assert!(
+                    *comment_start + comment.len() > self.index,
+                    "comment {:?} at {} got skipped somehow! Current index is {}.",
+                    comment,
+                    comment_start,
+                    self.index
+                );
                 return self.truncate(*comment_start, comment);
             }
         }
@@ -198,7 +205,10 @@ impl<'p, 'a: 'p> SourceReconstructionIterator<'p, 'a> {
         if start < self.index {
             bytes = match bytes {
                 Cow::Borrowed(bytes) => bytes[(self.index - start).into()..].into(),
-                Cow::Owned(mut vec) => { vec.drain(0..(self.index - start).into()); vec.into() },
+                Cow::Owned(mut vec) => {
+                    vec.drain(0..(self.index - start).into());
+                    vec.into()
+                }
             };
         }
         assert!(!bytes.is_empty());
@@ -207,7 +217,10 @@ impl<'p, 'a: 'p> SourceReconstructionIterator<'p, 'a> {
         if bytes.len() > len {
             bytes = match bytes {
                 Cow::Borrowed(bytes) => bytes[..len].into(),
-                Cow::Owned(mut vec) => { vec.truncate(len); vec.into() }
+                Cow::Owned(mut vec) => {
+                    vec.truncate(len);
+                    vec.into()
+                }
             };
         }
         Some(bytes)
@@ -215,11 +228,22 @@ impl<'p, 'a: 'p> SourceReconstructionIterator<'p, 'a> {
 
     fn next_whitespace_range(&mut self) -> Option<Cow<'p, [u8]>> {
         // If the current whitespace range includes us, return that string.
-        if let Some((whitespace, whitespace_start)) = self.ast.char_data.whitespace_ranges.get(self.whitespace_index) {
+        if let Some((whitespace, whitespace_start)) = self
+            .ast
+            .char_data
+            .whitespace_ranges
+            .get(self.whitespace_index)
+        {
             if *whitespace_start <= self.index {
                 self.whitespace_index += 1;
                 let whitespace_string = self.ast.whitespace_string(*whitespace);
-                assert!(*whitespace_start + whitespace_string.len() > self.index, "whitespace {:?} at {} got skipped somehow! Current index is {}.", whitespace_string, whitespace_start, self.index);
+                assert!(
+                    *whitespace_start + whitespace_string.len() > self.index,
+                    "whitespace {:?} at {} got skipped somehow! Current index is {}.",
+                    whitespace_string,
+                    whitespace_start,
+                    self.index
+                );
                 return self.truncate(*whitespace_start, whitespace_string.as_bytes());
             }
         }
@@ -229,7 +253,7 @@ impl<'p, 'a: 'p> SourceReconstructionIterator<'p, 'a> {
 
     ///
     /// Write out \n if we have a line ending without any character data.
-    /// 
+    ///
     fn next_newline(&mut self) -> Option<Cow<'p, [u8]>> {
         // If this is a line start, increment the line start index and return "\n".
         while let Some(line_start) = self.ast.char_data.line_starts.get(self.line_start_index) {
@@ -253,27 +277,47 @@ impl<'p, 'a: 'p> SourceReconstructionIterator<'p, 'a> {
 
 fn find_ast_index(ast: &Ast, index: ByteIndex) -> AstIndex {
     // Get the first token that ends after the index and is non-empty
-    let ast_index = ast.token_ranges.iter().position(|range| range.end > index && range.end > range.start);
+    let ast_index = ast
+        .token_ranges
+        .iter()
+        .position(|range| range.end > index && range.end > range.start);
     ast_index.unwrap_or_else(|| ast.token_ranges.len().into())
 }
 
 fn find_comment_index(ast: &Ast, index: ByteIndex) -> usize {
     // Get the first comment that ends after the index
-    let comment_index = ast.char_data.comments.iter().position(|(_, start)| *start >= index);
+    let comment_index = ast
+        .char_data
+        .comments
+        .iter()
+        .position(|(_, start)| *start >= index);
     comment_index.unwrap_or_else(|| ast.char_data.comments.len())
 }
 
 fn find_whitespace_index(ast: &Ast, index: ByteIndex) -> usize {
     // Get the first whitespace that starts *at* or *after* the given index.
-    if let Some(next_whitespace) = ast.char_data.whitespace_ranges.iter().position(|(_, start)| *start >= index) {
+    if let Some(next_whitespace) = ast
+        .char_data
+        .whitespace_ranges
+        .iter()
+        .position(|(_, start)| *start >= index)
+    {
         // If there is a whitespace starting *after* the given index, check if the previous one *intersects* the index.
         if next_whitespace > 0 {
             let (whitespace, start) = ast.char_data.whitespace_ranges[next_whitespace - 1];
-            if start + ast.char_data.whitespace_characters.resolve(whitespace).unwrap().len() > index {
+            if start
+                + ast
+                    .char_data
+                    .whitespace_characters
+                    .resolve(whitespace)
+                    .unwrap()
+                    .len()
+                > index
+            {
                 return next_whitespace - 1;
             }
         }
-        return next_whitespace
+        return next_whitespace;
     }
     ast.char_data.whitespace_ranges.len()
 }

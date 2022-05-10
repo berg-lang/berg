@@ -2,20 +2,25 @@ mod berg_val;
 mod berg_value;
 mod boolean;
 mod compiler_error;
-mod exception;
 mod eval_val;
+mod exception;
 mod identifier;
 mod macros;
 mod rational;
 mod tuple;
 
-pub use self::berg_val::{BergVal, BergResult, empty_tuple};
-pub use self::berg_value::{Value, BergValue, EvaluatableValue, IteratorValue, NextVal, ObjectValue, OperableValue, RightOperand, TryFromBergVal, implement};
+pub use self::berg_val::{empty_tuple, BergResult, BergVal};
+pub use self::berg_value::{
+    implement, BergValue, EvaluatableValue, IteratorValue, NextVal, ObjectValue, OperableValue,
+    RightOperand, TryFromBergVal, Value,
+};
 pub use self::compiler_error::{CompilerError, CompilerErrorCode};
-pub use self::exception::{Exception, CaughtException, ErrorLocation, EvalException, ExpressionErrorPosition};
-pub use self::eval_val::{AssignmentTarget, EvalVal, EvalResult};
+pub use self::eval_val::{AssignmentTarget, EvalResult, EvalVal};
+pub use self::exception::{
+    CaughtException, ErrorLocation, EvalException, Exception, ExpressionErrorPosition,
+};
 pub use self::tuple::Tuple;
 // Export types used in definition of BergValue and BergVal
-pub use crate::syntax::{IdentifierIndex, ExpressionBoundary, ExpressionRef};
+pub use crate::syntax::{ExpressionBoundary, ExpressionRef, IdentifierIndex};
 // Or just so damn useful we're including them anyway ...
-pub use crate::util::result_util::{ResShorthand, OkShorthand, ErrShorthand};
+pub use crate::util::result_util::{ErrShorthand, OkShorthand, ResShorthand};

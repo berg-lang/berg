@@ -12,7 +12,7 @@ evaluation, therefore, lives on the stack, and its children have lifetimes tied
 to it. Each operation we do has an object:
 
 - RootRef: contains the root variables everyone shares.
-- SourceEvaluator: parses and then evaluates a source text. While this step creates no variables, it does keep the ast around and therefore must be accounted for with lifetimes. 
+- SourceEvaluator: parses and then evaluates a source text. While this step creates no variables, it does keep the ast around and therefore must be accounted for with lifetimes.
 - BlockEvaluator: creates a scope for variables, and runs any expressions inside it.
 - ExpressionEvaluator: runs an expression. Does not create scope.
 
@@ -28,4 +28,4 @@ When an expression runs, it returns a value on the stack, with the lifetime of t
 - `val.downcast_ref::<bool>() -> &bool`
 - `val.downcast_mut::<bool>() -> &mut bool`
 - `val.evaluate_lfix_expression(PLUS, &right_hand_side) -> Val`
-- `evaluator.evaluate_extended(val: Val<'parent>, to_scope: Val<'scope>) -> Val<'scope>` - this takes the value and wraps it up 
+- `evaluator.evaluate_extended(val: Val<'parent>, to_scope: Val<'scope>) -> Val<'scope>` - this takes the value and wraps it up

@@ -1,6 +1,7 @@
 use crate::eval::{ExpressionEvaluator, ScopeRef};
 use crate::syntax::{
-    Ast, ExpressionTreeWalker, AstIndex, AstRef, BlockIndex, ExpressionRef, FieldError, FieldIndex, IdentifierIndex,
+    Ast, AstIndex, AstRef, BlockIndex, ExpressionRef, ExpressionTreeWalker, FieldError, FieldIndex,
+    IdentifierIndex,
 };
 use crate::value::implement::*;
 use std::cell::{Ref, RefCell, RefMut};
@@ -25,7 +26,7 @@ struct BlockData<'a> {
     parent: ScopeRef<'a>,
     ///
     /// The input to this block.
-    /// 
+    ///
     /// If it's None, the input is currently being used, and trying to use it
     /// again will cause a circular dependency error.
     ///
@@ -69,7 +70,12 @@ impl<'a> BlockRef<'a> {
     }
 
     pub fn create_child_block(&self, expression: AstIndex, index: BlockIndex) -> Self {
-        Self::new(expression, index, ScopeRef::BlockRef(self.clone()), empty_tuple().ok())
+        Self::new(
+            expression,
+            index,
+            ScopeRef::BlockRef(self.clone()),
+            empty_tuple().ok(),
+        )
     }
 
     pub fn apply(&self, input: BergVal<'a>) -> BergResult<'a> {
@@ -81,14 +87,18 @@ impl<'a> BlockRef<'a> {
             block.parent.clone(),
             input.ok(),
         );
-        new_block.take_result(BlockState::Complete(empty_tuple().ok())).evaluate()
+        new_block
+            .take_result(BlockState::Complete(empty_tuple().ok()))
+            .evaluate()
     }
 
     fn take_result(&self, replace_with: BlockState<'a>) -> BergResult<'a> {
         self.ensure_evaluated()?;
         let mut block = self.0.borrow_mut();
         match block.state {
-            BlockState::Running | BlockState::InNextVal => CircularDependency.at_location(&block).err(),
+            BlockState::Running | BlockState::InNextVal => {
+                CircularDependency.at_location(&block).err()
+            }
             BlockState::Complete(_) => {
                 if let BlockState::Complete(result) = mem::replace(&mut block.state, replace_with) {
                     result
@@ -117,7 +127,9 @@ impl<'a> BlockRef<'a> {
         self.ensure_evaluated()?;
         let block = self.0.borrow();
         match &block.state {
-            BlockState::Running | BlockState::InNextVal => CircularDependency.at_location(&block).err(),
+            BlockState::Running | BlockState::InNextVal => {
+                CircularDependency.at_location(&block).err()
+            }
             BlockState::Complete(ref result) => result.clone(),
             BlockState::Ready => unreachable!(),
         }
@@ -137,7 +149,10 @@ impl<'a> BlockRef<'a> {
             block.state = BlockState::Running;
             let ast = block.ast();
             let index = block.index;
-            block.fields.resize(ast.blocks[index].scope_count.into(), BlockFieldValue::NotDeclared);
+            block.fields.resize(
+                ast.blocks[index].scope_count.into(),
+                BlockFieldValue::NotDeclared,
+            );
             (ast, block.expression, index)
         };
 
@@ -189,10 +204,10 @@ impl<'a> BlockRef<'a> {
     ///
     /// Take the block input, replacing it with None to ensure only one person
     /// can write to it at a time.
-    /// 
+    ///
     /// If this returns an error, the input does not need to be replaced.
     /// Otherwise, it *must* be replaced.
-    /// 
+    ///
     fn take_input(&self) -> Result<BergVal<'a>, EvalException<'a>> {
         let mut block = self.0.borrow_mut();
         match block.input {
@@ -209,7 +224,10 @@ impl<'a> BlockRef<'a> {
     }
 
     fn next_input(&self) -> Result<Option<BergVal<'a>>, EvalException<'a>> {
-        let next_val = self.take_input()?.next_val().map_err(|e| e.at_location(self));
+        let next_val = self
+            .take_input()?
+            .next_val()
+            .map_err(|e| e.at_location(self));
 
         match next_val {
             Ok(NextVal { head, tail }) => {
@@ -223,7 +241,11 @@ impl<'a> BlockRef<'a> {
         }
     }
 
-    pub fn declare_field(&self, field_index: FieldIndex, ast: &Ast) -> Result<(), EvalException<'a>> {
+    pub fn declare_field(
+        &self,
+        field_index: FieldIndex,
+        ast: &Ast,
+    ) -> Result<(), EvalException<'a>> {
         // Make sure we have enough spots to put the field
         use BlockFieldValue::*;
         let block_field_index = {
@@ -288,7 +310,11 @@ impl<'a> BlockRef<'a> {
         self.0.borrow().ast()
     }
 
-    pub fn field_error<T>(&self, error: FieldError, name: IdentifierIndex) -> Result<T, EvalException<'a>> {
+    pub fn field_error<T>(
+        &self,
+        error: FieldError,
+        name: IdentifierIndex,
+    ) -> Result<T, EvalException<'a>> {
         use FieldError::*;
         match error {
             NoSuchPublicField => CompilerError::NoSuchPublicField(self.clone(), name).err(),
@@ -328,7 +354,10 @@ impl<'a> From<BlockRef<'a>> for EvalVal<'a> {
 impl<'a> BergValue<'a> for BlockRef<'a> {}
 
 impl<'a> EvaluatableValue<'a> for BlockRef<'a> {
-    fn evaluate(self) -> BergResult<'a> where Self: Sized {
+    fn evaluate(self) -> BergResult<'a>
+    where
+        Self: Sized,
+    {
         self.clone_result()
     }
 }
@@ -337,7 +366,10 @@ impl<'a> Value<'a> for BlockRef<'a> {
     fn lazy_val(self) -> Result<BergVal<'a>, EvalException<'a>> {
         self.ok()
     }
-    fn eval_val(self) -> EvalResult<'a> where Self: Sized {
+    fn eval_val(self) -> EvalResult<'a>
+    where
+        Self: Sized,
+    {
         self.ok()
     }
     fn into_native<T: TryFromBergVal<'a>>(self) -> Result<T, EvalException<'a>> {
@@ -359,7 +391,10 @@ impl<'a> IteratorValue<'a> for BlockRef<'a> {
         match next_val {
             Ok(NextVal { head, tail }) => {
                 self.replace_result(tail.ok());
-                Ok(NextVal { head, tail: self.into() })
+                Ok(NextVal {
+                    head,
+                    tail: self.into(),
+                })
             }
             Err(error) => {
                 let error = error.at_location(&self);
@@ -371,7 +406,10 @@ impl<'a> IteratorValue<'a> for BlockRef<'a> {
 }
 
 impl<'a> ObjectValue<'a> for BlockRef<'a> {
-    fn field(self, name: IdentifierIndex) -> EvalResult<'a> where Self: Sized {
+    fn field(self, name: IdentifierIndex) -> EvalResult<'a>
+    where
+        Self: Sized,
+    {
         println!(
             "{}====> get {} on {}",
             self.indent(),
@@ -385,8 +423,15 @@ impl<'a> ObjectValue<'a> for BlockRef<'a> {
         println!("{}current = {}", self.indent(), current);
         match current.field(name) {
             // If we couldn't find the field on the inner value, see if our block has the field
-            Err(EvalException::Thrown(BergVal::CompilerError(ref error), ExpressionErrorPosition::Expression)) if error.code() == CompilerErrorCode::NoSuchPublicField => {
-                println!("{}====> no such public {} on current", self.indent(), self.ast().identifier_string(name));
+            Err(EvalException::Thrown(
+                BergVal::CompilerError(ref error),
+                ExpressionErrorPosition::Expression,
+            )) if error.code() == CompilerErrorCode::NoSuchPublicField => {
+                println!(
+                    "{}====> no such public {} on current",
+                    self.indent(),
+                    self.ast().identifier_string(name)
+                );
                 let ast = self.ast();
                 let index = {
                     let block = self.0.borrow();
@@ -396,13 +441,34 @@ impl<'a> ObjectValue<'a> for BlockRef<'a> {
                 };
                 self.local_field(index, &ast)
             }
-            Ok(value) => { println!("{}====> got {:?} for {} on {}", self.indent(), value, self.ast().identifier_string(name), self); Ok(value) }
-            Err(error) => { println!("{}====> error {} for {} on {}", self.indent(), error, self.ast().identifier_string(name), self); Err(error) }
-            // result => result,
+            Ok(value) => {
+                println!(
+                    "{}====> got {:?} for {} on {}",
+                    self.indent(),
+                    value,
+                    self.ast().identifier_string(name),
+                    self
+                );
+                Ok(value)
+            }
+            Err(error) => {
+                println!(
+                    "{}====> error {} for {} on {}",
+                    self.indent(),
+                    error,
+                    self.ast().identifier_string(name),
+                    self
+                );
+                Err(error)
+            } // result => result,
         }
     }
 
-    fn set_field(&mut self, name: IdentifierIndex, value: BergVal<'a>) -> Result<(), EvalException<'a>> {
+    fn set_field(
+        &mut self,
+        name: IdentifierIndex,
+        value: BergVal<'a>,
+    ) -> Result<(), EvalException<'a>> {
         self.ensure_evaluated()?;
 
         // Figure out the field index from its name
@@ -421,7 +487,14 @@ impl<'a> ObjectValue<'a> for BlockRef<'a> {
 }
 
 impl<'a> OperableValue<'a> for BlockRef<'a> {
-    fn infix(self, operator: IdentifierIndex, right: RightOperand<'a, impl EvaluatableValue<'a>>) -> EvalResult<'a> where Self: Sized {
+    fn infix(
+        self,
+        operator: IdentifierIndex,
+        right: RightOperand<'a, impl EvaluatableValue<'a>>,
+    ) -> EvalResult<'a>
+    where
+        Self: Sized,
+    {
         use crate::syntax::identifiers::*;
         use EvalVal::*;
 
@@ -432,10 +505,12 @@ impl<'a> OperableValue<'a> for BlockRef<'a> {
                 let input = match arguments {
                     // Any commas are treated as separate arguments, so `f 1,2,3` is
                     // 3 arguments. `f (1,2,3), (4,5,6)` however, is two arguments.
-                    RightOperand(PartialTuple(_), _) | RightOperand(TrailingComma(_), _) => arguments.lazy_val()?,
+                    RightOperand(PartialTuple(_), _) | RightOperand(TrailingComma(_), _) => {
+                        arguments.lazy_val()?
+                    }
                     RightOperand(MissingExpression, _) if operator == APPLY => empty_tuple(),
                     // f (1,2,3) is a single argument which is itself a tuple.
-                    _ => BergVal::from(vec![arguments.lazy_val()?])
+                    _ => BergVal::from(vec![arguments.lazy_val()?]),
                 };
                 self.apply(input)?.ok()
             }
@@ -443,20 +518,36 @@ impl<'a> OperableValue<'a> for BlockRef<'a> {
         }
     }
 
-    fn infix_assign(self, operator: IdentifierIndex, right: RightOperand<'a, impl EvaluatableValue<'a>>) -> EvalResult<'a> where Self: Sized {
+    fn infix_assign(
+        self,
+        operator: IdentifierIndex,
+        right: RightOperand<'a, impl EvaluatableValue<'a>>,
+    ) -> EvalResult<'a>
+    where
+        Self: Sized,
+    {
         self.clone_result().infix_assign(operator, right)
     }
 
-    fn prefix(self, operator: IdentifierIndex) -> EvalResult<'a> where Self: Sized {
+    fn prefix(self, operator: IdentifierIndex) -> EvalResult<'a>
+    where
+        Self: Sized,
+    {
         // Closures report their own internal error instead of local ones.
         self.clone_result().prefix(operator)
     }
 
-    fn postfix(self, operator: IdentifierIndex) -> EvalResult<'a> where Self: Sized {
+    fn postfix(self, operator: IdentifierIndex) -> EvalResult<'a>
+    where
+        Self: Sized,
+    {
         self.clone_result().postfix(operator)
     }
 
-    fn subexpression_result(self, boundary: ExpressionBoundary) -> EvalResult<'a> where Self: Sized {
+    fn subexpression_result(self, boundary: ExpressionBoundary) -> EvalResult<'a>
+    where
+        Self: Sized,
+    {
         default_subexpression_result(self, boundary)
     }
 }
@@ -481,7 +572,7 @@ impl<'a> fmt::Display for BlockRef<'a> {
         let ast = self.ast();
         write!(f, "block({}", block.state)?;
         match &block.input {
-            Some(Ok(BergVal::Tuple(tuple))) if tuple.is_empty() => {},
+            Some(Ok(BergVal::Tuple(tuple))) if tuple.is_empty() => {}
             Some(input) => write!(f, ", input: {}", input.display())?,
             None => write!(f, "input: <input currently being used>")?,
         }
@@ -507,7 +598,11 @@ impl<'a> fmt::Display for BlockRef<'a> {
             }
             write!(f, "}}")?;
         }
-        write!(f, ", expression: {}", ExpressionTreeWalker::basic(&ast, block.expression))?;
+        write!(
+            f,
+            ", expression: {}",
+            ExpressionTreeWalker::basic(&ast, block.expression)
+        )?;
         write!(f, ")")
     }
 }
@@ -530,7 +625,7 @@ impl<'a> fmt::Debug for BlockRef<'a> {
         let ast = self.ast();
         write!(f, "BlockRef {{ state: {:?}", block.state)?;
         match &block.input {
-            Some(Ok(BergVal::Tuple(tuple))) if tuple.is_empty() => {},
+            Some(Ok(BergVal::Tuple(tuple))) if tuple.is_empty() => {}
             input => write!(f, ", input: {:?}", input)?,
         }
         if !block.fields.is_empty() {
@@ -558,7 +653,8 @@ impl<'a> fmt::Debug for BlockRef<'a> {
         write!(
             f,
             ", expression: {:?}, parent: {:?}",
-            ExpressionTreeWalker::basic(&ast, block.expression), block.parent
+            ExpressionTreeWalker::basic(&ast, block.expression),
+            block.parent
         )?;
         write!(f, "}}")
     }

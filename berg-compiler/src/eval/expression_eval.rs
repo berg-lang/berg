@@ -1,8 +1,9 @@
 use crate::eval::ScopeRef;
-use crate::syntax::{
-    ErrorTermError, ExpressionTreeWalker, ExpressionBoundary, ExpressionBoundaryError, ExpressionRef, ExpressionToken, IdentifierIndex, OperatorToken, RawErrorTermError, TermToken, Token
-};
 use crate::syntax::identifiers::APPLY;
+use crate::syntax::{
+    ErrorTermError, ExpressionBoundary, ExpressionBoundaryError, ExpressionRef, ExpressionToken,
+    ExpressionTreeWalker, IdentifierIndex, OperatorToken, RawErrorTermError, TermToken, Token,
+};
 use crate::value::implement::*;
 use num::BigRational;
 use std::fmt;
@@ -27,17 +28,19 @@ impl<'p, 'a: 'p> ExpressionEvaluator<'p, 'a> {
         self.context()
     }
     pub fn evaluate_block(self, boundary: ExpressionBoundary) -> BergResult<'a> {
-        self.evaluate_inner(boundary).lazy_val().map_err(|e| e.at_location(self))
+        self.evaluate_inner(boundary)
+            .lazy_val()
+            .map_err(|e| e.at_location(self))
     }
     fn evaluate_local(self) -> Result<EvalVal<'a>, Exception<'a>> {
         let indent = "  ".repeat(self.depth());
         println!("{}Evaluating {} ...", indent, self);
-        use ExpressionToken::*;
-        use TermToken::*;
-        use OperatorToken::*;
-        use ExpressionBoundaryError::*;
         use ErrorTermError::*;
+        use ExpressionBoundaryError::*;
+        use ExpressionToken::*;
+        use OperatorToken::*;
         use RawErrorTermError::*;
+        use TermToken::*;
         let result = match self.token() {
             Token::Expression(token) => match token {
                 ExpressionToken::Term(token) => match token {
@@ -47,11 +50,15 @@ impl<'p, 'a: 'p> ExpressionEvaluator<'p, 'a> {
 
                     // 1234
                     IntegerLiteral(literal) => {
-                        BigRational::from_str(self.ast().literal_string(literal)).unwrap().ok()
+                        BigRational::from_str(self.ast().literal_string(literal))
+                            .unwrap()
+                            .ok()
                     }
                     // VariableName
                     // TODO: make it so we don't have to clone, ya?
-                    FieldReference(field) => AssignmentTarget::LocalFieldReference(self.scope().clone(), field).ok(),
+                    FieldReference(field) => {
+                        AssignmentTarget::LocalFieldReference(self.scope().clone(), field).ok()
+                    }
                     // VariableName
                     RawIdentifier(name) => EvalVal::RawIdentifier(name).ok(),
                     // Empty parens or empty block
@@ -60,27 +67,37 @@ impl<'p, 'a: 'p> ExpressionEvaluator<'p, 'a> {
                     //
                     // Syntax errors
                     //
-                    ErrorTerm(IdentifierStartsWithNumber, literal) => self.throw(CompilerError::IdentifierStartsWithNumber(literal)),
-                    ErrorTerm(UnsupportedCharacters, literal) => self.throw(CompilerError::UnsupportedCharacters(literal)),
-                    RawErrorTerm(InvalidUtf8, raw_literal) => self.throw(CompilerError::InvalidUtf8(raw_literal)),
-                }
+                    ErrorTerm(IdentifierStartsWithNumber, literal) => {
+                        self.throw(CompilerError::IdentifierStartsWithNumber(literal))
+                    }
+                    ErrorTerm(UnsupportedCharacters, literal) => {
+                        self.throw(CompilerError::UnsupportedCharacters(literal))
+                    }
+                    RawErrorTerm(InvalidUtf8, raw_literal) => {
+                        self.throw(CompilerError::InvalidUtf8(raw_literal))
+                    }
+                },
 
                 // A<op>
                 PrefixOperator(operator) => self.evaluate_prefix(operator),
 
                 // (...), {...}
-                Open(None, boundary, delta) => if boundary.is_block() {
-                    let block_index = self.ast().close_block_index(self.root_index() + delta);
-                    self.scope().create_child_block(self.root_index(), block_index).ok()
-                } else {
-                    self.evaluate_inner(boundary)
+                Open(None, boundary, delta) => {
+                    if boundary.is_block() {
+                        let block_index = self.ast().close_block_index(self.root_index() + delta);
+                        self.scope()
+                            .create_child_block(self.root_index(), block_index)
+                            .ok()
+                    } else {
+                        self.evaluate_inner(boundary)
+                    }
                 }
 
                 // ( and { syntax errors
                 Open(Some(OpenError), ..) => self.throw(self.ast().open_error().clone()),
                 Open(Some(OpenWithoutClose), ..) => self.throw(CompilerError::OpenWithoutClose),
                 Open(Some(CloseWithoutOpen), ..) => self.throw(CompilerError::CloseWithoutOpen),
-            }
+            },
             Token::Operator(token) => match token {
                 //
                 // Infix operators
@@ -100,15 +117,10 @@ impl<'p, 'a: 'p> ExpressionEvaluator<'p, 'a> {
 
                 // We should never be evaluating Close, only Open.
                 Close(..) | CloseBlock(..) => unreachable!(),
-            }
+            },
         };
         let result = result.map_err(|e| e.at_location(self));
-        println!(
-            "{}Evaluated {} to {}",
-            indent,
-            self,
-            result.display()
-        );
+        println!("{}Evaluated {} to {}", indent, self, result.display());
         result
     }
 
@@ -155,25 +167,45 @@ impl<'p, 'a: 'p> ExpressionEvaluator<'p, 'a> {
 }
 
 impl<'p, 'a: 'p> EvaluatableValue<'a> for ExpressionEvaluator<'p, 'a> {
-    fn evaluate(self) -> BergResult<'a> where Self: Sized {
-        self.evaluate_local().lazy_val().map_err(|e| e.at_location(self)).evaluate()
+    fn evaluate(self) -> BergResult<'a>
+    where
+        Self: Sized,
+    {
+        self.evaluate_local()
+            .lazy_val()
+            .map_err(|e| e.at_location(self))
+            .evaluate()
     }
 }
 
 impl<'p, 'a: 'p> Value<'a> for ExpressionEvaluator<'p, 'a> {
-    fn lazy_val(self) -> Result<BergVal<'a>, EvalException<'a>> where Self: Sized {
-        self.evaluate_local().lazy_val().map_err(|e| e.at_location(self).into())
+    fn lazy_val(self) -> Result<BergVal<'a>, EvalException<'a>>
+    where
+        Self: Sized,
+    {
+        self.evaluate_local()
+            .lazy_val()
+            .map_err(|e| e.at_location(self).into())
     }
-    fn eval_val(self) -> EvalResult<'a> where Self: Sized {
-        self.evaluate_local().eval_val().map_err(|e| e.at_location(self).into())
+    fn eval_val(self) -> EvalResult<'a>
+    where
+        Self: Sized,
+    {
+        self.evaluate_local()
+            .eval_val()
+            .map_err(|e| e.at_location(self).into())
     }
 
     fn into_native<T: TryFromBergVal<'a>>(self) -> Result<T, EvalException<'a>> {
-        self.evaluate_local().into_native().map_err(|e| e.at_location(self).into())
+        self.evaluate_local()
+            .into_native()
+            .map_err(|e| e.at_location(self).into())
     }
 
     fn try_into_native<T: TryFromBergVal<'a>>(self) -> Result<Option<T>, EvalException<'a>> {
-       self.evaluate_local().try_into_native().map_err(|e| e.at_location(self).into())
+        self.evaluate_local()
+            .try_into_native()
+            .map_err(|e| e.at_location(self).into())
     }
     fn display(&self) -> &dyn fmt::Display {
         self

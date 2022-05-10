@@ -12,42 +12,42 @@ pub use CompilerErrorCode::*;
 
 ///
 /// Test a string containing Berg source code.
-/// 
+///
 /// `source` can be anything that can be converted into a string of bytes:
 /// String, &str, string literal, or reference to a byte array.
-/// 
+///
 /// # Examples
-/// 
+///
 /// ```
 /// use berg_compiler::test::*;
 /// expect("1 + 1").to_yield(2);
 /// expect(&[0x0]).to_error(UnsupportedCharacters, 0);
 /// ```
-/// 
+///
 pub fn expect<T: AsRef<[u8]> + ?Sized>(source: &T) -> ExpectBerg {
     ExpectBerg(source.as_ref())
 }
 
 ///
 /// A Berg test with a fluent interface.
-/// 
+///
 /// Generally you will call [`expect()`] to create this.
-/// 
+///
 /// # Examples
-/// 
+///
 /// ```
 /// use berg_compiler::test::*;
 /// expect("1 + 1").to_yield(2);
 /// expect("1 / 0").to_error(DivideByZero, 4);
 /// ```
-/// 
+///
 #[derive(Debug)]
 pub struct ExpectBerg<'a>(pub &'a [u8]);
 
 ///
 /// An expected value.
-/// 
-pub trait ExpectedValue<'a>: fmt::Display+Clone {
+///
+pub trait ExpectedValue<'a>: fmt::Display + Clone {
     fn matches(self, actual: BergVal<'a>) -> Result<bool, EvalException<'a>>;
 }
 impl<'a> ExpectedValue<'a> for CompilerErrorCode {
@@ -55,61 +55,87 @@ impl<'a> ExpectedValue<'a> for CompilerErrorCode {
         Ok(self == actual.into_native::<CompilerError>()?.code())
     }
 }
-impl<'a, T: Into<BergVal<'a>>+fmt::Display+Clone> ExpectedValue<'a> for T {
+impl<'a, T: Into<BergVal<'a>> + fmt::Display + Clone> ExpectedValue<'a> for T {
     fn matches(self, actual: BergVal<'a>) -> Result<bool, EvalException<'a>> {
-        self.into().infix(EQUAL_TO, actual.into())?.into_native::<bool>()
+        self.into()
+            .infix(EQUAL_TO, actual.into())?
+            .into_native::<bool>()
     }
 }
 
 ///
 /// An expected error range.
-/// 
+///
 /// Anything that implements this can be passed to [`to_error()`]. It is
 /// implemented on:
 /// * `usize`: `to_error(DivideByZero, 4)` and
 /// * ranges:  (so you can write `expect_error(DivideByZero, 1..2))`).
 /// * &str and &[u8]: these will find the first instance of the substring in the
 ///   source string, so you don't have to character count.
-/// 
+///
 pub trait ExpectedErrorRange: fmt::Debug {
     ///
     /// Convert this into an actual ByteRange.
-    /// 
+    ///
     /// `source` is the original source, and is used to calculate the end of
     /// unbounded ranges and to find substrings.
-    /// 
+    ///
     fn into_error_range(self, source: &[u8]) -> ByteRange;
     ///
     /// Find this error range within a particular line
-    /// 
-    fn line(self, line: usize) -> ExpectedErrorRangeWithin<Self, ExpectLine> where Self: Sized {
+    ///
+    fn line(self, line: usize) -> ExpectedErrorRangeWithin<Self, ExpectLine>
+    where
+        Self: Sized,
+    {
         self.within(ExpectLine(line))
     }
     ///
     /// Find this error range after the end of the other one.
-    /// 
-    fn after<T: ExpectedErrorRange>(self, after: T) -> ExpectedErrorRangeWithin<Self, ExpectedErrorRangeAfter<T>> where Self: Sized, T: Sized {
+    ///
+    fn after<T: ExpectedErrorRange>(
+        self,
+        after: T,
+    ) -> ExpectedErrorRangeWithin<Self, ExpectedErrorRangeAfter<T>>
+    where
+        Self: Sized,
+        T: Sized,
+    {
         self.within(ExpectedErrorRangeAfter(after))
     }
     ///
     /// Find this error range before the start of the other one.
-    /// 
-    fn before<T: ExpectedErrorRange>(self, before: T) -> ExpectedErrorRangeWithin<Self, ExpectedErrorRangeBefore<T>> where Self: Sized, T: Sized {
+    ///
+    fn before<T: ExpectedErrorRange>(
+        self,
+        before: T,
+    ) -> ExpectedErrorRangeWithin<Self, ExpectedErrorRangeBefore<T>>
+    where
+        Self: Sized,
+        T: Sized,
+    {
         self.within(ExpectedErrorRangeBefore(before))
     }
     ///
     /// Find this error range inside the other one.
-    /// 
-    fn within<T: ExpectedErrorRange>(self, within: T) -> ExpectedErrorRangeWithin<Self, T> where Self: Sized, T: Sized {
-        ExpectedErrorRangeWithin { error_range: self, within }
+    ///
+    fn within<T: ExpectedErrorRange>(self, within: T) -> ExpectedErrorRangeWithin<Self, T>
+    where
+        Self: Sized,
+        T: Sized,
+    {
+        ExpectedErrorRangeWithin {
+            error_range: self,
+            within,
+        }
     }
 }
 
 ///
 /// Finds an error range within another range.
-/// 
+///
 /// Used by [`ExpectedErrorRange::after()`].
-/// 
+///
 #[derive(Debug)]
 pub struct ExpectedErrorRangeWithin<T: ExpectedErrorRange, Within: ExpectedErrorRange> {
     error_range: T,
@@ -118,56 +144,58 @@ pub struct ExpectedErrorRangeWithin<T: ExpectedErrorRange, Within: ExpectedError
 
 ///
 /// Selects all source before the given range.
-/// 
+///
 /// Used by [`ExpectedErrorRange::after()`].
-/// 
+///
 #[derive(Debug)]
 pub struct ExpectedErrorRangeAfter<T: ExpectedErrorRange>(T);
 
 ///
 /// Selects all source after the given range.
-/// 
+///
 #[derive(Debug)]
 pub struct ExpectedErrorRangeBefore<T: ExpectedErrorRange>(T);
 
-
 ///
 /// Represents the starting point of the line with the given number (starting at 1).
-/// 
+///
 /// Used by [`ExpectedErrorRange::line()`].
-/// 
+///
 #[derive(Debug)]
 pub struct ExpectLine(usize);
 
 impl<'a> ExpectBerg<'a> {
     ///
     /// Test that the given value is returned when the Berg source is compiled and run.
-    /// 
+    ///
     /// `expected` can be anything convertible into a `BergVal`, including
     /// numbers and booleans.
-    /// 
+    ///
     /// The [`tuple!`] macro can be used to check for more complex values like
     /// arrays and arrays of arrays.
-    /// 
+    ///
     /// # Examples
-    /// 
+    ///
     /// ```
     /// use berg_compiler::test::*;
     /// expect("1 + 1").to_yield(2);
     /// expect("1 == 2").to_yield(false);
     /// ```
-    /// 
+    ///
     #[allow(clippy::needless_pass_by_value, clippy::wrong_self_convention)]
-    pub fn to_yield(self, expected: impl ExpectedValue<'a>)
-    {
+    pub fn to_yield(self, expected: impl ExpectedValue<'a>) {
         println!("Source:");
         println!("{}", String::from_utf8_lossy(self.0));
         println!();
-        let actual = evaluate_ast(self.parse()).and_then(Self::evaluate_all)
+        let actual = evaluate_ast(self.parse())
+            .and_then(Self::evaluate_all)
             .unwrap_or_else(|e| panic!("Unexpected error from {}: {}", self, e));
         println!("actual: {}, expected: {}", actual, expected);
         assert!(
-            expected.clone().matches(actual.clone()).unwrap_or_else(|e| panic!("Unexpected error from {}: {}", self, e)),
+            expected
+                .clone()
+                .matches(actual.clone())
+                .unwrap_or_else(|e| panic!("Unexpected error from {}: {}", self, e)),
             "Wrong value returned from {}! expected: {}, actual: {}.",
             self,
             expected,
@@ -178,20 +206,20 @@ impl<'a> ExpectBerg<'a> {
     ///
     /// Test that an error with the given `code` and location (`expected_range`)
     /// is produced when the Berg source is compiled and run.
-    /// 
+    ///
     /// `expected_range` can be an index or range of indices into the string.
-    /// 
+    ///
     /// # Examples
-    /// 
+    ///
     /// ```
     /// use berg_compiler::test::*;
     /// expect("1 / 0").to_error(DivideByZero, 4);
     /// expect("1 / (0)").to_error(DivideByZero, 4..);
     /// expect("(1+1) += 2").to_error(AssignmentTargetMustBeIdentifier, 0..=4);
     /// ```
-    /// 
+    ///
     /// # Panics
-    /// 
+    ///
     /// * If no error is produced:
     ///   ```should_panic
     ///   use berg_compiler::test::*;
@@ -208,9 +236,13 @@ impl<'a> ExpectBerg<'a> {
     ///   expect("1 / 0").to_error(DivideByZero, 2);
     ///   expect("(1 / 0) + 1").to_error(DivideByZero, 4..=6);
     ///   ```
-    /// 
+    ///
     #[allow(clippy::wrong_self_convention)]
-    pub fn to_error(self, expected_value: impl ExpectedValue<'a>, expected_range: impl ExpectedErrorRange) {
+    pub fn to_error(
+        self,
+        expected_value: impl ExpectedValue<'a>,
+        expected_range: impl ExpectedErrorRange,
+    ) {
         // Run the Berg
         println!("Source:");
         println!("{}", String::from_utf8_lossy(self.0));
@@ -232,7 +264,10 @@ impl<'a> ExpectBerg<'a> {
         let actual = result.unwrap_err();
         let actual_range = actual.location().range();
         assert!(
-            expected_value.clone().matches(actual.value.clone()).unwrap_or_else(|e| panic!("Unexpected error: {}", e)),
+            expected_value
+                .clone()
+                .matches(actual.value.clone())
+                .unwrap_or_else(|e| panic!("Unexpected error: {}", e)),
             "Wrong error returned from {}! expected: {}, actual: {}.",
             self,
             self.error_string(&expected_value, expected_range, &ast),
@@ -270,13 +305,17 @@ impl<'a> ExpectBerg<'a> {
         let mut values = vec![];
         loop {
             use EvalException::*;
-            let NextVal { head, tail } = value.next_val()
+            let NextVal { head, tail } = value
+                .next_val()
                 // Strip the EvalExceptions (which absolutely will not be happening
                 // because the errors are being thrown by a BlockVal).
                 // TODO this makes it clear that the external interface needs work:
                 // If we truly expect this not to throw "local" errors, which I think
                 // we do, then we need a result type that only returns Exception.
-                .map_err(|e| match e { Error(e) => e, Thrown(..) => unreachable!() })?;
+                .map_err(|e| match e {
+                    Error(e) => e,
+                    Thrown(..) => unreachable!(),
+                })?;
 
             match head {
                 None => break,
@@ -291,12 +330,21 @@ impl<'a> ExpectBerg<'a> {
         Ok(values.into())
     }
 
-    fn error_string(&self, value: &dyn fmt::Display, range: LineColumnRange, ast: &AstRef<'a>) -> String {
+    fn error_string(
+        &self,
+        value: &dyn fmt::Display,
+        range: LineColumnRange,
+        ast: &AstRef<'a>,
+    ) -> String {
         format!("{} at {}", value, self.error_range_string(range, ast))
     }
     fn error_range_string(&self, range: LineColumnRange, ast: &AstRef<'a>) -> String {
         let byte_range = ast.char_data.byte_range(range).into_range();
-        format!("{} ({})", range, String::from_utf8_lossy(&self.0[byte_range]))
+        format!(
+            "{} ({})",
+            range,
+            String::from_utf8_lossy(&self.0[byte_range])
+        )
     }
 }
 
@@ -349,14 +397,18 @@ impl ExpectedErrorRange for ExpectLine {
     fn into_error_range(self, source: &[u8]) -> ByteRange {
         let start = find_line_start(self.0, source);
         let end = next_line_start(&source[start..]);
-        start.into()..(start+end).into()
+        start.into()..(start + end).into()
     }
 }
-impl<T: ExpectedErrorRange, Within: ExpectedErrorRange> ExpectedErrorRange for ExpectedErrorRangeWithin<T, Within> {
+impl<T: ExpectedErrorRange, Within: ExpectedErrorRange> ExpectedErrorRange
+    for ExpectedErrorRangeWithin<T, Within>
+{
     fn into_error_range(self, source: &[u8]) -> ByteRange {
         let within_range = self.within.into_error_range(source);
         println!("within {:?}", within_range);
-        let mut range = self.error_range.into_error_range(&source[within_range.start.into()..within_range.end.into()]);
+        let mut range = self
+            .error_range
+            .into_error_range(&source[within_range.start.into()..within_range.end.into()]);
         println!("range {:?}", range);
         range.start += usize::from(within_range.start);
         range.end += usize::from(within_range.start);
@@ -381,12 +433,12 @@ fn next_line_start(source: &[u8]) -> usize {
     for i in 0..source.len() {
         // If we find \n, \r or \r\n, return the position after it.
         if source[i] == b'\n' {
-            return i+1;
+            return i + 1;
         } else if source[i] == b'\r' {
-            if let Some(b'\n') = source.get(i+1) {
-                return i+2;
+            if let Some(b'\n') = source.get(i + 1) {
+                return i + 2;
             } else {
-                return i+1;
+                return i + 1;
             }
         }
     }
@@ -401,7 +453,9 @@ fn find_line_start(line: usize, source: &[u8]) -> usize {
     }
     current_line_start
 }
-impl<R: BoundedRange<ByteIndex>, T: IntoRange<ByteIndex, Output = R>+fmt::Debug> ExpectedErrorRange for T {
+impl<R: BoundedRange<ByteIndex>, T: IntoRange<ByteIndex, Output = R> + fmt::Debug>
+    ExpectedErrorRange for T
+{
     fn into_error_range(self, source: &[u8]) -> ByteRange {
         let result = self.into_range().bounded_range(source.len().into());
         assert!(result.start + 1 != result.end);
@@ -410,6 +464,9 @@ impl<R: BoundedRange<ByteIndex>, T: IntoRange<ByteIndex, Output = R>+fmt::Debug>
 }
 
 fn find_substring_in_source(substring: &[u8], source: &[u8]) -> ByteRange {
-    let start = source.windows(substring.len()).position(|window| window == substring).unwrap();
-    ByteIndex::from(start)..ByteIndex::from(start+substring.len())
+    let start = source
+        .windows(substring.len())
+        .position(|window| window == substring)
+        .unwrap();
+    ByteIndex::from(start)..ByteIndex::from(start + substring.len())
 }

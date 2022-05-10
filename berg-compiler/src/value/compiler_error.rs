@@ -1,30 +1,31 @@
 use crate::eval::BlockRef;
-use crate::syntax::{ExpressionRef, FieldIndex, Fixity, IdentifierIndex, LiteralIndex, RawLiteralIndex};
 use crate::syntax::identifiers::ERROR_CODE;
+use crate::syntax::{
+    ExpressionRef, FieldIndex, Fixity, IdentifierIndex, LiteralIndex, RawLiteralIndex,
+};
 use crate::value::implement::*;
 use std::fmt;
 
 ///
 /// Standard berg error.
-/// 
+///
 /// This class is generally used to determine the type of an error, or for
 /// implementors to create local errors without having to know an expression's
 /// location. An Error or EvalError is needed to give it a source location that
 /// can actually be reported.
-/// 
+///
 #[derive(Debug, Clone)]
 pub enum CompilerError<'a> {
     // File open errors
-
     ///
     /// The source file to be read could not be found.
-    /// 
+    ///
     SourceNotFound,
 
     ///
     /// There was an I/O error opening the source file. The file may or may not
     /// exist (depending on the type of the IoOpenError).
-    /// 
+    ///
     IoOpenError,
 
     ///
@@ -39,7 +40,7 @@ pub enum CompilerError<'a> {
 
     ///
     /// A source file was more than 32-bits (4GB).
-    /// 
+    ///
     SourceTooLarge(usize),
 
     // Code errors
@@ -51,7 +52,7 @@ pub enum CompilerError<'a> {
     RightSideOfDotMustBeIdentifier,
     OpenWithoutClose,
     CloseWithoutOpen,
-    UnsupportedOperator(Box<dyn BergValue<'a>+'a>, Fixity, IdentifierIndex),
+    UnsupportedOperator(Box<dyn BergValue<'a> + 'a>, Fixity, IdentifierIndex),
     DivideByZero,
     NoSuchField(FieldIndex),
     FieldNotSet(FieldIndex),
@@ -84,13 +85,13 @@ pub enum CompilerError<'a> {
 
     // TODO stop boxing BergVals
     // BadOperandType(Box<EvalResult<'a>>, &'static str),
-    BadOperandType(Box<dyn BergValue<'a>+'a>, &'static str),
+    BadOperandType(Box<dyn BergValue<'a> + 'a>, &'static str),
     PrivateField(BlockRef<'a>, IdentifierIndex),
     NoSuchPublicField(BlockRef<'a>, IdentifierIndex),
-    NoSuchPublicFieldOnValue(Box<dyn BergValue<'a>+'a>, IdentifierIndex),
+    NoSuchPublicFieldOnValue(Box<dyn BergValue<'a> + 'a>, IdentifierIndex),
     NoSuchPublicFieldOnRoot(IdentifierIndex),
     ImmutableFieldOnRoot(FieldIndex),
-    ImmutableFieldOnValue(Box<dyn BergValue<'a>+'a>, IdentifierIndex),
+    ImmutableFieldOnValue(Box<dyn BergValue<'a> + 'a>, IdentifierIndex),
 
     // These are control values--only errors if nobody catches them.
     BreakOutsideLoop,
@@ -160,17 +161,26 @@ pub enum CompilerErrorCode {
 impl<'a> BergValue<'a> for CompilerError<'a> {}
 
 impl<'a> EvaluatableValue<'a> for CompilerError<'a> {
-    fn evaluate(self) -> BergResult<'a> where Self: Sized {
+    fn evaluate(self) -> BergResult<'a>
+    where
+        Self: Sized,
+    {
         self.ok()
     }
 }
 
 impl<'a> Value<'a> for CompilerError<'a> {
-    fn lazy_val(self) -> Result<BergVal<'a>, EvalException<'a>> where Self: Sized {
+    fn lazy_val(self) -> Result<BergVal<'a>, EvalException<'a>>
+    where
+        Self: Sized,
+    {
         self.ok()
     }
 
-    fn eval_val(self) -> EvalResult<'a> where Self: Sized {
+    fn eval_val(self) -> EvalResult<'a>
+    where
+        Self: Sized,
+    {
         self.ok()
     }
 
@@ -194,14 +204,21 @@ impl<'a> IteratorValue<'a> for CompilerError<'a> {
 }
 
 impl<'a> ObjectValue<'a> for CompilerError<'a> {
-    fn field(self, name: IdentifierIndex) -> EvalResult<'a> where Self: Sized {
+    fn field(self, name: IdentifierIndex) -> EvalResult<'a>
+    where
+        Self: Sized,
+    {
         match name {
             ERROR_CODE => (self.code() as usize).ok(),
-            _ => default_field(self, name)
+            _ => default_field(self, name),
         }
     }
 
-    fn set_field(&mut self, name: IdentifierIndex, value: BergVal<'a>) -> Result<(), EvalException<'a>> {
+    fn set_field(
+        &mut self,
+        name: IdentifierIndex,
+        value: BergVal<'a>,
+    ) -> Result<(), EvalException<'a>> {
         match name {
             ERROR_CODE => CompilerError::ImmutableFieldOnValue(Box::new(self.clone()), name).err(),
             _ => default_set_field(self, name, value),
@@ -210,33 +227,58 @@ impl<'a> ObjectValue<'a> for CompilerError<'a> {
 }
 
 impl<'a> OperableValue<'a> for CompilerError<'a> {
-    fn infix(self, operator: IdentifierIndex, right: RightOperand<'a, impl EvaluatableValue<'a>>) -> EvalResult<'a> where Self: Sized {
+    fn infix(
+        self,
+        operator: IdentifierIndex,
+        right: RightOperand<'a, impl EvaluatableValue<'a>>,
+    ) -> EvalResult<'a>
+    where
+        Self: Sized,
+    {
         default_infix(self, operator, right)
     }
 
-    fn infix_assign(self, operator: IdentifierIndex, right: RightOperand<'a, impl EvaluatableValue<'a>>) -> EvalResult<'a> where Self: Sized {
+    fn infix_assign(
+        self,
+        operator: IdentifierIndex,
+        right: RightOperand<'a, impl EvaluatableValue<'a>>,
+    ) -> EvalResult<'a>
+    where
+        Self: Sized,
+    {
         default_infix_assign(self, operator, right)
     }
 
-    fn prefix(self, operator: IdentifierIndex) -> EvalResult<'a> where Self: Sized {
+    fn prefix(self, operator: IdentifierIndex) -> EvalResult<'a>
+    where
+        Self: Sized,
+    {
         default_prefix(self, operator)
     }
 
-    fn postfix(self, operator: IdentifierIndex) -> EvalResult<'a> where Self: Sized {
+    fn postfix(self, operator: IdentifierIndex) -> EvalResult<'a>
+    where
+        Self: Sized,
+    {
         default_postfix(self, operator)
     }
 
-    fn subexpression_result(self, boundary: ExpressionBoundary) -> EvalResult<'a> where Self: Sized {
+    fn subexpression_result(self, boundary: ExpressionBoundary) -> EvalResult<'a>
+    where
+        Self: Sized,
+    {
         default_subexpression_result(self, boundary)
     }
 }
 
 impl<'a> TryFromBergVal<'a> for CompilerError<'a> {
     const TYPE_NAME: &'static str = "CompilerError";
-    fn try_from_berg_val(from: EvalVal<'a>) -> Result<Result<Self, BergVal<'a>>, EvalException<'a>> {
+    fn try_from_berg_val(
+        from: EvalVal<'a>,
+    ) -> Result<Result<Self, BergVal<'a>>, EvalException<'a>> {
         match from.lazy_val()?.evaluate()? {
             BergVal::CompilerError(value) => Ok(Ok(value)),
-            from => Ok(Err(from))
+            from => Ok(Err(from)),
         }
     }
 }
@@ -324,8 +366,8 @@ impl<'a> fmt::Display for EvalException<'a> {
             Error(error) => write!(f, "{}", error),
             Thrown(error, position) => match position {
                 ExpressionErrorPosition::Expression => write!(f, "{:?}", error),
-                _ => write!(f, "{:?} at {:?}", error, position)
-            }
+                _ => write!(f, "{:?} at {:?}", error, position),
+            },
         }
     }
 }
@@ -396,7 +438,9 @@ impl<'a> CompilerError<'a> {
             PrivateField(..) => CompilerErrorCode::PrivateField,
             FieldNotSet(..) => CompilerErrorCode::FieldNotSet,
             CircularDependency => CompilerErrorCode::CircularDependency,
-            ImmutableFieldOnValue(..) | ImmutableFieldOnRoot(..) => CompilerErrorCode::ImmutableField,
+            ImmutableFieldOnValue(..) | ImmutableFieldOnRoot(..) => {
+                CompilerErrorCode::ImmutableField
+            }
             BadOperandType(..) => CompilerErrorCode::BadOperandType,
         }
     }
@@ -412,12 +456,15 @@ impl<'a> CompilerError<'a> {
             }
 
             MissingOperand => {
-                let range = expression.ast.token_ranges[expression.expression().parent_expression().root_index()].clone();
+                let range = expression.ast.token_ranges
+                    [expression.expression().parent_expression().root_index()]
+                .clone();
                 SourceRange(expression.ast, range)
             }
 
             UnsupportedOperator(..) => {
-                let range = expression.ast.token_ranges[expression.expression().root_index()].clone();
+                let range =
+                    expression.ast.token_ranges[expression.expression().root_index()].clone();
                 SourceRange(expression.ast, range)
             }
 
@@ -432,7 +479,6 @@ impl<'a> CompilerError<'a> {
                     expression.ast.token_ranges[expression.expression().close_operator()].clone();
                 SourceRange(expression.ast, range)
             }
-
 
             // Expression errors
             InvalidUtf8(..)
@@ -477,12 +523,17 @@ impl<'a> CompilerError<'a> {
             | FinallyWithoutBlock
             | FinallyBlockMustBeBlock
             | FinallyWithoutResult
-            | ThrowWithoutException
-            => ErrorLocation::SourceExpression(expression.ast, expression.root),
+            | ThrowWithoutException => {
+                ErrorLocation::SourceExpression(expression.ast, expression.root)
+            }
         }
     }
 
-    pub fn fmt_display(&self, expression: &ExpressionRef<'a>, f: &mut fmt::Formatter) -> fmt::Result {
+    pub fn fmt_display(
+        &self,
+        expression: &ExpressionRef<'a>,
+        f: &mut fmt::Formatter,
+    ) -> fmt::Result {
         use CompilerError::*;
         match *self {
             SourceNotFound => write!(

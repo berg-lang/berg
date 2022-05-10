@@ -26,15 +26,15 @@ fn function_single_arg_block() {
 }
 #[test]
 fn function_single_tuple_arg() {
-    expect("Duplicate: (:a,a); Duplicate (1,2)").to_yield(tuple!([1,2],[1,2]))
+    expect("Duplicate: (:a,a); Duplicate (1,2)").to_yield(tuple!([1, 2], [1, 2]))
 }
 #[test]
 fn function_single_empty_tuple_arg() {
-    expect("Duplicate: (:a,a); Duplicate ()").to_yield(tuple!([],[]))
+    expect("Duplicate: (:a,a); Duplicate ()").to_yield(tuple!([], []))
 }
 #[test]
 fn function_single_block_tuple_arg() {
-    expect("Duplicate: (:a,a); Duplicate { 1,2 }").to_yield(tuple!((1,2),(1,2)))
+    expect("Duplicate: (:a,a); Duplicate { 1,2 }").to_yield(tuple!((1, 2), (1, 2)))
 }
 #[test]
 fn function_multiple_args_space() {

@@ -1,15 +1,17 @@
-use std::marker::PhantomData;
 use crate::value::*;
 use std::fmt;
+use std::marker::PhantomData;
 use ExpressionErrorPosition::*;
 
 ///
 /// Berg values that can be used anywhere.
-/// 
+///
 /// See also [`Val`], which includes values that need the expression
 /// evaluator before they can be used.
-/// 
-pub trait BergValue<'a>: Value<'a>+IteratorValue<'a>+ObjectValue<'a>+OperableValue<'a>+BoxCloneBergValue<'a> {
+///
+pub trait BergValue<'a>:
+    Value<'a> + IteratorValue<'a> + ObjectValue<'a> + OperableValue<'a> + BoxCloneBergValue<'a>
+{
 }
 
 ///
@@ -23,15 +25,17 @@ pub trait Value<'a>: fmt::Debug {
     ///
     /// If conversion fails, Err(CompilerError::BadOperandType(..)) is returned.
     /// If there is an error evaluating the value, it is returned.
-    /// 
+    ///
     /// Example:
-    /// 
+    ///
     ///     use berg_compiler::*;
     ///     fn add_values<'a>(a: impl BergValue<'a>, b: impl BergValue<'a>) -> Result<usize, EvalException<'a>> {
     ///         Ok(a.into_native::<usize>()? + b.into_native::<usize>()?)
     ///     }
-    /// 
-    fn into_native<T: TryFromBergVal<'a>>(self) -> Result<T, EvalException<'a>> where Self: Sized;
+    ///
+    fn into_native<T: TryFromBergVal<'a>>(self) -> Result<T, EvalException<'a>>
+    where
+        Self: Sized;
 
     ///
     /// Get the result of this value as a particular native type.
@@ -41,9 +45,9 @@ pub trait Value<'a>: fmt::Debug {
     /// If conversion succeeds, Ok(Some(value)) is returned.
     /// If conversion fails, Ok(None) is returned.
     /// If there is an error evaluating the value, the error is returned.
-    /// 
+    ///
     /// Example:
-    /// 
+    ///
     ///     use berg_compiler::*;
     ///     fn check_equal<'a>(a: usize, b: impl BergValue<'a>) -> Result<bool, EvalException<'a>> {
     ///         match b.try_into_native::<usize>()? {
@@ -51,114 +55,152 @@ pub trait Value<'a>: fmt::Debug {
     ///             None => Ok(false),
     ///         }
     ///     }
-    /// 
-    fn try_into_native<T: TryFromBergVal<'a>>(self) -> Result<Option<T>, EvalException<'a>> where Self: Sized;
+    ///
+    fn try_into_native<T: TryFromBergVal<'a>>(self) -> Result<Option<T>, EvalException<'a>>
+    where
+        Self: Sized;
 
     ///
     /// Get a BergVal for this value, but don't necessarily evaluate it.
-    /// 
-    fn lazy_val(self) -> Result<BergVal<'a>, EvalException<'a>> where Self: Sized;
+    ///
+    fn lazy_val(self) -> Result<BergVal<'a>, EvalException<'a>>
+    where
+        Self: Sized;
 
     ///
     /// Get a concrete EvalVal for this value.
-    /// 
-    fn eval_val(self) -> EvalResult<'a> where Self: Sized;
+    ///
+    fn eval_val(self) -> EvalResult<'a>
+    where
+        Self: Sized;
 
     ///
     /// Get a [`Display`]able version of this value.
-    /// 
+    ///
     fn display(&self) -> &dyn fmt::Display;
 }
 
 pub trait EvaluatableValue<'a>: Value<'a> {
     ///
     /// Evaluate this value immediately, even if it is lazy.
-    /// 
-    fn evaluate(self) -> BergResult<'a> where Self: Sized;
+    ///
+    fn evaluate(self) -> BergResult<'a>
+    where
+        Self: Sized;
 }
 
 pub trait IteratorValue<'a>: Value<'a> {
     ///
     /// Get the next value.
-    /// 
+    ///
     /// All BergValues are streams. This is the implementation. Returns:
-    /// 
+    ///
     /// - `Ok(None)` if there is no value.
     /// - `Ok(Some(NextVal { head, tail })) if there is a value.
     /// - `Err(error)` if we cannot tell whether there is a next value or not
     ///   due to an error.
     ///
-    fn next_val(self) -> Result<NextVal<'a>, EvalException<'a>> where Self: Sized;
+    fn next_val(self) -> Result<NextVal<'a>, EvalException<'a>>
+    where
+        Self: Sized;
 }
 
 pub trait ObjectValue<'a>: Value<'a> {
-    fn field(self, name: IdentifierIndex) -> EvalResult<'a> where Self: Sized;
-    fn set_field(&mut self, name: IdentifierIndex, value: BergVal<'a>) -> Result<(), EvalException<'a>> where Self: Clone;
+    fn field(self, name: IdentifierIndex) -> EvalResult<'a>
+    where
+        Self: Sized;
+    fn set_field(
+        &mut self,
+        name: IdentifierIndex,
+        value: BergVal<'a>,
+    ) -> Result<(), EvalException<'a>>
+    where
+        Self: Clone;
 }
 
 pub trait OperableValue<'a>: Value<'a> {
-    fn infix(self, operator: IdentifierIndex, right: RightOperand<'a, impl EvaluatableValue<'a>>) -> EvalResult<'a> where Self: Sized;
-    fn infix_assign(self, operator: IdentifierIndex, right: RightOperand<'a, impl EvaluatableValue<'a>>) -> EvalResult<'a> where Self: Sized;
-    fn prefix(self, operator: IdentifierIndex) -> EvalResult<'a> where Self: Sized;
-    fn postfix(self, operator: IdentifierIndex) -> EvalResult<'a> where Self: Sized;
-    fn subexpression_result(self, boundary: ExpressionBoundary) -> EvalResult<'a> where Self: Sized;
+    fn infix(
+        self,
+        operator: IdentifierIndex,
+        right: RightOperand<'a, impl EvaluatableValue<'a>>,
+    ) -> EvalResult<'a>
+    where
+        Self: Sized;
+    fn infix_assign(
+        self,
+        operator: IdentifierIndex,
+        right: RightOperand<'a, impl EvaluatableValue<'a>>,
+    ) -> EvalResult<'a>
+    where
+        Self: Sized;
+    fn prefix(self, operator: IdentifierIndex) -> EvalResult<'a>
+    where
+        Self: Sized;
+    fn postfix(self, operator: IdentifierIndex) -> EvalResult<'a>
+    where
+        Self: Sized;
+    fn subexpression_result(self, boundary: ExpressionBoundary) -> EvalResult<'a>
+    where
+        Self: Sized;
 }
 
 pub trait TryFromBergVal<'a>: fmt::Debug {
     const TYPE_NAME: &'static str;
 
     ///
-    /// Try to convert 
-    /// 
+    /// Try to convert
+    ///
     /// Returns:
     /// - `Ok(Ok(value))` if the conversion succeeded.
     /// - `Err(error)` if there was an error calculating the value.
     /// - `Ok(Err(value))` if the value was calculated, but could not be converted to the native type.
     ///
-    fn try_from_berg_val(from: EvalVal<'a>) -> Result<Result<Self, BergVal<'a>>, EvalException<'a>> where Self: Sized;
+    fn try_from_berg_val(from: EvalVal<'a>) -> Result<Result<Self, BergVal<'a>>, EvalException<'a>>
+    where
+        Self: Sized;
 }
 
 ///
 /// Holds the right operand to an infix operator.
-/// 
+///
 /// `RightOperand`'s primary purpose is to ensure exceptions thrown when
 /// evaluating the right operand are automatically given the correct error range.
-/// 
+///
 #[derive(Debug, Copy, Clone)]
 pub struct RightOperand<'a, V: Value<'a>>(pub V, pub PhantomData<&'a ()>);
 
 ///
 /// The result of [`IteratorValue.next_val()`].
-/// 
+///
 #[derive(Debug, Clone)]
 pub struct NextVal<'a> {
     ///
     /// The next value, or `None` if there is no next value.
-    /// 
+    ///
     pub head: Option<BergVal<'a>>,
     ///
     /// The next iterator (may be an empty value if there is nothing to do).
-    /// 
+    ///
     pub tail: BergVal<'a>,
 }
 
 ///
 /// Allows us to hold boxed `BergValue`s in cloneable objects.
-/// 
+///
 pub trait BoxCloneBergValue<'a> {
     ///
     /// Clone this BergValue into a Box.
-    /// 
-    fn box_clone(&self) -> Box<dyn BergValue<'a>+'a>;
+    ///
+    fn box_clone(&self) -> Box<dyn BergValue<'a> + 'a>;
 }
 
-impl<'a, T: BergValue<'a>+Clone+'a> BoxCloneBergValue<'a> for T {
-    fn box_clone(&self) -> Box<dyn BergValue<'a>+'a> {
+impl<'a, T: BergValue<'a> + Clone + 'a> BoxCloneBergValue<'a> for T {
+    fn box_clone(&self) -> Box<dyn BergValue<'a> + 'a> {
         Box::new(self.clone())
     }
 }
 
-impl<'a> Clone for Box<dyn BergValue<'a>+'a> {
+impl<'a> Clone for Box<dyn BergValue<'a> + 'a> {
     fn clone(&self) -> Self {
         self.box_clone()
     }
@@ -192,13 +234,16 @@ impl<'a, V: Value<'a>> RightOperand<'a, V> {
     ///
     /// Get the operand's value with appropriate error locations and no
     /// EvalVal values.
-    /// 
-    pub fn lazy_val(self) -> Result<BergVal<'a>, EvalException<'a>> where Self: Sized {
+    ///
+    pub fn lazy_val(self) -> Result<BergVal<'a>, EvalException<'a>>
+    where
+        Self: Sized,
+    {
         self.0.lazy_val().map_err(|e| e.reposition(Right))
     }
     ///
     /// Process the value and give appropriate error locations to the result.
-    /// 
+    ///
     pub fn eval_val(self) -> Result<RightOperand<'a, EvalVal<'a>>, EvalException<'a>> {
         Ok(self.0.eval_val()?.into())
     }
@@ -221,23 +266,29 @@ impl<'a> fmt::Display for NextVal<'a> {
         match self.head {
             None => write!(f, "<none> -> {}", self.tail.display()),
             Some(ref value) => write!(f, "{} -> {}", value, self.tail.display()),
-        }        
+        }
     }
 }
 impl<'a> NextVal<'a> {
     pub fn none(iterator: BergVal<'a>) -> NextVal<'a> {
-        NextVal { head: None, tail: iterator}
+        NextVal {
+            head: None,
+            tail: iterator,
+        }
     }
     pub fn single(value: BergVal<'a>) -> NextVal<'a> {
-        NextVal { head: Some(value), tail: empty_tuple() }
+        NextVal {
+            head: Some(value),
+            tail: empty_tuple(),
+        }
     }
 }
 
 pub mod implement {
-    pub use crate::value::*;
     pub use crate::syntax::ExpressionRef;
-    pub use crate::value::ExpressionErrorPosition::*;
     pub use crate::value::CompilerError::*;
+    pub use crate::value::ExpressionErrorPosition::*;
+    pub use crate::value::*;
 
     use crate::syntax::Fixity;
 
@@ -245,15 +296,21 @@ pub mod implement {
         NextVal::single(value.lazy_val()?).ok()
     }
 
-    pub fn default_into_native<'a, T: TryFromBergVal<'a>>(value: impl Value<'a>) -> Result<T, EvalException<'a>>  {
+    pub fn default_into_native<'a, T: TryFromBergVal<'a>>(
+        value: impl Value<'a>,
+    ) -> Result<T, EvalException<'a>> {
         match T::try_from_berg_val(value.eval_val()?) {
             Ok(Ok(value)) => Ok(value),
-            Ok(Err(original)) => CompilerError::BadOperandType(Box::new(original), T::TYPE_NAME).err(),
+            Ok(Err(original)) => {
+                CompilerError::BadOperandType(Box::new(original), T::TYPE_NAME).err()
+            }
             Err(error) => Err(error),
         }
     }
 
-    pub fn default_try_into_native<'a, T: TryFromBergVal<'a>>(value: impl Value<'a>) -> Result<Option<T>, EvalException<'a>>  {
+    pub fn default_try_into_native<'a, T: TryFromBergVal<'a>>(
+        value: impl Value<'a>,
+    ) -> Result<Option<T>, EvalException<'a>> {
         match T::try_from_berg_val(value.eval_val()?) {
             Ok(Ok(value)) => Ok(Some(value)),
             Ok(Err(_)) => Ok(None),
@@ -261,24 +318,30 @@ pub mod implement {
         }
     }
 
-    pub fn default_subexpression_result<'a>(value: impl Value<'a>, _boundary: ExpressionBoundary) -> EvalResult<'a> {
+    pub fn default_subexpression_result<'a>(
+        value: impl Value<'a>,
+        _boundary: ExpressionBoundary,
+    ) -> EvalResult<'a> {
         value.eval_val()
     }
 
     pub fn default_infix<'a>(
-        left: impl Value<'a>+OperableValue<'a>+IteratorValue<'a>,
+        left: impl Value<'a> + OperableValue<'a> + IteratorValue<'a>,
         operator: IdentifierIndex,
         right: RightOperand<'a, impl EvaluatableValue<'a>>,
     ) -> EvalResult<'a> {
         use crate::syntax::identifiers::{
-            COLON, COMMA, DOT, EQUAL_TO, EXCLAMATION_POINT, NEWLINE_SEQUENCE, NOT_EQUAL_TO, SEMICOLON,
+            COLON, COMMA, DOT, EQUAL_TO, EXCLAMATION_POINT, NEWLINE_SEQUENCE, NOT_EQUAL_TO,
+            SEMICOLON,
         };
         match operator {
             COMMA => {
                 let left = left.lazy_val()?;
                 match right.eval_val()? {
                     // (1,)
-                    RightOperand(EvalVal::MissingExpression, _) => EvalVal::TrailingComma(vec![left]).ok(),
+                    RightOperand(EvalVal::MissingExpression, _) => {
+                        EvalVal::TrailingComma(vec![left]).ok()
+                    }
                     // (1,2[,...])
                     right => EvalVal::PartialTuple(vec![left, right.lazy_val()?]).ok(),
                 }
@@ -322,7 +385,12 @@ pub mod implement {
                 }
             }
             COLON => CompilerError::AssignmentTargetMustBeIdentifier.operand_err(Left),
-            _ => CompilerError::UnsupportedOperator(Box::new(left.lazy_val()?), Fixity::Infix, operator).err(),
+            _ => CompilerError::UnsupportedOperator(
+                Box::new(left.lazy_val()?),
+                Fixity::Infix,
+                operator,
+            )
+            .err(),
         }
     }
 
@@ -338,35 +406,50 @@ pub mod implement {
         operand: impl Value<'a>,
         operator: IdentifierIndex,
     ) -> EvalResult<'a> {
-        use crate::syntax::identifiers::{PLUS_PLUS, DASH_DASH};
+        use crate::syntax::identifiers::{DASH_DASH, PLUS_PLUS};
         match operator {
-            PLUS_PLUS | DASH_DASH => CompilerError::AssignmentTargetMustBeIdentifier.operand_err(Left),
-            _ => CompilerError::UnsupportedOperator(Box::new(operand.lazy_val()?), Fixity::Prefix, operator).err(),
+            PLUS_PLUS | DASH_DASH => {
+                CompilerError::AssignmentTargetMustBeIdentifier.operand_err(Left)
+            }
+            _ => CompilerError::UnsupportedOperator(
+                Box::new(operand.lazy_val()?),
+                Fixity::Prefix,
+                operator,
+            )
+            .err(),
         }
     }
 
     pub fn default_prefix<'a>(
-        operand: impl Value<'a>+OperableValue<'a>+'a,
+        operand: impl Value<'a> + OperableValue<'a> + 'a,
         operator: IdentifierIndex,
     ) -> EvalResult<'a> {
-        use crate::syntax::identifiers::{DOUBLE_EXCLAMATION_POINT, EXCLAMATION_POINT, PLUS_PLUS, DASH_DASH};
+        use crate::syntax::identifiers::{
+            DASH_DASH, DOUBLE_EXCLAMATION_POINT, EXCLAMATION_POINT, PLUS_PLUS,
+        };
         match operator {
-            DOUBLE_EXCLAMATION_POINT => operand.prefix(EXCLAMATION_POINT)?.prefix(EXCLAMATION_POINT),
-            PLUS_PLUS | DASH_DASH => CompilerError::AssignmentTargetMustBeIdentifier.operand_err(Right),
-            _ => CompilerError::UnsupportedOperator(Box::new(operand.lazy_val()?), Fixity::Prefix, operator).err(),
+            DOUBLE_EXCLAMATION_POINT => {
+                operand.prefix(EXCLAMATION_POINT)?.prefix(EXCLAMATION_POINT)
+            }
+            PLUS_PLUS | DASH_DASH => {
+                CompilerError::AssignmentTargetMustBeIdentifier.operand_err(Right)
+            }
+            _ => CompilerError::UnsupportedOperator(
+                Box::new(operand.lazy_val()?),
+                Fixity::Prefix,
+                operator,
+            )
+            .err(),
         }
     }
 
-    pub fn default_field<'a>(
-        object: impl Value<'a>+'a,
-        name: IdentifierIndex,
-    ) -> EvalResult<'a> {
+    pub fn default_field<'a>(object: impl Value<'a> + 'a, name: IdentifierIndex) -> EvalResult<'a> {
         CompilerError::NoSuchPublicFieldOnValue(Box::new(object.lazy_val()?), name).err()
     }
 
     #[allow(clippy::needless_pass_by_value)]
     pub fn default_set_field<'a>(
-        object: &mut (impl Value<'a>+Clone),
+        object: &mut (impl Value<'a> + Clone),
         name: IdentifierIndex,
         _value: BergVal<'a>,
     ) -> Result<(), EvalException<'a>> {

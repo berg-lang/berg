@@ -5,13 +5,14 @@ use crate::syntax::ExpressionToken::*;
 use crate::syntax::OperatorToken::*;
 use crate::syntax::TermToken::*;
 use crate::syntax::{
-    Ast, AstDelta, AstIndex, ByteRange, ExpressionBoundary, ExpressionBoundaryError, Token, OperatorToken, ExpressionToken
+    Ast, AstDelta, AstIndex, ByteRange, ExpressionBoundary, ExpressionBoundaryError,
+    ExpressionToken, OperatorToken, Token,
 };
 
 ///
 /// Handles nesting and precedence: balances open/close pairs like (), {},
 /// indented blocks and compound terms; and inserts "precedence groups."
-/// 
+///
 /// The Grouper elides superfluous precedence groups where it can.
 ///
 #[derive(Debug)]
@@ -23,30 +24,30 @@ pub struct Grouper<'a> {
 
 ///
 /// An open expression group.
-/// 
+///
 /// Represents parentheses, blocks, precedence, terms.
-/// 
+///
 #[derive(Debug)]
 struct OpenExpression {
     ///
     /// The infix operator that opened this group (if it is a precedence expression).
-    /// 
+    ///
     /// For example, in `a + b * c`, when we see `+`, we open a precedence group
     /// for `(b * c)` and store the `+` so we can check whether future operators
     /// are or are not part of the precedence group.
-    /// 
+    ///
     infix: Option<(OperatorToken, AstIndex)>,
     ///
     /// The index of the open token for this expression.
-    /// 
+    ///
     /// If [`boundary.is_required()`] is false, the token hasn't been added yet
     /// so this is the *intended insertion point*. If it's true, it's the index
     /// of the actual token.
-    /// 
+    ///
     open_index: AstIndex,
     ///
     /// The type of expression group.
-    /// 
+    ///
     boundary: ExpressionBoundary,
 }
 
@@ -79,8 +80,10 @@ impl<'a> Grouper<'a> {
             }
         }
         match token {
-            Term(_) | PrefixOperator(_) => { self.push_expression_token(token, range); },
-            Open(error, boundary, ..) => self.on_open_token(boundary, error, range)
+            Term(_) | PrefixOperator(_) => {
+                self.push_expression_token(token, range);
+            }
+            Open(error, boundary, ..) => self.on_open_token(boundary, error, range),
         }
     }
 
@@ -110,7 +113,9 @@ impl<'a> Grouper<'a> {
                 }
             }
 
-            PostfixOperator(_) => { self.push_operator_token(token, range); }
+            PostfixOperator(_) => {
+                self.push_operator_token(token, range);
+            }
             CloseBlock(..) => unreachable!(),
         }
     }
@@ -200,7 +205,11 @@ impl<'a> Grouper<'a> {
                     assert!(open_boundary.is_required());
 
                     let open_index = self.open_expression().open_index + 1;
-                    let error = if boundary.is_required() { Some(CloseWithoutOpen) } else { None };
+                    let error = if boundary.is_required() {
+                        Some(CloseWithoutOpen)
+                    } else {
+                        None
+                    };
                     self.close(open_index, boundary, error, range);
                     break;
                 }
@@ -214,7 +223,13 @@ impl<'a> Grouper<'a> {
         }
     }
 
-    fn close(&mut self, open_index: AstIndex, boundary: ExpressionBoundary, error: Option<ExpressionBoundaryError>, range: ByteRange) {
+    fn close(
+        &mut self,
+        open_index: AstIndex,
+        boundary: ExpressionBoundary,
+        error: Option<ExpressionBoundaryError>,
+        range: ByteRange,
+    ) {
         if boundary.is_required() && error != Some(CloseWithoutOpen) {
             self.push_close_token(open_index, boundary, error, range);
         } else {
@@ -238,8 +253,16 @@ impl<'a> Grouper<'a> {
         self.open_expressions.push(open_expression);
     }
 
-    fn insert_open_token(&mut self, index: AstIndex, error: Option<ExpressionBoundaryError>, boundary: ExpressionBoundary, delta: AstDelta, range: ByteRange) {
-        self.binder.insert_open_token(index, error, boundary, delta, range)
+    fn insert_open_token(
+        &mut self,
+        index: AstIndex,
+        error: Option<ExpressionBoundaryError>,
+        boundary: ExpressionBoundary,
+        delta: AstDelta,
+        range: ByteRange,
+    ) {
+        self.binder
+            .insert_open_token(index, error, boundary, delta, range)
     }
 
     fn push_expression_token(&mut self, token: ExpressionToken, range: ByteRange) -> AstIndex {
@@ -296,17 +319,17 @@ impl<'a> Grouper<'a> {
 
     ///
     /// Insert both an open and close token.
-    /// 
+    ///
     /// Used for groups like precedence groups, which are elided so often that
     /// we don't bother inserting the open token when we first see them. We
     /// then *insert* the token if we *actually* need the precedence group to
     /// resolve an ambiguity.
-    /// 
+    ///
     /// Also used when we see an unmatched close token like ) or }: we insert
     /// the open token at the beginning of the current group, as if the user had
     /// typed it there. e.g. {1 + 2)} emits an error but guesses you meant to
     /// type {(1 + 2)} rather than {1 + 2()}.
-    /// 
+    ///
     fn insert_token_pair(
         &mut self,
         open_index: AstIndex,

@@ -3,34 +3,43 @@ use crate::*;
 #[test]
 fn if_true_no_else_runs_correct_blocks() {
     expect("if true { 1 }").to_yield(1);
-    expect("
+    expect(
+        "
         :a = 0
         if (a += 1; true) {
             a += 2
         }
         a
-    ").to_yield(1+2);
+    ",
+    )
+    .to_yield(1 + 2);
 }
 #[test]
 fn if_false_no_else_runs_correct_blocks() {
     expect("if false { 1 }").to_yield(tuple!());
-    expect("
+    expect(
+        "
         :a = 0
         if (a += 1; false) {
             a += 2
         }
         a
-    ").to_yield(1);
+    ",
+    )
+    .to_yield(1);
 }
 #[test]
 fn if_true_else_runs_correct_blocks() {
-    expect("
+    expect(
+        "
         if true {
             1
         } else {
             2
         }
-    ").to_yield(1);
+    ",
+    )
+    .to_yield(1);
     // expect("
     //     :a = 0
     //     if (a += 1; true) {
@@ -44,7 +53,8 @@ fn if_true_else_runs_correct_blocks() {
 #[test]
 fn if_false_else_runs_correct_block() {
     expect("if false { 1 } else { 2 }").to_yield(2);
-    expect("
+    expect(
+        "
         :a = 0
         if (a += 1; false) {
             a += 2
@@ -52,12 +62,15 @@ fn if_false_else_runs_correct_block() {
             a += 4
         }
         a
-    ").to_yield(1+4);
+    ",
+    )
+    .to_yield(1 + 4);
 }
 #[test]
 fn if_true_if_true_else_runs_correct_blocks_and_berg_does_it_wrong() {
     expect("if true { 1 } else if true { 2 } else { 3 }").to_yield(1);
-    expect("
+    expect(
+        "
         :a = 0
         if (a += 1; true) {
             a += 2
@@ -67,12 +80,15 @@ fn if_true_if_true_else_runs_correct_blocks_and_berg_does_it_wrong() {
             a += 16
         }
         a
-    ").to_yield(1+2+4);
+    ",
+    )
+    .to_yield(1 + 2 + 4);
 }
 #[test]
 fn if_true_if_false_else_runs_correct_blocks_and_berg_does_it_wrong() {
     expect("if true { 1 } else if false { 2 } else { 3 }").to_yield(1);
-    expect("
+    expect(
+        "
         :a = 0
         if (a += 1; true) {
             a += 2
@@ -82,12 +98,15 @@ fn if_true_if_false_else_runs_correct_blocks_and_berg_does_it_wrong() {
             a += 16
         }
         a
-    ").to_yield(1+2+4);
+    ",
+    )
+    .to_yield(1 + 2 + 4);
 }
 #[test]
 fn if_false_if_false_else_runs_correct_blocks() {
     expect("if false { 1 } else if false { 2 } else { 3 }").to_yield(3);
-    expect("
+    expect(
+        "
         :a = 0
         if (a += 1; false) {
             a += 2
@@ -97,12 +116,15 @@ fn if_false_if_false_else_runs_correct_blocks() {
             a += 16
         }
         a
-    ").to_yield(1+4+16);
+    ",
+    )
+    .to_yield(1 + 4 + 16);
 }
 #[test]
 fn if_false_if_true_else_runs_correct_blocks() {
     expect("if false { 1 } else if true { 2 } else { 3 }").to_yield(2);
-    expect("
+    expect(
+        "
         :a = 0
         if (a += 1; false) {
             a += 2
@@ -112,7 +134,9 @@ fn if_false_if_true_else_runs_correct_blocks() {
             a += 16
         }
         a
-    ").to_yield(1+4+8);
+    ",
+    )
+    .to_yield(1 + 4 + 8);
 }
 
 #[test]
@@ -256,7 +280,8 @@ fn add_1_else() {
 
 #[test]
 fn if_runs_block_lazily() {
-    expect("
+    expect(
+        "
         :a = 0
         :b = (
             if (a += 1; true) {
@@ -265,11 +290,14 @@ fn if_runs_block_lazily() {
             }
         )
         a,b,{ a }
-    ").to_yield(tuple!(1,3,3));
+    ",
+    )
+    .to_yield(tuple!(1, 3, 3));
 }
 #[test]
 fn else_runs_block_lazily() {
-    expect("
+    expect(
+        "
         :a = 0
         :b = (
             if (a += 1; false) {
@@ -281,11 +309,14 @@ fn else_runs_block_lazily() {
             }
         )
         a,b,{ a }
-    ").to_yield(tuple!(1,5,5));
+    ",
+    )
+    .to_yield(tuple!(1, 5, 5));
 }
 #[test]
 fn else_if_runs_block_lazily() {
-    expect("
+    expect(
+        "
         :a = 0
         :b = (
             if (a += 1; false) {
@@ -297,14 +328,16 @@ fn else_if_runs_block_lazily() {
             }
         )
         a,b,{ a }
-    ").to_yield(tuple!(5,13,13));
+    ",
+    )
+    .to_yield(tuple!(5, 13, 13));
 }
 
 #[test]
-fn if_scope_impacts_parent_but_this_test_demonstrates_berg_is_not_doing_it_right()
-{
-    expect("if true { :a = 10 } else { :b = 10 }; a").to_error(NoSuchField, 38);//.to_yield(10);
-    expect("if true { :a = 10 } else { :b = 10 }; b").to_error(NoSuchField, 38);//.to_error(FieldNotSet, 39);
-    expect("if false { :a = 10 } else { :b = 10 }; a").to_error(NoSuchField, 39);//.to_error(FieldNotSet, 39);
-    expect("if false { :a = 10 } else { :b = 10 }; b").to_error(NoSuchField, 39);//.to_yield(10);
+fn if_scope_impacts_parent_but_this_test_demonstrates_berg_is_not_doing_it_right() {
+    expect("if true { :a = 10 } else { :b = 10 }; a").to_error(NoSuchField, 38); //.to_yield(10);
+    expect("if true { :a = 10 } else { :b = 10 }; b").to_error(NoSuchField, 38); //.to_error(FieldNotSet, 39);
+    expect("if false { :a = 10 } else { :b = 10 }; a").to_error(NoSuchField, 39); //.to_error(FieldNotSet, 39);
+    expect("if false { :a = 10 } else { :b = 10 }; b").to_error(NoSuchField, 39);
+    //.to_yield(10);
 }

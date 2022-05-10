@@ -1,6 +1,7 @@
 use crate::syntax::Fixity::*;
 use crate::syntax::{
-    Ast, AstIndex, AstRef, ByteRange, ExpressionBoundary, ExpressionFormatter, ExpressionTreeFormatter, SourceReconstruction, Fixity, OperandPosition, Token, ExpressionToken, OperatorToken,
+    Ast, AstIndex, AstRef, ByteRange, ExpressionBoundary, ExpressionFormatter, ExpressionToken,
+    ExpressionTreeFormatter, Fixity, OperandPosition, OperatorToken, SourceReconstruction, Token,
 };
 use crate::value::ExpressionErrorPosition;
 use std::borrow::Cow;
@@ -45,7 +46,9 @@ impl<'a> ExpressionRef<'a> {
         ExpressionTreeWalker::basic(&self.ast, self.root)
     }
     pub fn at_position(mut self, position: ExpressionErrorPosition) -> Self {
-        self.root = AstExpressionTree::new(&self.ast, self.root).at_position(position).root_index();
+        self.root = AstExpressionTree::new(&self.ast, self.root)
+            .at_position(position)
+            .root_index();
         self
     }
 }
@@ -60,7 +63,9 @@ impl<'a> fmt::Display for ExpressionRef<'a> {
     }
 }
 
-impl<'p, 'a: 'p, Context: Copy+Clone+fmt::Debug> fmt::Debug for ExpressionTreeWalker<'p, 'a, Context> {
+impl<'p, 'a: 'p, Context: Copy + Clone + fmt::Debug> fmt::Debug
+    for ExpressionTreeWalker<'p, 'a, Context>
+{
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{:?}", self.expression)
     }
@@ -89,14 +94,10 @@ impl<'p, 'a: 'p> ExpressionTreeWalker<'p, 'a, ()> {
     }
 }
 impl<'p, 'a: 'p, Context: Copy + Clone + fmt::Debug> ExpressionTreeWalker<'p, 'a, Context> {
-    pub fn new(
-        context: Context,
-        ast: &'p Ast<'a>,
-        root: AstIndex,
-    ) -> Self {
+    pub fn new(context: Context, ast: &'p Ast<'a>, root: AstIndex) -> Self {
         ExpressionTreeWalker {
             context,
-            expression: AstExpressionTree::new(ast, root)
+            expression: AstExpressionTree::new(ast, root),
         }
     }
     pub fn format(self) -> ExpressionTreeWalker<'p, 'a, ExpressionFormatter> {
@@ -105,7 +106,10 @@ impl<'p, 'a: 'p, Context: Copy + Clone + fmt::Debug> ExpressionTreeWalker<'p, 'a
     pub fn format_tree(self) -> ExpressionTreeWalker<'p, 'a, ExpressionTreeFormatter> {
         self.expression.format_tree()
     }
-    pub fn with_context<C: Copy + Clone + fmt::Debug>(self, context: C) -> ExpressionTreeWalker<'p, 'a, C> {
+    pub fn with_context<C: Copy + Clone + fmt::Debug>(
+        self,
+        context: C,
+    ) -> ExpressionTreeWalker<'p, 'a, C> {
         ExpressionTreeWalker {
             context,
             expression: self.expression,
@@ -120,19 +124,45 @@ impl<'p, 'a: 'p, Context: Copy + Clone + fmt::Debug> ExpressionTreeWalker<'p, 'a
     pub fn context(self) -> Context {
         self.context
     }
-    pub fn ast(self) -> &'p Ast<'a> { self.expression.ast() }
-    pub fn root_index(&self) -> AstIndex { self.expression.root_index() }
-    pub fn byte_range(&self) -> ByteRange { self.expression.byte_range() }
-    pub fn token_range(&self) -> RangeInclusive<AstIndex> { self.expression.token_range() }
-    pub fn token(&self) -> Token { self.expression.token() }
-    pub fn token_string(self) -> Cow<'p, str> { self.expression.token_string() }
-    pub fn open_operator(&self) -> AstIndex { self.expression.open_operator() }
-    pub fn close_operator(&self) -> AstIndex { self.expression.close_operator() }
-    pub fn open_token(&self) -> ExpressionToken { self.expression.open_token() }
-    pub fn close_token(&self) -> OperatorToken { self.expression.close_token() }
-    pub fn depth(self) -> usize { self.expression.depth() }
-    pub fn boundary(self) -> ExpressionBoundary { self.expression.boundary() }
-    pub fn operand_position(self) -> OperandPosition { self.expression.operand_position() }
+    pub fn ast(self) -> &'p Ast<'a> {
+        self.expression.ast()
+    }
+    pub fn root_index(&self) -> AstIndex {
+        self.expression.root_index()
+    }
+    pub fn byte_range(&self) -> ByteRange {
+        self.expression.byte_range()
+    }
+    pub fn token_range(&self) -> RangeInclusive<AstIndex> {
+        self.expression.token_range()
+    }
+    pub fn token(&self) -> Token {
+        self.expression.token()
+    }
+    pub fn token_string(self) -> Cow<'p, str> {
+        self.expression.token_string()
+    }
+    pub fn open_operator(&self) -> AstIndex {
+        self.expression.open_operator()
+    }
+    pub fn close_operator(&self) -> AstIndex {
+        self.expression.close_operator()
+    }
+    pub fn open_token(&self) -> ExpressionToken {
+        self.expression.open_token()
+    }
+    pub fn close_token(&self) -> OperatorToken {
+        self.expression.close_token()
+    }
+    pub fn depth(self) -> usize {
+        self.expression.depth()
+    }
+    pub fn boundary(self) -> ExpressionBoundary {
+        self.expression.boundary()
+    }
+    pub fn operand_position(self) -> OperandPosition {
+        self.expression.operand_position()
+    }
 
     pub fn inner_expression(self) -> Self {
         self.with_expression(self.expression.inner_expression())
@@ -190,10 +220,12 @@ impl<'p, 'a: 'p> AstExpressionTree<'p, 'a> {
         close_operator_index(self.ast, self.root)
     }
     pub fn open_token(&self) -> ExpressionToken {
-        self.ast.expression_token(open_operator_index(self.ast, self.root))
+        self.ast
+            .expression_token(open_operator_index(self.ast, self.root))
     }
     pub fn close_token(&self) -> OperatorToken {
-        self.ast.operator_token(close_operator_index(self.ast, self.root))
+        self.ast
+            .operator_token(close_operator_index(self.ast, self.root))
     }
 
     pub fn depth(self) -> usize {
@@ -230,7 +262,7 @@ impl<'p, 'a: 'p> AstExpressionTree<'p, 'a> {
     }
 
     pub fn next_expression(self) -> Self {
-        AstExpressionTree::new(self.ast, self.root+1)
+        AstExpressionTree::new(self.ast, self.root + 1)
     }
 
     pub fn operand_position(self) -> OperandPosition {
@@ -274,11 +306,23 @@ impl<'p, 'a: 'p> AstExpressionTree<'p, 'a> {
         let result = match position {
             Expression => expression,
             Left => expression.left_expression(),
-            LeftLeft => expression.left_expression().skip_implicit_groups().left_expression(),
-            LeftRight => expression.left_expression().skip_implicit_groups().right_expression(),
+            LeftLeft => expression
+                .left_expression()
+                .skip_implicit_groups()
+                .left_expression(),
+            LeftRight => expression
+                .left_expression()
+                .skip_implicit_groups()
+                .right_expression(),
             Right => expression.right_expression(),
-            RightLeft => expression.right_expression().skip_implicit_groups().left_expression(),
-            RightRight => expression.right_expression().skip_implicit_groups().right_expression(),
+            RightLeft => expression
+                .right_expression()
+                .skip_implicit_groups()
+                .left_expression(),
+            RightRight => expression
+                .right_expression()
+                .skip_implicit_groups()
+                .right_expression(),
         };
         result.skip_implicit_groups()
     }
@@ -287,7 +331,13 @@ impl<'p, 'a: 'p> AstExpressionTree<'p, 'a> {
         ExpressionTreeWalker::new(ExpressionFormatter, self.ast(), self.root_index())
     }
     pub fn format_tree(self) -> ExpressionTreeWalker<'p, 'a, ExpressionTreeFormatter> {
-        ExpressionTreeWalker::new(ExpressionTreeFormatter { starting_depth: self.depth() }, self.ast(), self.root_index())
+        ExpressionTreeWalker::new(
+            ExpressionTreeFormatter {
+                starting_depth: self.depth(),
+            },
+            self.ast(),
+            self.root_index(),
+        )
     }
     pub fn reconstruct_source(self) -> SourceReconstruction<'p, 'a> {
         SourceReconstruction::new(self.ast(), self.byte_range())
@@ -301,7 +351,9 @@ fn first_index(ast: &Ast, root: AstIndex) -> AstIndex {
     let token = ast.tokens[root];
     match token {
         Token::Operator(OperatorToken::Close(delta, _)) => root - delta,
-        Token::Operator(OperatorToken::CloseBlock(block_index, _)) => root - ast.blocks[block_index].delta,
+        Token::Operator(OperatorToken::CloseBlock(block_index, _)) => {
+            root - ast.blocks[block_index].delta
+        }
         _ => {
             let mut left = root;
             while ast.tokens[left].has_left_operand() {
@@ -313,7 +365,7 @@ fn first_index(ast: &Ast, root: AstIndex) -> AstIndex {
 }
 
 fn prev_index(ast: &Ast, root: AstIndex) -> AstIndex {
-    open_operator_index(ast, root - 1)    
+    open_operator_index(ast, root - 1)
 }
 
 ///
@@ -337,9 +389,9 @@ fn last_index(ast: &Ast, root: AstIndex) -> AstIndex {
 /// The root index of the current expression's right operand.
 ///
 fn right_operand_root(ast: &Ast, root: AstIndex) -> AstIndex {
-    use Token::*;
     use ExpressionToken::*;
     use OperatorToken::*;
+    use Token::*;
 
     let start = root + 1;
 
@@ -376,8 +428,8 @@ fn right_operand_root(ast: &Ast, root: AstIndex) -> AstIndex {
 }
 
 fn left_operand_root(ast: &Ast, root: AstIndex) -> AstIndex {
-    use Token::*;
     use OperatorToken::*;
+    use Token::*;
 
     let end = root - 1;
     let mut start = end;
@@ -392,8 +444,12 @@ fn left_operand_root(ast: &Ast, root: AstIndex) -> AstIndex {
 
     // Jump to the open token if it's a group term (parens, curlies, etc.)
     match ast.token(start) {
-        Operator(Close(delta, _)) => { start -= delta; }
-        Operator(CloseBlock(block_index, _)) => { start -= ast.blocks[block_index].delta; }
+        Operator(Close(delta, _)) => {
+            start -= delta;
+        }
+        Operator(CloseBlock(block_index, _)) => {
+            start -= ast.blocks[block_index].delta;
+        }
         _ => {}
     }
 
@@ -405,8 +461,7 @@ fn left_operand_root(ast: &Ast, root: AstIndex) -> AstIndex {
     }
 
     // Check for an infix.
-    if !is_postfix && start > 0 && ast.tokens[start - 1].fixity() == Infix
-    {
+    if !is_postfix && start > 0 && ast.tokens[start - 1].fixity() == Infix {
         return start - 1;
     }
 
@@ -458,7 +513,9 @@ fn inner_root(ast: &Ast, index: AstIndex) -> AstIndex {
 fn open_operator_index(ast: &Ast, index: AstIndex) -> AstIndex {
     match ast.tokens[index] {
         Token::Operator(OperatorToken::Close(delta, _)) => index - delta,
-        Token::Operator(OperatorToken::CloseBlock(block_index, _)) => index - ast.blocks[block_index].delta,
+        Token::Operator(OperatorToken::CloseBlock(block_index, _)) => {
+            index - ast.blocks[block_index].delta
+        }
         _ => index,
     }
 }
@@ -469,4 +526,3 @@ fn close_operator_index(ast: &Ast, index: AstIndex) -> AstIndex {
         _ => index,
     }
 }
-

@@ -7,16 +7,25 @@ use std::{i64, u64};
 impl<'a> BergValue<'a> for BigRational {}
 
 impl<'a> EvaluatableValue<'a> for BigRational {
-    fn evaluate(self) -> BergResult<'a> where Self: Sized {
+    fn evaluate(self) -> BergResult<'a>
+    where
+        Self: Sized,
+    {
         self.ok()
     }
 }
 
 impl<'a> Value<'a> for BigRational {
-    fn lazy_val(self) -> Result<BergVal<'a>, EvalException<'a>> where Self: Sized {
+    fn lazy_val(self) -> Result<BergVal<'a>, EvalException<'a>>
+    where
+        Self: Sized,
+    {
         self.ok()
     }
-    fn eval_val(self) -> EvalResult<'a> where Self: Sized {
+    fn eval_val(self) -> EvalResult<'a>
+    where
+        Self: Sized,
+    {
         self.ok()
     }
     fn into_native<T: TryFromBergVal<'a>>(self) -> Result<T, EvalException<'a>> {
@@ -37,16 +46,30 @@ impl<'a> IteratorValue<'a> for BigRational {
 }
 
 impl<'a> ObjectValue<'a> for BigRational {
-    fn field(self, name: IdentifierIndex) -> EvalResult<'a> where Self: Sized {
+    fn field(self, name: IdentifierIndex) -> EvalResult<'a>
+    where
+        Self: Sized,
+    {
         default_field(self, name)
     }
-    fn set_field(&mut self, name: IdentifierIndex, value: BergVal<'a>) -> Result<(), EvalException<'a>> {
+    fn set_field(
+        &mut self,
+        name: IdentifierIndex,
+        value: BergVal<'a>,
+    ) -> Result<(), EvalException<'a>> {
         default_set_field(self, name, value)
     }
 }
 
 impl<'a> OperableValue<'a> for BigRational {
-    fn infix(self, operator: IdentifierIndex, right: RightOperand<'a, impl EvaluatableValue<'a>>) -> EvalResult<'a> where Self: Sized {
+    fn infix(
+        self,
+        operator: IdentifierIndex,
+        right: RightOperand<'a, impl EvaluatableValue<'a>>,
+    ) -> EvalResult<'a>
+    where
+        Self: Sized,
+    {
         match operator {
             PLUS => (self + right.into_native::<BigRational>()?).ok(),
             DASH => (self - right.into_native::<BigRational>()?).ok(),
@@ -62,7 +85,8 @@ impl<'a> OperableValue<'a> for BigRational {
             EQUAL_TO => match right.try_into_native::<BigRational>()? {
                 Some(right) => self == right,
                 None => false,
-            }.ok(),
+            }
+            .ok(),
             GREATER_THAN => (self > right.into_native::<BigRational>()?).ok(),
             LESS_THAN => (self < right.into_native::<BigRational>()?).ok(),
             GREATER_EQUAL => (self >= right.into_native::<BigRational>()?).ok(),
@@ -71,11 +95,21 @@ impl<'a> OperableValue<'a> for BigRational {
         }
     }
 
-    fn infix_assign(self, operator: IdentifierIndex, right: RightOperand<'a, impl EvaluatableValue<'a>>) -> EvalResult<'a> where Self: Sized {
+    fn infix_assign(
+        self,
+        operator: IdentifierIndex,
+        right: RightOperand<'a, impl EvaluatableValue<'a>>,
+    ) -> EvalResult<'a>
+    where
+        Self: Sized,
+    {
         default_infix_assign(self, operator, right)
     }
 
-    fn prefix(self, operator: IdentifierIndex) -> EvalResult<'a> where Self: Sized {
+    fn prefix(self, operator: IdentifierIndex) -> EvalResult<'a>
+    where
+        Self: Sized,
+    {
         match operator {
             PLUS => (self).ok(),
             DASH => (-self).ok(),
@@ -85,7 +119,10 @@ impl<'a> OperableValue<'a> for BigRational {
         }
     }
 
-    fn postfix(self, operator: IdentifierIndex) -> EvalResult<'a> where Self: Sized {
+    fn postfix(self, operator: IdentifierIndex) -> EvalResult<'a>
+    where
+        Self: Sized,
+    {
         match operator {
             PLUS_ONE => (self + BigRational::one()).ok(),
             MINUS_ONE => (self - BigRational::one()).ok(),
@@ -93,7 +130,10 @@ impl<'a> OperableValue<'a> for BigRational {
         }
     }
 
-    fn subexpression_result(self, boundary: ExpressionBoundary) -> EvalResult<'a> where Self: Sized {
+    fn subexpression_result(self, boundary: ExpressionBoundary) -> EvalResult<'a>
+    where
+        Self: Sized,
+    {
         default_subexpression_result(self, boundary)
     }
 }
@@ -120,13 +160,14 @@ impl<'a> From<BigRational> for EvalVal<'a> {
     }
 }
 
-
 impl<'a> TryFromBergVal<'a> for BigRational {
     const TYPE_NAME: &'static str = "number";
-    fn try_from_berg_val(from: EvalVal<'a>) -> Result<Result<Self, BergVal<'a>>, EvalException<'a>> {
+    fn try_from_berg_val(
+        from: EvalVal<'a>,
+    ) -> Result<Result<Self, BergVal<'a>>, EvalException<'a>> {
         match from.lazy_val()? {
             BergVal::BigRational(value) => Ok(Ok(value)),
-            from => Ok(Err(from))
+            from => Ok(Err(from)),
         }
     }
 }
