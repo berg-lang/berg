@@ -5,10 +5,10 @@ authors = ["John Keiser <john@johnkeiser.com>"]
 edition = "2018"
 
 [dependencies]
-num = "0.1"
-fnv = "1"
+num = "*"
+fnv = "*"
 clippy = {version = "*", optional = true}
-string-interner = "0.7.0"
+string-interner = "*"
 matches = "*"
 
 [dev-dependencies]

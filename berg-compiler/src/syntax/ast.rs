@@ -13,14 +13,15 @@ use std::ops::Deref;
 use std::num::NonZeroU32;
 use std::rc::Rc;
 use std::u32;
-use string_interner::{StringInterner, Sym, Symbol};
+use string_interner::backend::StringBackend;
+use string_interner::{StringInterner, DefaultSymbol, Symbol};
 
 index_type! {
     pub struct AstIndex(pub u32) with Display,Debug <= u32::MAX;
     pub struct RawLiteralIndex(pub u32) with Display,Debug <= u32::MAX;
 }
 
-pub type LiteralIndex = Sym;
+pub type LiteralIndex = DefaultSymbol;
 
 pub type Tokens = IndexedVec<Token, AstIndex>;
 pub type TokenRanges = IndexedVec<ByteRange, AstIndex>;
@@ -38,8 +39,8 @@ pub struct AstRef<'a>(Rc<Ast<'a>>);
 pub struct Ast<'a> {
     pub source: SourceRef<'a>,
     pub char_data: CharData,
-    pub identifiers: StringInterner<IdentifierIndex>,
-    pub literals: StringInterner<LiteralIndex>,
+    pub identifiers: StringInterner<StringBackend<IdentifierIndex>>,
+    pub literals: StringInterner<StringBackend<LiteralIndex>>,
     pub raw_literals: IndexedVec<Vec<u8>, RawLiteralIndex>,
     pub tokens: Tokens,
     pub token_ranges: TokenRanges,
@@ -240,9 +241,12 @@ impl fmt::Display for OperandPosition {
 
 // For StringInterner
 impl Symbol for WhitespaceIndex {
-    fn from_usize(val: usize) -> Self {
-        assert!(val < u32::MAX as usize);
-        WhitespaceIndex(unsafe { NonZeroU32::new_unchecked((val + 1) as u32) })
+    fn try_from_usize(val: usize) -> Option<Self> {
+        if val < u32::MAX as usize {
+            Some(WhitespaceIndex(unsafe { NonZeroU32::new_unchecked((val + 1) as u32) }))
+        } else {
+            None
+        }
     }
 
     fn to_usize(self) -> usize {

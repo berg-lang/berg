@@ -1,5 +1,7 @@
-use crate::syntax::identifiers;
-use crate::syntax::{FieldIndex, IdentifierIndex};
+use string_interner::StringInterner;
+use string_interner::backend::StringBackend;
+
+use crate::syntax::{identifiers, FieldIndex, IdentifierIndex};
 use crate::value::*;
 use std;
 use std::env;
@@ -8,7 +10,6 @@ use std::io;
 use std::io::Write;
 use std::path::PathBuf;
 use std::rc::Rc;
-use string_interner::StringInterner;
 
 #[derive(Clone)]
 pub struct RootRef(Rc<RootData>);
@@ -59,7 +60,7 @@ impl RootRef {
         RootRef::new(root_path, out, err)
     }
 
-    pub fn identifiers(&self) -> StringInterner<IdentifierIndex> {
+    pub fn identifiers(&self) -> StringInterner<StringBackend<IdentifierIndex>> {
         identifiers::intern_all()
     }
 

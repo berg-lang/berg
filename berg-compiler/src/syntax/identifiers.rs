@@ -2,7 +2,7 @@ use std::fmt;
 use std::num::NonZeroU32;
 use std::ops::Range;
 use std::u32;
-use string_interner::{StringInterner, Symbol};
+use string_interner::{StringInterner, Symbol, backend::StringBackend};
 
 #[derive(Copy, Clone, PartialEq, Eq, Ord, PartialOrd)]
 pub struct IdentifierIndex(NonZeroU32);
@@ -80,7 +80,7 @@ identifiers! {
     ERROR_CODE = "CompilerErrorCode",
 }
 
-pub(crate) fn intern_all() -> StringInterner<IdentifierIndex> {
+pub(crate) fn intern_all() -> StringInterner<StringBackend<IdentifierIndex>> {
     let mut identifiers = StringInterner::new();
     for &(operator, string) in ALL_IDENTIFIERS.iter() {
         let actual_identifier = identifiers.get_or_intern(string);
@@ -112,9 +112,12 @@ impl Symbol for IdentifierIndex {
     /// # Panics
     ///
     /// If the given `usize` is greater than `u32::MAX - 1`.
-    fn from_usize(val: usize) -> Self {
-        assert!(val < u32::MAX as usize);
-        IdentifierIndex(unsafe { NonZeroU32::new_unchecked((val + 1) as u32) })
+    fn try_from_usize(val: usize) -> Option<Self> {
+        if val < u32::MAX as usize {
+            Some(IdentifierIndex(unsafe { NonZeroU32::new_unchecked((val + 1) as u32) }))
+        } else {
+            None
+        }
     }
 
     fn to_usize(self) -> usize {

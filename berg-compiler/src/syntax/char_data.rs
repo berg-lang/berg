@@ -5,6 +5,7 @@ use std::fmt::{Display, Formatter, Result};
 use std::str;
 use std::u32;
 use string_interner::StringInterner;
+use string_interner::backend::StringBackend;
 
 ///
 /// Debug data about the original source.
@@ -30,7 +31,7 @@ pub struct CharData {
     ///
     /// Whitespace characters found in the document.
     /// 
-    pub whitespace_characters: StringInterner<WhitespaceIndex>,
+    pub whitespace_characters: StringInterner<StringBackend<WhitespaceIndex>>,
 
     ///
     /// Ordered list of whitespace ranges, except ' ' and '\n'
