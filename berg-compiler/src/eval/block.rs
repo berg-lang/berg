@@ -180,7 +180,7 @@ impl<'a> BlockRef<'a> {
         let ast = block.ast();
         let expression = ExpressionEvaluator::new(&scope, &ast, block.expression);
         let mut result = "  ".repeat(expression.depth());
-        result.push_str("|");
+        result.push('|');
         result
     }
 

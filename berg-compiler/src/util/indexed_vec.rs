@@ -212,7 +212,7 @@ impl<Inner: Iterator, Idx: IndexType> IndexedIter<Inner, Idx> {
     }
     pub fn for_each<F>(self, f: F)
     where
-        F: FnMut(Inner::Item) -> (),
+        F: FnMut(Inner::Item),
     {
         self.0.for_each(f)
     }
@@ -454,7 +454,7 @@ impl<Inner: Iterator, Idx: IndexType> IndexedIter<Inner, Idx> {
     }
     pub fn inspect<F>(self, f: F) -> IndexedIter<Inspect<Inner, F>, Idx>
     where
-        F: FnMut(&Inner::Item) -> (),
+        F: FnMut(&Inner::Item),
     {
         self.0.inspect(f).into()
     }
@@ -509,7 +509,7 @@ impl<Inner: Iterator, Idx: IndexType> Iterator for IndexedIter<Inner, Idx> {
     }
     fn for_each<F>(self, f: F)
     where
-        F: FnMut(Inner::Item) -> (),
+        F: FnMut(Inner::Item),
     {
         self.0.for_each(f)
     }

@@ -290,7 +290,7 @@ impl<'a> ExpectBerg<'a> {
             ast.to_bytes().as_slice(),
             "Round trip failed!\nExpected:\n{}\n---------\nActual:\n{}\n---------\nDebug:\n{:?}\n---------",
             String::from_utf8_lossy(self.0),
-            ast.to_string(),
+            *ast,
             ast.token_ranges
         );
         ast

@@ -9,21 +9,22 @@ pub struct IdentifierIndex(NonZeroU32);
 
 macro_rules! identifiers {
     { $($name:ident = $str:expr,)* } => {
-        const ALL_IDENTIFIERS: [(IdentifierIndex, &str); IdentifierIndices::COUNT as usize] = [
+        const ALL_IDENTIFIERS: [(IdentifierIndex, &str); IdentifierIndices::Count as usize] = [
             $( ($name, $str), )*
         ];
         // We use this enum to determine the indices
         #[allow(non_camel_case_types)]
+        #[allow(clippy::upper_case_acronyms)]
         enum IdentifierIndices {
             $($name),*,
-            COUNT
+            Count
         }
         $(
             pub const $name: IdentifierIndex = IdentifierIndex(unsafe { NonZeroU32::new_unchecked(IdentifierIndices::$name as u32 + 1) });
         )*
         const IDENTIFIER_RANGE: Range<IdentifierIndex> = Range {
             start: IdentifierIndex(unsafe { NonZeroU32::new_unchecked(1) }),
-            end: IdentifierIndex(unsafe { NonZeroU32::new_unchecked(IdentifierIndices::COUNT as u32 + 1) })
+            end: IdentifierIndex(unsafe { NonZeroU32::new_unchecked(IdentifierIndices::Count as u32 + 1) })
         };
     }
 }

@@ -112,7 +112,7 @@ impl<'a> SourceRef<'a> {
 }
 
 fn check_source_too_large<'a>(size: usize) -> Option<SourceOpenError<'a>> {
-    if size < usize::from(ByteIndex::MAX) {
+    if ByteIndex::MAX > size {
         None
     } else {
         Some(SourceOpenError::new(

@@ -253,7 +253,7 @@ impl<'a> ObjectValue<'a> for EvalVal<'a> {
 
 impl<'a> OperableValue<'a> for EvalVal<'a> {
     // TODO Yes, bad, must fix.
-    #[allow(clippy::cyclomatic_complexity)]
+    #[allow(clippy::cognitive_complexity)]
     fn infix(
         self,
         operator: IdentifierIndex,

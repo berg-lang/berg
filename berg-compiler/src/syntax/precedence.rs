@@ -51,55 +51,56 @@ impl Precedence {
     pub(crate) fn takes_right_child(self, right: Precedence) -> bool {
         match self {
             Dot => false,
-            TimesDivide => match right {
-                Dot => true,
-                _ => false,
-            },
-            PlusMinus => match right {
-                Dot | TimesDivide => true,
-                _ => false,
-            },
-            Comparison => match right {
-                Dot | TimesDivide | PlusMinus => true,
-                _ => false,
-            },
-            And => match right {
-                Dot | TimesDivide | PlusMinus | Comparison => true,
-                _ => false,
-            },
-            Or => match right {
-                Dot | TimesDivide | PlusMinus | Comparison | And => true,
-                _ => false,
-            },
-            CommaSequence => match right {
-                Dot | TimesDivide | PlusMinus | Comparison | And | Or => true,
-                _ => false,
-            },
-            Assign => match right {
-                Dot | TimesDivide | PlusMinus | Comparison | And | Or | CommaSequence => true,
-                _ => false,
-            },
-            ColonDeclaration => match right {
-                Dot | TimesDivide | PlusMinus | Comparison | And | Or | CommaSequence | Assign => {
-                    true
-                }
-                _ => false,
-            },
-            FollowedBy => match right {
+            TimesDivide => matches!(right, Dot),
+            PlusMinus => matches!(right, Dot | TimesDivide),
+            Comparison => matches!(right, Dot | TimesDivide | PlusMinus),
+            And => matches!(right, Dot | TimesDivide | PlusMinus | Comparison),
+            Or => matches!(right, Dot | TimesDivide | PlusMinus | Comparison | And),
+            CommaSequence => matches!(right, Dot | TimesDivide | PlusMinus | Comparison | And | Or),
+            Assign => matches!(
+                right,
+                Dot | TimesDivide | PlusMinus | Comparison | And | Or | CommaSequence
+            ),
+            ColonDeclaration => matches!(
+                right,
                 Dot | TimesDivide | PlusMinus | Comparison | And | Or | CommaSequence | Assign
-                | ColonDeclaration => true,
-                _ => false,
-            },
-            SemicolonSequence => match right {
-                Dot | TimesDivide | PlusMinus | Comparison | And | Or | CommaSequence | Assign
-                | ColonDeclaration | FollowedBy => true,
-                _ => false,
-            },
-            NewlineSequence => match right {
-                Dot | TimesDivide | PlusMinus | Comparison | And | Or | CommaSequence | Assign
-                | ColonDeclaration | SemicolonSequence | FollowedBy => true,
-                _ => false,
-            },
+            ),
+            FollowedBy => matches!(
+                right,
+                Dot | TimesDivide
+                    | PlusMinus
+                    | Comparison
+                    | And
+                    | Or
+                    | CommaSequence
+                    | Assign
+                    | ColonDeclaration
+            ),
+            SemicolonSequence => matches!(
+                right,
+                Dot | TimesDivide
+                    | PlusMinus
+                    | Comparison
+                    | And
+                    | Or
+                    | CommaSequence
+                    | Assign
+                    | ColonDeclaration
+                    | FollowedBy
+            ),
+            NewlineSequence => matches!(
+                right,
+                Dot | TimesDivide
+                    | PlusMinus
+                    | Comparison
+                    | And
+                    | Or
+                    | CommaSequence
+                    | Assign
+                    | ColonDeclaration
+                    | SemicolonSequence
+                    | FollowedBy
+            ),
         }
     }
 }

@@ -287,10 +287,7 @@ impl<'a, 'p> Sequencer<'a, 'p> {
         if slice.len() > 2 {
             return true;
         }
-        match prev_ch {
-            b'!' | b'>' | b'<' => false,
-            _ => true,
-        }
+        !matches!(prev_ch, b'!' | b'>' | b'<')
     }
 
     fn newline(&mut self, start: ByteIndex) {
@@ -560,59 +557,38 @@ impl CharType {
     }
 
     pub(crate) fn is_identifier_middle(self) -> bool {
-        match self {
-            Identifier | Digit => true,
-            _ => false,
-        }
+        matches!(self, Identifier | Digit)
     }
 
     pub(crate) fn is_whitespace(self) -> bool {
-        match self {
-            Space | Newline | HorizontalWhitespace | Unsupported | InvalidUtf8 | Hash | Eof => true,
-            _ => false,
-        }
+        matches!(
+            self,
+            Space | Newline | HorizontalWhitespace | Unsupported | InvalidUtf8 | Hash | Eof
+        )
     }
 
     pub(crate) fn is_horizontal_whitespace(self) -> bool {
-        match self {
-            Space | HorizontalWhitespace => true,
-            _ => false,
-        }
+        matches!(self, Space | HorizontalWhitespace)
     }
 
     pub(crate) fn ends_line(self) -> bool {
-        match self {
-            Newline | LineEnding | Eof => true,
-            _ => false,
-        }
+        matches!(self, Newline | LineEnding | Eof)
     }
 
     pub(crate) fn is_close(self) -> bool {
-        match self {
-            CloseParen | CloseCurly => true,
-            _ => false,
-        }
+        matches!(self, CloseParen | CloseCurly)
     }
 
     pub(crate) fn is_open(self) -> bool {
-        match self {
-            OpenParen | OpenCurly => true,
-            _ => false,
-        }
+        matches!(self, OpenParen | OpenCurly)
     }
 
     pub(crate) fn is_separator(self) -> bool {
-        match self {
-            Separator => true,
-            _ => false,
-        }
+        matches!(self, Separator)
     }
 
     pub(crate) fn is_always_operand(self) -> bool {
-        match self {
-            Digit | Identifier => true,
-            _ => false,
-        }
+        matches!(self, Digit | Identifier)
     }
 
     pub(crate) fn is_always_right_operand(self) -> bool {
@@ -662,6 +638,6 @@ impl ByteType {
     }
 
     fn is_utf8_cont(byte: u8) -> bool {
-        byte >= 0b1000_0000 && byte < 0b1011_1111
+        (0b1000_0000..0b1011_1111).contains(&byte)
     }
 }

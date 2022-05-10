@@ -168,9 +168,6 @@ impl<'a> Ast<'a> {
     pub fn to_bytes(&self) -> Vec<u8> {
         SourceReconstruction::new(self, 0.into()..self.char_data.size).to_bytes()
     }
-    pub fn to_string(&self) -> String {
-        SourceReconstruction::new(self, 0.into()..self.char_data.size).to_string()
-    }
 
     pub fn push_token(&mut self, token: impl Into<Token>, range: ByteRange) -> AstIndex {
         let token = token.into();

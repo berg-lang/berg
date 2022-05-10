@@ -3,7 +3,7 @@ use string_interner::StringInterner;
 
 use crate::syntax::{identifiers, FieldIndex, IdentifierIndex};
 use crate::value::*;
-use std;
+
 use std::env;
 use std::fmt;
 use std::io;
@@ -27,6 +27,7 @@ struct RootData {
 /// it's treated as a normal variable reference and looked up in scope (which
 /// includes the root scope).
 ///
+#[allow(clippy::upper_case_acronyms)]
 pub mod keywords {
     fields! { TRUE, FALSE, IF, ELSE, WHILE, FOREACH, BREAK, CONTINUE, TRY, CATCH, FINALLY, THROW, }
 }

@@ -294,16 +294,16 @@ impl Token {
     pub fn has_right_operand(self) -> bool {
         self.fixity().has_right_operand()
     }
-    pub fn to_string<'p, 'a: 'p>(&self, ast: &'p Ast<'a>) -> Cow<'p, str> {
+    pub fn to_string<'p, 'a: 'p>(self, ast: &'p Ast<'a>) -> Cow<'p, str> {
         use Token::*;
-        match *self {
+        match self {
             Expression(token) => token.to_string(ast),
             Operator(token) => token.to_string(ast),
         }
     }
-    pub fn to_visible_string<'p, 'a: 'p>(&self, ast: &'p Ast<'a>) -> Cow<'p, str> {
+    pub fn to_visible_string<'p, 'a: 'p>(self, ast: &'p Ast<'a>) -> Cow<'p, str> {
         use Token::*;
-        match *self {
+        match self {
             Expression(token) => token.to_visible_string(ast),
             Operator(token) => token.to_visible_string(ast),
         }
@@ -349,10 +349,10 @@ impl ExpressionToken {
     pub fn has_right_operand(self) -> bool {
         self.fixity().has_right_operand()
     }
-    pub fn to_string<'p, 'a: 'p>(&self, ast: &'p Ast<'a>) -> Cow<'p, str> {
+    pub fn to_string<'p, 'a: 'p>(self, ast: &'p Ast<'a>) -> Cow<'p, str> {
         use ExpressionBoundaryError::*;
         use ExpressionToken::*;
-        match *self {
+        match self {
             Term(token) => token.to_string(ast),
             PrefixOperator(identifier) => ast.identifier_string(identifier).into(),
             Open(Some(CloseWithoutOpen), boundary, _) => {
@@ -367,10 +367,10 @@ impl ExpressionToken {
             Open(None, boundary, _) => boundary.open_string().into(),
         }
     }
-    pub fn to_visible_string<'p, 'a: 'p>(&self, ast: &'p Ast<'a>) -> Cow<'p, str> {
+    pub fn to_visible_string<'p, 'a: 'p>(self, ast: &'p Ast<'a>) -> Cow<'p, str> {
         use ExpressionBoundaryError::*;
         use ExpressionToken::*;
-        match *self {
+        match self {
             Term(token) => token.to_visible_string(ast),
             Open(Some(CloseWithoutOpen), boundary, _) => {
                 format!("missing {}", boundary.visible_open_string()).into()
@@ -418,10 +418,7 @@ impl OperatorToken {
     }
     pub fn starts_auto_block(self) -> bool {
         use OperatorToken::*;
-        match self {
-            InfixOperator(COLON) => true,
-            _ => false,
-        }
+        matches!(self, InfixOperator(COLON))
     }
     pub fn to_string<'p, 'a: 'p>(self, ast: &'p Ast<'a>) -> Cow<'p, str> {
         use OperatorToken::*;

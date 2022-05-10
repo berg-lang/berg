@@ -66,10 +66,10 @@ impl<'a> Binder<'a> {
             Term(token) => match token {
                 // Unless it's preceded by a ., raw identifier is always a local field access or declaration, so bind it and translate it.
                 RawIdentifier(name)
-                    if match self.ast.tokens.last() {
-                        Some(&Token::Operator(OperatorToken::InfixOperator(DOT))) => false,
-                        _ => true,
-                    } =>
+                    if !matches!(
+                        self.ast.tokens.last(),
+                        Some(&Token::Operator(OperatorToken::InfixOperator(DOT)))
+                    ) =>
                 {
                     self.push_field_reference(name, range)
                 }
@@ -121,10 +121,10 @@ impl<'a> Binder<'a> {
         use ExpressionToken::*;
         use TermToken::*;
         use Token::*;
-        let is_declaration = match self.ast.tokens.last() {
-            Some(&Expression(PrefixOperator(COLON))) => true,
-            _ => false,
-        };
+        let is_declaration = matches!(
+            self.ast.tokens.last(),
+            Some(&Expression(PrefixOperator(COLON)))
+        );
         let field = self
             .find_field(name, is_declaration)
             .unwrap_or_else(|| self.create_field(name, is_declaration));
@@ -252,7 +252,7 @@ impl<'a> Binder<'a> {
     ) -> BlockIndex {
         // Create the block.
         let parent = parent
-            .and_then(|parent| Some(self.ast.blocks.next_index() - parent))
+            .map(|parent| self.ast.blocks.next_index() - parent)
             .unwrap_or(Delta(BlockIndex(0)));
         let index = self.ast.blocks.push(AstBlock {
             boundary,

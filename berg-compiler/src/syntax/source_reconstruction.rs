@@ -59,9 +59,8 @@ impl<'p, 'a: 'p> SourceReconstruction<'p, 'a> {
     pub fn new(ast: &'p Ast<'a>, range: ByteRange) -> Self {
         SourceReconstruction { ast, range }
     }
-    pub fn to_string(&self) -> String {
-        format!("{}", self)
-    }
+    // TODO use MaybeUninit
+    #[allow(clippy::uninit_vec)]
     pub fn to_bytes(&self) -> Vec<u8> {
         // Set up the buffer.
         let size = usize::from(self.range.end - self.range.start);
@@ -151,7 +150,7 @@ impl<'p, 'a: 'p> Iterator for SourceReconstructionIterator<'p, 'a> {
             .or_else(|| self.next_whitespace_range())
             .or_else(|| self.next_comment())
             .or_else(|| self.next_newline())
-            .unwrap_or_else(|| Cow::Borrowed(b" "));
+            .unwrap_or(Cow::Borrowed(b" "));
 
         // Increment the index, and return!
         self.index += bytes.len();
@@ -291,7 +290,7 @@ fn find_comment_index(ast: &Ast, index: ByteIndex) -> usize {
         .comments
         .iter()
         .position(|(_, start)| *start >= index);
-    comment_index.unwrap_or_else(|| ast.char_data.comments.len())
+    comment_index.unwrap_or(ast.char_data.comments.len())
 }
 
 fn find_whitespace_index(ast: &Ast, index: ByteIndex) -> usize {
