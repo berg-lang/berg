@@ -64,6 +64,16 @@ mod literals {
     //     expect("1,2 , 3").to_yield(tuple!(1, 2, 3))
     // }
 
+    // TODO decide what this should do
+    // #[test]
+    // fn comma_sequence_assign_no_parentheses() {
+    //     expect("X=1,2; X").to_yield(tuple!(1, 2));
+    // }
+    #[test]
+    fn comma_sequence_assign_and_combine() {
+        expect("X=(1,2); X,3").to_yield(tuple!([1, 2], 3));
+    }
+
     #[test]
     fn comma_sequence_bare_parentheses() {
         expect("(1,2)").to_yield(tuple!(1, 2));

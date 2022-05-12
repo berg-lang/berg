@@ -98,8 +98,8 @@ impl Precedence {
                     | CommaSequence
                     | Assign
                     | ColonDeclaration
-                    | SemicolonSequence
                     | FollowedBy
+                    | SemicolonSequence
             ),
         }
     }

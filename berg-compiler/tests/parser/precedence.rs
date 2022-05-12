@@ -120,6 +120,10 @@ fn plus_minus() {
     expect("1+-2").to_error(UnsupportedOperator, 1..=2)
 }
 #[test]
+fn add_sub_mul_div() {
+    expect("1*2+3,1+2*3").to_yield(tuple!(5, 7))
+}
+#[test]
 fn comma_sequence_add() {
     expect("1+1+1,2+2+2").to_yield(tuple!(3, 6))
 }
@@ -130,4 +134,17 @@ fn comma_sequence_or_and_ge_plus_mul() {
 #[test]
 fn comma_sequence_or_and_le_plus_mul() {
     expect("1*2+3<=4&&true||false,false||true&&4<=3+2*1").to_yield(tuple!(false, true))
+}
+
+#[test]
+fn semicolon_newline() {
+    expect("1;2\n3").to_yield(3)
+}
+#[test]
+fn newline_semicolon() {
+    expect("1\n2;3").to_yield(3)
+}
+#[test]
+fn multiple_newline_semicolon() {
+    expect("1;2;\n3\n4").to_yield(4)
 }
