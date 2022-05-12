@@ -10,10 +10,6 @@ mod literals {
         expect("1,2,").to_yield(tuple!(1, 2))
     }
     #[test]
-    fn comma_sequence_three() {
-        expect("1,2,3").to_yield(tuple!(1, 2, 3))
-    }
-    #[test]
     fn comma_left_space() {
         expect("1 ,2").to_yield(tuple!(1, 2))
     }
@@ -27,10 +23,51 @@ mod literals {
     }
 
     #[test]
+    fn comma_sequence_three() {
+        expect("1,2,3").to_yield(tuple!(1, 2, 3))
+    }
+    #[test]
+    fn comma_sequence_three_right_space() {
+        expect("1, 2, 3").to_yield(tuple!(1, 2, 3))
+    }
+    #[test]
+    fn comma_sequence_three_both_space() {
+        expect("1 , 2 , 3").to_yield(tuple!(1, 2, 3))
+    }
+    #[test]
+    fn comma_sequence_three_left_space() {
+        expect("1 ,2 ,3").to_yield(tuple!(1, 2, 3))
+    }
+    // TODO should these yield [1,[2,3]] or [1,2,3]?
+    // #[test]
+    // fn comma_sequence_three_first_right_space() {
+    //     expect("1, 2,3").to_yield(tuple!(1, 2, 3))
+    // }
+    // #[test]
+    // fn comma_sequence_three_first_left_space() {
+    //     expect("1 ,2,3").to_yield(tuple!(1, 2, 3))
+    // }
+    // #[test]
+    // fn comma_sequence_three_first_both_space() {
+    //     expect("1 , 2,3").to_yield(tuple!(1, 2, 3))
+    // }
+    // #[test]
+    // fn comma_sequence_three_second_right_space() {
+    //     expect("1,2, 3").to_yield(tuple!(1, 2, 3))
+    // }
+    // #[test]
+    // fn comma_sequence_three_second_left_space() {
+    //     expect("1,2 ,3").to_yield(tuple!(1, 2, 3))
+    // }
+    // #[test]
+    // fn comma_sequence_three_second_both_space() {
+    //     expect("1,2 , 3").to_yield(tuple!(1, 2, 3))
+    // }
+
+    #[test]
     fn comma_sequence_bare_parentheses() {
         expect("(1,2)").to_yield(tuple!(1, 2));
     }
-
     #[test]
     fn only_comma() {
         expect(",").to_error(MissingOperand, 0)
@@ -38,6 +75,10 @@ mod literals {
     #[test]
     fn right_comma() {
         expect("1,").to_yield(tuple!(1))
+    }
+    #[test]
+    fn right_comma_space() {
+        expect("1 ,").to_yield(tuple!(1))
     }
     #[test]
     fn right_comma_nested() {
