@@ -1,5 +1,5 @@
-Roadmap:
-
+<!-- markdownlint-disable MD041 Multiple top-level headings in same document -->
+<!-- markdownlint-disable MD024 Multiple headings with same title -->
 BERG THE FIRST: SEE NO EVIL
 ===========================
 
@@ -34,15 +34,15 @@ BERG 0.2: HEAR NO EVIL
 
 Berg 0.2 completes the control flow features: effects, and host interaction (FFI).
 
-2. Errors
+1. Errors
     [ ] CompilerError Objects
     [ ] CompilerError Codes With Properties (MissingOperand, Side=Left/Right/Both)
     [ ] CompilerError Localization
     [ ] CompilerError Propagation
-3. Effects
+2. Effects
     [ ] I/O
     [ ]
-4. FFI
+3. FFI
     [ ] FFI
 
 BERG 0.3: SPEAK NO EVIL
@@ -51,21 +51,21 @@ BERG 0.3: SPEAK NO EVIL
 Berg 0.3 introduces compilation, matchers and types to Berg, moving from its interpreted shape to a statically compiled one. 0.1 and 0.2 were designed with this in mind, but this will be the first true exercise of it.
 
 1. Compilation
-3. Compilation
-    [ ] 
-
+2. Compilation
+    [ ]
 
 Round 1: Integers
 =================
 
 Integer
 -------
+
 [X] Integer literal
 [X] CompilerError: Integer starts with zero
 
-
 Invalid UTF-8
 -------------
+
 [X] CompilerError: Invalid UTF-8
 [X] CompilerError: Unsupported Character
 [X] CompilerError: SourceRef Not Found
@@ -75,6 +75,7 @@ Invalid UTF-8
 
 Tools
 -----
+
 [X] Unit Test Project
 [X] Command Line
 
@@ -83,12 +84,14 @@ Round 2: Expressions
 
 Runtime
 -------
+
 [X] TypeChecker: Type, Number, IntegerLiteral.StackValue() -> Number
 [X] TypeRuntime { Run(Type) -> Print Result }
 [X] Integer tests
 
 Math
 ----
+
 [X] Add/Subtract Operators
 [X] Multiply/Divide Operators
 [X] Precedence
@@ -101,16 +104,19 @@ Round 3: Boolean Logic
 
 Boolean
 -------
+
 [X] true, false
 [X] CompilerError: cannot use true/false in math operator
 
 Boolean Operators
------------------ 
+-----------------
+
 [X] &&, ||, !
 [X] anything other than false is true; && and || return determining argument, not necessarily "true"
 
 Comparison Operators
 --------------------
+
 [X] ==, !=
 [X] >, <, <=, >=
 [X] CompilerError: Non-number in comparison operator
@@ -120,12 +126,14 @@ Round 4: Expression Syntax
 
 Parens
 ------
+
 [X] Expression Operator "(", ")"
 [X] Parse CompilerError: Unclosed Paren
 [X] Parse CompilerError: Unopened Paren
 
 Nothing
 -------
+
 [X] Type::Nothing
 [X] Empty source file -> nothing
 [X] Empty parentheses -> nothing
@@ -133,6 +141,7 @@ Nothing
 
 Space
 -----
+
 [X] Whitespace, Tabs
 [X] Compound Term Grouping
 [X] Newlines; Record Line / Column Data
@@ -142,6 +151,7 @@ Round 5: ScopeRef
 
 Statements
 ----------
+
 [X] Statement Separator ";"
 [X] Trailing Semicolon Acceptable
 [X] Final Expression In BlockRef is Return StackValue
@@ -150,6 +160,7 @@ Statements
 
 Fields
 ---------
+
 *Fields* are accessible in the scope they were first defined and nowhere else.
 [X] Field Assignment (a = b)
 [X] Field Reassignment (a = b)
@@ -163,12 +174,14 @@ Round 6: Blocks
 
 Blocks
 ------
+
 [ ] {} creates a new block
 [ ] CompilerError: ) where expected }
 [ ] CompilerError: } where expected )
 
 BlockRef ScopeRef
 -----------
+
 [ ] Fields in parent block are accessible and assignable
 [ ] Fields declared *after* block, in parent scope, are inaccessible
 [ ] Fields declared in sibling scopes are inaccessible to each other
@@ -176,6 +189,7 @@ BlockRef ScopeRef
 
 BlockRef Laziness
 --------------
+
 [ ] "output" function so we can test evaluation
 [ ] Unused blocks do not evaluate
 [ ] Blocks evaluate on first use
@@ -183,6 +197,7 @@ BlockRef Laziness
 
 Short Circuiting
 ----------------
+
 [ ] && and || do not evaluate the second argument unless needed
 
 Round 7: Objects
@@ -190,6 +205,7 @@ Round 7: Objects
 
 Fields
 ------
+
 *Fields* are fields that have been made public, and are thus accessible outside their scope.
 [X] Expose field value (:a = b)
 [X] Field usable in expression
@@ -198,10 +214,11 @@ Fields
 
 Field Access
 ------------
+
 [ ] Field access (a.b)
 [ ] CompilerError: no such field
 [ ] CompilerError: field not accessible in scope
-[ ] CompilerError: field not 
+[ ] CompilerError: field not
 
 Self
 ----
@@ -227,13 +244,11 @@ loop
 break
 -----
 
-
 Round 5: Functions
 ==================
 
 APPLY
 ----
-
 
 Define and run functions
 
@@ -245,11 +260,13 @@ Round 5: CompilerError Propagation
 
 CompilerError Properties
 ----------------
+
 [ ] CompilerError is Berg object
 [ ] Errors have arbitrary number of properties
 
 CompilerError Trail
 -----------
+
 [ ] CompilerError given opportunity to pick up source or other information at each use
 
 Round 5: Modules
@@ -273,26 +290,28 @@ Round 10: Website
 Round 11: 0.1 Release
 =====================
 
-
-
 Space
 -----
+
 [ ] Parse CompilerError: Line Too Long (4K characters)
 [ ] Single-Line Comment
 [ ] Errors: Invalid UTF-8, Comment Too Long. Denormalized OK. Unsupported Characters OK.
 
 Visual Studio Code Extension
 ----------------------------
+
 [ ] Syntax highlighting
 [ ] CompilerError reporting
 
 Command Line
 ------------
+
 [ ] Display error context
 [ ] Display context with possible fixes
 
 Fields
 ------
+
 [ ] Field Definition (=)
 [ ] Field Modification (+=, ++, etc.)
 [X] Field Declaration
@@ -305,6 +324,7 @@ Fields
 
 Field Reference
 ------------------
+
 [X] Field Reference (Identifier)
 [ ] "nothing"
 [ ] Object.GetField(Identifier) -> Object
@@ -315,11 +335,13 @@ Field Reference
 
 Field Assignment
 -------------------
+
 [ ] Field Assignment (=)
 [ ] Parse CompilerError: Missing Operand
 
 Apply
 -----
+
 [ ] Apply Operator (Extend With BlockRef) "F <+ A: 1" or "F <+ { A: 1; B: 2 }"
 [ ] Because of multiple reasons! Figure out error dedup strategies here ...
 
@@ -328,6 +350,7 @@ Functions
 
 List
 ------
+
 [ ] List Operator (,)
 [ ] Trailing Comma Acceptable
 
@@ -341,6 +364,7 @@ Function Calls
 
 Indented Function Calls
 -----------------------
+
 [ ] Child BlockRef Function Arguments
 [ ] Parse CompilerError: Inconsistent Indent Characters (space vs. tab)
 [ ] Parse CompilerError: Multiple Undent
@@ -350,6 +374,7 @@ Conditionals
 
 Booleans
 --------
+
 [ ] "true", "false"
 [ ] StackValue::True, StackValue::False
 [ ] CompilerError: Appropriate Operator Errors
@@ -363,12 +388,12 @@ Comparison Operators
 Boolean Operators
 -----------------
 
-
 Structure
 =========
 
 Child Objects
 -------------
+
 [ ] Object Operator "{", "}"
 [ ] Parse CompilerError: Unclosed Curly Brace
 [ ] Parse CompilerError: Unopened Curly Brace
@@ -377,6 +402,7 @@ Child Objects
 
 Child Access
 ------------
+
 [ ] Field Access (Dot) Operator
 [ ] Parse CompilerError: Identifier Required For Field Access
 
@@ -385,10 +411,9 @@ Child Access
 Includes
 --------
 
-
-
 COMPARISON
 ----------
+
 [ ] Equal/Not Equal Operators
 
 [ ] Greater Than/Less Than/Greater Than Or Equal To/Less Than Or Equal To Operators
@@ -397,21 +422,24 @@ COMPARISON
 
 BOOLEAN
 -------
+
 [ ] And/Or/Not Operators
 
 CONDITIONAL
 -----------
+
 [ ] If: if X Y else Z
 
 [ ] Else: if X Y else Z
 
-
 CONTEXT
 -------
+
 [ ] ::FileContext - file level input properties
 
 STRING
 ------
+
 [ ] Raw String
 [ ] Parse CompilerError: Unclosed String
 [ ] Parse CompilerError: Invalid UTF-8 In String
@@ -425,11 +453,13 @@ STRING
 
 INTERPOLATED STRING
 -------------------
+
 [ ] Interpolation
 [ ] Unclosed Interpolation CompilerError
 
 UNICODE IDENTIFIERS
 -------------------
+
 [ ] Unicode Identifiers (XID)
 
 [ ] Incomplete Grapheme CompilerError
@@ -438,20 +468,24 @@ UNICODE IDENTIFIERS
 
 UNICODE STRING ESCAPES
 ----------------------
+
 [ ] Unicode Escape Character
 [ ] Unicode Escape Sequence
 [ ] Unicode Character Name
 
 FUNCTION
 --------
+
 [ ] Function APPLY Apply "Operator"
 
 FLOW
 ----
-[ ] 
+
+[ ]
 
 EXPLICIT FLOW
 -------------
+
 [ ] Statement Sequence Extend "Operator"
 
 [ ] Curly Brace Operator
@@ -460,15 +494,18 @@ EXPLICIT FLOW
 
 ARRAYS
 ------
+
 [ ] Index Operator
-[ ] 
+[ ]
 
 HASHES
 ------
+
 [ ] Pair Operator
 
 HEX/OCT/BIN
 -----------
+
 [ ] Hexadecimal Number
 [ ] Octal Number
 [ ] Binary Number
@@ -479,6 +516,7 @@ HEX/OCT/BIN
 
 FLOAT
 -----
+
 [ ] Decimal Point Operator
 
 [ ] Exponent Operator
@@ -487,6 +525,6 @@ FLOAT
 
 IMAGINARY
 ---------
+
 [ ] Imaginary Operator
 [ ] Imaginary With Uppercase I CompilerError
-
