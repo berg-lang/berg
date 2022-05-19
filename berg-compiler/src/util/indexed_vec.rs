@@ -21,7 +21,7 @@ use std::slice::{Iter, IterMut};
 #[macro_export]
 macro_rules! index_type {
     ($(pub struct $name:ident(pub $($type:tt)*) $(with $($trait:tt),*)* <= $max:expr ;)*) => {
-        use crate::util::indexed_vec::{Delta,IndexType};
+        use $crate::util::indexed_vec::{Delta,IndexType};
         use std::fmt;
         use std::ops::{Add,AddAssign,Sub,SubAssign};
         use std::cmp::Ordering;
