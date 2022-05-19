@@ -1,7 +1,8 @@
 {
-  "name": "vscode-extension",
-  "displayName": "vscode-extension",
+  "name": "berg-vscode-extension",
+  "displayName": "Berg",
   "description": "Berg language support for Visual Studio Code",
+  "repository": "https://github.com/berg-lang/berg/vscode-extension",
   "version": "0.0.1",
   "engines": {
     "vscode": "^1.67.0"
@@ -10,19 +11,20 @@
     "Other"
   ],
   "activationEvents": [
-    "onCommand:vscode-extension.helloWorld"
+    "onCommand:berg-vscode-extension.helloWorld"
   ],
   "main": "./out/extension.js",
   "contributes": {
     "commands": [
       {
-        "command": "vscode-extension.helloWorld",
+        "command": "berg-vscode-extension.helloWorld",
         "title": "Hello World"
       }
     ]
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",
+    "package": "vsce package",
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
     "pretest": "npm run compile && npm run lint",
@@ -40,6 +42,7 @@
     "eslint": "^8.14.0",
     "glob": "^8.0.1",
     "mocha": "^9.2.2",
-    "typescript": "^4.6.4"
+    "typescript": "^4.6.4",
+    "vsce": "^2.8.0"
   }
 }
