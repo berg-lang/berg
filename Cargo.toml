@@ -3,4 +3,5 @@
 members = [
 #    "berg",
     "berg-compiler",
+    "berg-language-server",
 ]
