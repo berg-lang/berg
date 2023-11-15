@@ -54,7 +54,7 @@ impl<'a, 'p> IntoIterator for &'p Tuple<'a> {
     type Item = &'p BergVal<'a>;
     type IntoIter = std::iter::Rev<<&'p Vec<BergVal<'a>> as IntoIterator>::IntoIter>;
     fn into_iter(self) -> Self::IntoIter {
-        (&self.0).iter().rev()
+        self.0.iter().rev()
     }
 }
 

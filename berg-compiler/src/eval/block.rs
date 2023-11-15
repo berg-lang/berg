@@ -211,7 +211,7 @@ impl<'a> BlockRef<'a> {
     fn take_input(&self) -> Result<BergVal<'a>, EvalException<'a>> {
         let mut block = self.0.borrow_mut();
         match block.input {
-            Some(Ok(_)) => mem::replace(&mut block.input, None).unwrap().unwrap().ok(),
+            Some(Ok(_)) => block.input.take().unwrap().unwrap().ok(),
             Some(Err(ref error)) => error.clone().err(),
             None => CompilerError::CircularDependency.err(),
         }

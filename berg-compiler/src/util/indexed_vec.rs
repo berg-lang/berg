@@ -892,7 +892,7 @@ where
 impl<Elem: Clone, Idx: IndexType> ToOwned for IndexedSlice<Elem, Idx> {
     type Owned = IndexedVec<Elem, Idx>;
     fn to_owned(&self) -> Self::Owned {
-        (&self.slice).to_vec().into()
+        self.slice.to_vec().into()
     }
 }
 
