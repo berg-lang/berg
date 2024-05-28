@@ -1,7 +1,7 @@
 use crate::syntax::{ByteIndex, ByteSlice};
 use crate::util::indexed_vec::Delta;
-use CharType::*;
 use ByteType::*;
+use CharType::*;
 
 ///
 /// Scans UTF-8 identifying characters.

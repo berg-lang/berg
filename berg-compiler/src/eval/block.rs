@@ -24,7 +24,7 @@ struct BlockData<'a> {
     index: BlockIndex,
     fields: Vec<BlockFieldValue<'a>>,
     parent: ScopeRef<'a>,
-    /// 
+    ///
     /// The input to this block.
     ///
     /// If it's None, the input is currently being used, and trying to use it

@@ -7,8 +7,8 @@ mod tokenizer;
 use crate::syntax::{Ast, AstRef, SourceBuffer, SourceRef};
 use binder::Binder;
 use grouper::Grouper;
-use scanner::Scanner;
 use scanner::CharType;
+use scanner::Scanner;
 use sequencer::Sequencer;
 use tokenizer::Tokenizer;
 
