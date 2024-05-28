@@ -1,11 +1,14 @@
 mod binder;
 mod grouper;
+mod scanner;
 mod sequencer;
 mod tokenizer;
 
 use crate::syntax::{Ast, AstRef, SourceBuffer, SourceRef};
 use binder::Binder;
 use grouper::Grouper;
+use scanner::Scanner;
+use scanner::CharType;
 use sequencer::Sequencer;
 use tokenizer::Tokenizer;
 
