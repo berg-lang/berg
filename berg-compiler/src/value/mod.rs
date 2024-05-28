@@ -21,6 +21,6 @@ pub use self::exception::{
 };
 pub use self::tuple::Tuple;
 // Export types used in definition of BergValue and BergVal
-pub use crate::syntax::{ExpressionBoundary, ExpressionRef, IdentifierIndex};
+pub use crate::syntax::{ExpressionBoundary, IdentifierIndex};
 // Or just so damn useful we're including them anyway ...
 pub use crate::util::result_util::{ErrShorthand, OkShorthand, ResShorthand};

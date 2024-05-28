@@ -36,6 +36,7 @@ pub struct VisitResult<V: ExpressionVisitor, E: Expression> {
     pub walk_state: E::VisitState,
 }
 
+#[allow(dead_code)]
 pub trait Expression: Sized {
     ///
     /// Internal state held by an expression.

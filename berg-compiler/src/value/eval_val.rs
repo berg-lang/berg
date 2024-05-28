@@ -65,6 +65,7 @@ pub enum EvalVal<'a> {
     Target(AssignmentTarget<'a>),
 }
 
+#[allow(dead_code)]
 pub trait AtLocation<'a>: Sized {
     ///
     /// Give this value a location, making it global.

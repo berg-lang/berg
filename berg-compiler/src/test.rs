@@ -93,36 +93,33 @@ pub trait ExpectedErrorRange: fmt::Debug {
     ///
     /// Find this error range after the end of the other one.
     ///
-    fn after<T: ExpectedErrorRange>(
+    fn after<T: ExpectedErrorRange+Sized>(
         self,
         after: T,
     ) -> ExpectedErrorRangeWithin<Self, ExpectedErrorRangeAfter<T>>
     where
         Self: Sized,
-        T: Sized,
     {
         self.within(ExpectedErrorRangeAfter(after))
     }
     ///
     /// Find this error range before the start of the other one.
     ///
-    fn before<T: ExpectedErrorRange>(
+    fn before<T: ExpectedErrorRange+Sized>(
         self,
         before: T,
     ) -> ExpectedErrorRangeWithin<Self, ExpectedErrorRangeBefore<T>>
     where
         Self: Sized,
-        T: Sized,
     {
         self.within(ExpectedErrorRangeBefore(before))
     }
     ///
     /// Find this error range inside the other one.
     ///
-    fn within<T: ExpectedErrorRange>(self, within: T) -> ExpectedErrorRangeWithin<Self, T>
+    fn within<T: ExpectedErrorRange+Sized>(self, within: T) -> ExpectedErrorRangeWithin<Self, T>
     where
         Self: Sized,
-        T: Sized,
     {
         ExpectedErrorRangeWithin {
             error_range: self,

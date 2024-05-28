@@ -1,6 +1,6 @@
 pub use self::char_data::LineColumnRange;
 pub use self::expression_formatter::{ExpressionFormatter, ExpressionTreeFormatter};
-pub use self::expression_tree::{AstExpressionTree, ExpressionRef, ExpressionTreeWalker};
+pub use self::expression_tree::{ExpressionRef, ExpressionTreeWalker};
 pub use self::expression_visitor::{Expression, ExpressionVisitor, VisitResult};
 pub mod identifiers;
 pub use self::identifiers::IdentifierIndex;
