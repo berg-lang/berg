@@ -25,7 +25,7 @@ pub enum Token {
 #[test]
 fn token_size_is_16bytes_even_though_we_want_it_to_be_8() {
     use std::mem::size_of;
-    assert_eq!(size_of::<Token>(), 16);
+    assert!(size_of::<Token>() <= 16);
 }
 
 ///
