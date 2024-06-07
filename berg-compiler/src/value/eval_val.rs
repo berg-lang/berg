@@ -1,4 +1,4 @@
-use crate::eval::{BlockRef, ScopeRef};
+use crate::eval::BlockRef;
 use crate::syntax::identifiers::*;
 use crate::syntax::{FieldIndex, IdentifierIndex};
 use crate::value::implement::*;
@@ -83,8 +83,8 @@ pub type EvalResult<'a> = Result<EvalVal<'a>, EvalException<'a>>;
 
 #[derive(Debug, Clone)]
 pub enum AssignmentTarget<'a> {
-    LocalFieldReference(ScopeRef<'a>, FieldIndex),
-    LocalFieldDeclaration(ScopeRef<'a>, FieldIndex),
+    LocalFieldReference(BlockRef<'a>, FieldIndex),
+    LocalFieldDeclaration(BlockRef<'a>, FieldIndex),
     ObjectFieldReference(BergVal<'a>, IdentifierIndex),
 }
 

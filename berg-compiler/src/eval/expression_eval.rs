@@ -1,4 +1,4 @@
-use crate::eval::ScopeRef;
+use crate::eval::BlockRef;
 use crate::syntax::identifiers::APPLY;
 use crate::syntax::{
     ErrorTermError, ExpressionBoundary, ExpressionBoundaryError, ExpressionRef, ExpressionToken,
@@ -9,7 +9,7 @@ use num::BigRational;
 use std::fmt;
 use std::str::FromStr;
 
-pub type ExpressionEvaluator<'p, 'a> = ExpressionTreeWalker<'p, 'a, &'p ScopeRef<'a>>;
+pub type ExpressionEvaluator<'p, 'a> = ExpressionTreeWalker<'p, 'a, &'p BlockRef<'a>>;
 
 impl<'p, 'a: 'p> From<ExpressionEvaluator<'p, 'a>> for ExpressionRef<'a> {
     fn from(from: ExpressionEvaluator<'p, 'a>) -> Self {
@@ -24,7 +24,7 @@ impl<'p, 'a: 'p> fmt::Display for ExpressionEvaluator<'p, 'a> {
 }
 
 impl<'p, 'a: 'p> ExpressionEvaluator<'p, 'a> {
-    pub fn scope(self) -> &'p ScopeRef<'a> {
+    pub fn scope(self) -> &'p BlockRef<'a> {
         self.context()
     }
     pub fn evaluate_block(self, boundary: ExpressionBoundary) -> BergResult<'a> {
@@ -94,7 +94,9 @@ impl<'p, 'a: 'p> ExpressionEvaluator<'p, 'a> {
                 }
 
                 // ( and { syntax errors
-                Open(Some(OpenError), ..) => self.throw(self.ast().open_error().clone()),
+                Open(Some(OpenError), ..) => {
+                    unreachable!("OpenError should be handled outside evaluation")
+                }
                 Open(Some(OpenWithoutClose), ..) => self.throw(CompilerError::OpenWithoutClose),
                 Open(Some(CloseWithoutOpen), ..) => self.throw(CompilerError::CloseWithoutOpen),
             },

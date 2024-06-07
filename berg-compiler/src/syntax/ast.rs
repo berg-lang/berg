@@ -2,9 +2,9 @@ use crate::eval::RootRef;
 use crate::syntax::char_data::CharData;
 use crate::syntax::OperandPosition::*;
 use crate::syntax::{
-    AstBlock, BlockIndex, ByteRange, ExpressionToken, ExpressionTreeWalker, Field, FieldIndex,
-    IdentifierIndex, OperatorToken, SourceOpenError, SourceReconstruction,
-    SourceReconstructionReader, SourceRef, Token,
+    AstBlock, BlockIndex, ByteRange, ExpressionToken, Field, FieldIndex, IdentifierIndex,
+    OperatorToken, SourceOpenError, SourceReconstruction, SourceReconstructionReader, SourceRef,
+    Token,
 };
 use crate::util::indexed_vec::IndexedVec;
 use crate::value::CompilerError;
@@ -154,9 +154,8 @@ impl<'a> Ast<'a> {
         self.identifier_string(self.fields[index].name)
     }
 
-    pub fn expression<'p>(&'p self) -> ExpressionTreeWalker<'p, 'a> {
-        assert_ne!(self.tokens.len(), 0);
-        ExpressionTreeWalker::new((), self, AstIndex(0))
+    pub fn root_expression(&self) -> AstIndex {
+        AstIndex(0)
     }
 
     pub fn read_bytes<'p>(&'p self) -> SourceReconstructionReader<'p, 'a>
