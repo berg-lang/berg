@@ -84,7 +84,7 @@ identifiers! {
 pub(crate) fn intern_all() -> StringInterner<StringBackend<IdentifierIndex>> {
     let mut identifiers = StringInterner::new();
     for &(operator, string) in ALL_IDENTIFIERS.iter() {
-        let actual_identifier = identifiers.get_or_intern(string);
+        let actual_identifier = identifiers.get_or_intern_static(string);
         assert_eq!(actual_identifier, operator);
     }
     assert_eq!(identifiers.len(), ALL_IDENTIFIERS.len());
