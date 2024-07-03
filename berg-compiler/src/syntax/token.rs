@@ -1,7 +1,7 @@
-use crate::syntax::identifiers::*;
-use crate::syntax::precedence::Precedence;
-use crate::syntax::ExpressionBoundary::*;
-use crate::syntax::{
+use super::identifiers::*;
+use super::precedence::Precedence;
+use super::ExpressionBoundary::*;
+use super::{
     Ast, AstDelta, BlockIndex, FieldIndex, IdentifierIndex, LiteralIndex, RawLiteralIndex,
 };
 use std::borrow::Cow;

@@ -1,4 +1,5 @@
 use crate::eval::BlockRef;
+use crate::syntax::ExpressionErrorPosition;
 use crate::value::implement::*;
 use num::BigRational;
 use std::fmt;

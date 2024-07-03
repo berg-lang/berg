@@ -1,4 +1,4 @@
-use crate::syntax::{Ast, AstIndex, ByteIndex, ByteRange};
+use super::{Ast, AstIndex, ByteIndex, ByteRange};
 use std::borrow::Cow;
 use std::fmt;
 use std::io;

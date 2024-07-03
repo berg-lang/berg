@@ -16,9 +16,7 @@ pub use self::berg_value::{
 };
 pub use self::compiler_error::{CompilerError, CompilerErrorCode};
 pub use self::eval_val::{AssignmentTarget, EvalResult, EvalVal};
-pub use self::exception::{
-    CaughtException, ErrorLocation, EvalException, Exception, ExpressionErrorPosition,
-};
+pub use self::exception::{CaughtException, EvalException, Exception};
 pub use self::tuple::Tuple;
 // Export types used in definition of BergValue and BergVal
 pub use crate::syntax::{ExpressionBoundary, IdentifierIndex};

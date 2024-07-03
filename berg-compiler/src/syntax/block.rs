@@ -1,4 +1,4 @@
-use crate::syntax::{AstDelta, AstRef, ExpressionBoundary, IdentifierIndex};
+use super::{AstDelta, AstRef, ExpressionBoundary, IdentifierIndex};
 use std::u32;
 
 index_type! {

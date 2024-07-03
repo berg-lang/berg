@@ -1,7 +1,7 @@
 use crate::eval::ExpressionEvaluator;
 use crate::syntax::{
-    Ast, AstIndex, AstRef, BlockIndex, ExpressionBoundaryError, ExpressionRef, ExpressionToken,
-    ExpressionTreeWalker, FieldError, FieldIndex, IdentifierIndex,
+    Ast, AstIndex, AstRef, BlockIndex, ExpressionBoundaryError, ExpressionErrorPosition,
+    ExpressionRef, ExpressionToken, ExpressionTreeWalker, FieldError, FieldIndex, IdentifierIndex,
 };
 use crate::value::implement::*;
 use std::cell::{Ref, RefCell, RefMut};

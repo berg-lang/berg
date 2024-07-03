@@ -1,7 +1,7 @@
+use crate::syntax::ExpressionErrorPosition::*;
 use crate::value::*;
 use std::fmt;
 use std::marker::PhantomData;
-use ExpressionErrorPosition::*;
 
 ///
 /// Berg values that can be used anywhere.
@@ -285,9 +285,9 @@ impl<'a> NextVal<'a> {
 }
 
 pub mod implement {
+    pub use crate::syntax::ExpressionErrorPosition::*;
     pub use crate::syntax::ExpressionRef;
     pub use crate::value::CompilerError::*;
-    pub use crate::value::ExpressionErrorPosition::*;
     pub use crate::value::*;
 
     use crate::syntax::Fixity;

@@ -1,4 +1,4 @@
-use crate::syntax::{IdentifierIndex, OperatorToken};
+use super::{IdentifierIndex, OperatorToken};
 use Precedence::*;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
@@ -27,7 +27,7 @@ impl Default for Precedence {
 
 impl From<IdentifierIndex> for Precedence {
     fn from(from: IdentifierIndex) -> Self {
-        use crate::syntax::identifiers::*;
+        use super::identifiers::*;
         match from {
             DOT => Dot,
             STAR | SLASH => TimesDivide,

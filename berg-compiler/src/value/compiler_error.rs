@@ -1,7 +1,8 @@
 use crate::eval::BlockRef;
 use crate::syntax::identifiers::ERROR_CODE;
 use crate::syntax::{
-    ExpressionRef, FieldIndex, Fixity, IdentifierIndex, LiteralIndex, RawLiteralIndex,
+    ErrorLocation, ExpressionErrorPosition, ExpressionRef, FieldIndex, Fixity, IdentifierIndex,
+    LiteralIndex, RawLiteralIndex,
 };
 use crate::value::implement::*;
 use std::fmt;
@@ -447,7 +448,7 @@ impl<'a> CompilerError<'a> {
 
     pub fn location(&self, expression: ExpressionRef<'a>) -> ErrorLocation<'a> {
         use self::CompilerError::*;
-        use self::ErrorLocation::*;
+        use crate::syntax::ErrorLocation::*;
         match self {
             // File open errors
             CurrentDirectoryError => ErrorLocation::Generic,

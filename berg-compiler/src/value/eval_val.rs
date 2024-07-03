@@ -1,5 +1,5 @@
 use crate::eval::BlockRef;
-use crate::syntax::identifiers::*;
+use crate::syntax::{identifiers::*, ExpressionErrorPosition};
 use crate::syntax::{FieldIndex, IdentifierIndex};
 use crate::value::implement::*;
 use std::fmt;

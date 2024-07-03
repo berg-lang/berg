@@ -1,4 +1,4 @@
-use crate::syntax::{
+use super::{
     Ast, AstIndex, Expression, ExpressionToken, ExpressionVisitor, Fixity, OperatorToken,
     VisitResult,
 };

@@ -1,4 +1,5 @@
 pub use self::char_data::LineColumnRange;
+pub use self::error_location::{ErrorLocation, ExpressionErrorPosition};
 pub use self::expression_formatter::{ExpressionFormatter, ExpressionTreeFormatter};
 pub use self::expression_tree::{ExpressionRef, ExpressionTreeWalker};
 pub use self::expression_visitor::{Expression, ExpressionVisitor, VisitResult};
@@ -24,6 +25,7 @@ mod ast;
 mod ast_expression;
 mod block;
 mod char_data;
+mod error_location;
 mod expression_formatter;
 mod expression_tree;
 mod expression_visitor;

@@ -1,6 +1,4 @@
-use crate::syntax::{
-    BlockIndex, ExpressionBoundary, ExpressionBoundaryError, IdentifierIndex, TermToken,
-};
+use super::{BlockIndex, ExpressionBoundary, ExpressionBoundaryError, IdentifierIndex, TermToken};
 
 ///
 /// A visitor that is passed expressions in evaluation order.

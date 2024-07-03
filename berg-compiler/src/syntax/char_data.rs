@@ -1,4 +1,4 @@
-use crate::syntax::{ByteIndex, ByteRange, WhitespaceIndex};
+use super::{ByteIndex, ByteRange, WhitespaceIndex};
 use crate::util::indexed_vec::Delta;
 use std::cmp::Ordering;
 use std::fmt::{Display, Formatter, Result};

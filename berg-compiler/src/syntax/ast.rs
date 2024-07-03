@@ -1,11 +1,11 @@
-use crate::eval::RootRef;
-use crate::syntax::char_data::CharData;
-use crate::syntax::OperandPosition::*;
-use crate::syntax::{
+use super::char_data::CharData;
+use super::OperandPosition::*;
+use super::{
     AstBlock, BlockIndex, ByteRange, ExpressionToken, Field, FieldIndex, IdentifierIndex,
     OperatorToken, SourceOpenError, SourceReconstruction, SourceReconstructionReader, SourceRef,
     Token,
 };
+use crate::eval::RootRef;
 use crate::util::indexed_vec::IndexedVec;
 use crate::value::CompilerError;
 use std::borrow::Cow;

@@ -1,9 +1,8 @@
-use crate::syntax::Fixity::*;
-use crate::syntax::{
+use super::{
     Ast, AstIndex, AstRef, ByteRange, ExpressionBoundary, ExpressionFormatter, ExpressionToken,
     ExpressionTreeFormatter, Fixity, OperandPosition, OperatorToken, SourceReconstruction, Token,
 };
-use crate::value::ExpressionErrorPosition;
+use super::{ExpressionErrorPosition, Fixity::*};
 use std::borrow::Cow;
 use std::fmt;
 use std::ops::RangeInclusive;

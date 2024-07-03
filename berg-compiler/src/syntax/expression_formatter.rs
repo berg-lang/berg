@@ -1,5 +1,5 @@
-use crate::syntax::identifiers::SEMICOLON;
-use crate::syntax::{
+use super::identifiers::SEMICOLON;
+use super::{
     ExpressionBoundary, ExpressionToken, ExpressionTreeWalker, Fixity, OperatorToken, TermToken,
     Token,
 };
