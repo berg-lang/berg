@@ -81,7 +81,7 @@ identifiers! {
     ERROR_CODE = "CompilerErrorCode",
 }
 
-pub(crate) fn intern_all() -> StringInterner<StringBackend<IdentifierIndex>> {
+pub fn intern_all() -> StringInterner<StringBackend<IdentifierIndex>> {
     let mut identifiers = StringInterner::new();
     for &(operator, string) in ALL_IDENTIFIERS.iter() {
         let actual_identifier = identifiers.get_or_intern_static(string);

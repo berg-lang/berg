@@ -60,7 +60,7 @@ pub enum OperandPosition {
 
 impl<'a> Ast<'a> {
     pub fn new(source: SourceRef<'a>, source_open_error: Option<SourceOpenError<'a>>) -> Ast<'a> {
-        let identifiers = source.root().identifiers();
+        let identifiers = super::identifiers::intern_all();
         let fields = source
             .root()
             .field_names()

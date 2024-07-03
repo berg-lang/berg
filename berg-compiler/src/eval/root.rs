@@ -1,7 +1,4 @@
-use string_interner::backend::StringBackend;
-use string_interner::StringInterner;
-
-use crate::syntax::{identifiers, FieldIndex, IdentifierIndex};
+use crate::syntax::{FieldIndex, IdentifierIndex};
 use crate::value::*;
 
 use std::env;
@@ -59,10 +56,6 @@ impl RootRef {
         let out = Box::new(io::stdout());
         let err = Box::new(io::stderr());
         RootRef::new(root_path, out, err)
-    }
-
-    pub fn identifiers(&self) -> StringInterner<StringBackend<IdentifierIndex>> {
-        identifiers::intern_all()
     }
 
     pub fn field_names(&self) -> impl ExactSizeIterator<Item = &IdentifierIndex> + fmt::Debug {
