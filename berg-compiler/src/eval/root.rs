@@ -1,3 +1,4 @@
+use crate::syntax::identifiers::keywords;
 use crate::syntax::{FieldIndex, IdentifierIndex};
 use crate::value::*;
 
@@ -17,16 +18,6 @@ struct RootData {
     out: Box<dyn Write>,
     #[allow(dead_code)]
     err: Box<dyn Write>,
-}
-
-///
-/// Keywords are fields in the root. When the identifier `true` is in the code,
-/// it's treated as a normal variable reference and looked up in scope (which
-/// includes the root scope).
-///
-#[allow(clippy::upper_case_acronyms)]
-pub mod keywords {
-    fields! { TRUE, FALSE, IF, ELSE, WHILE, FOREACH, BREAK, CONTINUE, TRY, CATCH, FINALLY, THROW, }
 }
 
 impl Default for RootRef {
@@ -74,7 +65,7 @@ impl RootRef {
     }
 
     pub fn local_field<'a>(&self, index: FieldIndex) -> EvalResult<'a> {
-        use crate::eval::keywords::*;
+        use crate::syntax::identifiers::keywords::*;
         use CompilerError::*;
         use EvalVal::*;
         match index {

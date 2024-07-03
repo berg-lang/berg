@@ -27,6 +27,34 @@ pub enum FieldError {
     NoSuchPublicField,
 }
 
+///
+/// Use this to make a series of constant fields starting at a particular index.
+/// Used for keyword fields on [`RootData`], but could be used for anything with
+/// a known starting index.
+///
+#[macro_export]
+macro_rules! fields {
+    { starting at $start:tt { $($name:ident,)* } } => {
+        pub const FIELD_NAMES: [$crate::syntax::IdentifierIndex; FieldDeltas::COUNT as usize] = [
+            $($crate::syntax::identifiers::$name,)*
+        ];
+        #[allow(dead_code)]
+        enum FieldDeltas {
+            $($name),*,
+            COUNT
+        }
+        #[allow(dead_code)]
+        fn field_name(field: $crate::syntax::FieldIndex) -> $crate::syntax::IdentifierIndex {
+            FIELD_NAMES[usize::from(field) - $start]
+        }
+        $(
+            #[allow(dead_code)]
+            pub const $name: $crate::syntax::FieldIndex = $crate::syntax::FieldIndex($start + FieldDeltas::$name as u32);
+        )*
+    };
+    { $($name:ident,)* } => { fields! { starting at 0 { $($name,)* } } }
+}
+
 impl AstBlock {
     pub fn public_field_index(
         &self,
