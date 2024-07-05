@@ -1,6 +1,11 @@
-use super::{Ast, AstDelta, ExpressionBoundary, IdentifierIndex};
 use berg_util::index_type;
 use std::u32;
+
+use super::{
+    ast::{Ast, AstDelta},
+    identifiers::IdentifierIndex,
+    token::ExpressionBoundary,
+};
 
 index_type! {
     pub struct BlockIndex(pub u32) with Display,Debug <= u32::MAX;
@@ -36,8 +41,8 @@ pub enum FieldError {
 #[macro_export]
 macro_rules! fields {
     { starting at $start:tt { $($name:ident,)* } } => {
-        pub const FIELD_NAMES: [$crate::syntax::IdentifierIndex; FieldDeltas::COUNT as usize] = [
-            $($crate::syntax::identifiers::$name,)*
+        pub const FIELD_NAMES: [$crate::IdentifierIndex; FieldDeltas::COUNT as usize] = [
+            $($crate::identifiers::$name,)*
         ];
         #[allow(dead_code)]
         enum FieldDeltas {
@@ -45,12 +50,12 @@ macro_rules! fields {
             COUNT
         }
         #[allow(dead_code)]
-        fn field_name(field: $crate::syntax::FieldIndex) -> $crate::syntax::IdentifierIndex {
+        fn field_name(field: $crate::FieldIndex) -> $crate::IdentifierIndex {
             FIELD_NAMES[usize::from(field) - $start]
         }
         $(
             #[allow(dead_code)]
-            pub const $name: $crate::syntax::FieldIndex = $crate::syntax::FieldIndex($start + FieldDeltas::$name as u32);
+            pub const $name: $crate::FieldIndex = $crate::FieldIndex($start + FieldDeltas::$name as u32);
         )*
     };
     { $($name:ident,)* } => { fields! { starting at 0 { $($name,)* } } }

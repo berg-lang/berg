@@ -1,20 +1,26 @@
-use crate::parser::CharType;
-use crate::parser::CharType::*;
-use crate::parser::Scanner;
-use crate::parser::Tokenizer;
-use crate::syntax::ByteSlice;
-use crate::syntax::ErrorTermError::*;
-use crate::syntax::ExpressionBoundary::*;
-use crate::syntax::ExpressionToken::*;
-use crate::syntax::OperatorToken::*;
-use crate::syntax::TermToken::*;
 use crate::syntax::{
-    Ast, ByteIndex, ByteRange, ErrorTermError, IdentifierIndex, LiteralIndex, RawErrorTermError,
-    WhitespaceIndex,
+    ast::{Ast, LiteralIndex, WhitespaceIndex},
+    bytes::{ByteIndex, ByteRange, ByteSlice},
+    identifiers::IdentifierIndex,
+    token::{
+        ErrorTermError, ExpressionBoundary, ExpressionToken, OperatorToken, RawErrorTermError,
+        TermToken,
+    },
 };
 use berg_util::Delta;
 use std::borrow::Cow;
 use std::cmp::min;
+use CharType::*;
+use ErrorTermError::*;
+use ExpressionBoundary::*;
+use ExpressionToken::*;
+use OperatorToken::*;
+use TermToken::*;
+
+use super::{
+    scanner::{CharType, Scanner},
+    tokenizer::Tokenizer,
+};
 
 ///
 /// Chunks up the source into sequences: space, newlines, operators, etc.

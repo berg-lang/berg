@@ -1,6 +1,7 @@
 use super::{
-    Ast, AstIndex, Expression, ExpressionToken, ExpressionVisitor, Fixity, OperatorToken,
-    VisitResult,
+    ast::{Ast, AstIndex},
+    expression_visitor::{Expression, ExpressionVisitor, VisitResult},
+    token::{ExpressionToken, Fixity, OperatorToken},
 };
 
 ///

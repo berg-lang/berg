@@ -1,9 +1,10 @@
 use std::borrow::Cow;
 
-use crate::syntax::{ByteIndex, ByteSlice};
 use berg_util::Delta;
 use ByteType::*;
 use CharType::*;
+
+use crate::syntax::bytes::{ByteIndex, ByteSlice};
 
 ///
 /// Scans UTF-8 identifying characters.

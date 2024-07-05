@@ -1,12 +1,14 @@
-use crate::parser::sequencer::IndentLevel;
-use crate::parser::Grouper;
-use crate::syntax::identifiers::{APPLY, FOLLOWED_BY, NEWLINE_SEQUENCE};
-use crate::syntax::OperatorToken::*;
-use crate::syntax::TermToken::*;
 use crate::syntax::{
-    Ast, ByteIndex, ByteRange, ExpressionBoundary, ExpressionToken, OperatorToken,
+    ast::Ast,
+    bytes::{ByteIndex, ByteRange},
+    identifiers::{APPLY, FOLLOWED_BY, NEWLINE_SEQUENCE},
+    token::{ExpressionBoundary, ExpressionToken, OperatorToken, TermToken},
 };
+use OperatorToken::*;
+use TermToken::*;
 use WhitespaceState::*;
+
+use super::{grouper::Grouper, sequencer::IndentLevel};
 
 ///
 /// This builds up a valid expression from the incoming sequences.

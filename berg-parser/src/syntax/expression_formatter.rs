@@ -1,9 +1,8 @@
-use super::identifiers::SEMICOLON;
-use super::{
-    ExpressionBoundary, ExpressionToken, ExpressionTreeWalker, Fixity, OperatorToken, TermToken,
-    Token,
-};
 use std::fmt;
+
+use super::expression_tree::ExpressionTreeWalker;
+use super::identifiers::SEMICOLON;
+use super::token::{ExpressionBoundary, ExpressionToken, Fixity, OperatorToken, TermToken, Token};
 
 #[derive(Copy, Clone, Debug)]
 pub struct ExpressionFormatter;

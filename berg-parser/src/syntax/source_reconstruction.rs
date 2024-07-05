@@ -1,8 +1,12 @@
-use super::{Ast, AstIndex, ByteIndex, ByteRange};
 use std::borrow::Cow;
 use std::fmt;
 use std::io;
 use std::io::Read;
+
+use super::ast::Ast;
+use super::ast::AstIndex;
+use super::bytes::ByteIndex;
+use super::bytes::ByteRange;
 
 ///
 /// Reconstructs a range of source from the parsed AST.

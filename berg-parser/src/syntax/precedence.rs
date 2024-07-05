@@ -1,5 +1,6 @@
-use super::{IdentifierIndex, OperatorToken};
 use Precedence::*;
+
+use super::{identifiers::IdentifierIndex, token::OperatorToken};
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum Precedence {

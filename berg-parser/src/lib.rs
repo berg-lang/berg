@@ -3,9 +3,14 @@ pub(crate) mod syntax;
 
 pub use parser::parse;
 pub use syntax::{
-    identifiers, Ast, AstExpressionTree, AstIndex, BlockIndex, ByteIndex, ByteRange, ByteSlice,
-    ErrorTermError, ExpressionBoundary, ExpressionBoundaryError, ExpressionPosition,
-    ExpressionToken, ExpressionTreeWalker, FieldError, FieldIndex, Fixity, IdentifierIndex,
-    LineColumnRange, LiteralIndex, OperatorToken, RawErrorTermError, RawLiteralIndex, TermToken,
-    Token,
+    ast::{Ast, AstIndex, LiteralIndex, RawLiteralIndex},
+    block::{BlockIndex, FieldError, FieldIndex},
+    bytes::{ByteIndex, ByteRange, ByteSlice},
+    char_data::LineColumnRange,
+    expression_tree::{AstExpressionTree, ExpressionPosition, ExpressionTreeWalker},
+    identifiers::{self, IdentifierIndex},
+    token::{
+        ErrorTermError, ExpressionBoundary, ExpressionBoundaryError, ExpressionToken, Fixity,
+        OperatorToken, RawErrorTermError, TermToken, Token,
+    },
 };

@@ -1,11 +1,13 @@
-use super::Fixity::*;
-use super::{
-    Ast, AstIndex, ByteRange, ExpressionBoundary, ExpressionFormatter, ExpressionToken,
-    ExpressionTreeFormatter, Fixity, OperandPosition, OperatorToken, SourceReconstruction, Token,
-};
 use std::borrow::Cow;
 use std::fmt;
 use std::ops::RangeInclusive;
+
+use super::ast::{Ast, AstIndex, OperandPosition};
+use super::bytes::ByteRange;
+use super::expression_formatter::{ExpressionFormatter, ExpressionTreeFormatter};
+use super::source_reconstruction::SourceReconstruction;
+use super::token::{ExpressionBoundary, ExpressionToken, Fixity, OperatorToken, Token};
+use Fixity::*;
 
 ///
 /// Implements Expression navigation: left operand, right operand, open/close

@@ -1,11 +1,10 @@
+use super::ast::{Ast, AstDelta, LiteralIndex, RawLiteralIndex};
+use super::block::{BlockIndex, FieldIndex};
 use super::identifiers::*;
 use super::precedence::Precedence;
-use super::ExpressionBoundary::*;
-use super::{
-    Ast, AstDelta, BlockIndex, FieldIndex, IdentifierIndex, LiteralIndex, RawLiteralIndex,
-};
 use std::borrow::Cow;
 use std::fmt;
+use ExpressionBoundary::*;
 
 ///
 /// One atomic unit of an expression.

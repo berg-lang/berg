@@ -1,4 +1,9 @@
-use super::{BlockIndex, ExpressionBoundary, ExpressionBoundaryError, IdentifierIndex, TermToken};
+use crate::IdentifierIndex;
+
+use super::{
+    block::BlockIndex,
+    token::{ExpressionBoundary, ExpressionBoundaryError, TermToken},
+};
 
 ///
 /// A visitor that is passed expressions in evaluation order.

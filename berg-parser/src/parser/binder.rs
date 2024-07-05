@@ -1,8 +1,12 @@
-use crate::syntax::identifiers::*;
 use crate::syntax::{
-    Ast, AstBlock, AstDelta, AstIndex, BlockIndex, ByteRange, ExpressionBoundary,
-    ExpressionBoundaryError, ExpressionToken, Field, FieldIndex, IdentifierIndex, OperatorToken,
-    TermToken, Token,
+    ast::{Ast, AstDelta, AstIndex},
+    block::{AstBlock, BlockIndex, Field, FieldIndex},
+    bytes::ByteRange,
+    identifiers::*,
+    token::{
+        ExpressionBoundary, ExpressionBoundaryError, ExpressionToken, OperatorToken, TermToken,
+        Token,
+    },
 };
 use berg_util::Delta;
 

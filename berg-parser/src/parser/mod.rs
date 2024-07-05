@@ -6,14 +6,9 @@ mod tokenizer;
 
 use std::borrow::Cow;
 
-use crate::syntax::Ast;
-use crate::syntax::ByteSlice;
-use binder::Binder;
-use grouper::Grouper;
-use scanner::CharType;
-use scanner::Scanner;
 use sequencer::Sequencer;
-use tokenizer::Tokenizer;
+
+use crate::syntax::{ast::Ast, bytes::ByteSlice};
 
 ///
 /// Opens and parses the source into an AST.
@@ -32,7 +27,7 @@ pub fn parse(buffer: Cow<'static, ByteSlice>) -> Ast {
     println!("Parsed:");
     let mut level = 0;
     for i in 0..ast.tokens.len() {
-        use crate::syntax::{ExpressionToken, OperatorToken, Token};
+        use crate::syntax::token::{ExpressionToken, OperatorToken, Token};
         let token = ast.token(i.into());
         let token_range = ast.token_range(i.into());
         if let Token::Operator(OperatorToken::Close(..)) = token {
