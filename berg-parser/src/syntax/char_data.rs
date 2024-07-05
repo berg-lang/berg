@@ -1,5 +1,5 @@
 use super::{ByteIndex, ByteRange, WhitespaceIndex};
-use crate::util::indexed_vec::Delta;
+use berg_util::Delta;
 use std::cmp::Ordering;
 use std::fmt::{Display, Formatter, Result};
 use std::str;

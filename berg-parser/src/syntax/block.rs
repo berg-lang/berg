@@ -1,4 +1,5 @@
 use super::{Ast, AstDelta, ExpressionBoundary, IdentifierIndex};
+use berg_util::index_type;
 use std::u32;
 
 index_type! {

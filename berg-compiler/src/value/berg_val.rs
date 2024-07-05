@@ -1,6 +1,6 @@
 use crate::eval::BlockRef;
-use crate::syntax::ExpressionPosition;
 use crate::value::implement::*;
+use berg_parser::ExpressionPosition;
 use num::BigRational;
 use std::fmt;
 

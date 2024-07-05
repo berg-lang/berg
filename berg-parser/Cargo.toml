@@ -1,16 +1,13 @@
 [package]
-name = "berg-compiler"
+name = "berg-parser"
 version = "0.1.0"
 authors = ["John Keiser <john@johnkeiser.com>"]
 edition = "2021"
 
 [dependencies]
-num = "*"
-fnv = "*"
 clippy = {version = "*", optional = true}
-matches = "*"
 berg-util = {path = "../berg-util"}
-berg-parser = {path = "../berg-parser"}
+string-interner = "*"
 
 [dev-dependencies]
 clippy = {version = "*"}

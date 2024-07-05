@@ -12,7 +12,7 @@ use crate::syntax::{
     Ast, ByteIndex, ByteRange, ErrorTermError, IdentifierIndex, LiteralIndex, RawErrorTermError,
     WhitespaceIndex,
 };
-use crate::util::indexed_vec::Delta;
+use berg_util::Delta;
 use std::borrow::Cow;
 use std::cmp::min;
 

@@ -1,5 +1,5 @@
-use crate::syntax::ExpressionPosition::*;
 use crate::value::*;
+use berg_parser::ExpressionPosition::*;
 use std::fmt;
 use std::marker::PhantomData;
 
@@ -286,11 +286,11 @@ impl<'a> NextVal<'a> {
 
 pub mod implement {
     pub use super::expression::ExpressionRef;
-    pub use crate::syntax::ExpressionPosition::*;
     pub use crate::value::CompilerError::*;
     pub use crate::value::*;
+    pub use berg_parser::ExpressionPosition::*;
 
-    use crate::syntax::Fixity;
+    use berg_parser::Fixity;
 
     pub fn single_next_val<'a>(value: impl Value<'a>) -> Result<NextVal<'a>, EvalException<'a>> {
         NextVal::single(value.lazy_val()?).ok()
@@ -330,7 +330,7 @@ pub mod implement {
         operator: IdentifierIndex,
         right: RightOperand<'a, impl EvaluatableValue<'a>>,
     ) -> EvalResult<'a> {
-        use crate::syntax::identifiers::{
+        use berg_parser::identifiers::{
             COLON, COMMA, DOT, EQUAL_TO, EXCLAMATION_POINT, NEWLINE_SEQUENCE, NOT_EQUAL_TO,
             SEMICOLON,
         };
@@ -406,7 +406,7 @@ pub mod implement {
         operand: impl Value<'a>,
         operator: IdentifierIndex,
     ) -> EvalResult<'a> {
-        use crate::syntax::identifiers::{DASH_DASH, PLUS_PLUS};
+        use berg_parser::identifiers::{DASH_DASH, PLUS_PLUS};
         match operator {
             PLUS_PLUS | DASH_DASH => {
                 CompilerError::AssignmentTargetMustBeIdentifier.operand_err(Left)
@@ -424,7 +424,7 @@ pub mod implement {
         operand: impl Value<'a> + OperableValue<'a> + 'a,
         operator: IdentifierIndex,
     ) -> EvalResult<'a> {
-        use crate::syntax::identifiers::{
+        use berg_parser::identifiers::{
             DASH_DASH, DOUBLE_EXCLAMATION_POINT, EXCLAMATION_POINT, PLUS_PLUS,
         };
         match operator {

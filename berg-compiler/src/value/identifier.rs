@@ -1,5 +1,5 @@
-use crate::syntax::identifiers::*;
 use crate::value::implement::*;
+use berg_parser::identifiers::*;
 
 impl<'a> TryFromBergVal<'a> for IdentifierIndex {
     const TYPE_NAME: &'static str = "identifier";

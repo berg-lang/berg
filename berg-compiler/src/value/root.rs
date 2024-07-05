@@ -1,9 +1,9 @@
 use source::SourceRoot;
 
-use crate::syntax::identifiers::keywords;
-use crate::syntax::{FieldIndex, IdentifierIndex};
-use crate::util::indexed_vec::to_indexed_cow;
-use crate::{parser, value::*};
+use crate::value::*;
+use berg_parser::identifiers::keywords;
+use berg_parser::{FieldIndex, IdentifierIndex};
+use berg_util::to_indexed_cow;
 
 use std::borrow::Cow;
 use std::fmt;
@@ -54,7 +54,7 @@ impl RootRef {
             Ok(buffer) => AstRef::new(
                 self.clone(),
                 SourceSpec::File(source),
-                parser::parse(buffer),
+                berg_parser::parse(buffer),
             ),
             Err(error) => AstRef::new_error(self.clone(), SourceSpec::File(source), error),
         }
@@ -66,7 +66,7 @@ impl RootRef {
         buffer: impl Into<Cow<'static, [u8]>>,
     ) -> AstRef {
         let source = SourceSpec::Memory(name.into());
-        let ast = parser::parse(to_indexed_cow(buffer.into()));
+        let ast = berg_parser::parse(to_indexed_cow(buffer.into()));
         AstRef::new(self.clone(), source, ast)
     }
 

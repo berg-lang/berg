@@ -1,5 +1,5 @@
 use super::implement::*;
-use crate::syntax::{
+use berg_parser::{
     AstIndex, ByteRange, ExpressionPosition, ExpressionTreeWalker, IdentifierIndex, LineColumnRange,
 };
 use std::fmt;

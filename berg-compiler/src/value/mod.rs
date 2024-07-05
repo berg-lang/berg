@@ -24,6 +24,6 @@ pub use self::root::RootRef;
 pub use self::source::{AstRef, SourceRoot, SourceSpec};
 pub use self::tuple::Tuple;
 // Export types used in definition of BergValue and BergVal
-pub use crate::syntax::{ExpressionBoundary, IdentifierIndex};
+pub use berg_parser::{ExpressionBoundary, IdentifierIndex};
 // Or just so damn useful we're including them anyway ...
-pub use crate::util::result_util::{ErrShorthand, OkShorthand, ResShorthand};
+pub use berg_util::{ErrShorthand, OkShorthand, ResShorthand};

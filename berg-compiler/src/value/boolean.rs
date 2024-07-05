@@ -1,5 +1,5 @@
-use crate::syntax::identifiers::*;
 use crate::value::implement::*;
+use berg_parser::identifiers::*;
 
 impl<'a> BergValue<'a> for bool {}
 

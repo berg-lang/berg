@@ -1,5 +1,5 @@
-use crate::syntax::IdentifierIndex;
 use crate::value::implement::*;
+use berg_parser::IdentifierIndex;
 use std::fmt;
 use std::iter::FromIterator;
 

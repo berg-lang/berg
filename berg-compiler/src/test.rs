@@ -1,12 +1,11 @@
 use crate::eval::evaluate_ast;
-use crate::syntax::identifiers::*;
-use crate::syntax::{ByteIndex, ByteRange, LineColumnRange};
-use crate::util::from_range::BoundedRange;
-use crate::util::from_range::IntoRange;
 use crate::value::*;
+use berg_parser::identifiers::*;
+use berg_parser::{ByteIndex, ByteRange, LineColumnRange};
+use berg_util::{BoundedRange, IntoRange};
 use std::fmt;
 use std::io;
-use std::ops::Range;
+use std::ops::{Range, RangeFrom, RangeInclusive, RangeTo};
 pub use CompilerErrorCode::*;
 
 ///
@@ -445,13 +444,24 @@ fn find_line_start(line: usize, source: &[u8]) -> usize {
     }
     current_line_start
 }
-impl<R: BoundedRange<ByteIndex>, T: IntoRange<ByteIndex, Output = R> + fmt::Debug>
-    ExpectedErrorRange for T
-{
+impl ExpectedErrorRange for RangeInclusive<usize> {
     fn into_error_range(self, source: &[u8]) -> ByteRange {
-        let result = self.into_range().bounded_range(source.len().into());
-        assert!(result.start + 1 != result.end);
-        result
+        self.bounded_range(source.len()).into_range()
+    }
+}
+impl ExpectedErrorRange for Range<usize> {
+    fn into_error_range(self, source: &[u8]) -> ByteRange {
+        self.bounded_range(source.len()).into_range()
+    }
+}
+impl ExpectedErrorRange for RangeFrom<usize> {
+    fn into_error_range(self, source: &[u8]) -> ByteRange {
+        self.bounded_range(source.len()).into_range()
+    }
+}
+impl ExpectedErrorRange for RangeTo<usize> {
+    fn into_error_range(self, source: &[u8]) -> ByteRange {
+        self.bounded_range(source.len()).into_range()
     }
 }
 

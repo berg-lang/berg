@@ -1,4 +1,4 @@
-use crate::util::indexed_vec::IndexedSlice;
+use berg_util::{index_type, IndexedSlice};
 use std::ops::Range;
 use std::u32;
 

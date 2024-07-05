@@ -1,13 +1,6 @@
 // Turn on all warnings
 #![warn(clippy::all)]
 
-// Used for the faster hash algorithm
-extern crate fnv;
-// Used for arbitrary-precision numbers
-extern crate num;
-// Used to pool identifiers and operators (making identifier comparison faster)
-extern crate string_interner;
-
 use value::RootRef;
 
 // Explicitly expose just the interfaces we want to expose
@@ -21,12 +14,7 @@ use std::path::Path;
 #[macro_use]
 extern crate matches;
 
-#[macro_use]
-pub(crate) mod util;
-#[macro_use]
-pub(crate) mod syntax;
 pub(crate) mod eval;
-pub(crate) mod parser;
 pub(crate) mod value;
 
 pub mod test;

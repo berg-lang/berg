@@ -1,9 +1,9 @@
 use crate::eval::ExpressionEvaluator;
-use crate::syntax::{
+use crate::value::implement::*;
+use berg_parser::{
     Ast, AstIndex, BlockIndex, ExpressionPosition, ExpressionToken, ExpressionTreeWalker,
     FieldError, FieldIndex, IdentifierIndex,
 };
-use crate::value::implement::*;
 use std::cell::{Ref, RefCell, RefMut};
 use std::fmt;
 use std::mem;
@@ -513,7 +513,7 @@ impl<'a> OperableValue<'a> for BlockRef<'a> {
     where
         Self: Sized,
     {
-        use crate::syntax::identifiers::*;
+        use berg_parser::identifiers::*;
         use EvalVal::*;
 
         match operator {

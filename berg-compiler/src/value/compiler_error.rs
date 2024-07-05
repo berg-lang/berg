@@ -2,8 +2,8 @@ use exception::ErrorLocation;
 
 use super::implement::*;
 use crate::eval::BlockRef;
-use crate::syntax::identifiers::ERROR_CODE;
-use crate::syntax::{
+use berg_parser::identifiers::ERROR_CODE;
+use berg_parser::{
     ExpressionPosition, FieldIndex, Fixity, IdentifierIndex, LiteralIndex, RawLiteralIndex,
 };
 use std::rc::Rc;

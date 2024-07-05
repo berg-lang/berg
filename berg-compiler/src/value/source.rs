@@ -1,4 +1,4 @@
-use crate::util::indexed_vec::to_indexed_cow;
+use berg_util::to_indexed_cow;
 use std::fs::File;
 use std::io::Read;
 use std::ops::Deref;
@@ -6,7 +6,7 @@ use std::path::Path;
 use std::{borrow::Cow, rc::Rc};
 use std::{env, io};
 
-use crate::syntax::{Ast, ByteIndex, ByteSlice};
+use berg_parser::{Ast, ByteIndex, ByteSlice};
 
 use super::compiler_error::SourceLoadError;
 use super::RootRef;
@@ -87,7 +87,7 @@ impl SourceSpec {
         buffer: Cow<'static, [u8]>,
     ) -> AstRef {
         let source = SourceSpec::Memory(name);
-        let ast = crate::parser::parse(to_indexed_cow(buffer));
+        let ast = berg_parser::parse(to_indexed_cow(buffer));
         AstRef::new(root, source, ast)
     }
 }

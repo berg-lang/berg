@@ -1,15 +1,16 @@
 use crate::eval::BlockRef;
-use crate::syntax::identifiers::APPLY;
-use crate::syntax::{
-    ErrorTermError, ExpressionBoundary, ExpressionBoundaryError, ExpressionToken,
+use crate::value::implement::*;
+use berg_parser::identifiers::APPLY;
+use berg_parser::{
+    Ast, AstIndex, ErrorTermError, ExpressionBoundary, ExpressionBoundaryError, ExpressionToken,
     ExpressionTreeWalker, IdentifierIndex, OperatorToken, RawErrorTermError, TermToken, Token,
 };
-use crate::value::implement::*;
 use num::BigRational;
 use std::fmt;
 use std::str::FromStr;
 
-pub type ExpressionEvaluator<'p, 'a> = ExpressionTreeWalker<'p, &'p BlockRef<'a>>;
+#[derive(Copy, Clone)]
+pub struct ExpressionEvaluator<'p, 'a: 'p>(ExpressionTreeWalker<'p, &'p BlockRef<'a>>);
 
 impl<'p, 'a: 'p> From<ExpressionEvaluator<'p, 'a>> for ExpressionRef {
     fn from(from: ExpressionEvaluator<'p, 'a>) -> Self {
@@ -17,20 +18,49 @@ impl<'p, 'a: 'p> From<ExpressionEvaluator<'p, 'a>> for ExpressionRef {
     }
 }
 
+impl<'p, 'a: 'p> fmt::Debug for ExpressionEvaluator<'p, 'a> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:?}", self.0)
+    }
+}
 impl<'p, 'a: 'p> fmt::Display for ExpressionEvaluator<'p, 'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{:?}", self)
+        write!(f, "{:?}", self.0)
     }
 }
 
 impl<'p, 'a: 'p> ExpressionEvaluator<'p, 'a> {
+    pub fn new(context: &'p BlockRef<'a>, ast: &'p Ast, root: AstIndex) -> Self {
+        Self(ExpressionTreeWalker::new(context, ast, root))
+    }
     pub fn scope(self) -> &'p BlockRef<'a> {
-        self.context()
+        self.0.context()
+    }
+    pub fn depth(self) -> usize {
+        self.0.depth()
+    }
+    fn root_index(self) -> AstIndex {
+        self.0.root_index()
+    }
+    fn ast(self) -> &'p Ast {
+        self.0.ast()
+    }
+    fn token(self) -> Token {
+        self.0.token()
     }
     pub fn evaluate_block(self, boundary: ExpressionBoundary) -> BergResult<'a> {
         self.evaluate_inner(boundary)
             .lazy_val()
             .map_err(|e| e.at_location(self))
+    }
+    pub fn inner_expression(self) -> Self {
+        Self(self.0.inner_expression())
+    }
+    pub fn left_expression(self) -> Self {
+        Self(self.0.left_expression())
+    }
+    pub fn right_expression(self) -> Self {
+        Self(self.0.right_expression())
     }
     fn evaluate_local(self) -> Result<EvalVal<'a>, Exception<'a>> {
         let indent = "  ".repeat(self.depth());

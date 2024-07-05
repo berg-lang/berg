@@ -4,7 +4,7 @@ use crate::syntax::{
     ExpressionBoundaryError, ExpressionToken, Field, FieldIndex, IdentifierIndex, OperatorToken,
     TermToken, Token,
 };
-use crate::util::indexed_vec::Delta;
+use berg_util::Delta;
 
 // Handles nesting and precedence: balances (), {}, and compound terms, and
 // inserts "precedence groups," and removes compound terms and precedence

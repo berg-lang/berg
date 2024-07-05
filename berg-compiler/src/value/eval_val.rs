@@ -1,7 +1,7 @@
 use crate::eval::BlockRef;
-use crate::syntax::{identifiers::*, ExpressionPosition};
-use crate::syntax::{FieldIndex, IdentifierIndex};
 use crate::value::implement::*;
+use berg_parser::{identifiers::*, ExpressionPosition};
+use berg_parser::{FieldIndex, IdentifierIndex};
 use std::fmt;
 use EvalVal::*;
 

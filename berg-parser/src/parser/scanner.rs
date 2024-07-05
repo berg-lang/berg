@@ -1,7 +1,7 @@
 use std::borrow::Cow;
 
 use crate::syntax::{ByteIndex, ByteSlice};
-use crate::util::indexed_vec::Delta;
+use berg_util::Delta;
 use ByteType::*;
 use CharType::*;
 

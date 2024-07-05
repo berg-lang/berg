@@ -507,7 +507,7 @@ impl TermToken {
 
 impl ExpressionBoundary {
     /// Tells whether this expression boundary represents a block.
-    pub(crate) fn is_block(self) -> bool {
+    pub fn is_block(self) -> bool {
         match self {
             CurlyBraces | Source | Root | AutoBlock | IndentedBlock => true,
             Parentheses | PrecedenceGroup | CompoundTerm | IndentedExpression => false,
@@ -515,7 +515,7 @@ impl ExpressionBoundary {
     }
     /// Tells whether this boundary type MUST be in the expression tree (because
     /// it represents actual user syntax, or opens a scope).
-    pub(crate) fn is_required(self) -> bool {
+    pub fn is_required(self) -> bool {
         match self {
             Root | Source | CurlyBraces | Parentheses | AutoBlock | IndentedBlock
             | IndentedExpression => true,
@@ -524,22 +524,19 @@ impl ExpressionBoundary {
     }
     /// Tells whether we expect a close token for this boundary or if it's handled
     /// by the grouper automatically.
-    pub(crate) fn is_closed_automatically(self) -> bool {
+    pub fn is_closed_automatically(self) -> bool {
         match self {
             PrecedenceGroup | CompoundTerm | AutoBlock | IndentedBlock | IndentedExpression => true,
             Root | Source | CurlyBraces | Parentheses => false,
         }
     }
-    pub(crate) fn placeholder_open_token(
-        self,
-        error: Option<ExpressionBoundaryError>,
-    ) -> ExpressionToken {
+    pub fn placeholder_open_token(self, error: Option<ExpressionBoundaryError>) -> ExpressionToken {
         ExpressionToken::Open(error, self, Default::default())
     }
-    pub(crate) fn placeholder_close_token(self) -> OperatorToken {
+    pub fn placeholder_close_token(self) -> OperatorToken {
         OperatorToken::Close(Default::default(), self)
     }
-    pub(crate) fn open_string(self) -> &'static str {
+    pub fn open_string(self) -> &'static str {
         match self {
             CurlyBraces => OPEN_CURLY.well_known_str(),
             Parentheses => OPEN_PAREN.well_known_str(),
@@ -547,7 +544,7 @@ impl ExpressionBoundary {
             | Source | Root => "",
         }
     }
-    pub(crate) fn visible_open_string(self) -> &'static str {
+    pub fn visible_open_string(self) -> &'static str {
         match self {
             CurlyBraces => OPEN_CURLY.well_known_str(),
             Parentheses => OPEN_PAREN.well_known_str(),
@@ -560,7 +557,7 @@ impl ExpressionBoundary {
             Root => "root {",
         }
     }
-    pub(crate) fn close_string(self) -> &'static str {
+    pub fn close_string(self) -> &'static str {
         match self {
             CurlyBraces => CLOSE_CURLY.well_known_str(),
             Parentheses => CLOSE_PAREN.well_known_str(),
@@ -568,7 +565,7 @@ impl ExpressionBoundary {
             | Source | Root => "",
         }
     }
-    pub(crate) fn visible_close_string(self) -> &'static str {
+    pub fn visible_close_string(self) -> &'static str {
         match self {
             CurlyBraces => CLOSE_CURLY.well_known_str(),
             Parentheses => CLOSE_PAREN.well_known_str(),

@@ -5,7 +5,7 @@ use super::{
     AstBlock, BlockIndex, ByteRange, ExpressionToken, Field, FieldIndex, IdentifierIndex,
     OperatorToken, SourceReconstruction, SourceReconstructionReader, Token,
 };
-use crate::util::indexed_vec::IndexedVec;
+use berg_util::{index_type, IndexedVec};
 use std::borrow::Cow;
 use std::num::NonZeroU32;
 use std::u32;

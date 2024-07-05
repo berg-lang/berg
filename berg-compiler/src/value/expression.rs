@@ -1,5 +1,5 @@
 use super::AstRef;
-use crate::syntax::{AstExpressionTree, AstIndex, ExpressionPosition, ExpressionTreeWalker};
+use berg_parser::{AstExpressionTree, AstIndex, ExpressionPosition, ExpressionTreeWalker};
 use std::fmt;
 
 #[derive(Clone)]
