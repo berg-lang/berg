@@ -1,11 +1,13 @@
+use exception::ErrorLocation;
+
+use super::implement::*;
 use crate::eval::BlockRef;
 use crate::syntax::identifiers::ERROR_CODE;
 use crate::syntax::{
-    ErrorLocation, ExpressionErrorPosition, ExpressionRef, FieldIndex, Fixity, IdentifierIndex,
-    LiteralIndex, RawLiteralIndex,
+    ExpressionPosition, FieldIndex, Fixity, IdentifierIndex, LiteralIndex, RawLiteralIndex,
 };
-use crate::value::implement::*;
-use std::fmt;
+use std::rc::Rc;
+use std::{fmt, io};
 
 ///
 /// Standard berg error.
@@ -18,32 +20,7 @@ use std::fmt;
 #[derive(Debug, Clone)]
 pub enum CompilerError<'a> {
     // File open errors
-    ///
-    /// The source file to be read could not be found.
-    ///
-    SourceNotFound,
-
-    ///
-    /// There was an I/O error opening the source file. The file may or may not
-    /// exist (depending on the type of the IoOpenError).
-    ///
-    IoOpenError,
-
-    ///
-    /// There was an I/O error reading the source file.
-    ///
-    IoReadError,
-
-    ///
-    /// There was an error determining the current directory.
-    ///
-    CurrentDirectoryError,
-
-    ///
-    /// A source file was more than 32-bits (4GB).
-    ///
-    SourceTooLarge(usize),
-
+    SourceLoadError(SourceLoadError),
     // Code errors
     InvalidUtf8(RawLiteralIndex),
     UnsupportedCharacters(LiteralIndex),
@@ -97,6 +74,36 @@ pub enum CompilerError<'a> {
     // These are control values--only errors if nobody catches them.
     BreakOutsideLoop,
     ContinueOutsideLoop,
+}
+
+#[derive(Debug, Clone)]
+pub enum SourceLoadError {
+    // File open errors
+    ///
+    /// The source file to be read could not be found.
+    ///
+    SourceNotFound(Rc<io::Error>),
+
+    ///
+    /// There was an I/O error opening the source file. The file may or may not
+    /// exist (depending on the type of the IoOpenError).
+    ///
+    IoOpenError(Rc<io::Error>),
+
+    ///
+    /// There was an I/O error reading the source file.
+    ///
+    IoReadError(Rc<io::Error>),
+
+    ///
+    /// There was an error determining the current directory.
+    ///
+    CurrentDirectoryError(Rc<io::Error>),
+
+    ///
+    /// A source file was more than 32-bits (4GB).
+    ///
+    SourceTooLarge(usize),
 }
 
 #[derive(Debug, Copy, Clone, PartialEq)]
@@ -366,7 +373,7 @@ impl<'a> fmt::Display for EvalException<'a> {
         match self {
             Error(error) => write!(f, "{}", error),
             Thrown(error, position) => match position {
-                ExpressionErrorPosition::Expression => write!(f, "{:?}", error),
+                ExpressionPosition::Expression => write!(f, "{:?}", error),
                 _ => write!(f, "{:?} at {:?}", error, position),
             },
         }
@@ -374,24 +381,19 @@ impl<'a> fmt::Display for EvalException<'a> {
 }
 
 impl<'a> CompilerError<'a> {
-    pub fn at_location(self, expression: impl Into<ExpressionRef<'a>>) -> Exception<'a> {
+    pub fn at_location(self, expression: impl Into<ExpressionRef>) -> Exception<'a> {
         Exception::new(self.into(), expression.into())
     }
 
-    pub fn operand_err<T>(self, position: ExpressionErrorPosition) -> Result<T, EvalException<'a>> {
+    pub fn operand_err<T>(self, position: ExpressionPosition) -> Result<T, EvalException<'a>> {
         Err(EvalException::Thrown(self.into(), position))
     }
 
     pub fn code(&self) -> CompilerErrorCode {
         use self::CompilerError::*;
-        match *self {
+        match self {
             // File open errors
-            SourceNotFound => CompilerErrorCode::SourceNotFound,
-            IoOpenError => CompilerErrorCode::IoOpenError,
-            IoReadError => CompilerErrorCode::IoReadError,
-            CurrentDirectoryError => CompilerErrorCode::CurrentDirectoryError,
-            SourceTooLarge(..) => CompilerErrorCode::SourceTooLarge,
-
+            SourceLoadError(error) => error.code(),
             // Expression errors
             InvalidUtf8(..) => CompilerErrorCode::InvalidUtf8,
             UnsupportedCharacters(..) => CompilerErrorCode::UnsupportedCharacters,
@@ -446,15 +448,11 @@ impl<'a> CompilerError<'a> {
         }
     }
 
-    pub fn location(&self, expression: ExpressionRef<'a>) -> ErrorLocation<'a> {
+    pub fn location(&self, expression: ExpressionRef) -> ErrorLocation {
         use self::CompilerError::*;
-        use crate::syntax::ErrorLocation::*;
+        use super::exception::ErrorLocation::*;
         match self {
-            // File open errors
-            CurrentDirectoryError => ErrorLocation::Generic,
-            SourceNotFound | IoOpenError | IoReadError | SourceTooLarge(..) => {
-                SourceOnly(expression.ast)
-            }
+            SourceLoadError(error) => error.location(expression.ast),
 
             MissingOperand => {
                 let range = expression.ast.token_ranges
@@ -530,46 +528,10 @@ impl<'a> CompilerError<'a> {
         }
     }
 
-    pub fn fmt_display(
-        &self,
-        expression: &ExpressionRef<'a>,
-        f: &mut fmt::Formatter,
-    ) -> fmt::Result {
+    pub fn fmt_display(&self, expression: &ExpressionRef, f: &mut fmt::Formatter) -> fmt::Result {
         use CompilerError::*;
         match *self {
-            SourceNotFound => write!(
-                f,
-                "I/O error getting current directory path {:?} ({}): {}",
-                expression.ast.source.absolute_path().unwrap(),
-                expression.ast.source.name(),
-                expression.ast.open_io_error()
-            ),
-            IoOpenError => write!(
-                f,
-                "I/O error opening {:?} ({}): {}",
-                expression.ast.source.absolute_path().unwrap(),
-                expression.ast.source.name(),
-                expression.ast.open_io_error()
-            ),
-            IoReadError => write!(
-                f,
-                "I/O error reading {:?} ({}): {}",
-                expression.ast.source.absolute_path().unwrap(),
-                expression.ast.source.name(),
-                expression.ast.open_io_error()
-            ),
-            CurrentDirectoryError => write!(
-                f,
-                "I/O error getting current directory to determine path of {:?}: {}",
-                expression.ast.source.name(),
-                expression.ast.root().root_path().as_ref().unwrap_err()
-            ),
-            SourceTooLarge(size) => write!(
-                f,
-                "SourceRef file {} too large ({} bytes): source files greater than 4GB are unsupported.",
-                expression.ast.source.name(),
-                size
-            ),
+            SourceLoadError(ref error) => error.fmt_display(&expression.ast, f),
             InvalidUtf8(raw_literal) => {
                 write!(f, "Invalid UTF-8 bytes! Perhaps this isn't a Berg UTF-8 source file? Invalid bytes: '")?;
                 let bytes = expression.ast.raw_literal_string(raw_literal);
@@ -819,8 +781,88 @@ impl<'a> CompilerError<'a> {
     }
 }
 
+impl SourceLoadError {
+    pub fn code(&self) -> CompilerErrorCode {
+        use self::SourceLoadError::*;
+        match *self {
+            // File open errors
+            SourceNotFound(..) => CompilerErrorCode::SourceNotFound,
+            IoOpenError(..) => CompilerErrorCode::IoOpenError,
+            IoReadError(..) => CompilerErrorCode::IoReadError,
+            CurrentDirectoryError(..) => CompilerErrorCode::CurrentDirectoryError,
+            SourceTooLarge(..) => CompilerErrorCode::SourceTooLarge,
+        }
+    }
+
+    pub fn location(&self, ast: AstRef) -> ErrorLocation {
+        use self::SourceLoadError::*;
+        use super::exception::ErrorLocation::*;
+        match self {
+            // File open errors
+            CurrentDirectoryError(..) => ErrorLocation::Generic,
+            SourceNotFound(..) | IoOpenError(..) | IoReadError(..) | SourceTooLarge(..) => {
+                SourceOnly(ast)
+            }
+        }
+    }
+
+    pub fn fmt_display(&self, ast: &AstRef, f: &mut fmt::Formatter) -> fmt::Result {
+        use self::SourceLoadError::*;
+        match self {
+            SourceNotFound(io_error) => write!(
+                f,
+                "Source not found {}: {}",
+                ast.source.name(),
+                io_error
+            ),
+            IoOpenError(io_error) => write!(
+                f,
+                "I/O error opening {}: {}",
+                ast.source.name(),
+                io_error
+            ),
+            IoReadError(io_error) => write!(
+                f,
+                "I/O error reading {}: {}",
+                ast.source.name(),
+                io_error
+            ),
+            CurrentDirectoryError(io_error) => write!(
+                f,
+                "I/O error getting current directory while opening {}: {}",
+                ast.source.name(),
+                io_error
+            ),
+            SourceTooLarge(size) => write!(
+                f,
+                "SourceSpec file {} too large ({} bytes): source files greater than 4GB are unsupported.",
+                ast.source.name(),
+                size
+            ),
+        }
+    }
+}
+
+impl<'a> From<SourceLoadError> for CompilerError<'a> {
+    fn from(from: SourceLoadError) -> Self {
+        CompilerError::SourceLoadError(from)
+    }
+}
+
+impl<'a> From<SourceLoadError> for BergVal<'a> {
+    fn from(from: SourceLoadError) -> Self {
+        BergVal::CompilerError(from.into())
+    }
+}
+
+impl<'a> From<SourceLoadError> for EvalVal<'a> {
+    fn from(from: SourceLoadError) -> Self {
+        BergVal::from(from).into()
+    }
+}
+
 impl<'a, V: Into<BergVal<'a>>> From<V> for EvalException<'a> {
     fn from(from: V) -> Self {
-        EvalException::Thrown(from.into(), ExpressionErrorPosition::Expression)
+        EvalException::Thrown(from.into(), ExpressionPosition::Expression)
     }
 }

@@ -1,5 +1,5 @@
 use crate::eval::BlockRef;
-use crate::syntax::{identifiers::*, ExpressionErrorPosition};
+use crate::syntax::{identifiers::*, ExpressionPosition};
 use crate::syntax::{FieldIndex, IdentifierIndex};
 use crate::value::implement::*;
 use std::fmt;
@@ -70,10 +70,7 @@ pub trait AtLocation<'a>: Sized {
     ///
     /// Give this value a location, making it global.
     ///
-    fn at_location(
-        self,
-        location: impl Into<ExpressionRef<'a>>,
-    ) -> Result<EvalVal<'a>, Exception<'a>>;
+    fn at_location(self, location: impl Into<ExpressionRef>) -> Result<EvalVal<'a>, Exception<'a>>;
 }
 
 ///
@@ -615,7 +612,7 @@ impl<'a> AssignmentTarget<'a> {
     pub fn set(
         &mut self,
         value: BergVal<'a>,
-        operand_position: ExpressionErrorPosition,
+        operand_position: ExpressionPosition,
     ) -> EvalResult<'a> {
         match self.set_internal(value).and_then(|_| self.declare()) {
             Ok(()) => empty_tuple().ok(),
@@ -659,7 +656,7 @@ impl<'a> AssignmentTarget<'a> {
         result: Result<T, EvalException<'a>>,
     ) -> Result<T, EvalException<'a>> {
         use AssignmentTarget::*;
-        use ExpressionErrorPosition::*;
+        use ExpressionPosition::*;
         match self {
             LocalFieldDeclaration(..) | ObjectFieldReference(..) => {
                 result.map_err(|e| e.reposition(Right))

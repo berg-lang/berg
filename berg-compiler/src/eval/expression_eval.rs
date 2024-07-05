@@ -1,7 +1,7 @@
 use crate::eval::BlockRef;
 use crate::syntax::identifiers::APPLY;
 use crate::syntax::{
-    ErrorTermError, ExpressionBoundary, ExpressionBoundaryError, ExpressionRef, ExpressionToken,
+    ErrorTermError, ExpressionBoundary, ExpressionBoundaryError, ExpressionToken,
     ExpressionTreeWalker, IdentifierIndex, OperatorToken, RawErrorTermError, TermToken, Token,
 };
 use crate::value::implement::*;
@@ -9,9 +9,9 @@ use num::BigRational;
 use std::fmt;
 use std::str::FromStr;
 
-pub type ExpressionEvaluator<'p, 'a> = ExpressionTreeWalker<'p, 'a, &'p BlockRef<'a>>;
+pub type ExpressionEvaluator<'p, 'a> = ExpressionTreeWalker<'p, &'p BlockRef<'a>>;
 
-impl<'p, 'a: 'p> From<ExpressionEvaluator<'p, 'a>> for ExpressionRef<'a> {
+impl<'p, 'a: 'p> From<ExpressionEvaluator<'p, 'a>> for ExpressionRef {
     fn from(from: ExpressionEvaluator<'p, 'a>) -> Self {
         ExpressionRef::new(from.scope().ast(), from.root_index())
     }
@@ -94,9 +94,6 @@ impl<'p, 'a: 'p> ExpressionEvaluator<'p, 'a> {
                 }
 
                 // ( and { syntax errors
-                Open(Some(OpenError), ..) => {
-                    unreachable!("OpenError should be handled outside evaluation")
-                }
                 Open(Some(OpenWithoutClose), ..) => self.throw(CompilerError::OpenWithoutClose),
                 Open(Some(CloseWithoutOpen), ..) => self.throw(CompilerError::CloseWithoutOpen),
             },

@@ -9,8 +9,8 @@ use std::io::Read;
 ///
 /// All data in an AST is preserved, which is what makes this possible.
 ///
-pub struct SourceReconstruction<'p, 'a: 'p> {
-    ast: &'p Ast<'a>,
+pub struct SourceReconstruction<'a> {
+    ast: &'a Ast,
     range: ByteRange,
 }
 
@@ -19,9 +19,9 @@ pub struct SourceReconstruction<'p, 'a: 'p> {
 ///
 /// Uses [`SourceReconstruction`] to do the formatting.
 ///
-pub struct SourceReconstructionReader<'p, 'a: 'p> {
-    iterator: SourceReconstructionIterator<'p, 'a>,
-    buffered: Option<Cow<'p, [u8]>>,
+pub struct SourceReconstructionReader<'a> {
+    iterator: SourceReconstructionIterator<'a>,
+    buffered: Option<Cow<'a, [u8]>>,
 }
 
 ///
@@ -30,9 +30,9 @@ pub struct SourceReconstructionReader<'p, 'a: 'p> {
 /// Works by iterating in parallel through tokens, whitespace and line starts,
 /// and picking whichever one covers the current range.
 ///
-struct SourceReconstructionIterator<'p, 'a: 'p> {
+struct SourceReconstructionIterator<'a> {
     /// The AST we're reconstructing.
-    ast: &'p Ast<'a>,
+    ast: &'a Ast,
     /// The current byte index (corresponding to the original file).
     index: ByteIndex,
     /// The end of the range we're reconstructing (non-inclusive)
@@ -47,7 +47,7 @@ struct SourceReconstructionIterator<'p, 'a: 'p> {
     line_start_index: usize,
 }
 
-impl<'p, 'a: 'p> SourceReconstruction<'p, 'a> {
+impl<'a> SourceReconstruction<'a> {
     ///
     /// Create a reconstructor for the given range.
     ///
@@ -56,7 +56,7 @@ impl<'p, 'a: 'p> SourceReconstruction<'p, 'a> {
     /// * `ast` - The AST containing the parsed information
     /// *
     ///
-    pub fn new(ast: &'p Ast<'a>, range: ByteRange) -> Self {
+    pub fn new(ast: &'a Ast, range: ByteRange) -> Self {
         SourceReconstruction { ast, range }
     }
     // TODO use MaybeUninit
@@ -75,7 +75,7 @@ impl<'p, 'a: 'p> SourceReconstruction<'p, 'a> {
     }
 }
 
-impl<'p, 'a: 'p> fmt::Display for SourceReconstruction<'p, 'a> {
+impl<'a> fmt::Display for SourceReconstruction<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let iterator = SourceReconstructionIterator::new(self.ast, self.range.clone());
         for bytes in iterator {
@@ -85,20 +85,20 @@ impl<'p, 'a: 'p> fmt::Display for SourceReconstruction<'p, 'a> {
     }
 }
 
-impl<'p, 'a: 'p> SourceReconstructionReader<'p, 'a> {
-    pub fn new(ast: &'p Ast<'a>, range: ByteRange) -> Self {
+impl<'a> SourceReconstructionReader<'a> {
+    pub fn new(ast: &'a Ast, range: ByteRange) -> Self {
         SourceReconstructionReader {
             iterator: SourceReconstructionIterator::new(ast, range),
             buffered: None,
         }
     }
 
-    fn next(&mut self) -> Option<Cow<'p, [u8]>> {
+    fn next(&mut self) -> Option<Cow<'a, [u8]>> {
         self.buffered.take().or_else(|| self.iterator.next())
     }
 }
 
-impl<'p, 'a: 'p> io::Read for SourceReconstructionReader<'p, 'a> {
+impl<'a> io::Read for SourceReconstructionReader<'a> {
     fn read(&mut self, buffer: &mut [u8]) -> io::Result<usize> {
         let mut read = 0;
         while let Some(mut bytes) = self.next() {
@@ -121,8 +121,8 @@ impl<'p, 'a: 'p> io::Read for SourceReconstructionReader<'p, 'a> {
     }
 }
 
-impl<'p, 'a: 'p> SourceReconstructionIterator<'p, 'a> {
-    fn new(ast: &'p Ast<'a>, range: ByteRange) -> Self {
+impl<'a> SourceReconstructionIterator<'a> {
+    fn new(ast: &'a Ast, range: ByteRange) -> Self {
         assert!(ast.tokens.len() > 0);
         let index = range.start;
         SourceReconstructionIterator {
@@ -137,9 +137,9 @@ impl<'p, 'a: 'p> SourceReconstructionIterator<'p, 'a> {
     }
 }
 
-impl<'p, 'a: 'p> Iterator for SourceReconstructionIterator<'p, 'a> {
-    type Item = Cow<'p, [u8]>;
-    fn next(&mut self) -> Option<Cow<'p, [u8]>> {
+impl<'a> Iterator for SourceReconstructionIterator<'a> {
+    type Item = Cow<'a, [u8]>;
+    fn next(&mut self) -> Option<Cow<'a, [u8]>> {
         if self.index >= self.end {
             return None;
         }
@@ -158,8 +158,8 @@ impl<'p, 'a: 'p> Iterator for SourceReconstructionIterator<'p, 'a> {
     }
 }
 
-impl<'p, 'a: 'p> SourceReconstructionIterator<'p, 'a> {
-    fn next_token(&mut self) -> Option<Cow<'p, [u8]>> {
+impl<'a> SourceReconstructionIterator<'a> {
+    fn next_token(&mut self) -> Option<Cow<'a, [u8]>> {
         while let Some(ByteRange { start, end }) = self.ast.token_ranges.get(self.ast_index) {
             // If the current token isn't ready to emit yet, return.
             if *start > self.index {
@@ -177,7 +177,7 @@ impl<'p, 'a: 'p> SourceReconstructionIterator<'p, 'a> {
         None
     }
 
-    fn next_comment(&mut self) -> Option<Cow<'p, [u8]>> {
+    fn next_comment(&mut self) -> Option<Cow<'a, [u8]>> {
         if let Some((comment, comment_start)) = self.ast.char_data.comments.get(self.comment_index)
         {
             if *comment_start <= self.index {
@@ -196,7 +196,7 @@ impl<'p, 'a: 'p> SourceReconstructionIterator<'p, 'a> {
         None
     }
 
-    fn truncate(&self, start: ByteIndex, bytes: impl Into<Cow<'p, [u8]>>) -> Option<Cow<'p, [u8]>> {
+    fn truncate(&self, start: ByteIndex, bytes: impl Into<Cow<'a, [u8]>>) -> Option<Cow<'a, [u8]>> {
         let mut bytes = bytes.into();
         // Clip the beginning of the string if it starts earlier than index.
         assert!(start <= self.index);
@@ -225,7 +225,7 @@ impl<'p, 'a: 'p> SourceReconstructionIterator<'p, 'a> {
         Some(bytes)
     }
 
-    fn next_whitespace_range(&mut self) -> Option<Cow<'p, [u8]>> {
+    fn next_whitespace_range(&mut self) -> Option<Cow<'a, [u8]>> {
         // If the current whitespace range includes us, return that string.
         if let Some((whitespace, whitespace_start)) = self
             .ast
@@ -253,7 +253,7 @@ impl<'p, 'a: 'p> SourceReconstructionIterator<'p, 'a> {
     ///
     /// Write out \n if we have a line ending without any character data.
     ///
-    fn next_newline(&mut self) -> Option<Cow<'p, [u8]>> {
+    fn next_newline(&mut self) -> Option<Cow<'a, [u8]>> {
         // If this is a line start, increment the line start index and return "\n".
         while let Some(line_start) = self.ast.char_data.line_starts.get(self.line_start_index) {
             // We haven't reached the line ending yet.

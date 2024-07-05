@@ -1,7 +1,7 @@
 use crate::eval::ExpressionEvaluator;
 use crate::syntax::{
-    Ast, AstIndex, AstRef, BlockIndex, ExpressionBoundaryError, ExpressionErrorPosition,
-    ExpressionRef, ExpressionToken, ExpressionTreeWalker, FieldError, FieldIndex, IdentifierIndex,
+    Ast, AstIndex, BlockIndex, ExpressionPosition, ExpressionToken, ExpressionTreeWalker,
+    FieldError, FieldIndex, IdentifierIndex,
 };
 use crate::value::implement::*;
 use std::cell::{Ref, RefCell, RefMut};
@@ -20,7 +20,7 @@ pub struct BlockRef<'a>(Rc<RefCell<BlockData<'a>>>);
 #[derive(Clone)]
 enum BlockParentRef<'a> {
     BlockRef(BlockRef<'a>),
-    AstRef(AstRef<'a>),
+    AstRef(AstRef),
 }
 
 #[derive(Debug)]
@@ -58,17 +58,13 @@ impl<'a> BlockRef<'a> {
     ///
     /// Create a new block from the given AST.
     ///
-    pub fn from_ast(ast: AstRef<'a>) -> Result<Self, Exception<'a>> {
+    pub fn from_ast(ast: AstRef) -> Result<Self, Exception<'a>> {
         let open = ast.root_expression();
         match ast.expression_token(open) {
             ExpressionToken::Open(None, ExpressionBoundary::Source, delta) => {
                 let index = ast.close_block_index(open + delta);
                 Self::new(open, index, BlockParentRef::AstRef(ast), empty_tuple().ok()).ok()
             }
-            ExpressionToken::Open(Some(ExpressionBoundaryError::OpenError), ..) => Err(ast
-                .open_error()
-                .clone()
-                .at_location(ExpressionRef::new(ast, open))),
             _ => unreachable!("AST root must be a Source block"),
         }
     }
@@ -328,7 +324,7 @@ impl<'a> BlockRef<'a> {
         Ok(())
     }
 
-    pub fn ast(&self) -> AstRef<'a> {
+    pub fn ast(&self) -> AstRef {
         self.0.borrow().ast()
     }
 
@@ -345,17 +341,17 @@ impl<'a> BlockRef<'a> {
     }
 }
 
-impl<'a> From<&BlockData<'a>> for ExpressionRef<'a> {
+impl<'a> From<&BlockData<'a>> for ExpressionRef {
     fn from(from: &BlockData<'a>) -> Self {
         ExpressionRef::new(from.ast(), from.expression)
     }
 }
-impl<'p, 'a: 'p> From<&Ref<'p, BlockData<'a>>> for ExpressionRef<'a> {
+impl<'p, 'a: 'p> From<&Ref<'p, BlockData<'a>>> for ExpressionRef {
     fn from(from: &Ref<'p, BlockData<'a>>) -> Self {
         ExpressionRef::new(from.ast(), from.expression)
     }
 }
-impl<'p, 'a: 'p> From<&RefMut<'p, BlockData<'a>>> for ExpressionRef<'a> {
+impl<'p, 'a: 'p> From<&RefMut<'p, BlockData<'a>>> for ExpressionRef {
     fn from(from: &RefMut<'p, BlockData<'a>>) -> Self {
         ExpressionRef::new(from.ast(), from.expression)
     }
@@ -447,7 +443,7 @@ impl<'a> ObjectValue<'a> for BlockRef<'a> {
             // If we couldn't find the field on the inner value, see if our block has the field
             Err(EvalException::Thrown(
                 BergVal::CompilerError(ref error),
-                ExpressionErrorPosition::Expression,
+                ExpressionPosition::Expression,
             )) if error.code() == CompilerErrorCode::NoSuchPublicField => {
                 println!(
                     "{}====> no such public {} on current",
@@ -575,13 +571,13 @@ impl<'a> OperableValue<'a> for BlockRef<'a> {
 }
 
 impl<'a> BlockData<'a> {
-    pub fn ast(&self) -> AstRef<'a> {
+    pub fn ast(&self) -> AstRef {
         self.parent.ast()
     }
 }
 
 // BlockRef/BlockData -> ExpressionRef makes error.at_location() work
-impl<'a> From<&BlockRef<'a>> for ExpressionRef<'a> {
+impl<'a> From<&BlockRef<'a>> for ExpressionRef {
     fn from(from: &BlockRef<'a>) -> Self {
         ExpressionRef::from(&from.0.borrow())
     }
@@ -690,24 +686,25 @@ impl<'a> PartialEq for BlockRef<'a> {
 
 impl<'a> BlockParentRef<'a> {
     pub fn local_field(&self, index: FieldIndex, ast: &Ast) -> EvalResult<'a> {
-        match self {
-            BlockParentRef::BlockRef(ref block) => block.local_field(index, ast),
-            BlockParentRef::AstRef(ref ast) => ast.source.root().local_field(index),
+        match &self {
+            BlockParentRef::BlockRef(block) => block.local_field(index, ast),
+            BlockParentRef::AstRef(ast) => ast.root.local_field(index),
         }
     }
+
     // pub fn field(self, name: IdentifierIndex) -> EvalResult<'a>
     // where
     //     Self: Sized,
     // {
     //     match self {
     //         BlockParentRef::BlockRef(block) => block.field(name),
-    //         BlockParentRef::AstRef(ast) => ast.source.root().field(name),
+    //         BlockParentRef::AstRef(ast) => ast.source.root.field(name),
     //     }
     // }
     pub fn declare_field(&self, index: FieldIndex, ast: &Ast) -> Result<(), EvalException<'a>> {
         match self {
             BlockParentRef::BlockRef(block) => block.declare_field(index, ast),
-            BlockParentRef::AstRef(_) => ast.source.root().declare_field(index),
+            BlockParentRef::AstRef(ref ast) => ast.root.declare_field(index),
         }
     }
     pub fn set_local_field(
@@ -718,10 +715,10 @@ impl<'a> BlockParentRef<'a> {
     ) -> Result<(), EvalException<'a>> {
         match self {
             BlockParentRef::BlockRef(block) => block.set_local_field(index, value, ast),
-            BlockParentRef::AstRef(ast) => ast.source.root().set_local_field(index, value),
+            BlockParentRef::AstRef(ast) => ast.root.set_local_field(index, value),
         }
     }
-    pub fn ast(&self) -> AstRef<'a> {
+    pub fn ast(&self) -> AstRef {
         match self {
             BlockParentRef::BlockRef(block) => block.ast(),
             BlockParentRef::AstRef(ast) => ast.clone(),
@@ -735,7 +732,7 @@ impl<'a> fmt::Debug for BlockParentRef<'a> {
             BlockParentRef::BlockRef(ref block) => block.fmt(f),
             BlockParentRef::AstRef(ref ast) => f
                 .debug_struct("AstRef")
-                .field("fields", &ast.root().field_names())
+                .field("fields", &ast.root.field_names())
                 .finish(),
         }
     }

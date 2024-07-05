@@ -1,4 +1,4 @@
-use crate::syntax::ExpressionErrorPosition::*;
+use crate::syntax::ExpressionPosition::*;
 use crate::value::*;
 use std::fmt;
 use std::marker::PhantomData;
@@ -285,8 +285,8 @@ impl<'a> NextVal<'a> {
 }
 
 pub mod implement {
-    pub use crate::syntax::ExpressionErrorPosition::*;
-    pub use crate::syntax::ExpressionRef;
+    pub use super::expression::ExpressionRef;
+    pub use crate::syntax::ExpressionPosition::*;
     pub use crate::value::CompilerError::*;
     pub use crate::value::*;
 

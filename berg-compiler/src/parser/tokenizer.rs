@@ -4,8 +4,7 @@ use crate::syntax::identifiers::{APPLY, FOLLOWED_BY, NEWLINE_SEQUENCE};
 use crate::syntax::OperatorToken::*;
 use crate::syntax::TermToken::*;
 use crate::syntax::{
-    Ast, ByteIndex, ByteRange, ExpressionBoundary, ExpressionBoundaryError, ExpressionToken,
-    OperatorToken,
+    Ast, ByteIndex, ByteRange, ExpressionBoundary, ExpressionToken, OperatorToken,
 };
 use WhitespaceState::*;
 
@@ -20,11 +19,11 @@ use WhitespaceState::*;
 /// 3. Handling indented blocks.
 ///
 #[derive(Debug)]
-pub struct Tokenizer<'a> {
+pub struct Tokenizer {
     ///
     /// The grouper (where we send tokens when we produce them).
     ///
-    pub grouper: Grouper<'a>,
+    pub grouper: Grouper,
 
     ///
     /// Whether the previous token was an operator that needs an operand, or not.
@@ -120,21 +119,23 @@ enum WhitespaceState {
     IndentedLine(IndentLevel),
 }
 
-impl<'a> Tokenizer<'a> {
-    pub fn new(ast: Ast<'a>) -> Self {
+impl Default for Tokenizer {
+    fn default() -> Self {
         Tokenizer {
-            grouper: Grouper::new(ast),
+            grouper: Grouper::default(),
             prev_was_operator: true,
             whitespace_state: NotInTerm,
             indented_blocks: vec![(0.into(), ExpressionBoundary::Source)],
         }
     }
+}
 
-    pub fn ast(&self) -> &Ast<'a> {
+impl Tokenizer {
+    pub fn ast(&self) -> &Ast {
         self.grouper.ast()
     }
 
-    pub fn ast_mut(&mut self) -> &mut Ast<'a> {
+    pub fn ast_mut(&mut self) -> &mut Ast {
         self.grouper.ast_mut()
     }
 
@@ -142,22 +143,14 @@ impl<'a> Tokenizer<'a> {
         self.whitespace_state == InTerm
     }
 
-    fn source_error(&self) -> Option<ExpressionBoundaryError> {
-        if self.ast().source_open_error.is_some() {
-            Some(ExpressionBoundaryError::OpenError)
-        } else {
-            None
-        }
-    }
-
     // The start of source emits the "open source" token.
     pub fn on_source_start(&mut self, start: ByteIndex) {
-        let open_token = ExpressionBoundary::Source.placeholder_open_token(self.source_error());
+        let open_token = ExpressionBoundary::Source.placeholder_open_token(None);
         self.emit_expression_token(open_token, start..start)
     }
 
     // The end of the source closes any open terms, just like space. Also emits "close source."
-    pub fn on_source_end(mut self, end: ByteIndex) -> Ast<'a> {
+    pub fn on_source_end(mut self, end: ByteIndex) -> Ast {
         let close_token = ExpressionBoundary::Source.placeholder_close_token();
         self.close_term(end);
         self.emit_operator_token(close_token, end..end);

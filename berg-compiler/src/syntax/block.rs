@@ -1,4 +1,4 @@
-use super::{AstDelta, AstRef, ExpressionBoundary, IdentifierIndex};
+use super::{Ast, AstDelta, ExpressionBoundary, IdentifierIndex};
 use std::u32;
 
 index_type! {
@@ -60,7 +60,7 @@ impl AstBlock {
         &self,
         index: BlockIndex,
         name: IdentifierIndex,
-        ast: &AstRef,
+        ast: &Ast,
     ) -> Result<FieldIndex, FieldError> {
         let mut child_index = index + 1;
         let mut field_index = self.scope_start;

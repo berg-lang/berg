@@ -16,7 +16,7 @@ use std::slice::{Iter, IterMut};
 // the thing you think you are!
 //
 // Think of index_type (TokenIndex/SourceIndex/ByteIndex) as your number and
-// the IndexedVec as Vec<Token>/Vec<SourceRef>, and you will be good.
+// the IndexedVec as Vec<Token>/Vec<SourceSpec>, and you will be good.
 
 #[macro_export]
 macro_rules! index_type {

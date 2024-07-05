@@ -4,7 +4,10 @@ mod scanner;
 mod sequencer;
 mod tokenizer;
 
-use crate::syntax::{Ast, AstRef, SourceBuffer, SourceRef};
+use std::borrow::Cow;
+
+use crate::syntax::Ast;
+use crate::syntax::ByteSlice;
 use binder::Binder;
 use grouper::Grouper;
 use scanner::CharType;
@@ -23,13 +26,8 @@ use tokenizer::Tokenizer;
 ///
 /// Errors placed in the AST include any parse error or open error.
 ///
-pub fn parse(source: SourceRef) -> AstRef {
-    let SourceBuffer {
-        buffer,
-        source_open_error,
-    } = source.open();
-    let sequencer = Sequencer::new(Ast::new(source, source_open_error), &buffer);
-    let ast = AstRef::new(sequencer.parse());
+pub fn parse(buffer: Cow<'static, ByteSlice>) -> Ast {
+    let ast = Sequencer::new(buffer).parse();
     println!();
     println!("Parsed:");
     let mut level = 0;

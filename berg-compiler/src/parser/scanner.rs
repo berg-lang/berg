@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use crate::syntax::{ByteIndex, ByteSlice};
 use crate::util::indexed_vec::Delta;
 use ByteType::*;
@@ -6,10 +8,10 @@ use CharType::*;
 ///
 /// Scans UTF-8 identifying characters.
 ///
-#[derive(Debug, Clone)]
-pub struct Scanner<'p> {
+#[derive(Debug)]
+pub struct Scanner {
     /// The buffer we're scanning.
-    pub buffer: &'p ByteSlice,
+    pub buffer: Cow<'static, ByteSlice>,
     /// The index of the next byte to read from the buffer.
     pub index: ByteIndex,
 }
@@ -42,15 +44,20 @@ enum ByteType {
     Utf8LeadingByte(Delta<ByteIndex>),
 }
 
-impl<'p> Scanner<'p> {
-    pub fn new(buffer: &'p ByteSlice) -> Self {
+impl Scanner {
+    pub fn new(buffer: Cow<'static, ByteSlice>) -> Self {
         Scanner {
             buffer,
             index: 0.into(),
         }
     }
+
+    pub fn buffer(&self) -> &ByteSlice {
+        &self.buffer
+    }
+
     pub fn next(&mut self) -> CharType {
-        let (char_type, char_length) = CharType::read(self.buffer, self.index);
+        let (char_type, char_length) = CharType::read(self.buffer(), self.index);
         if char_length == 0 {
             assert!(char_type == CharType::Eof);
         } else {
@@ -60,11 +67,11 @@ impl<'p> Scanner<'p> {
     }
 
     pub fn peek(&self) -> CharType {
-        CharType::peek(self.buffer, self.index)
+        CharType::peek(self.buffer(), self.index)
     }
 
     pub fn peek_at<At: Into<Delta<ByteIndex>>>(&self, delta: At) -> CharType {
-        CharType::peek(self.buffer, self.index + delta.into())
+        CharType::peek(self.buffer(), self.index + delta.into())
     }
 
     pub fn next_while(&mut self, if_type: CharType) -> bool {
@@ -78,7 +85,7 @@ impl<'p> Scanner<'p> {
 
     pub fn next_until_eol(&mut self) {
         loop {
-            let (char_type, char_length) = CharType::read(self.buffer, self.index);
+            let (char_type, char_length) = CharType::read(self.buffer(), self.index);
             if char_type.ends_line() {
                 return;
             }
@@ -89,7 +96,7 @@ impl<'p> Scanner<'p> {
     pub fn next_while_horizontal_whitespace(&mut self) -> bool {
         let mut found = false;
         loop {
-            let (char_type, char_length) = CharType::read(self.buffer, self.index);
+            let (char_type, char_length) = CharType::read(self.buffer(), self.index);
             if char_type.is_horizontal_whitespace() {
                 self.advance(char_length);
                 found = true;
@@ -103,7 +110,7 @@ impl<'p> Scanner<'p> {
     pub fn next_while_identifier(&mut self) -> bool {
         let mut found = false;
         loop {
-            let (char_type, char_length) = CharType::read(self.buffer, self.index);
+            let (char_type, char_length) = CharType::read(self.buffer(), self.index);
             if char_type.is_identifier_middle() {
                 self.advance(char_length);
                 found = true;
@@ -115,7 +122,7 @@ impl<'p> Scanner<'p> {
     }
 
     fn next_if(&mut self, if_type: CharType) -> bool {
-        let (char_type, char_length) = CharType::read(self.buffer, self.index);
+        let (char_type, char_length) = CharType::read(self.buffer(), self.index);
         if char_type == if_type {
             self.advance(char_length);
             true
@@ -127,6 +134,10 @@ impl<'p> Scanner<'p> {
     fn advance(&mut self, char_length: Delta<ByteIndex>) {
         assert!(char_length > 0);
         self.index += char_length;
+    }
+
+    pub(crate) fn at_end(&self) -> bool {
+        self.index == self.buffer().len()
     }
 }
 

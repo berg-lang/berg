@@ -10,8 +10,8 @@ use crate::util::indexed_vec::Delta;
 // inserts "precedence groups," and removes compound terms and precedence
 // groups where it can.
 #[derive(Debug)]
-pub struct Binder<'a> {
-    pub ast: Ast<'a>,
+pub struct Binder {
+    pub ast: Ast,
     open_scopes: Vec<OpenScope>,
     scope: Vec<FieldIndex>,
 }
@@ -23,14 +23,12 @@ pub struct OpenScope {
     scope_start: usize,
 }
 
-impl<'a> Binder<'a> {
-    pub fn new(ast: Ast<'a>) -> Self {
+impl Default for Binder {
+    fn default() -> Self {
         // Grab the root field names
-        let scope = (0..ast.source.root().field_names().len())
-            .map(Into::into)
-            .collect();
+        let scope = (0..keywords::FIELD_NAMES.len()).map(Into::into).collect();
         let mut result = Binder {
-            ast,
+            ast: Ast::default(),
             open_scopes: Default::default(),
             scope,
         };
@@ -39,23 +37,17 @@ impl<'a> Binder<'a> {
         // Ensure the scope and the ast's fields (taken from root names) match up
         // since the root object is going to assume that. The code above should
         // ensure this; we're just making sure.
-        assert_eq!(
-            result.scope.len(),
-            result.ast.source.root().field_names().len()
-        );
-        for (root_field_name, scope_field) in result
-            .ast
-            .source
-            .root()
-            .field_names()
-            .zip(result.scope.iter())
+        assert_eq!(result.scope.len(), keywords::FIELD_NAMES.len());
+        for (root_field_name, scope_field) in keywords::FIELD_NAMES.iter().zip(result.scope.iter())
         {
             assert_eq!(*root_field_name, result.ast.fields[*scope_field].name);
         }
         result
     }
+}
 
-    pub fn on_source_end(self) -> Ast<'a> {
+impl Binder {
+    pub fn on_source_end(self) -> Ast {
         self.ast
     }
 

@@ -232,12 +232,6 @@ pub enum ExpressionBoundaryError {
     /// For example, `(1 + 2`.
     ///
     OpenWithoutClose,
-    ///
-    /// Indicates there was an issue opening the source code.
-    ///
-    /// To find the actual error, go to `ast::source_open_error`.
-    ///
-    OpenError,
 }
 
 ///
@@ -294,14 +288,14 @@ impl Token {
     pub fn has_right_operand(self) -> bool {
         self.fixity().has_right_operand()
     }
-    pub fn to_string<'p, 'a: 'p>(self, ast: &'p Ast<'a>) -> Cow<'p, str> {
+    pub fn to_string<'p, 'a: 'p>(self, ast: &'p Ast) -> Cow<'p, str> {
         use Token::*;
         match self {
             Expression(token) => token.to_string(ast),
             Operator(token) => token.to_string(ast),
         }
     }
-    pub fn to_visible_string<'p, 'a: 'p>(self, ast: &'p Ast<'a>) -> Cow<'p, str> {
+    pub fn to_visible_string<'p, 'a: 'p>(self, ast: &'p Ast) -> Cow<'p, str> {
         use Token::*;
         match self {
             Expression(token) => token.to_visible_string(ast),
@@ -315,7 +309,7 @@ impl Token {
             Expression(token) => token.takes_right_child(right),
         }
     }
-    pub fn original_bytes<'p, 'a: 'p>(&self, ast: &'p Ast<'a>) -> Cow<'p, [u8]> {
+    pub fn original_bytes<'p, 'a: 'p>(&self, ast: &'p Ast) -> Cow<'p, [u8]> {
         use Token::*;
         match self {
             Expression(token) => token.original_bytes(ast),
@@ -349,7 +343,7 @@ impl ExpressionToken {
     pub fn has_right_operand(self) -> bool {
         self.fixity().has_right_operand()
     }
-    pub fn to_string<'p, 'a: 'p>(self, ast: &'p Ast<'a>) -> Cow<'p, str> {
+    pub fn to_string<'p, 'a: 'p>(self, ast: &'p Ast) -> Cow<'p, str> {
         use ExpressionBoundaryError::*;
         use ExpressionToken::*;
         match self {
@@ -361,13 +355,10 @@ impl ExpressionToken {
             Open(Some(OpenWithoutClose), boundary, _) => {
                 format!("unclosed {}", boundary.open_string()).into()
             }
-            Open(Some(OpenError), boundary, _) => {
-                format!("openerror {}", boundary.open_string()).into()
-            }
             Open(None, boundary, _) => boundary.open_string().into(),
         }
     }
-    pub fn to_visible_string<'p, 'a: 'p>(self, ast: &'p Ast<'a>) -> Cow<'p, str> {
+    pub fn to_visible_string<'p, 'a: 'p>(self, ast: &'p Ast) -> Cow<'p, str> {
         use ExpressionBoundaryError::*;
         use ExpressionToken::*;
         match self {
@@ -378,9 +369,6 @@ impl ExpressionToken {
             Open(Some(OpenWithoutClose), boundary, _) => {
                 format!("unclosed {}", boundary.visible_open_string()).into()
             }
-            Open(Some(OpenError), boundary, _) => {
-                format!("openerror {}", boundary.visible_open_string()).into()
-            }
             Open(None, boundary, _) => boundary.visible_open_string().into(),
             _ => self.to_string(ast),
         }
@@ -388,7 +376,7 @@ impl ExpressionToken {
     pub fn takes_right_child(self, right: impl Into<Token>) -> bool {
         self.fixity().takes_right_child(right.into().fixity())
     }
-    pub fn original_bytes<'p, 'a: 'p>(&self, ast: &'p Ast<'a>) -> Cow<'p, [u8]> {
+    pub fn original_bytes<'p, 'a: 'p>(&self, ast: &'p Ast) -> Cow<'p, [u8]> {
         use ExpressionToken::*;
         match self {
             Term(token) => token.original_bytes(ast),
@@ -420,7 +408,7 @@ impl OperatorToken {
         use OperatorToken::*;
         matches!(self, InfixOperator(COLON))
     }
-    pub fn to_string<'p, 'a: 'p>(self, ast: &'p Ast<'a>) -> Cow<'p, str> {
+    pub fn to_string<'p, 'a: 'p>(self, ast: &'p Ast) -> Cow<'p, str> {
         use OperatorToken::*;
         match self {
             InfixOperator(NEWLINE_SEQUENCE)
@@ -434,7 +422,7 @@ impl OperatorToken {
             Close(_, boundary) | CloseBlock(_, boundary) => boundary.close_string().into(),
         }
     }
-    pub fn to_visible_string<'p, 'a: 'p>(self, ast: &'p Ast<'a>) -> Cow<'p, str> {
+    pub fn to_visible_string<'p, 'a: 'p>(self, ast: &'p Ast) -> Cow<'p, str> {
         use OperatorToken::*;
         match self {
             InfixOperator(NEWLINE_SEQUENCE) => "<\\n>".into(),
@@ -454,7 +442,7 @@ impl OperatorToken {
         }
     }
 
-    pub fn original_bytes<'p, 'a: 'p>(self, ast: &'p Ast<'a>) -> Cow<'p, [u8]> {
+    pub fn original_bytes<'p, 'a: 'p>(self, ast: &'p Ast) -> Cow<'p, [u8]> {
         use OperatorToken::*;
         match self {
             InfixOperator(NEWLINE_SEQUENCE)
@@ -482,7 +470,7 @@ impl OperatorToken {
 }
 
 impl TermToken {
-    pub fn to_string<'p, 'a: 'p>(self, ast: &'p Ast<'a>) -> Cow<'p, str> {
+    pub fn to_string<'p, 'a: 'p>(self, ast: &'p Ast) -> Cow<'p, str> {
         use TermToken::*;
         match self {
             IntegerLiteral(literal) => ast.literal_string(literal).into(),
@@ -493,14 +481,14 @@ impl TermToken {
             MissingExpression => "".into(),
         }
     }
-    pub fn to_visible_string<'p, 'a: 'p>(self, ast: &'p Ast<'a>) -> Cow<'p, str> {
+    pub fn to_visible_string<'p, 'a: 'p>(self, ast: &'p Ast) -> Cow<'p, str> {
         use TermToken::*;
         match self {
             MissingExpression => "<missing>".into(),
             _ => self.to_string(ast),
         }
     }
-    pub fn original_bytes<'p, 'a: 'p>(self, ast: &'p Ast<'a>) -> Cow<'p, [u8]> {
+    pub fn original_bytes<'p, 'a: 'p>(self, ast: &'p Ast) -> Cow<'p, [u8]> {
         use TermToken::*;
         match self {
             IntegerLiteral(literal) | ErrorTerm(.., literal) => {

@@ -10,13 +10,13 @@ use super::{
 /// Prefix or Open. This is necessary to determine how long the operand is
 /// (which type of operators to consume before the parent operator can run).
 ///
-pub struct AstExpression<'p, 'a: 'p> {
-    ast: &'p Ast<'a>,
+pub struct AstExpression<'a> {
+    ast: &'a Ast,
     index: AstIndex,
     parent_fixity: Fixity,
 }
 
-impl<'p, 'a: 'p> Expression for AstExpression<'p, 'a> {
+impl<'a> Expression for AstExpression<'a> {
     type VisitState = Self;
 
     fn visit<V: ExpressionVisitor>(self, walker: &V) -> VisitResult<V, Self> {
@@ -71,11 +71,11 @@ impl<'p, 'a: 'p> Expression for AstExpression<'p, 'a> {
     }
 }
 
-impl<'p, 'a: 'p> AstExpression<'p, 'a> {
+impl<'a> AstExpression<'a> {
     ///
     /// Helper to create an operand and advance index by one.
     ///
-    fn operand(self, parent_fixity: Fixity) -> AstExpression<'p, 'a> {
+    fn operand(self, parent_fixity: Fixity) -> AstExpression<'a> {
         AstExpression {
             ast: self.ast,
             index: self.index + 1,

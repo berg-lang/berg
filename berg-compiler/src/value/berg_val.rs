@@ -1,5 +1,5 @@
 use crate::eval::BlockRef;
-use crate::syntax::ExpressionErrorPosition;
+use crate::syntax::ExpressionPosition;
 use crate::value::implement::*;
 use num::BigRational;
 use std::fmt;
@@ -41,7 +41,7 @@ pub type BergResult<'a> = Result<BergVal<'a>, Exception<'a>>;
 
 impl<'a> BergVal<'a> {
     pub fn throw<T>(self) -> Result<T, EvalException<'a>> {
-        EvalException::Thrown(self, ExpressionErrorPosition::Expression).err()
+        EvalException::Thrown(self, ExpressionPosition::Expression).err()
     }
     pub fn is_single_primitive(&self) -> bool {
         use BergVal::*;

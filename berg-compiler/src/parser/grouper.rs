@@ -1,4 +1,4 @@
-use crate::parser::Binder;
+use super::Binder;
 use crate::syntax::ExpressionBoundary::*;
 use crate::syntax::ExpressionBoundaryError::*;
 use crate::syntax::ExpressionToken::*;
@@ -15,9 +15,9 @@ use crate::syntax::{
 ///
 /// The Grouper elides superfluous precedence groups where it can.
 ///
-#[derive(Debug)]
-pub struct Grouper<'a> {
-    binder: Binder<'a>,
+#[derive(Debug, Default)]
+pub struct Grouper {
+    binder: Binder,
     open_expressions: Vec<OpenExpression>,
     start_auto_block: bool,
 }
@@ -51,20 +51,12 @@ struct OpenExpression {
     boundary: ExpressionBoundary,
 }
 
-impl<'a> Grouper<'a> {
-    pub fn new(ast: Ast<'a>) -> Self {
-        Grouper {
-            binder: Binder::new(ast),
-            open_expressions: Default::default(),
-            start_auto_block: false,
-        }
-    }
-
-    pub fn ast(&self) -> &Ast<'a> {
+impl Grouper {
+    pub fn ast(&self) -> &Ast {
         &self.binder.ast
     }
 
-    pub fn ast_mut(&mut self) -> &mut Ast<'a> {
+    pub fn ast_mut(&mut self) -> &mut Ast {
         &mut self.binder.ast
     }
 
@@ -124,7 +116,7 @@ impl<'a> Grouper<'a> {
         // TODO fill this in
     }
 
-    pub fn on_source_end(self) -> Ast<'a> {
+    pub fn on_source_end(self) -> Ast {
         self.binder.on_source_end()
     }
 

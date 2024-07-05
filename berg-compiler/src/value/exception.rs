@@ -1,8 +1,7 @@
+use super::implement::*;
 use crate::syntax::{
-    ByteRange, ErrorLocation, ExpressionErrorPosition, ExpressionRef, ExpressionTreeWalker,
-    IdentifierIndex, LineColumnRange,
+    AstIndex, ByteRange, ExpressionPosition, ExpressionTreeWalker, IdentifierIndex, LineColumnRange,
 };
-use crate::value::implement::*;
 use std::fmt;
 
 ///
@@ -10,7 +9,7 @@ use std::fmt;
 ///
 #[derive(Debug, Clone)]
 pub enum EvalException<'a> {
-    Thrown(BergVal<'a>, ExpressionErrorPosition),
+    Thrown(BergVal<'a>, ExpressionPosition),
     Error(Exception<'a>),
 }
 
@@ -22,7 +21,7 @@ pub enum EvalException<'a> {
 #[derive(Debug, Clone)]
 pub struct Exception<'a> {
     pub value: BergVal<'a>,
-    pub expression: ExpressionRef<'a>,
+    pub expression: ExpressionRef,
 }
 
 ///
@@ -31,8 +30,16 @@ pub struct Exception<'a> {
 #[derive(Debug, Clone)]
 pub struct CaughtException<'a>(Box<Exception<'a>>);
 
+#[derive(Debug, Clone)]
+pub enum ErrorLocation {
+    Generic,
+    SourceOnly(AstRef),
+    SourceExpression(AstRef, AstIndex),
+    SourceRange(AstRef, ByteRange),
+}
+
 impl<'a> EvalException<'a> {
-    pub fn reposition(self, new_position: ExpressionErrorPosition) -> EvalException<'a> {
+    pub fn reposition(self, new_position: ExpressionPosition) -> EvalException<'a> {
         use EvalException::*;
         match self {
             Error(_) => self,
@@ -40,7 +47,7 @@ impl<'a> EvalException<'a> {
         }
     }
 
-    pub fn at_location(self, location: impl Into<ExpressionRef<'a>>) -> Exception<'a> {
+    pub fn at_location(self, location: impl Into<ExpressionRef>) -> Exception<'a> {
         use EvalException::*;
         match self {
             Error(e) => e,
@@ -57,7 +64,7 @@ impl<'a> EvalException<'a> {
         }
     }
 }
-impl<'a> ErrorLocation<'a> {
+impl ErrorLocation {
     pub fn range(&self) -> LineColumnRange {
         match self {
             ErrorLocation::SourceExpression(ast, _) | ErrorLocation::SourceRange(ast, _) => {
@@ -78,15 +85,15 @@ impl<'a> ErrorLocation<'a> {
 }
 
 impl<'a> Exception<'a> {
-    pub fn new(value: BergVal<'a>, expression: ExpressionRef<'a>) -> Self {
+    pub fn new(value: BergVal<'a>, expression: ExpressionRef) -> Self {
         Exception { value, expression }
     }
 
-    pub fn expression(&self) -> ExpressionRef<'a> {
+    pub fn expression(&self) -> ExpressionRef {
         self.expression.clone()
     }
 
-    pub fn location(&self) -> ErrorLocation<'a> {
+    pub fn location(&self) -> ErrorLocation {
         match self.value {
             BergVal::CompilerError(ref error) => error.location(self.expression()),
             _ => ErrorLocation::SourceExpression(self.expression.ast.clone(), self.expression.root),
