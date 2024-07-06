@@ -10,30 +10,30 @@ use std::fmt;
 use std::str::FromStr;
 
 #[derive(Copy, Clone)]
-pub struct ExpressionEvaluator<'p>(ExpressionTreeWalker<'p, &'p BlockRef>);
+pub struct ExpressionEvaluator<'a>(ExpressionTreeWalker<'a, &'a BlockRef>);
 
-impl<'p> From<ExpressionEvaluator<'p>> for ExpressionRef {
-    fn from(from: ExpressionEvaluator<'p>) -> Self {
+impl<'a> From<ExpressionEvaluator<'a>> for ExpressionRef {
+    fn from(from: ExpressionEvaluator<'a>) -> Self {
         ExpressionRef::new(from.scope().ast(), from.root_index())
     }
 }
 
-impl<'p> fmt::Debug for ExpressionEvaluator<'p> {
+impl<'a> fmt::Debug for ExpressionEvaluator<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{:?}", self.0)
     }
 }
-impl<'p> fmt::Display for ExpressionEvaluator<'p> {
+impl<'a> fmt::Display for ExpressionEvaluator<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{:?}", self.0)
     }
 }
 
-impl<'p> ExpressionEvaluator<'p> {
-    pub fn new(context: &'p BlockRef, ast: &'p Ast, root: AstIndex) -> Self {
+impl<'a> ExpressionEvaluator<'a> {
+    pub fn new(context: &'a BlockRef, ast: &'a Ast, root: AstIndex) -> Self {
         Self(ExpressionTreeWalker::new(context, ast, root))
     }
-    pub fn scope(self) -> &'p BlockRef {
+    pub fn scope(self) -> &'a BlockRef {
         self.0.context()
     }
     pub fn depth(self) -> usize {
@@ -42,7 +42,7 @@ impl<'p> ExpressionEvaluator<'p> {
     fn root_index(self) -> AstIndex {
         self.0.root_index()
     }
-    fn ast(self) -> &'p Ast {
+    fn ast(self) -> &'a Ast {
         self.0.ast()
     }
     fn token(self) -> Token {
@@ -195,7 +195,7 @@ impl<'p> ExpressionEvaluator<'p> {
     }
 }
 
-impl<'p> EvaluatableValue for ExpressionEvaluator<'p> {
+impl<'a> EvaluatableValue for ExpressionEvaluator<'a> {
     fn evaluate(self) -> BergResult
     where
         Self: Sized,
@@ -207,7 +207,7 @@ impl<'p> EvaluatableValue for ExpressionEvaluator<'p> {
     }
 }
 
-impl<'p> Value for ExpressionEvaluator<'p> {
+impl<'a> Value for ExpressionEvaluator<'a> {
     fn lazy_val(self) -> Result<BergVal, EvalException>
     where
         Self: Sized,

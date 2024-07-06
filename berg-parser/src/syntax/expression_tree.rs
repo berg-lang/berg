@@ -22,14 +22,14 @@ use Fixity::*;
 /// is used for ExpressionEvaluator.
 ///
 #[derive(Copy, Clone)]
-pub struct ExpressionTreeWalker<'p, Context: Copy + Clone + fmt::Debug = ()> {
+pub struct ExpressionTreeWalker<'a, Context: Copy + Clone + fmt::Debug = ()> {
     context: Context,
-    expression: AstExpressionTree<'p>,
+    expression: AstExpressionTree<'a>,
 }
 
 #[derive(Copy, Clone)]
-pub struct AstExpressionTree<'p> {
-    ast: &'p Ast,
+pub struct AstExpressionTree<'a> {
+    ast: &'a Ast,
     root: AstIndex,
 }
 
@@ -44,57 +44,57 @@ pub enum ExpressionPosition {
     RightRight,
 }
 
-impl<'p, Context: Copy + Clone + fmt::Debug> fmt::Debug for ExpressionTreeWalker<'p, Context> {
+impl<'a, Context: Copy + Clone + fmt::Debug> fmt::Debug for ExpressionTreeWalker<'a, Context> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{:?}", self.expression)
     }
 }
-impl<'p> fmt::Display for ExpressionTreeWalker<'p, ()> {
+impl<'a> fmt::Display for ExpressionTreeWalker<'a, ()> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self.expression)
     }
 }
 
-impl<'p> fmt::Debug for AstExpressionTree<'p> {
+impl<'a> fmt::Debug for AstExpressionTree<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self.format())
     }
 }
 
-impl<'p> fmt::Display for AstExpressionTree<'p> {
+impl<'a> fmt::Display for AstExpressionTree<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self.reconstruct_source())
     }
 }
 
-impl<'p> ExpressionTreeWalker<'p, ()> {
-    pub fn basic(ast: &'p Ast, index: AstIndex) -> Self {
+impl<'a> ExpressionTreeWalker<'a, ()> {
+    pub fn basic(ast: &'a Ast, index: AstIndex) -> Self {
         ExpressionTreeWalker::new((), ast, index)
     }
 }
-impl<'p, Context: Copy + Clone + fmt::Debug> ExpressionTreeWalker<'p, Context> {
-    pub fn new(context: Context, ast: &'p Ast, root: AstIndex) -> Self {
+impl<'a, Context: Copy + Clone + fmt::Debug> ExpressionTreeWalker<'a, Context> {
+    pub fn new(context: Context, ast: &'a Ast, root: AstIndex) -> Self {
         ExpressionTreeWalker {
             context,
             expression: AstExpressionTree::new(ast, root),
         }
     }
-    pub fn format(self) -> ExpressionTreeWalker<'p, ExpressionFormatter> {
+    pub fn format(self) -> ExpressionTreeWalker<'a, ExpressionFormatter> {
         self.expression.format()
     }
-    pub fn format_tree(self) -> ExpressionTreeWalker<'p, ExpressionTreeFormatter> {
+    pub fn format_tree(self) -> ExpressionTreeWalker<'a, ExpressionTreeFormatter> {
         self.expression.format_tree()
     }
     pub fn with_context<C: Copy + Clone + fmt::Debug>(
         self,
         context: C,
-    ) -> ExpressionTreeWalker<'p, C> {
+    ) -> ExpressionTreeWalker<'a, C> {
         ExpressionTreeWalker {
             context,
             expression: self.expression,
         }
     }
-    pub fn with_expression(self, expression: AstExpressionTree<'p>) -> Self {
+    pub fn with_expression(self, expression: AstExpressionTree<'a>) -> Self {
         ExpressionTreeWalker {
             context: self.context,
             expression,
@@ -103,7 +103,7 @@ impl<'p, Context: Copy + Clone + fmt::Debug> ExpressionTreeWalker<'p, Context> {
     pub fn context(self) -> Context {
         self.context
     }
-    pub fn ast(self) -> &'p Ast {
+    pub fn ast(self) -> &'a Ast {
         self.expression.ast()
     }
     pub fn root_index(&self) -> AstIndex {
@@ -118,7 +118,7 @@ impl<'p, Context: Copy + Clone + fmt::Debug> ExpressionTreeWalker<'p, Context> {
     pub fn token(&self) -> Token {
         self.expression.token()
     }
-    pub fn token_string(self) -> Cow<'p, str> {
+    pub fn token_string(self) -> Cow<'a, str> {
         self.expression.token_string()
     }
     pub fn open_operator(&self) -> AstIndex {
@@ -166,11 +166,11 @@ impl<'p, Context: Copy + Clone + fmt::Debug> ExpressionTreeWalker<'p, Context> {
     }
 }
 
-impl<'p> AstExpressionTree<'p> {
-    pub fn new(ast: &'p Ast, root: AstIndex) -> Self {
+impl<'a> AstExpressionTree<'a> {
+    pub fn new(ast: &'a Ast, root: AstIndex) -> Self {
         AstExpressionTree { ast, root }
     }
-    pub fn ast(self) -> &'p Ast {
+    pub fn ast(self) -> &'a Ast {
         self.ast
     }
     pub fn root_index(&self) -> AstIndex {
@@ -188,7 +188,7 @@ impl<'p> AstExpressionTree<'p> {
     pub fn token(&self) -> Token {
         self.ast.tokens[self.root]
     }
-    pub fn token_string(self) -> Cow<'p, str> {
+    pub fn token_string(self) -> Cow<'a, str> {
         let token = self.token();
         token.to_string(self.ast)
     }
@@ -306,10 +306,10 @@ impl<'p> AstExpressionTree<'p> {
         result.skip_implicit_groups()
     }
 
-    pub fn format(self) -> ExpressionTreeWalker<'p, ExpressionFormatter> {
+    pub fn format(self) -> ExpressionTreeWalker<'a, ExpressionFormatter> {
         ExpressionTreeWalker::new(ExpressionFormatter, self.ast(), self.root_index())
     }
-    pub fn format_tree(self) -> ExpressionTreeWalker<'p, ExpressionTreeFormatter> {
+    pub fn format_tree(self) -> ExpressionTreeWalker<'a, ExpressionTreeFormatter> {
         ExpressionTreeWalker::new(
             ExpressionTreeFormatter {
                 starting_depth: self.depth(),
@@ -318,7 +318,7 @@ impl<'p> AstExpressionTree<'p> {
             self.root_index(),
         )
     }
-    pub fn reconstruct_source(self) -> SourceReconstruction<'p> {
+    pub fn reconstruct_source(self) -> SourceReconstruction<'a> {
         SourceReconstruction::new(self.ast(), self.byte_range())
     }
 }
