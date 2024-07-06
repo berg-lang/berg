@@ -8,9 +8,9 @@ use std::fmt;
 /// Standard berg error, either with or without a full error location.
 ///
 #[derive(Debug, Clone)]
-pub enum EvalException<'a> {
-    Thrown(BergVal<'a>, ExpressionPosition),
-    Error(Exception<'a>),
+pub enum EvalException {
+    Thrown(BergVal, ExpressionPosition),
+    Error(Exception),
 }
 
 ///
@@ -19,8 +19,8 @@ pub enum EvalException<'a> {
 /// Includes the exception location.
 ///
 #[derive(Debug, Clone)]
-pub struct Exception<'a> {
-    pub value: BergVal<'a>,
+pub struct Exception {
+    pub value: BergVal,
     pub expression: ExpressionRef,
 }
 
@@ -28,7 +28,7 @@ pub struct Exception<'a> {
 /// Caught exception.
 ///
 #[derive(Debug, Clone)]
-pub struct CaughtException<'a>(Box<Exception<'a>>);
+pub struct CaughtException(Box<Exception>);
 
 #[derive(Debug, Clone)]
 pub enum ErrorLocation {
@@ -38,8 +38,8 @@ pub enum ErrorLocation {
     SourceRange(AstRef, ByteRange),
 }
 
-impl<'a> EvalException<'a> {
-    pub fn reposition(self, new_position: ExpressionPosition) -> EvalException<'a> {
+impl EvalException {
+    pub fn reposition(self, new_position: ExpressionPosition) -> EvalException {
         use EvalException::*;
         match self {
             Error(_) => self,
@@ -47,7 +47,7 @@ impl<'a> EvalException<'a> {
         }
     }
 
-    pub fn at_location(self, location: impl Into<ExpressionRef>) -> Exception<'a> {
+    pub fn at_location(self, location: impl Into<ExpressionRef>) -> Exception {
         use EvalException::*;
         match self {
             Error(e) => e,
@@ -84,8 +84,8 @@ impl ErrorLocation {
     }
 }
 
-impl<'a> Exception<'a> {
-    pub fn new(value: BergVal<'a>, expression: ExpressionRef) -> Self {
+impl Exception {
+    pub fn new(value: BergVal, expression: ExpressionRef) -> Self {
         Exception { value, expression }
     }
 
@@ -108,18 +108,18 @@ impl<'a> Exception<'a> {
         }
     }
 
-    pub fn catch(self) -> CaughtException<'a> {
+    pub fn catch(self) -> CaughtException {
         CaughtException(Box::new(self))
     }
 }
 
-impl<'a> From<Exception<'a>> for EvalException<'a> {
-    fn from(from: Exception<'a>) -> Self {
+impl From<Exception> for EvalException {
+    fn from(from: Exception) -> Self {
         EvalException::Error(from)
     }
 }
 
-impl<'a> fmt::Display for Exception<'a> {
+impl fmt::Display for Exception {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self.value {
             BergVal::CompilerError(ref error) => error.fmt_display(&self.expression, f),
@@ -128,8 +128,8 @@ impl<'a> fmt::Display for Exception<'a> {
     }
 }
 
-impl<'a> Value<'a> for EvalException<'a> {
-    fn into_native<T: TryFromBergVal<'a>>(self) -> Result<T, EvalException<'a>> {
+impl Value for EvalException {
+    fn into_native<T: TryFromBergVal>(self) -> Result<T, EvalException> {
         use EvalException::*;
         match self {
             Error(value) => value.into_native(),
@@ -137,7 +137,7 @@ impl<'a> Value<'a> for EvalException<'a> {
         }
     }
 
-    fn try_into_native<T: TryFromBergVal<'a>>(self) -> Result<Option<T>, EvalException<'a>> {
+    fn try_into_native<T: TryFromBergVal>(self) -> Result<Option<T>, EvalException> {
         use EvalException::*;
         match self {
             Error(value) => value.try_into_native(),
@@ -145,7 +145,7 @@ impl<'a> Value<'a> for EvalException<'a> {
         }
     }
 
-    fn lazy_val(self) -> Result<BergVal<'a>, EvalException<'a>>
+    fn lazy_val(self) -> Result<BergVal, EvalException>
     where
         Self: Sized,
     {
@@ -156,7 +156,7 @@ impl<'a> Value<'a> for EvalException<'a> {
         }
     }
 
-    fn eval_val(self) -> EvalResult<'a>
+    fn eval_val(self) -> EvalResult
     where
         Self: Sized,
     {
@@ -172,8 +172,8 @@ impl<'a> Value<'a> for EvalException<'a> {
     }
 }
 
-impl<'a> IteratorValue<'a> for EvalException<'a> {
-    fn next_val(self) -> Result<NextVal<'a>, EvalException<'a>> {
+impl IteratorValue for EvalException {
+    fn next_val(self) -> Result<NextVal, EvalException> {
         use EvalException::*;
         match self {
             Error(value) => value.next_val(),
@@ -182,8 +182,8 @@ impl<'a> IteratorValue<'a> for EvalException<'a> {
     }
 }
 
-impl<'a> ObjectValue<'a> for EvalException<'a> {
-    fn field(self, name: IdentifierIndex) -> EvalResult<'a>
+impl ObjectValue for EvalException {
+    fn field(self, name: IdentifierIndex) -> EvalResult
     where
         Self: Sized,
     {
@@ -197,8 +197,8 @@ impl<'a> ObjectValue<'a> for EvalException<'a> {
     fn set_field(
         &mut self,
         name: IdentifierIndex,
-        field_value: BergVal<'a>,
-    ) -> Result<(), EvalException<'a>>
+        field_value: BergVal,
+    ) -> Result<(), EvalException>
     where
         Self: Clone,
     {
@@ -210,12 +210,12 @@ impl<'a> ObjectValue<'a> for EvalException<'a> {
     }
 }
 
-impl<'a> OperableValue<'a> for EvalException<'a> {
+impl OperableValue for EvalException {
     fn infix(
         self,
         operator: IdentifierIndex,
-        right: RightOperand<'a, impl EvaluatableValue<'a>>,
-    ) -> EvalResult<'a>
+        right: RightOperand<impl EvaluatableValue>,
+    ) -> EvalResult
     where
         Self: Sized,
     {
@@ -229,8 +229,8 @@ impl<'a> OperableValue<'a> for EvalException<'a> {
     fn infix_assign(
         self,
         operator: IdentifierIndex,
-        right: RightOperand<'a, impl EvaluatableValue<'a>>,
-    ) -> EvalResult<'a>
+        right: RightOperand<impl EvaluatableValue>,
+    ) -> EvalResult
     where
         Self: Sized,
     {
@@ -241,7 +241,7 @@ impl<'a> OperableValue<'a> for EvalException<'a> {
         }
     }
 
-    fn postfix(self, operator: IdentifierIndex) -> EvalResult<'a>
+    fn postfix(self, operator: IdentifierIndex) -> EvalResult
     where
         Self: Sized,
     {
@@ -252,7 +252,7 @@ impl<'a> OperableValue<'a> for EvalException<'a> {
         }
     }
 
-    fn prefix(self, operator: IdentifierIndex) -> EvalResult<'a>
+    fn prefix(self, operator: IdentifierIndex) -> EvalResult
     where
         Self: Sized,
     {
@@ -263,7 +263,7 @@ impl<'a> OperableValue<'a> for EvalException<'a> {
         }
     }
 
-    fn subexpression_result(self, boundary: ExpressionBoundary) -> EvalResult<'a>
+    fn subexpression_result(self, boundary: ExpressionBoundary) -> EvalResult
     where
         Self: Sized,
     {
@@ -275,10 +275,10 @@ impl<'a> OperableValue<'a> for EvalException<'a> {
     }
 }
 
-impl<'a> BergValue<'a> for Exception<'a> {}
+impl BergValue for Exception {}
 
-impl<'a> EvaluatableValue<'a> for Exception<'a> {
-    fn evaluate(self) -> BergResult<'a>
+impl EvaluatableValue for Exception {
+    fn evaluate(self) -> BergResult
     where
         Self: Sized,
     {
@@ -286,23 +286,23 @@ impl<'a> EvaluatableValue<'a> for Exception<'a> {
     }
 }
 
-impl<'a> Value<'a> for Exception<'a> {
-    fn into_native<T: TryFromBergVal<'a>>(self) -> Result<T, EvalException<'a>> {
+impl Value for Exception {
+    fn into_native<T: TryFromBergVal>(self) -> Result<T, EvalException> {
         self.err()
     }
 
-    fn try_into_native<T: TryFromBergVal<'a>>(self) -> Result<Option<T>, EvalException<'a>> {
+    fn try_into_native<T: TryFromBergVal>(self) -> Result<Option<T>, EvalException> {
         self.err()
     }
 
-    fn lazy_val(self) -> Result<BergVal<'a>, EvalException<'a>>
+    fn lazy_val(self) -> Result<BergVal, EvalException>
     where
         Self: Sized,
     {
         self.err()
     }
 
-    fn eval_val(self) -> EvalResult<'a>
+    fn eval_val(self) -> EvalResult
     where
         Self: Sized,
     {
@@ -314,22 +314,22 @@ impl<'a> Value<'a> for Exception<'a> {
     }
 }
 
-impl<'a> IteratorValue<'a> for Exception<'a> {
-    fn next_val(self) -> Result<NextVal<'a>, EvalException<'a>> {
+impl IteratorValue for Exception {
+    fn next_val(self) -> Result<NextVal, EvalException> {
         self.err()
     }
 }
 
-impl<'a> ObjectValue<'a> for Exception<'a> {
-    fn field(self, _name: IdentifierIndex) -> EvalResult<'a> {
+impl ObjectValue for Exception {
+    fn field(self, _name: IdentifierIndex) -> EvalResult {
         self.err()
     }
 
     fn set_field(
         &mut self,
         _name: IdentifierIndex,
-        _value: BergVal<'a>,
-    ) -> Result<(), EvalException<'a>>
+        _value: BergVal,
+    ) -> Result<(), EvalException>
     where
         Self: Clone,
     {
@@ -337,40 +337,40 @@ impl<'a> ObjectValue<'a> for Exception<'a> {
     }
 }
 
-impl<'a> OperableValue<'a> for Exception<'a> {
+impl OperableValue for Exception {
     fn infix(
         self,
         _operator: IdentifierIndex,
-        _right: RightOperand<'a, impl EvaluatableValue<'a>>,
-    ) -> EvalResult<'a> {
+        _right: RightOperand<impl EvaluatableValue>,
+    ) -> EvalResult {
         self.err()
     }
 
     fn infix_assign(
         self,
         _operator: IdentifierIndex,
-        _right: RightOperand<'a, impl EvaluatableValue<'a>>,
-    ) -> EvalResult<'a> {
+        _right: RightOperand<impl EvaluatableValue>,
+    ) -> EvalResult {
         self.err()
     }
 
-    fn postfix(self, _operator: IdentifierIndex) -> EvalResult<'a> {
+    fn postfix(self, _operator: IdentifierIndex) -> EvalResult {
         self.err()
     }
 
-    fn prefix(self, _operator: IdentifierIndex) -> EvalResult<'a> {
+    fn prefix(self, _operator: IdentifierIndex) -> EvalResult {
         self.err()
     }
 
-    fn subexpression_result(self, _boundary: ExpressionBoundary) -> EvalResult<'a> {
+    fn subexpression_result(self, _boundary: ExpressionBoundary) -> EvalResult {
         self.err()
     }
 }
 
-impl<'a> BergValue<'a> for CaughtException<'a> {}
+impl BergValue for CaughtException {}
 
-impl<'a> EvaluatableValue<'a> for CaughtException<'a> {
-    fn evaluate(self) -> BergResult<'a>
+impl EvaluatableValue for CaughtException {
+    fn evaluate(self) -> BergResult
     where
         Self: Sized,
     {
@@ -378,23 +378,23 @@ impl<'a> EvaluatableValue<'a> for CaughtException<'a> {
     }
 }
 
-impl<'a> Value<'a> for CaughtException<'a> {
-    fn into_native<T: TryFromBergVal<'a>>(self) -> Result<T, EvalException<'a>> {
+impl Value for CaughtException {
+    fn into_native<T: TryFromBergVal>(self) -> Result<T, EvalException> {
         self.0.value.into_native()
     }
 
-    fn try_into_native<T: TryFromBergVal<'a>>(self) -> Result<Option<T>, EvalException<'a>> {
+    fn try_into_native<T: TryFromBergVal>(self) -> Result<Option<T>, EvalException> {
         self.0.value.try_into_native()
     }
 
-    fn lazy_val(self) -> Result<BergVal<'a>, EvalException<'a>>
+    fn lazy_val(self) -> Result<BergVal, EvalException>
     where
         Self: Sized,
     {
         self.ok()
     }
 
-    fn eval_val(self) -> EvalResult<'a>
+    fn eval_val(self) -> EvalResult
     where
         Self: Sized,
     {
@@ -406,14 +406,14 @@ impl<'a> Value<'a> for CaughtException<'a> {
     }
 }
 
-impl<'a> IteratorValue<'a> for CaughtException<'a> {
-    fn next_val(self) -> Result<NextVal<'a>, EvalException<'a>> {
+impl IteratorValue for CaughtException {
+    fn next_val(self) -> Result<NextVal, EvalException> {
         self.0.value.next_val()
     }
 }
 
-impl<'a> ObjectValue<'a> for CaughtException<'a> {
-    fn field(self, name: IdentifierIndex) -> EvalResult<'a>
+impl ObjectValue for CaughtException {
+    fn field(self, name: IdentifierIndex) -> EvalResult
     where
         Self: Sized,
     {
@@ -423,8 +423,8 @@ impl<'a> ObjectValue<'a> for CaughtException<'a> {
     fn set_field(
         &mut self,
         name: IdentifierIndex,
-        value: BergVal<'a>,
-    ) -> Result<(), EvalException<'a>>
+        value: BergVal,
+    ) -> Result<(), EvalException>
     where
         Self: Clone,
     {
@@ -432,12 +432,12 @@ impl<'a> ObjectValue<'a> for CaughtException<'a> {
     }
 }
 
-impl<'a> OperableValue<'a> for CaughtException<'a> {
+impl OperableValue for CaughtException {
     fn infix(
         self,
         operator: IdentifierIndex,
-        right: RightOperand<'a, impl EvaluatableValue<'a>>,
-    ) -> EvalResult<'a>
+        right: RightOperand<impl EvaluatableValue>,
+    ) -> EvalResult
     where
         Self: Sized,
     {
@@ -447,29 +447,29 @@ impl<'a> OperableValue<'a> for CaughtException<'a> {
     fn infix_assign(
         self,
         operator: IdentifierIndex,
-        right: RightOperand<'a, impl EvaluatableValue<'a>>,
-    ) -> EvalResult<'a>
+        right: RightOperand<impl EvaluatableValue>,
+    ) -> EvalResult
     where
         Self: Sized,
     {
         self.0.value.infix_assign(operator, right)
     }
 
-    fn postfix(self, operator: IdentifierIndex) -> EvalResult<'a>
+    fn postfix(self, operator: IdentifierIndex) -> EvalResult
     where
         Self: Sized,
     {
         self.0.value.postfix(operator)
     }
 
-    fn prefix(self, operator: IdentifierIndex) -> EvalResult<'a>
+    fn prefix(self, operator: IdentifierIndex) -> EvalResult
     where
         Self: Sized,
     {
         self.0.value.prefix(operator)
     }
 
-    fn subexpression_result(self, boundary: ExpressionBoundary) -> EvalResult<'a>
+    fn subexpression_result(self, boundary: ExpressionBoundary) -> EvalResult
     where
         Self: Sized,
     {
@@ -477,11 +477,11 @@ impl<'a> OperableValue<'a> for CaughtException<'a> {
     }
 }
 
-impl<'a> TryFromBergVal<'a> for CaughtException<'a> {
+impl TryFromBergVal for CaughtException {
     const TYPE_NAME: &'static str = "CaughtException";
     fn try_from_berg_val(
-        from: EvalVal<'a>,
-    ) -> Result<Result<Self, BergVal<'a>>, EvalException<'a>> {
+        from: EvalVal,
+    ) -> Result<Result<Self, BergVal>, EvalException> {
         match from.lazy_val()?.evaluate()? {
             BergVal::CaughtException(value) => Ok(Ok(value)),
             from => Ok(Err(from)),
@@ -489,19 +489,19 @@ impl<'a> TryFromBergVal<'a> for CaughtException<'a> {
     }
 }
 
-impl<'a> From<CaughtException<'a>> for BergVal<'a> {
-    fn from(from: CaughtException<'a>) -> Self {
+impl From<CaughtException> for BergVal {
+    fn from(from: CaughtException) -> Self {
         BergVal::CaughtException(from)
     }
 }
 
-impl<'a> From<CaughtException<'a>> for EvalVal<'a> {
-    fn from(from: CaughtException<'a>) -> Self {
+impl From<CaughtException> for EvalVal {
+    fn from(from: CaughtException) -> Self {
         BergVal::from(from).into()
     }
 }
 
-impl<'a> fmt::Display for CaughtException<'a> {
+impl fmt::Display for CaughtException {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self.0)
     }

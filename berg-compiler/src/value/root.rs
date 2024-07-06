@@ -74,37 +74,37 @@ impl RootRef {
         keywords::FIELD_NAMES.iter()
     }
 
-    fn field_index<'a>(&self, name: IdentifierIndex) -> Result<FieldIndex, EvalException<'a>> {
+    fn field_index(&self, name: IdentifierIndex) -> Result<FieldIndex, EvalException> {
         match self.field_names().enumerate().find(|&(_, n)| name == *n) {
             Some((index, _)) => Ok(FieldIndex(index as u32)),
             None => CompilerError::NoSuchPublicFieldOnRoot(name).err(),
         }
     }
 
-    pub fn field<'a>(&self, name: IdentifierIndex) -> EvalResult<'a> {
+    pub fn field(&self, name: IdentifierIndex) -> EvalResult {
         self.local_field(self.field_index(name)?)
     }
 
-    pub fn local_field<'a>(&self, index: FieldIndex) -> EvalResult<'a> {
+    pub fn local_field(&self, index: FieldIndex) -> EvalResult {
         keyword_value(index)
     }
 
     #[allow(clippy::needless_pass_by_value)]
-    pub fn set_local_field<'a>(
+    pub fn set_local_field(
         &self,
         index: FieldIndex,
-        _value: BergVal<'a>,
-    ) -> Result<(), EvalException<'a>> {
+        _value: BergVal,
+    ) -> Result<(), EvalException> {
         CompilerError::ImmutableFieldOnRoot(index).err()
     }
 
-    pub fn declare_field<'a>(&self, _index: FieldIndex) -> Result<(), EvalException<'a>> {
+    pub fn declare_field(&self, _index: FieldIndex) -> Result<(), EvalException> {
         // This should not be possible to do. We can fill in an error here when we find a testcase that triggers it.
         unreachable!()
     }
 }
 
-fn keyword_value<'a>(index: FieldIndex) -> EvalResult<'a> {
+fn keyword_value(index: FieldIndex) -> EvalResult {
     use CompilerError::*;
     use EvalVal::*;
     match index {

@@ -1,7 +1,6 @@
 use crate::value::*;
 use berg_parser::ExpressionPosition::*;
 use std::fmt;
-use std::marker::PhantomData;
 
 ///
 /// Berg values that can be used anywhere.
@@ -9,15 +8,15 @@ use std::marker::PhantomData;
 /// See also [`Val`], which includes values that need the expression
 /// evaluator before they can be used.
 ///
-pub trait BergValue<'a>:
-    Value<'a> + IteratorValue<'a> + ObjectValue<'a> + OperableValue<'a> + BoxCloneBergValue<'a>
+pub trait BergValue:
+    Value + IteratorValue + ObjectValue + OperableValue + BoxCloneBergValue
 {
 }
 
 ///
 /// Values that can be used by the expression evaluator.
 ///
-pub trait Value<'a>: fmt::Debug {
+pub trait Value: fmt::Debug {
     ///
     /// Get the result of this value as a particular native type.
     ///
@@ -29,11 +28,11 @@ pub trait Value<'a>: fmt::Debug {
     /// Example:
     ///
     ///     use berg_compiler::*;
-    ///     fn add_values<'a>(a: impl BergValue<'a>, b: impl BergValue<'a>) -> Result<usize, EvalException<'a>> {
+    ///     fn add_values(a: impl BergValue, b: impl BergValue) -> Result<usize, EvalException> {
     ///         Ok(a.into_native::<usize>()? + b.into_native::<usize>()?)
     ///     }
     ///
-    fn into_native<T: TryFromBergVal<'a>>(self) -> Result<T, EvalException<'a>>
+    fn into_native<T: TryFromBergVal>(self) -> Result<T, EvalException>
     where
         Self: Sized;
 
@@ -49,28 +48,28 @@ pub trait Value<'a>: fmt::Debug {
     /// Example:
     ///
     ///     use berg_compiler::*;
-    ///     fn check_equal<'a>(a: usize, b: impl BergValue<'a>) -> Result<bool, EvalException<'a>> {
+    ///     fn check_equal(a: usize, b: impl BergValue) -> Result<bool, EvalException> {
     ///         match b.try_into_native::<usize>()? {
     ///             Some(b) => Ok(a == b),
     ///             None => Ok(false),
     ///         }
     ///     }
     ///
-    fn try_into_native<T: TryFromBergVal<'a>>(self) -> Result<Option<T>, EvalException<'a>>
+    fn try_into_native<T: TryFromBergVal>(self) -> Result<Option<T>, EvalException>
     where
         Self: Sized;
 
     ///
     /// Get a BergVal for this value, but don't necessarily evaluate it.
     ///
-    fn lazy_val(self) -> Result<BergVal<'a>, EvalException<'a>>
+    fn lazy_val(self) -> Result<BergVal, EvalException>
     where
         Self: Sized;
 
     ///
     /// Get a concrete EvalVal for this value.
     ///
-    fn eval_val(self) -> EvalResult<'a>
+    fn eval_val(self) -> EvalResult
     where
         Self: Sized;
 
@@ -80,16 +79,16 @@ pub trait Value<'a>: fmt::Debug {
     fn display(&self) -> &dyn fmt::Display;
 }
 
-pub trait EvaluatableValue<'a>: Value<'a> {
+pub trait EvaluatableValue: Value {
     ///
     /// Evaluate this value immediately, even if it is lazy.
     ///
-    fn evaluate(self) -> BergResult<'a>
+    fn evaluate(self) -> BergResult
     where
         Self: Sized;
 }
 
-pub trait IteratorValue<'a>: Value<'a> {
+pub trait IteratorValue: Value {
     ///
     /// Get the next value.
     ///
@@ -100,51 +99,51 @@ pub trait IteratorValue<'a>: Value<'a> {
     /// - `Err(error)` if we cannot tell whether there is a next value or not
     ///   due to an error.
     ///
-    fn next_val(self) -> Result<NextVal<'a>, EvalException<'a>>
+    fn next_val(self) -> Result<NextVal, EvalException>
     where
         Self: Sized;
 }
 
-pub trait ObjectValue<'a>: Value<'a> {
-    fn field(self, name: IdentifierIndex) -> EvalResult<'a>
+pub trait ObjectValue: Value {
+    fn field(self, name: IdentifierIndex) -> EvalResult
     where
         Self: Sized;
     fn set_field(
         &mut self,
         name: IdentifierIndex,
-        value: BergVal<'a>,
-    ) -> Result<(), EvalException<'a>>
+        value: BergVal,
+    ) -> Result<(), EvalException>
     where
         Self: Clone;
 }
 
-pub trait OperableValue<'a>: Value<'a> {
+pub trait OperableValue: Value {
     fn infix(
         self,
         operator: IdentifierIndex,
-        right: RightOperand<'a, impl EvaluatableValue<'a>>,
-    ) -> EvalResult<'a>
+        right: RightOperand<impl EvaluatableValue>,
+    ) -> EvalResult
     where
         Self: Sized;
     fn infix_assign(
         self,
         operator: IdentifierIndex,
-        right: RightOperand<'a, impl EvaluatableValue<'a>>,
-    ) -> EvalResult<'a>
+        right: RightOperand<impl EvaluatableValue>,
+    ) -> EvalResult
     where
         Self: Sized;
-    fn prefix(self, operator: IdentifierIndex) -> EvalResult<'a>
+    fn prefix(self, operator: IdentifierIndex) -> EvalResult
     where
         Self: Sized;
-    fn postfix(self, operator: IdentifierIndex) -> EvalResult<'a>
+    fn postfix(self, operator: IdentifierIndex) -> EvalResult
     where
         Self: Sized;
-    fn subexpression_result(self, boundary: ExpressionBoundary) -> EvalResult<'a>
+    fn subexpression_result(self, boundary: ExpressionBoundary) -> EvalResult
     where
         Self: Sized;
 }
 
-pub trait TryFromBergVal<'a>: fmt::Debug {
+pub trait TryFromBergVal: fmt::Debug {
     const TYPE_NAME: &'static str;
 
     ///
@@ -155,7 +154,7 @@ pub trait TryFromBergVal<'a>: fmt::Debug {
     /// - `Err(error)` if there was an error calculating the value.
     /// - `Ok(Err(value))` if the value was calculated, but could not be converted to the native type.
     ///
-    fn try_from_berg_val(from: EvalVal<'a>) -> Result<Result<Self, BergVal<'a>>, EvalException<'a>>
+    fn try_from_berg_val(from: EvalVal) -> Result<Result<Self, BergVal>, EvalException>
     where
         Self: Sized;
 }
@@ -167,65 +166,65 @@ pub trait TryFromBergVal<'a>: fmt::Debug {
 /// evaluating the right operand are automatically given the correct error range.
 ///
 #[derive(Debug, Copy, Clone)]
-pub struct RightOperand<'a, V: Value<'a>>(pub V, pub PhantomData<&'a ()>);
+pub struct RightOperand<V: Value>(pub V);
 
 ///
 /// The result of [`IteratorValue.next_val()`].
 ///
 #[derive(Debug, Clone)]
-pub struct NextVal<'a> {
+pub struct NextVal {
     ///
     /// The next value, or `None` if there is no next value.
     ///
-    pub head: Option<BergVal<'a>>,
+    pub head: Option<BergVal>,
     ///
     /// The next iterator (may be an empty value if there is nothing to do).
     ///
-    pub tail: BergVal<'a>,
+    pub tail: BergVal,
 }
 
 ///
 /// Allows us to hold boxed `BergValue`s in cloneable objects.
 ///
-pub trait BoxCloneBergValue<'a> {
+pub trait BoxCloneBergValue {
     ///
     /// Clone this BergValue into a Box.
     ///
-    fn box_clone(&self) -> Box<dyn BergValue<'a> + 'a>;
+    fn box_clone(&self) -> Box<dyn BergValue>;
 }
 
-impl<'a, T: BergValue<'a> + Clone + 'a> BoxCloneBergValue<'a> for T {
-    fn box_clone(&self) -> Box<dyn BergValue<'a> + 'a> {
+impl<T: BergValue + Clone + 'static> BoxCloneBergValue for T {
+    fn box_clone(&self) -> Box<dyn BergValue> {
         Box::new(self.clone())
     }
 }
 
-impl<'a> Clone for Box<dyn BergValue<'a> + 'a> {
+impl Clone for Box<dyn BergValue> {
     fn clone(&self) -> Self {
         self.box_clone()
     }
 }
 
-impl<'a, V: Value<'a>> From<V> for RightOperand<'a, V> {
+impl<V: Value> From<V> for RightOperand<V> {
     fn from(from: V) -> Self {
-        RightOperand(from, PhantomData)
+        RightOperand(from)
     }
 }
 
-impl<'a, V: EvaluatableValue<'a>> RightOperand<'a, V> {
-    pub fn evaluate(self) -> BergResult<'a> {
+impl<V: EvaluatableValue> RightOperand<V> {
+    pub fn evaluate(self) -> BergResult {
         self.0.evaluate()
     }
 }
 
-impl<'a, V: Value<'a>> RightOperand<'a, V> {
-    pub fn into_native<T: TryFromBergVal<'a>>(self) -> Result<T, EvalException<'a>> {
+impl<V: Value> RightOperand<V> {
+    pub fn into_native<T: TryFromBergVal>(self) -> Result<T, EvalException> {
         match self.0.into_native() {
             Ok(value) => Ok(value),
             Err(error) => error.reposition(Right).err(),
         }
     }
-    pub fn try_into_native<T: TryFromBergVal<'a>>(self) -> Result<Option<T>, EvalException<'a>> {
+    pub fn try_into_native<T: TryFromBergVal>(self) -> Result<Option<T>, EvalException> {
         match self.0.try_into_native() {
             Ok(value) => Ok(value),
             Err(error) => error.reposition(Right).err(),
@@ -235,7 +234,7 @@ impl<'a, V: Value<'a>> RightOperand<'a, V> {
     /// Get the operand's value with appropriate error locations and no
     /// EvalVal values.
     ///
-    pub fn lazy_val(self) -> Result<BergVal<'a>, EvalException<'a>>
+    pub fn lazy_val(self) -> Result<BergVal, EvalException>
     where
         Self: Sized,
     {
@@ -244,24 +243,24 @@ impl<'a, V: Value<'a>> RightOperand<'a, V> {
     ///
     /// Process the value and give appropriate error locations to the result.
     ///
-    pub fn eval_val(self) -> Result<RightOperand<'a, EvalVal<'a>>, EvalException<'a>> {
+    pub fn eval_val(self) -> Result<RightOperand<EvalVal>, EvalException> {
         Ok(self.0.eval_val()?.into())
     }
     ///
     /// Process the value and give appropriate error locations to the result.
     ///  
-    pub fn get(self) -> Result<RightOperand<'a, EvalVal<'a>>, EvalException<'a>> {
+    pub fn get(self) -> Result<RightOperand<EvalVal>, EvalException> {
         Ok(self.0.eval_val()?.get()?.into())
     }
 }
 
-impl<'a, T: Value<'a>> fmt::Display for RightOperand<'a, T> {
+impl<T: Value> fmt::Display for RightOperand<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         self.0.fmt(f)
     }
 }
 
-impl<'a> fmt::Display for NextVal<'a> {
+impl fmt::Display for NextVal {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self.head {
             None => write!(f, "<none> -> {}", self.tail.display()),
@@ -269,14 +268,14 @@ impl<'a> fmt::Display for NextVal<'a> {
         }
     }
 }
-impl<'a> NextVal<'a> {
-    pub fn none(iterator: BergVal<'a>) -> NextVal<'a> {
+impl NextVal {
+    pub fn none(iterator: BergVal) -> NextVal {
         NextVal {
             head: None,
             tail: iterator,
         }
     }
-    pub fn single(value: BergVal<'a>) -> NextVal<'a> {
+    pub fn single(value: BergVal) -> NextVal {
         NextVal {
             head: Some(value),
             tail: empty_tuple(),
@@ -292,13 +291,13 @@ pub mod implement {
 
     use berg_parser::Fixity;
 
-    pub fn single_next_val<'a>(value: impl Value<'a>) -> Result<NextVal<'a>, EvalException<'a>> {
+    pub fn single_next_val(value: impl Value) -> Result<NextVal, EvalException> {
         NextVal::single(value.lazy_val()?).ok()
     }
 
-    pub fn default_into_native<'a, T: TryFromBergVal<'a>>(
-        value: impl Value<'a>,
-    ) -> Result<T, EvalException<'a>> {
+    pub fn default_into_native<T: TryFromBergVal>(
+        value: impl Value,
+    ) -> Result<T, EvalException> {
         match T::try_from_berg_val(value.eval_val()?) {
             Ok(Ok(value)) => Ok(value),
             Ok(Err(original)) => {
@@ -308,9 +307,9 @@ pub mod implement {
         }
     }
 
-    pub fn default_try_into_native<'a, T: TryFromBergVal<'a>>(
-        value: impl Value<'a>,
-    ) -> Result<Option<T>, EvalException<'a>> {
+    pub fn default_try_into_native<T: TryFromBergVal>(
+        value: impl Value,
+    ) -> Result<Option<T>, EvalException> {
         match T::try_from_berg_val(value.eval_val()?) {
             Ok(Ok(value)) => Ok(Some(value)),
             Ok(Err(_)) => Ok(None),
@@ -318,18 +317,18 @@ pub mod implement {
         }
     }
 
-    pub fn default_subexpression_result<'a>(
-        value: impl Value<'a>,
+    pub fn default_subexpression_result(
+        value: impl Value,
         _boundary: ExpressionBoundary,
-    ) -> EvalResult<'a> {
+    ) -> EvalResult {
         value.eval_val()
     }
 
-    pub fn default_infix<'a>(
-        left: impl Value<'a> + OperableValue<'a> + IteratorValue<'a>,
+    pub fn default_infix(
+        left: impl OperableValue + IteratorValue,
         operator: IdentifierIndex,
-        right: RightOperand<'a, impl EvaluatableValue<'a>>,
-    ) -> EvalResult<'a> {
+        right: RightOperand<impl EvaluatableValue>,
+    ) -> EvalResult {
         use berg_parser::identifiers::{
             COLON, COMMA, DOT, EQUAL_TO, EXCLAMATION_POINT, NEWLINE_SEQUENCE, NOT_EQUAL_TO,
             SEMICOLON,
@@ -339,7 +338,7 @@ pub mod implement {
                 let left = left.lazy_val()?;
                 match right.eval_val()? {
                     // (1,)
-                    RightOperand(EvalVal::MissingExpression, _) => {
+                    RightOperand(EvalVal::MissingExpression) => {
                         EvalVal::TrailingComma(vec![left]).ok()
                     }
                     // (1,2[,...])
@@ -349,7 +348,7 @@ pub mod implement {
             SEMICOLON => {
                 left.lazy_val()?.evaluate()?;
                 match right.eval_val()? {
-                    RightOperand(EvalVal::MissingExpression, _) => EvalVal::TrailingSemicolon.ok(),
+                    RightOperand(EvalVal::MissingExpression) => EvalVal::TrailingSemicolon.ok(),
                     right => right.lazy_val()?.evaluate()?.ok(),
                 }
             }
@@ -394,18 +393,18 @@ pub mod implement {
         }
     }
 
-    pub fn default_infix_assign<'a>(
-        _left: impl Value<'a>,
+    pub fn default_infix_assign(
+        _left: impl Value,
         _operator: IdentifierIndex,
-        _right: RightOperand<'a, impl EvaluatableValue<'a>>,
-    ) -> EvalResult<'a> {
+        _right: RightOperand<impl EvaluatableValue>,
+    ) -> EvalResult {
         CompilerError::AssignmentTargetMustBeIdentifier.operand_err(Left)
     }
 
-    pub fn default_postfix<'a>(
-        operand: impl Value<'a>,
+    pub fn default_postfix(
+        operand: impl Value,
         operator: IdentifierIndex,
-    ) -> EvalResult<'a> {
+    ) -> EvalResult {
         use berg_parser::identifiers::{DASH_DASH, PLUS_PLUS};
         match operator {
             PLUS_PLUS | DASH_DASH => {
@@ -420,10 +419,10 @@ pub mod implement {
         }
     }
 
-    pub fn default_prefix<'a>(
-        operand: impl Value<'a> + OperableValue<'a> + 'a,
+    pub fn default_prefix(
+        operand: impl OperableValue,
         operator: IdentifierIndex,
-    ) -> EvalResult<'a> {
+    ) -> EvalResult {
         use berg_parser::identifiers::{
             DASH_DASH, DOUBLE_EXCLAMATION_POINT, EXCLAMATION_POINT, PLUS_PLUS,
         };
@@ -443,16 +442,16 @@ pub mod implement {
         }
     }
 
-    pub fn default_field<'a>(object: impl Value<'a> + 'a, name: IdentifierIndex) -> EvalResult<'a> {
+    pub fn default_field(object: impl Value, name: IdentifierIndex) -> EvalResult {
         CompilerError::NoSuchPublicFieldOnValue(Box::new(object.lazy_val()?), name).err()
     }
 
     #[allow(clippy::needless_pass_by_value)]
-    pub fn default_set_field<'a>(
-        object: &mut (impl Value<'a> + Clone),
+    pub fn default_set_field(
+        object: &mut (impl Value + Clone),
         name: IdentifierIndex,
-        _value: BergVal<'a>,
-    ) -> Result<(), EvalException<'a>> {
+        _value: BergVal,
+    ) -> Result<(), EvalException> {
         CompilerError::NoSuchPublicFieldOnValue(Box::new(object.clone().lazy_val()?), name).err()
     }
 }

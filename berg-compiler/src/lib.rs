@@ -19,7 +19,7 @@ pub(crate) mod value;
 
 pub mod test;
 
-pub fn evaluate_file(path: impl Into<Cow<'static, Path>>) -> impl BergValue<'static> {
+pub fn evaluate_file(path: impl Into<Cow<'static, Path>>) -> impl BergValue {
     let ast = RootRef::from_env().parse_file(path);
     evaluate_ast(ast)
 }
@@ -27,7 +27,7 @@ pub fn evaluate_file(path: impl Into<Cow<'static, Path>>) -> impl BergValue<'sta
 pub fn evaluate_bytes(
     name: impl Into<Cow<'static, str>>,
     buffer: impl Into<Cow<'static, [u8]>>,
-) -> impl BergValue<'static> {
+) -> impl BergValue {
     let ast = RootRef::from_env().parse_bytes(name, buffer);
     evaluate_ast(ast)
 }

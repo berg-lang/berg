@@ -45,16 +45,16 @@ pub struct ExpectBerg(pub &'static [u8]);
 ///
 /// An expected value.
 ///
-pub trait ExpectedValue<'a>: fmt::Display + Clone {
-    fn matches(self, actual: BergVal<'a>) -> Result<bool, EvalException<'a>>;
+pub trait ExpectedValue: fmt::Display + Clone {
+    fn matches(self, actual: BergVal) -> Result<bool, EvalException>;
 }
-impl<'a> ExpectedValue<'a> for CompilerErrorCode {
-    fn matches(self, actual: BergVal<'a>) -> Result<bool, EvalException<'a>> {
+impl ExpectedValue for CompilerErrorCode {
+    fn matches(self, actual: BergVal) -> Result<bool, EvalException> {
         Ok(self == actual.into_native::<CompilerError>()?.code())
     }
 }
-impl<'a, T: Into<BergVal<'a>> + fmt::Display + Clone> ExpectedValue<'a> for T {
-    fn matches(self, actual: BergVal<'a>) -> Result<bool, EvalException<'a>> {
+impl<T: Into<BergVal> + fmt::Display + Clone> ExpectedValue for T {
+    fn matches(self, actual: BergVal) -> Result<bool, EvalException> {
         self.into()
             .infix(EQUAL_TO, actual.into())?
             .into_native::<bool>()
@@ -178,7 +178,7 @@ impl ExpectBerg {
     /// ```
     ///
     #[allow(clippy::needless_pass_by_value, clippy::wrong_self_convention)]
-    pub fn to_yield(self, expected: impl ExpectedValue<'static>) {
+    pub fn to_yield(self, expected: impl ExpectedValue) {
         println!("Source:");
         println!("{}", String::from_utf8_lossy(self.0));
         println!();
@@ -235,7 +235,7 @@ impl ExpectBerg {
     #[allow(clippy::wrong_self_convention)]
     pub fn to_error(
         self,
-        expected_value: impl ExpectedValue<'static>,
+        expected_value: impl ExpectedValue,
         expected_range: impl ExpectedErrorRange,
     ) {
         // Run the Berg

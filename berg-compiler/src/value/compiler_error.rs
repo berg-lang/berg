@@ -18,7 +18,7 @@ use std::{fmt, io};
 /// can actually be reported.
 ///
 #[derive(Debug, Clone)]
-pub enum CompilerError<'a> {
+pub enum CompilerError {
     // File open errors
     SourceLoadError(SourceLoadError),
     // Code errors
@@ -30,7 +30,7 @@ pub enum CompilerError<'a> {
     RightSideOfDotMustBeIdentifier,
     OpenWithoutClose,
     CloseWithoutOpen,
-    UnsupportedOperator(Box<dyn BergValue<'a> + 'a>, Fixity, IdentifierIndex),
+    UnsupportedOperator(Box<dyn BergValue>, Fixity, IdentifierIndex),
     DivideByZero,
     NoSuchField(FieldIndex),
     FieldNotSet(FieldIndex),
@@ -62,14 +62,14 @@ pub enum CompilerError<'a> {
     ThrowWithoutException,
 
     // TODO stop boxing BergVals
-    // BadOperandType(Box<EvalResult<'a>>, &'static str),
-    BadOperandType(Box<dyn BergValue<'a> + 'a>, &'static str),
-    PrivateField(BlockRef<'a>, IdentifierIndex),
-    NoSuchPublicField(BlockRef<'a>, IdentifierIndex),
-    NoSuchPublicFieldOnValue(Box<dyn BergValue<'a> + 'a>, IdentifierIndex),
+    // BadOperandType(Box<EvalResult>, &'static str),
+    BadOperandType(Box<dyn BergValue>, &'static str),
+    PrivateField(BlockRef, IdentifierIndex),
+    NoSuchPublicField(BlockRef, IdentifierIndex),
+    NoSuchPublicFieldOnValue(Box<dyn BergValue>, IdentifierIndex),
     NoSuchPublicFieldOnRoot(IdentifierIndex),
     ImmutableFieldOnRoot(FieldIndex),
-    ImmutableFieldOnValue(Box<dyn BergValue<'a> + 'a>, IdentifierIndex),
+    ImmutableFieldOnValue(Box<dyn BergValue>, IdentifierIndex),
 
     // These are control values--only errors if nobody catches them.
     BreakOutsideLoop,
@@ -166,10 +166,10 @@ pub enum CompilerErrorCode {
     ContinueOutsideLoop,
 }
 
-impl<'a> BergValue<'a> for CompilerError<'a> {}
+impl BergValue for CompilerError {}
 
-impl<'a> EvaluatableValue<'a> for CompilerError<'a> {
-    fn evaluate(self) -> BergResult<'a>
+impl EvaluatableValue for CompilerError {
+    fn evaluate(self) -> BergResult
     where
         Self: Sized,
     {
@@ -177,26 +177,26 @@ impl<'a> EvaluatableValue<'a> for CompilerError<'a> {
     }
 }
 
-impl<'a> Value<'a> for CompilerError<'a> {
-    fn lazy_val(self) -> Result<BergVal<'a>, EvalException<'a>>
+impl Value for CompilerError {
+    fn lazy_val(self) -> Result<BergVal, EvalException>
     where
         Self: Sized,
     {
         self.ok()
     }
 
-    fn eval_val(self) -> EvalResult<'a>
+    fn eval_val(self) -> EvalResult
     where
         Self: Sized,
     {
         self.ok()
     }
 
-    fn into_native<T: TryFromBergVal<'a>>(self) -> Result<T, EvalException<'a>> {
+    fn into_native<T: TryFromBergVal>(self) -> Result<T, EvalException> {
         default_into_native(self)
     }
 
-    fn try_into_native<T: TryFromBergVal<'a>>(self) -> Result<Option<T>, EvalException<'a>> {
+    fn try_into_native<T: TryFromBergVal>(self) -> Result<Option<T>, EvalException> {
         default_try_into_native(self)
     }
 
@@ -205,14 +205,14 @@ impl<'a> Value<'a> for CompilerError<'a> {
     }
 }
 
-impl<'a> IteratorValue<'a> for CompilerError<'a> {
-    fn next_val(self) -> Result<NextVal<'a>, EvalException<'a>> {
+impl IteratorValue for CompilerError {
+    fn next_val(self) -> Result<NextVal, EvalException> {
         single_next_val(self)
     }
 }
 
-impl<'a> ObjectValue<'a> for CompilerError<'a> {
-    fn field(self, name: IdentifierIndex) -> EvalResult<'a>
+impl ObjectValue for CompilerError {
+    fn field(self, name: IdentifierIndex) -> EvalResult
     where
         Self: Sized,
     {
@@ -225,8 +225,8 @@ impl<'a> ObjectValue<'a> for CompilerError<'a> {
     fn set_field(
         &mut self,
         name: IdentifierIndex,
-        value: BergVal<'a>,
-    ) -> Result<(), EvalException<'a>> {
+        value: BergVal,
+    ) -> Result<(), EvalException> {
         match name {
             ERROR_CODE => CompilerError::ImmutableFieldOnValue(Box::new(self.clone()), name).err(),
             _ => default_set_field(self, name, value),
@@ -234,12 +234,12 @@ impl<'a> ObjectValue<'a> for CompilerError<'a> {
     }
 }
 
-impl<'a> OperableValue<'a> for CompilerError<'a> {
+impl OperableValue for CompilerError {
     fn infix(
         self,
         operator: IdentifierIndex,
-        right: RightOperand<'a, impl EvaluatableValue<'a>>,
-    ) -> EvalResult<'a>
+        right: RightOperand<impl EvaluatableValue>,
+    ) -> EvalResult
     where
         Self: Sized,
     {
@@ -249,29 +249,29 @@ impl<'a> OperableValue<'a> for CompilerError<'a> {
     fn infix_assign(
         self,
         operator: IdentifierIndex,
-        right: RightOperand<'a, impl EvaluatableValue<'a>>,
-    ) -> EvalResult<'a>
+        right: RightOperand<impl EvaluatableValue>,
+    ) -> EvalResult
     where
         Self: Sized,
     {
         default_infix_assign(self, operator, right)
     }
 
-    fn prefix(self, operator: IdentifierIndex) -> EvalResult<'a>
+    fn prefix(self, operator: IdentifierIndex) -> EvalResult
     where
         Self: Sized,
     {
         default_prefix(self, operator)
     }
 
-    fn postfix(self, operator: IdentifierIndex) -> EvalResult<'a>
+    fn postfix(self, operator: IdentifierIndex) -> EvalResult
     where
         Self: Sized,
     {
         default_postfix(self, operator)
     }
 
-    fn subexpression_result(self, boundary: ExpressionBoundary) -> EvalResult<'a>
+    fn subexpression_result(self, boundary: ExpressionBoundary) -> EvalResult
     where
         Self: Sized,
     {
@@ -279,11 +279,11 @@ impl<'a> OperableValue<'a> for CompilerError<'a> {
     }
 }
 
-impl<'a> TryFromBergVal<'a> for CompilerError<'a> {
+impl TryFromBergVal for CompilerError {
     const TYPE_NAME: &'static str = "CompilerError";
     fn try_from_berg_val(
-        from: EvalVal<'a>,
-    ) -> Result<Result<Self, BergVal<'a>>, EvalException<'a>> {
+        from: EvalVal,
+    ) -> Result<Result<Self, BergVal>, EvalException> {
         match from.lazy_val()?.evaluate()? {
             BergVal::CompilerError(value) => Ok(Ok(value)),
             from => Ok(Err(from)),
@@ -291,19 +291,19 @@ impl<'a> TryFromBergVal<'a> for CompilerError<'a> {
     }
 }
 
-impl<'a> From<CompilerError<'a>> for BergVal<'a> {
-    fn from(from: CompilerError<'a>) -> Self {
+impl From<CompilerError> for BergVal {
+    fn from(from: CompilerError) -> Self {
         BergVal::CompilerError(from)
     }
 }
 
-impl<'a> From<CompilerError<'a>> for EvalVal<'a> {
-    fn from(from: CompilerError<'a>) -> Self {
+impl From<CompilerError> for EvalVal {
+    fn from(from: CompilerError) -> Self {
         BergVal::from(from).into()
     }
 }
 
-impl<'a> fmt::Display for CompilerError<'a> {
+impl fmt::Display for CompilerError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{:?}", self)
     }
@@ -367,7 +367,7 @@ impl fmt::Display for CompilerErrorCode {
     }
 }
 
-impl<'a> fmt::Display for EvalException<'a> {
+impl fmt::Display for EvalException {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         use EvalException::*;
         match self {
@@ -380,12 +380,12 @@ impl<'a> fmt::Display for EvalException<'a> {
     }
 }
 
-impl<'a> CompilerError<'a> {
-    pub fn at_location(self, expression: impl Into<ExpressionRef>) -> Exception<'a> {
+impl CompilerError {
+    pub fn at_location(self, expression: impl Into<ExpressionRef>) -> Exception {
         Exception::new(self.into(), expression.into())
     }
 
-    pub fn operand_err<T>(self, position: ExpressionPosition) -> Result<T, EvalException<'a>> {
+    pub fn operand_err<T>(self, position: ExpressionPosition) -> Result<T, EvalException> {
         Err(EvalException::Thrown(self.into(), position))
     }
 
@@ -843,25 +843,25 @@ impl SourceLoadError {
     }
 }
 
-impl<'a> From<SourceLoadError> for CompilerError<'a> {
+impl From<SourceLoadError> for CompilerError {
     fn from(from: SourceLoadError) -> Self {
         CompilerError::SourceLoadError(from)
     }
 }
 
-impl<'a> From<SourceLoadError> for BergVal<'a> {
+impl From<SourceLoadError> for BergVal {
     fn from(from: SourceLoadError) -> Self {
         BergVal::CompilerError(from.into())
     }
 }
 
-impl<'a> From<SourceLoadError> for EvalVal<'a> {
+impl From<SourceLoadError> for EvalVal {
     fn from(from: SourceLoadError) -> Self {
         BergVal::from(from).into()
     }
 }
 
-impl<'a, V: Into<BergVal<'a>>> From<V> for EvalException<'a> {
+impl<V: Into<BergVal>> From<V> for EvalException {
     fn from(from: V) -> Self {
         EvalException::Thrown(from.into(), ExpressionPosition::Expression)
     }

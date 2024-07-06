@@ -6,6 +6,6 @@ pub use self::expression_eval::ExpressionEvaluator;
 
 use crate::value::*;
 
-pub fn evaluate_ast<'a>(ast: AstRef) -> BergResult<'a> {
+pub fn evaluate_ast(ast: AstRef) -> BergResult {
     BlockRef::from_ast(ast.clone())?.evaluate()
 }

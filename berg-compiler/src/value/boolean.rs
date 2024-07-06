@@ -1,10 +1,10 @@
 use crate::value::implement::*;
 use berg_parser::identifiers::*;
 
-impl<'a> BergValue<'a> for bool {}
+impl BergValue for bool {}
 
-impl<'a> EvaluatableValue<'a> for bool {
-    fn evaluate(self) -> BergResult<'a>
+impl EvaluatableValue for bool {
+    fn evaluate(self) -> BergResult
     where
         Self: Sized,
     {
@@ -13,26 +13,26 @@ impl<'a> EvaluatableValue<'a> for bool {
 }
 
 // Implementations for common types
-impl<'a> Value<'a> for bool {
-    fn lazy_val(self) -> Result<BergVal<'a>, EvalException<'a>>
+impl Value for bool {
+    fn lazy_val(self) -> Result<BergVal, EvalException>
     where
         Self: Sized,
     {
         self.ok()
     }
 
-    fn eval_val(self) -> EvalResult<'a>
+    fn eval_val(self) -> EvalResult
     where
         Self: Sized,
     {
         self.ok()
     }
 
-    fn into_native<T: TryFromBergVal<'a>>(self) -> Result<T, EvalException<'a>> {
+    fn into_native<T: TryFromBergVal>(self) -> Result<T, EvalException> {
         default_into_native(self)
     }
 
-    fn try_into_native<T: TryFromBergVal<'a>>(self) -> Result<Option<T>, EvalException<'a>> {
+    fn try_into_native<T: TryFromBergVal>(self) -> Result<Option<T>, EvalException> {
         default_try_into_native(self)
     }
 
@@ -41,14 +41,14 @@ impl<'a> Value<'a> for bool {
     }
 }
 
-impl<'a> IteratorValue<'a> for bool {
-    fn next_val(self) -> Result<NextVal<'a>, EvalException<'a>> {
+impl IteratorValue for bool {
+    fn next_val(self) -> Result<NextVal, EvalException> {
         single_next_val(self)
     }
 }
 
-impl<'a> ObjectValue<'a> for bool {
-    fn field(self, name: IdentifierIndex) -> EvalResult<'a>
+impl ObjectValue for bool {
+    fn field(self, name: IdentifierIndex) -> EvalResult
     where
         Self: Sized,
     {
@@ -58,18 +58,18 @@ impl<'a> ObjectValue<'a> for bool {
     fn set_field(
         &mut self,
         name: IdentifierIndex,
-        value: BergVal<'a>,
-    ) -> Result<(), EvalException<'a>> {
+        value: BergVal,
+    ) -> Result<(), EvalException> {
         default_set_field(self, name, value)
     }
 }
 
-impl<'a> OperableValue<'a> for bool {
+impl OperableValue for bool {
     fn infix(
         self,
         operator: IdentifierIndex,
-        right: RightOperand<'a, impl EvaluatableValue<'a>>,
-    ) -> EvalResult<'a>
+        right: RightOperand<impl EvaluatableValue>,
+    ) -> EvalResult
     where
         Self: Sized,
     {
@@ -88,15 +88,15 @@ impl<'a> OperableValue<'a> for bool {
     fn infix_assign(
         self,
         operator: IdentifierIndex,
-        right: RightOperand<'a, impl EvaluatableValue<'a>>,
-    ) -> EvalResult<'a>
+        right: RightOperand<impl EvaluatableValue>,
+    ) -> EvalResult
     where
         Self: Sized,
     {
         default_infix_assign(self, operator, right)
     }
 
-    fn prefix(self, operator: IdentifierIndex) -> EvalResult<'a>
+    fn prefix(self, operator: IdentifierIndex) -> EvalResult
     where
         Self: Sized,
     {
@@ -107,14 +107,14 @@ impl<'a> OperableValue<'a> for bool {
         }
     }
 
-    fn postfix(self, operator: IdentifierIndex) -> EvalResult<'a>
+    fn postfix(self, operator: IdentifierIndex) -> EvalResult
     where
         Self: Sized,
     {
         default_postfix(self, operator)
     }
 
-    fn subexpression_result(self, boundary: ExpressionBoundary) -> EvalResult<'a>
+    fn subexpression_result(self, boundary: ExpressionBoundary) -> EvalResult
     where
         Self: Sized,
     {
@@ -122,11 +122,11 @@ impl<'a> OperableValue<'a> for bool {
     }
 }
 
-impl<'a> TryFromBergVal<'a> for bool {
+impl TryFromBergVal for bool {
     const TYPE_NAME: &'static str = "bool";
     fn try_from_berg_val(
-        from: EvalVal<'a>,
-    ) -> Result<Result<Self, BergVal<'a>>, EvalException<'a>> {
+        from: EvalVal,
+    ) -> Result<Result<Self, BergVal>, EvalException> {
         match from.lazy_val()? {
             BergVal::Boolean(value) => Ok(Ok(value)),
             from => Ok(Err(from)),
@@ -134,13 +134,13 @@ impl<'a> TryFromBergVal<'a> for bool {
     }
 }
 
-impl<'a> From<bool> for BergVal<'a> {
+impl From<bool> for BergVal {
     fn from(from: bool) -> Self {
         BergVal::Boolean(from)
     }
 }
 
-impl<'a> From<bool> for EvalVal<'a> {
+impl From<bool> for EvalVal {
     fn from(from: bool) -> Self {
         BergVal::from(from).into()
     }
