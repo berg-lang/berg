@@ -81,10 +81,10 @@ identifiers! {
     ERROR_CODE = "CompilerErrorCode",
 }
 
-pub(crate) fn intern_all() -> StringInterner<StringBackend<IdentifierIndex>> {
+pub fn intern_all() -> StringInterner<StringBackend<IdentifierIndex>> {
     let mut identifiers = StringInterner::new();
     for &(operator, string) in ALL_IDENTIFIERS.iter() {
-        let actual_identifier = identifiers.get_or_intern(string);
+        let actual_identifier = identifiers.get_or_intern_static(string);
         assert_eq!(actual_identifier, operator);
     }
     assert_eq!(identifiers.len(), ALL_IDENTIFIERS.len());
@@ -145,4 +145,15 @@ impl fmt::Debug for IdentifierIndex {
             write!(f, "{}", self.to_usize())
         }
     }
+}
+
+///
+/// Keywords are fields in the root. When the identifier `true` is in the code,
+/// it's treated as a normal variable reference and looked up in scope (which
+/// includes the root scope).
+///
+#[allow(clippy::upper_case_acronyms)]
+pub mod keywords {
+    use crate::fields;
+    fields! { TRUE, FALSE, IF, ELSE, WHILE, FOREACH, BREAK, CONTINUE, TRY, CATCH, FINALLY, THROW, }
 }

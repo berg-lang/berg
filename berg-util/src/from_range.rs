@@ -8,6 +8,7 @@ pub trait IntoRange<ToIndex> {
     fn into_range(self) -> Self::Output;
 }
 
+#[allow(dead_code)]
 pub trait FromRange<FromIndex> {
     type From: RangeBounds<FromIndex>;
     fn from_range(from: Self::From) -> Self;

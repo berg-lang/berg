@@ -1,10 +1,13 @@
+use exception::ErrorLocation;
+
+use super::implement::*;
 use crate::eval::BlockRef;
-use crate::syntax::identifiers::ERROR_CODE;
-use crate::syntax::{
-    ExpressionRef, FieldIndex, Fixity, IdentifierIndex, LiteralIndex, RawLiteralIndex,
+use berg_parser::identifiers::ERROR_CODE;
+use berg_parser::{
+    ExpressionPosition, FieldIndex, Fixity, IdentifierIndex, LiteralIndex, RawLiteralIndex,
 };
-use crate::value::implement::*;
-use std::fmt;
+use std::rc::Rc;
+use std::{fmt, io};
 
 ///
 /// Standard berg error.
@@ -15,34 +18,9 @@ use std::fmt;
 /// can actually be reported.
 ///
 #[derive(Debug, Clone)]
-pub enum CompilerError<'a> {
+pub enum CompilerError {
     // File open errors
-    ///
-    /// The source file to be read could not be found.
-    ///
-    SourceNotFound,
-
-    ///
-    /// There was an I/O error opening the source file. The file may or may not
-    /// exist (depending on the type of the IoOpenError).
-    ///
-    IoOpenError,
-
-    ///
-    /// There was an I/O error reading the source file.
-    ///
-    IoReadError,
-
-    ///
-    /// There was an error determining the current directory.
-    ///
-    CurrentDirectoryError,
-
-    ///
-    /// A source file was more than 32-bits (4GB).
-    ///
-    SourceTooLarge(usize),
-
+    SourceLoadError(SourceLoadError),
     // Code errors
     InvalidUtf8(RawLiteralIndex),
     UnsupportedCharacters(LiteralIndex),
@@ -52,7 +30,7 @@ pub enum CompilerError<'a> {
     RightSideOfDotMustBeIdentifier,
     OpenWithoutClose,
     CloseWithoutOpen,
-    UnsupportedOperator(Box<dyn BergValue<'a> + 'a>, Fixity, IdentifierIndex),
+    UnsupportedOperator(Box<dyn BergValue>, Fixity, IdentifierIndex),
     DivideByZero,
     NoSuchField(FieldIndex),
     FieldNotSet(FieldIndex),
@@ -84,18 +62,48 @@ pub enum CompilerError<'a> {
     ThrowWithoutException,
 
     // TODO stop boxing BergVals
-    // BadOperandType(Box<EvalResult<'a>>, &'static str),
-    BadOperandType(Box<dyn BergValue<'a> + 'a>, &'static str),
-    PrivateField(BlockRef<'a>, IdentifierIndex),
-    NoSuchPublicField(BlockRef<'a>, IdentifierIndex),
-    NoSuchPublicFieldOnValue(Box<dyn BergValue<'a> + 'a>, IdentifierIndex),
+    // BadOperandType(Box<EvalResult>, &'static str),
+    BadOperandType(Box<dyn BergValue>, &'static str),
+    PrivateField(BlockRef, IdentifierIndex),
+    NoSuchPublicField(BlockRef, IdentifierIndex),
+    NoSuchPublicFieldOnValue(Box<dyn BergValue>, IdentifierIndex),
     NoSuchPublicFieldOnRoot(IdentifierIndex),
     ImmutableFieldOnRoot(FieldIndex),
-    ImmutableFieldOnValue(Box<dyn BergValue<'a> + 'a>, IdentifierIndex),
+    ImmutableFieldOnValue(Box<dyn BergValue>, IdentifierIndex),
 
     // These are control values--only errors if nobody catches them.
     BreakOutsideLoop,
     ContinueOutsideLoop,
+}
+
+#[derive(Debug, Clone)]
+pub enum SourceLoadError {
+    // File open errors
+    ///
+    /// The source file to be read could not be found.
+    ///
+    SourceNotFound(Rc<io::Error>),
+
+    ///
+    /// There was an I/O error opening the source file. The file may or may not
+    /// exist (depending on the type of the IoOpenError).
+    ///
+    IoOpenError(Rc<io::Error>),
+
+    ///
+    /// There was an I/O error reading the source file.
+    ///
+    IoReadError(Rc<io::Error>),
+
+    ///
+    /// There was an error determining the current directory.
+    ///
+    CurrentDirectoryError(Rc<io::Error>),
+
+    ///
+    /// A source file was more than 32-bits (4GB).
+    ///
+    SourceTooLarge(usize),
 }
 
 #[derive(Debug, Copy, Clone, PartialEq)]
@@ -158,10 +166,10 @@ pub enum CompilerErrorCode {
     ContinueOutsideLoop,
 }
 
-impl<'a> BergValue<'a> for CompilerError<'a> {}
+impl BergValue for CompilerError {}
 
-impl<'a> EvaluatableValue<'a> for CompilerError<'a> {
-    fn evaluate(self) -> BergResult<'a>
+impl EvaluatableValue for CompilerError {
+    fn evaluate(self) -> BergResult
     where
         Self: Sized,
     {
@@ -169,26 +177,26 @@ impl<'a> EvaluatableValue<'a> for CompilerError<'a> {
     }
 }
 
-impl<'a> Value<'a> for CompilerError<'a> {
-    fn lazy_val(self) -> Result<BergVal<'a>, EvalException<'a>>
+impl Value for CompilerError {
+    fn lazy_val(self) -> Result<BergVal, EvalException>
     where
         Self: Sized,
     {
         self.ok()
     }
 
-    fn eval_val(self) -> EvalResult<'a>
+    fn eval_val(self) -> EvalResult
     where
         Self: Sized,
     {
         self.ok()
     }
 
-    fn into_native<T: TryFromBergVal<'a>>(self) -> Result<T, EvalException<'a>> {
+    fn into_native<T: TryFromBergVal>(self) -> Result<T, EvalException> {
         default_into_native(self)
     }
 
-    fn try_into_native<T: TryFromBergVal<'a>>(self) -> Result<Option<T>, EvalException<'a>> {
+    fn try_into_native<T: TryFromBergVal>(self) -> Result<Option<T>, EvalException> {
         default_try_into_native(self)
     }
 
@@ -197,14 +205,14 @@ impl<'a> Value<'a> for CompilerError<'a> {
     }
 }
 
-impl<'a> IteratorValue<'a> for CompilerError<'a> {
-    fn next_val(self) -> Result<NextVal<'a>, EvalException<'a>> {
+impl IteratorValue for CompilerError {
+    fn next_val(self) -> Result<NextVal, EvalException> {
         single_next_val(self)
     }
 }
 
-impl<'a> ObjectValue<'a> for CompilerError<'a> {
-    fn field(self, name: IdentifierIndex) -> EvalResult<'a>
+impl ObjectValue for CompilerError {
+    fn field(self, name: IdentifierIndex) -> EvalResult
     where
         Self: Sized,
     {
@@ -217,8 +225,8 @@ impl<'a> ObjectValue<'a> for CompilerError<'a> {
     fn set_field(
         &mut self,
         name: IdentifierIndex,
-        value: BergVal<'a>,
-    ) -> Result<(), EvalException<'a>> {
+        value: BergVal,
+    ) -> Result<(), EvalException> {
         match name {
             ERROR_CODE => CompilerError::ImmutableFieldOnValue(Box::new(self.clone()), name).err(),
             _ => default_set_field(self, name, value),
@@ -226,12 +234,12 @@ impl<'a> ObjectValue<'a> for CompilerError<'a> {
     }
 }
 
-impl<'a> OperableValue<'a> for CompilerError<'a> {
+impl OperableValue for CompilerError {
     fn infix(
         self,
         operator: IdentifierIndex,
-        right: RightOperand<'a, impl EvaluatableValue<'a>>,
-    ) -> EvalResult<'a>
+        right: RightOperand<impl EvaluatableValue>,
+    ) -> EvalResult
     where
         Self: Sized,
     {
@@ -241,29 +249,29 @@ impl<'a> OperableValue<'a> for CompilerError<'a> {
     fn infix_assign(
         self,
         operator: IdentifierIndex,
-        right: RightOperand<'a, impl EvaluatableValue<'a>>,
-    ) -> EvalResult<'a>
+        right: RightOperand<impl EvaluatableValue>,
+    ) -> EvalResult
     where
         Self: Sized,
     {
         default_infix_assign(self, operator, right)
     }
 
-    fn prefix(self, operator: IdentifierIndex) -> EvalResult<'a>
+    fn prefix(self, operator: IdentifierIndex) -> EvalResult
     where
         Self: Sized,
     {
         default_prefix(self, operator)
     }
 
-    fn postfix(self, operator: IdentifierIndex) -> EvalResult<'a>
+    fn postfix(self, operator: IdentifierIndex) -> EvalResult
     where
         Self: Sized,
     {
         default_postfix(self, operator)
     }
 
-    fn subexpression_result(self, boundary: ExpressionBoundary) -> EvalResult<'a>
+    fn subexpression_result(self, boundary: ExpressionBoundary) -> EvalResult
     where
         Self: Sized,
     {
@@ -271,11 +279,11 @@ impl<'a> OperableValue<'a> for CompilerError<'a> {
     }
 }
 
-impl<'a> TryFromBergVal<'a> for CompilerError<'a> {
+impl TryFromBergVal for CompilerError {
     const TYPE_NAME: &'static str = "CompilerError";
     fn try_from_berg_val(
-        from: EvalVal<'a>,
-    ) -> Result<Result<Self, BergVal<'a>>, EvalException<'a>> {
+        from: EvalVal,
+    ) -> Result<Result<Self, BergVal>, EvalException> {
         match from.lazy_val()?.evaluate()? {
             BergVal::CompilerError(value) => Ok(Ok(value)),
             from => Ok(Err(from)),
@@ -283,19 +291,19 @@ impl<'a> TryFromBergVal<'a> for CompilerError<'a> {
     }
 }
 
-impl<'a> From<CompilerError<'a>> for BergVal<'a> {
-    fn from(from: CompilerError<'a>) -> Self {
+impl From<CompilerError> for BergVal {
+    fn from(from: CompilerError) -> Self {
         BergVal::CompilerError(from)
     }
 }
 
-impl<'a> From<CompilerError<'a>> for EvalVal<'a> {
-    fn from(from: CompilerError<'a>) -> Self {
+impl From<CompilerError> for EvalVal {
+    fn from(from: CompilerError) -> Self {
         BergVal::from(from).into()
     }
 }
 
-impl<'a> fmt::Display for CompilerError<'a> {
+impl fmt::Display for CompilerError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{:?}", self)
     }
@@ -359,38 +367,33 @@ impl fmt::Display for CompilerErrorCode {
     }
 }
 
-impl<'a> fmt::Display for EvalException<'a> {
+impl fmt::Display for EvalException {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         use EvalException::*;
         match self {
             Error(error) => write!(f, "{}", error),
             Thrown(error, position) => match position {
-                ExpressionErrorPosition::Expression => write!(f, "{:?}", error),
+                ExpressionPosition::Expression => write!(f, "{:?}", error),
                 _ => write!(f, "{:?} at {:?}", error, position),
             },
         }
     }
 }
 
-impl<'a> CompilerError<'a> {
-    pub fn at_location(self, expression: impl Into<ExpressionRef<'a>>) -> Exception<'a> {
+impl CompilerError {
+    pub fn at_location(self, expression: impl Into<ExpressionRef>) -> Exception {
         Exception::new(self.into(), expression.into())
     }
 
-    pub fn operand_err<T>(self, position: ExpressionErrorPosition) -> Result<T, EvalException<'a>> {
+    pub fn operand_err<T>(self, position: ExpressionPosition) -> Result<T, EvalException> {
         Err(EvalException::Thrown(self.into(), position))
     }
 
     pub fn code(&self) -> CompilerErrorCode {
         use self::CompilerError::*;
-        match *self {
+        match self {
             // File open errors
-            SourceNotFound => CompilerErrorCode::SourceNotFound,
-            IoOpenError => CompilerErrorCode::IoOpenError,
-            IoReadError => CompilerErrorCode::IoReadError,
-            CurrentDirectoryError => CompilerErrorCode::CurrentDirectoryError,
-            SourceTooLarge(..) => CompilerErrorCode::SourceTooLarge,
-
+            SourceLoadError(error) => error.code(),
             // Expression errors
             InvalidUtf8(..) => CompilerErrorCode::InvalidUtf8,
             UnsupportedCharacters(..) => CompilerErrorCode::UnsupportedCharacters,
@@ -445,15 +448,11 @@ impl<'a> CompilerError<'a> {
         }
     }
 
-    pub fn location(&self, expression: ExpressionRef<'a>) -> ErrorLocation<'a> {
+    pub fn location(&self, expression: ExpressionRef) -> ErrorLocation {
         use self::CompilerError::*;
-        use self::ErrorLocation::*;
+        use super::exception::ErrorLocation::*;
         match self {
-            // File open errors
-            CurrentDirectoryError => ErrorLocation::Generic,
-            SourceNotFound | IoOpenError | IoReadError | SourceTooLarge(..) => {
-                SourceOnly(expression.ast)
-            }
+            SourceLoadError(error) => error.location(expression.ast),
 
             MissingOperand => {
                 let range = expression.ast.token_ranges
@@ -529,46 +528,10 @@ impl<'a> CompilerError<'a> {
         }
     }
 
-    pub fn fmt_display(
-        &self,
-        expression: &ExpressionRef<'a>,
-        f: &mut fmt::Formatter,
-    ) -> fmt::Result {
+    pub fn fmt_display(&self, expression: &ExpressionRef, f: &mut fmt::Formatter) -> fmt::Result {
         use CompilerError::*;
         match *self {
-            SourceNotFound => write!(
-                f,
-                "I/O error getting current directory path {:?} ({}): {}",
-                expression.ast.source.absolute_path().unwrap(),
-                expression.ast.source.name(),
-                expression.ast.open_io_error()
-            ),
-            IoOpenError => write!(
-                f,
-                "I/O error opening {:?} ({}): {}",
-                expression.ast.source.absolute_path().unwrap(),
-                expression.ast.source.name(),
-                expression.ast.open_io_error()
-            ),
-            IoReadError => write!(
-                f,
-                "I/O error reading {:?} ({}): {}",
-                expression.ast.source.absolute_path().unwrap(),
-                expression.ast.source.name(),
-                expression.ast.open_io_error()
-            ),
-            CurrentDirectoryError => write!(
-                f,
-                "I/O error getting current directory to determine path of {:?}: {}",
-                expression.ast.source.name(),
-                expression.ast.root().root_path().as_ref().unwrap_err()
-            ),
-            SourceTooLarge(size) => write!(
-                f,
-                "SourceRef file {} too large ({} bytes): source files greater than 4GB are unsupported.",
-                expression.ast.source.name(),
-                size
-            ),
+            SourceLoadError(ref error) => error.fmt_display(&expression.ast, f),
             InvalidUtf8(raw_literal) => {
                 write!(f, "Invalid UTF-8 bytes! Perhaps this isn't a Berg UTF-8 source file? Invalid bytes: '")?;
                 let bytes = expression.ast.raw_literal_string(raw_literal);
@@ -818,8 +781,88 @@ impl<'a> CompilerError<'a> {
     }
 }
 
-impl<'a, V: Into<BergVal<'a>>> From<V> for EvalException<'a> {
+impl SourceLoadError {
+    pub fn code(&self) -> CompilerErrorCode {
+        use self::SourceLoadError::*;
+        match *self {
+            // File open errors
+            SourceNotFound(..) => CompilerErrorCode::SourceNotFound,
+            IoOpenError(..) => CompilerErrorCode::IoOpenError,
+            IoReadError(..) => CompilerErrorCode::IoReadError,
+            CurrentDirectoryError(..) => CompilerErrorCode::CurrentDirectoryError,
+            SourceTooLarge(..) => CompilerErrorCode::SourceTooLarge,
+        }
+    }
+
+    pub fn location(&self, ast: AstRef) -> ErrorLocation {
+        use self::SourceLoadError::*;
+        use super::exception::ErrorLocation::*;
+        match self {
+            // File open errors
+            CurrentDirectoryError(..) => ErrorLocation::Generic,
+            SourceNotFound(..) | IoOpenError(..) | IoReadError(..) | SourceTooLarge(..) => {
+                SourceOnly(ast)
+            }
+        }
+    }
+
+    pub fn fmt_display(&self, ast: &AstRef, f: &mut fmt::Formatter) -> fmt::Result {
+        use self::SourceLoadError::*;
+        match self {
+            SourceNotFound(io_error) => write!(
+                f,
+                "Source not found {}: {}",
+                ast.source.name(),
+                io_error
+            ),
+            IoOpenError(io_error) => write!(
+                f,
+                "I/O error opening {}: {}",
+                ast.source.name(),
+                io_error
+            ),
+            IoReadError(io_error) => write!(
+                f,
+                "I/O error reading {}: {}",
+                ast.source.name(),
+                io_error
+            ),
+            CurrentDirectoryError(io_error) => write!(
+                f,
+                "I/O error getting current directory while opening {}: {}",
+                ast.source.name(),
+                io_error
+            ),
+            SourceTooLarge(size) => write!(
+                f,
+                "SourceSpec file {} too large ({} bytes): source files greater than 4GB are unsupported.",
+                ast.source.name(),
+                size
+            ),
+        }
+    }
+}
+
+impl From<SourceLoadError> for CompilerError {
+    fn from(from: SourceLoadError) -> Self {
+        CompilerError::SourceLoadError(from)
+    }
+}
+
+impl From<SourceLoadError> for BergVal {
+    fn from(from: SourceLoadError) -> Self {
+        BergVal::CompilerError(from.into())
+    }
+}
+
+impl From<SourceLoadError> for EvalVal {
+    fn from(from: SourceLoadError) -> Self {
+        BergVal::from(from).into()
+    }
+}
+
+impl<V: Into<BergVal>> From<V> for EvalException {
     fn from(from: V) -> Self {
-        EvalException::Thrown(from.into(), ExpressionErrorPosition::Expression)
+        EvalException::Thrown(from.into(), ExpressionPosition::Expression)
     }
 }

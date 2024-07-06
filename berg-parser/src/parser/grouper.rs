@@ -1,13 +1,19 @@
-use crate::parser::Binder;
-use crate::syntax::ExpressionBoundary::*;
-use crate::syntax::ExpressionBoundaryError::*;
-use crate::syntax::ExpressionToken::*;
-use crate::syntax::OperatorToken::*;
-use crate::syntax::TermToken::*;
 use crate::syntax::{
-    Ast, AstDelta, AstIndex, ByteRange, ExpressionBoundary, ExpressionBoundaryError,
-    ExpressionToken, OperatorToken, Token,
+    ast::{Ast, AstDelta, AstIndex},
+    bytes::ByteRange,
+    token::{
+        ExpressionBoundary, ExpressionBoundaryError, ExpressionToken, OperatorToken, TermToken,
+        Token,
+    },
 };
+
+use ExpressionBoundary::*;
+use ExpressionBoundaryError::*;
+use ExpressionToken::*;
+use OperatorToken::*;
+use TermToken::*;
+
+use super::binder::Binder;
 
 ///
 /// Handles nesting and precedence: balances open/close pairs like (), {},
@@ -15,9 +21,9 @@ use crate::syntax::{
 ///
 /// The Grouper elides superfluous precedence groups where it can.
 ///
-#[derive(Debug)]
-pub struct Grouper<'a> {
-    binder: Binder<'a>,
+#[derive(Debug, Default)]
+pub struct Grouper {
+    binder: Binder,
     open_expressions: Vec<OpenExpression>,
     start_auto_block: bool,
 }
@@ -51,20 +57,12 @@ struct OpenExpression {
     boundary: ExpressionBoundary,
 }
 
-impl<'a> Grouper<'a> {
-    pub fn new(ast: Ast<'a>) -> Self {
-        Grouper {
-            binder: Binder::new(ast),
-            open_expressions: Default::default(),
-            start_auto_block: false,
-        }
-    }
-
-    pub fn ast(&self) -> &Ast<'a> {
+impl Grouper {
+    pub fn ast(&self) -> &Ast {
         &self.binder.ast
     }
 
-    pub fn ast_mut(&mut self) -> &mut Ast<'a> {
+    pub fn ast_mut(&mut self) -> &mut Ast {
         &mut self.binder.ast
     }
 
@@ -124,7 +122,7 @@ impl<'a> Grouper<'a> {
         // TODO fill this in
     }
 
-    pub fn on_source_end(self) -> Ast<'a> {
+    pub fn on_source_end(self) -> Ast {
         self.binder.on_source_end()
     }
 
@@ -149,7 +147,7 @@ impl<'a> Grouper<'a> {
     }
 
     fn open_expression_wants_child(&self, next_infix: impl Into<Token>) -> bool {
-        use crate::syntax::ExpressionBoundary::*;
+        use ExpressionBoundary::*;
         let infix = match self.open_expression().boundary {
             // The autoblock wants whatever its *parent* infix wants.
             AutoBlock => self.open_expressions[self.open_expressions.len() - 2].infix,

@@ -1,13 +1,14 @@
 mod binder;
 mod grouper;
+mod scanner;
 mod sequencer;
 mod tokenizer;
 
-use crate::syntax::{Ast, AstRef, SourceBuffer, SourceRef};
-use binder::Binder;
-use grouper::Grouper;
+use std::borrow::Cow;
+
 use sequencer::Sequencer;
-use tokenizer::Tokenizer;
+
+use crate::syntax::{ast::Ast, bytes::ByteSlice};
 
 ///
 /// Opens and parses the source into an AST.
@@ -20,18 +21,13 @@ use tokenizer::Tokenizer;
 ///
 /// Errors placed in the AST include any parse error or open error.
 ///
-pub fn parse(source: SourceRef) -> AstRef {
-    let SourceBuffer {
-        buffer,
-        source_open_error,
-    } = source.open();
-    let sequencer = Sequencer::new(Ast::new(source, source_open_error), &buffer);
-    let ast = AstRef::new(sequencer.parse());
+pub fn parse(buffer: Cow<'static, ByteSlice>) -> Ast {
+    let ast = Sequencer::new(buffer).parse();
     println!();
     println!("Parsed:");
     let mut level = 0;
     for i in 0..ast.tokens.len() {
-        use crate::syntax::{ExpressionToken, OperatorToken, Token};
+        use crate::syntax::token::{ExpressionToken, OperatorToken, Token};
         let token = ast.token(i.into());
         let token_range = ast.token_range(i.into());
         if let Token::Operator(OperatorToken::Close(..)) = token {

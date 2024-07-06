@@ -1,5 +1,11 @@
-use crate::syntax::{AstDelta, AstRef, ExpressionBoundary, IdentifierIndex};
+use berg_util::index_type;
 use std::u32;
+
+use super::{
+    ast::{Ast, AstDelta},
+    identifiers::IdentifierIndex,
+    token::ExpressionBoundary,
+};
 
 index_type! {
     pub struct BlockIndex(pub u32) with Display,Debug <= u32::MAX;
@@ -27,12 +33,40 @@ pub enum FieldError {
     NoSuchPublicField,
 }
 
+///
+/// Use this to make a series of constant fields starting at a particular index.
+/// Used for keyword fields on [`RootData`], but could be used for anything with
+/// a known starting index.
+///
+#[macro_export]
+macro_rules! fields {
+    { starting at $start:tt { $($name:ident,)* } } => {
+        pub const FIELD_NAMES: [$crate::IdentifierIndex; FieldDeltas::COUNT as usize] = [
+            $($crate::identifiers::$name,)*
+        ];
+        #[allow(dead_code)]
+        enum FieldDeltas {
+            $($name),*,
+            COUNT
+        }
+        #[allow(dead_code)]
+        fn field_name(field: $crate::FieldIndex) -> $crate::IdentifierIndex {
+            FIELD_NAMES[usize::from(field) - $start]
+        }
+        $(
+            #[allow(dead_code)]
+            pub const $name: $crate::FieldIndex = $crate::FieldIndex($start + FieldDeltas::$name as u32);
+        )*
+    };
+    { $($name:ident,)* } => { fields! { starting at 0 { $($name,)* } } }
+}
+
 impl AstBlock {
     pub fn public_field_index(
         &self,
         index: BlockIndex,
         name: IdentifierIndex,
-        ast: &AstRef,
+        ast: &Ast,
     ) -> Result<FieldIndex, FieldError> {
         let mut child_index = index + 1;
         let mut field_index = self.scope_start;

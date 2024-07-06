@@ -1,5 +1,4 @@
 pub use berg_compiler::test::*;
-pub use berg_compiler::CompilerErrorCode::*;
 pub use berg_compiler::*;
 pub use num::BigRational;
 pub use std::iter::FromIterator;

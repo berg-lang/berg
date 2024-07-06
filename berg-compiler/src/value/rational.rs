@@ -1,13 +1,13 @@
-use crate::syntax::identifiers::*;
-use crate::syntax::IdentifierIndex;
 use crate::value::implement::*;
+use berg_parser::identifiers::*;
+use berg_parser::IdentifierIndex;
 use num::{BigInt, BigRational, One, ToPrimitive, Zero};
 use std::{i64, u64};
 
-impl<'a> BergValue<'a> for BigRational {}
+impl BergValue for BigRational {}
 
-impl<'a> EvaluatableValue<'a> for BigRational {
-    fn evaluate(self) -> BergResult<'a>
+impl EvaluatableValue for BigRational {
+    fn evaluate(self) -> BergResult
     where
         Self: Sized,
     {
@@ -15,23 +15,23 @@ impl<'a> EvaluatableValue<'a> for BigRational {
     }
 }
 
-impl<'a> Value<'a> for BigRational {
-    fn lazy_val(self) -> Result<BergVal<'a>, EvalException<'a>>
+impl Value for BigRational {
+    fn lazy_val(self) -> Result<BergVal, EvalException>
     where
         Self: Sized,
     {
         self.ok()
     }
-    fn eval_val(self) -> EvalResult<'a>
+    fn eval_val(self) -> EvalResult
     where
         Self: Sized,
     {
         self.ok()
     }
-    fn into_native<T: TryFromBergVal<'a>>(self) -> Result<T, EvalException<'a>> {
+    fn into_native<T: TryFromBergVal>(self) -> Result<T, EvalException> {
         default_into_native(self)
     }
-    fn try_into_native<T: TryFromBergVal<'a>>(self) -> Result<Option<T>, EvalException<'a>> {
+    fn try_into_native<T: TryFromBergVal>(self) -> Result<Option<T>, EvalException> {
         default_try_into_native(self)
     }
     fn display(&self) -> &dyn std::fmt::Display {
@@ -39,14 +39,14 @@ impl<'a> Value<'a> for BigRational {
     }
 }
 
-impl<'a> IteratorValue<'a> for BigRational {
-    fn next_val(self) -> Result<NextVal<'a>, EvalException<'a>> {
+impl IteratorValue for BigRational {
+    fn next_val(self) -> Result<NextVal, EvalException> {
         single_next_val(self)
     }
 }
 
-impl<'a> ObjectValue<'a> for BigRational {
-    fn field(self, name: IdentifierIndex) -> EvalResult<'a>
+impl ObjectValue for BigRational {
+    fn field(self, name: IdentifierIndex) -> EvalResult
     where
         Self: Sized,
     {
@@ -55,18 +55,18 @@ impl<'a> ObjectValue<'a> for BigRational {
     fn set_field(
         &mut self,
         name: IdentifierIndex,
-        value: BergVal<'a>,
-    ) -> Result<(), EvalException<'a>> {
+        value: BergVal,
+    ) -> Result<(), EvalException> {
         default_set_field(self, name, value)
     }
 }
 
-impl<'a> OperableValue<'a> for BigRational {
+impl OperableValue for BigRational {
     fn infix(
         self,
         operator: IdentifierIndex,
-        right: RightOperand<'a, impl EvaluatableValue<'a>>,
-    ) -> EvalResult<'a>
+        right: RightOperand<impl EvaluatableValue>,
+    ) -> EvalResult
     where
         Self: Sized,
     {
@@ -98,15 +98,15 @@ impl<'a> OperableValue<'a> for BigRational {
     fn infix_assign(
         self,
         operator: IdentifierIndex,
-        right: RightOperand<'a, impl EvaluatableValue<'a>>,
-    ) -> EvalResult<'a>
+        right: RightOperand<impl EvaluatableValue>,
+    ) -> EvalResult
     where
         Self: Sized,
     {
         default_infix_assign(self, operator, right)
     }
 
-    fn prefix(self, operator: IdentifierIndex) -> EvalResult<'a>
+    fn prefix(self, operator: IdentifierIndex) -> EvalResult
     where
         Self: Sized,
     {
@@ -119,7 +119,7 @@ impl<'a> OperableValue<'a> for BigRational {
         }
     }
 
-    fn postfix(self, operator: IdentifierIndex) -> EvalResult<'a>
+    fn postfix(self, operator: IdentifierIndex) -> EvalResult
     where
         Self: Sized,
     {
@@ -130,7 +130,7 @@ impl<'a> OperableValue<'a> for BigRational {
         }
     }
 
-    fn subexpression_result(self, boundary: ExpressionBoundary) -> EvalResult<'a>
+    fn subexpression_result(self, boundary: ExpressionBoundary) -> EvalResult
     where
         Self: Sized,
     {
@@ -138,33 +138,33 @@ impl<'a> OperableValue<'a> for BigRational {
     }
 }
 
-impl<'a> From<BigInt> for BergVal<'a> {
+impl From<BigInt> for BergVal {
     fn from(from: BigInt) -> Self {
         BigRational::from(from).into()
     }
 }
-impl<'a> From<BigInt> for EvalVal<'a> {
+impl From<BigInt> for EvalVal {
     fn from(from: BigInt) -> Self {
         BergVal::from(from).into()
     }
 }
 
-impl<'a> From<BigRational> for BergVal<'a> {
+impl From<BigRational> for BergVal {
     fn from(from: BigRational) -> Self {
         BergVal::BigRational(from)
     }
 }
-impl<'a> From<BigRational> for EvalVal<'a> {
+impl From<BigRational> for EvalVal {
     fn from(from: BigRational) -> Self {
         BergVal::from(from).into()
     }
 }
 
-impl<'a> TryFromBergVal<'a> for BigRational {
+impl TryFromBergVal for BigRational {
     const TYPE_NAME: &'static str = "number";
     fn try_from_berg_val(
-        from: EvalVal<'a>,
-    ) -> Result<Result<Self, BergVal<'a>>, EvalException<'a>> {
+        from: EvalVal,
+    ) -> Result<Result<Self, BergVal>, EvalException> {
         match from.lazy_val()? {
             BergVal::BigRational(value) => Ok(Ok(value)),
             from => Ok(Err(from)),
@@ -175,9 +175,9 @@ impl<'a> TryFromBergVal<'a> for BigRational {
 macro_rules! impl_berg_val_for_primitive_num {
     ($($type:ty: $to:tt),*) => {
         $(
-            impl<'a> TryFromBergVal<'a> for $type {
+            impl TryFromBergVal for $type {
                 const TYPE_NAME: &'static str = stringify!($type);
-                fn try_from_berg_val(from: EvalVal<'a>) -> Result<Result<Self, BergVal<'a>>, EvalException<'a>> {
+                fn try_from_berg_val(from: EvalVal) -> Result<Result<Self, BergVal>, EvalException> {
                     match from.lazy_val()? {
                         BergVal::BigRational(value) => {
                             if value.is_integer() {
@@ -192,12 +192,12 @@ macro_rules! impl_berg_val_for_primitive_num {
                 }
             }
 
-            impl<'a> From<$type> for BergVal<'a> {
+            impl From<$type> for BergVal {
                 fn from(from: $type) -> Self {
                     BigInt::from(from).into()
                 }
             }
-            impl<'a> From<$type> for EvalVal<'a> {
+            impl From<$type> for EvalVal {
                 fn from(from: $type) -> Self {
                     BergVal::from(from).into()
                 }

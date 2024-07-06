@@ -1,7 +1,7 @@
-use crate::eval::{BlockRef, ScopeRef};
-use crate::syntax::identifiers::*;
-use crate::syntax::{FieldIndex, IdentifierIndex};
+use crate::eval::BlockRef;
 use crate::value::implement::*;
+use berg_parser::{identifiers::*, ExpressionPosition};
+use berg_parser::{FieldIndex, IdentifierIndex};
 use std::fmt;
 use EvalVal::*;
 
@@ -18,73 +18,71 @@ use EvalVal::*;
 /// `{}`.
 ///
 #[derive(Debug, Clone)]
-pub enum EvalVal<'a> {
+pub enum EvalVal {
     /// non-syntactical results (integers, booleans, results of math expressions ...)
-    Val(BergVal<'a>),
+    Val(BergVal),
     /// if
     If,
     /// else
     Else,
     /// if, else evaluation
-    ConditionalVal(ConditionalState, Option<BlockRef<'a>>),
+    ConditionalVal(ConditionalState, Option<BlockRef>),
     /// while
     While,
     /// while <condition>
-    WhileCondition(BlockRef<'a>),
+    WhileCondition(BlockRef),
     /// foreach
     Foreach,
     /// foreach <input>
-    ForeachInput(Result<BergVal<'a>, EvalException<'a>>),
+    ForeachInput(Result<BergVal, EvalException>),
     /// try
     Try,
     /// try { <error> }
-    TryResult(BergResult<'a>),
+    TryResult(BergResult),
     /// catch
     Catch,
     /// <error> catch
-    TryCatch(BergResult<'a>),
+    TryCatch(BergResult),
     /// <error> catch { block }
-    CatchResult(BergResult<'a>),
+    CatchResult(BergResult),
     /// finally
     Finally,
     /// <anything> finally
-    TryFinally(BergResult<'a>),
+    TryFinally(BergResult),
     /// throw
     Throw,
     /// 1 + <here>
     MissingExpression,
     /// 1,2
-    PartialTuple(Vec<BergVal<'a>>),
+    PartialTuple(Vec<BergVal>),
     /// a.b (refers to the b)
     RawIdentifier(IdentifierIndex),
     /// 1,2,
-    TrailingComma(Vec<BergVal<'a>>),
+    TrailingComma(Vec<BergVal>),
     /// 1;2;
     TrailingSemicolon,
     /// Things that can be assigned to: a, :a, a.b
-    Target(AssignmentTarget<'a>),
+    Target(AssignmentTarget),
 }
 
-pub trait AtLocation<'a>: Sized {
+#[allow(dead_code)]
+pub trait AtLocation: Sized {
     ///
     /// Give this value a location, making it global.
     ///
-    fn at_location(
-        self,
-        location: impl Into<ExpressionRef<'a>>,
-    ) -> Result<EvalVal<'a>, Exception<'a>>;
+    fn at_location(self, location: impl Into<ExpressionRef>) -> Result<EvalVal, Exception>;
 }
 
 ///
 /// The result returned from most BergValue operations
 ///
-pub type EvalResult<'a> = Result<EvalVal<'a>, EvalException<'a>>;
+pub type EvalResult = Result<EvalVal, EvalException>;
 
 #[derive(Debug, Clone)]
-pub enum AssignmentTarget<'a> {
-    LocalFieldReference(ScopeRef<'a>, FieldIndex),
-    LocalFieldDeclaration(ScopeRef<'a>, FieldIndex),
-    ObjectFieldReference(BergVal<'a>, IdentifierIndex),
+pub enum AssignmentTarget {
+    LocalFieldReference(BlockRef, FieldIndex),
+    LocalFieldDeclaration(BlockRef, FieldIndex),
+    ObjectFieldReference(BergVal, IdentifierIndex),
 }
 
 #[derive(Debug, Clone)]
@@ -101,12 +99,12 @@ pub enum ConditionalState {
     MaybeElse,
 }
 
-impl<'a> EvalVal<'a> {
+impl EvalVal {
     //
     // If this is a reference to something else, resolve it (it might be a syntax
     // value like Else or If).
     //
-    pub fn get(self) -> EvalResult<'a> {
+    pub fn get(self) -> EvalResult {
         use EvalVal::*;
         match self {
             Target(v) => v.get(),
@@ -118,8 +116,8 @@ impl<'a> EvalVal<'a> {
     }
 }
 
-impl<'a> Value<'a> for EvalVal<'a> {
-    fn lazy_val(self) -> Result<BergVal<'a>, EvalException<'a>>
+impl Value for EvalVal {
+    fn lazy_val(self) -> Result<BergVal, EvalException>
     where
         Self: Sized,
     {
@@ -159,7 +157,7 @@ impl<'a> Value<'a> for EvalVal<'a> {
         }
     }
 
-    fn eval_val(self) -> EvalResult<'a> {
+    fn eval_val(self) -> EvalResult {
         match self {
             Val(v) => v.eval_val(),
             Target(v) => v.eval_val(),
@@ -171,7 +169,7 @@ impl<'a> Value<'a> for EvalVal<'a> {
         }
     }
 
-    fn into_native<T: TryFromBergVal<'a>>(self) -> Result<T, EvalException<'a>> {
+    fn into_native<T: TryFromBergVal>(self) -> Result<T, EvalException> {
         match self {
             Val(v) => v.into_native(),
             Target(v) => v.into_native(),
@@ -183,7 +181,7 @@ impl<'a> Value<'a> for EvalVal<'a> {
         }
     }
 
-    fn try_into_native<T: TryFromBergVal<'a>>(self) -> Result<Option<T>, EvalException<'a>> {
+    fn try_into_native<T: TryFromBergVal>(self) -> Result<Option<T>, EvalException> {
         match self {
             Val(v) => v.try_into_native(),
             Target(v) => v.try_into_native(),
@@ -200,8 +198,8 @@ impl<'a> Value<'a> for EvalVal<'a> {
     }
 }
 
-impl<'a> IteratorValue<'a> for EvalVal<'a> {
-    fn next_val(self) -> Result<NextVal<'a>, EvalException<'a>> {
+impl IteratorValue for EvalVal {
+    fn next_val(self) -> Result<NextVal, EvalException> {
         match self {
             Val(v) => v.next_val(),
             Target(v) => v.next_val(),
@@ -214,8 +212,8 @@ impl<'a> IteratorValue<'a> for EvalVal<'a> {
     }
 }
 
-impl<'a> ObjectValue<'a> for EvalVal<'a> {
-    fn field(self, name: IdentifierIndex) -> EvalResult<'a>
+impl ObjectValue for EvalVal {
+    fn field(self, name: IdentifierIndex) -> EvalResult
     where
         Self: Sized,
     {
@@ -233,8 +231,8 @@ impl<'a> ObjectValue<'a> for EvalVal<'a> {
     fn set_field(
         &mut self,
         name: IdentifierIndex,
-        value: BergVal<'a>,
-    ) -> Result<(), EvalException<'a>> {
+        value: BergVal,
+    ) -> Result<(), EvalException> {
         match self {
             Val(v) => v.set_field(name, value),
             Target(v) => v.set_field(name, value),
@@ -251,14 +249,14 @@ impl<'a> ObjectValue<'a> for EvalVal<'a> {
     }
 }
 
-impl<'a> OperableValue<'a> for EvalVal<'a> {
+impl OperableValue for EvalVal {
     // TODO Yes, bad, must fix.
     #[allow(clippy::cognitive_complexity)]
     fn infix(
         self,
         operator: IdentifierIndex,
-        right: RightOperand<'a, impl EvaluatableValue<'a>>,
-    ) -> EvalResult<'a>
+        right: RightOperand<impl EvaluatableValue>,
+    ) -> EvalResult
     where
         Self: Sized,
     {
@@ -276,7 +274,7 @@ impl<'a> OperableValue<'a> for EvalVal<'a> {
             }
             PartialTuple(mut vec) => match operator {
                 COMMA => match right.get()? {
-                    RightOperand(MissingExpression, _) => TrailingComma(vec).ok(),
+                    RightOperand(MissingExpression) => TrailingComma(vec).ok(),
                     value => {
                         vec.push(value.lazy_val()?);
                         PartialTuple(vec).ok()
@@ -286,7 +284,7 @@ impl<'a> OperableValue<'a> for EvalVal<'a> {
             },
             // if <condition>, if false else if <condition>
             If if operator.is_followed_by() => match right.get()? {
-                RightOperand(If, _) | RightOperand(Else, _) => IfWithoutCondition.operand_err(Left),
+                RightOperand(If) | RightOperand(Else) => IfWithoutCondition.operand_err(Left),
                 right => {
                     if right.into_native::<bool>()? {
                         ConditionalVal(RunBlock, None).ok()
@@ -300,7 +298,7 @@ impl<'a> OperableValue<'a> for EvalVal<'a> {
                     match state {
                         IfCondition => match right.get()? {
                             // if if, if else
-                            RightOperand(If, _) | RightOperand(Else, _) => {
+                            RightOperand(If) | RightOperand(Else) => {
                                 IfWithoutCondition.operand_err(LeftRight)
                             }
                             // if <condition>
@@ -330,7 +328,7 @@ impl<'a> OperableValue<'a> for EvalVal<'a> {
                         // else ^
                         ElseBlock => match right.get()? {
                             // else if
-                            RightOperand(If, _) => ConditionalVal(IfCondition, result).ok(),
+                            RightOperand(If) => ConditionalVal(IfCondition, result).ok(),
                             right => match right.lazy_val() {
                                 Ok(BergVal::BlockRef(block)) => match result {
                                     // if false {} else {}
@@ -346,7 +344,7 @@ impl<'a> OperableValue<'a> for EvalVal<'a> {
                         // if true|false {} <something>
                         MaybeElse => match right.get()? {
                             // if true|false {} else
-                            RightOperand(Else, _) => ConditionalVal(ElseBlock, result).ok(),
+                            RightOperand(Else) => ConditionalVal(ElseBlock, result).ok(),
                             // if true|false {} if
                             // if true|false {} 1
                             _ => IfFollowedByNonElse.operand_err(Right),
@@ -393,8 +391,8 @@ impl<'a> OperableValue<'a> for EvalVal<'a> {
                 if operator.is_followed_by() {
                     match right.get() {
                         // try { ... } catch
-                        Ok(RightOperand(Catch, _)) => TryCatch(result).ok(),
-                        Ok(RightOperand(Finally, _)) => TryFinally(result).ok(),
+                        Ok(RightOperand(Catch)) => TryCatch(result).ok(),
+                        Ok(RightOperand(Finally)) => TryFinally(result).ok(),
                         Ok(_) => TryWithoutCatchOrFinally.operand_err(LeftLeft),
                         Err(error) => error.err(),
                     }
@@ -421,7 +419,7 @@ impl<'a> OperableValue<'a> for EvalVal<'a> {
                 if operator.is_followed_by() {
                     match right.get() {
                         // try { ... } catch { ... } finally
-                        Ok(RightOperand(Finally, _)) => TryFinally(result).ok(),
+                        Ok(RightOperand(Finally)) => TryFinally(result).ok(),
                         Ok(_) => CatchWithoutFinally.operand_err(LeftLeft),
                         Err(error) => error.err(),
                     }
@@ -451,8 +449,8 @@ impl<'a> OperableValue<'a> for EvalVal<'a> {
     fn infix_assign(
         self,
         operator: IdentifierIndex,
-        right: RightOperand<'a, impl EvaluatableValue<'a>>,
-    ) -> EvalResult<'a>
+        right: RightOperand<impl EvaluatableValue>,
+    ) -> EvalResult
     where
         Self: Sized,
     {
@@ -467,7 +465,7 @@ impl<'a> OperableValue<'a> for EvalVal<'a> {
         }
     }
 
-    fn prefix(self, operator: IdentifierIndex) -> EvalResult<'a>
+    fn prefix(self, operator: IdentifierIndex) -> EvalResult
     where
         Self: Sized,
     {
@@ -482,7 +480,7 @@ impl<'a> OperableValue<'a> for EvalVal<'a> {
         }
     }
 
-    fn postfix(self, operator: IdentifierIndex) -> EvalResult<'a>
+    fn postfix(self, operator: IdentifierIndex) -> EvalResult
     where
         Self: Sized,
     {
@@ -497,7 +495,7 @@ impl<'a> OperableValue<'a> for EvalVal<'a> {
         }
     }
 
-    fn subexpression_result(self, boundary: ExpressionBoundary) -> EvalResult<'a>
+    fn subexpression_result(self, boundary: ExpressionBoundary) -> EvalResult
     where
         Self: Sized,
     {
@@ -517,7 +515,7 @@ impl<'a> OperableValue<'a> for EvalVal<'a> {
     }
 }
 
-fn run_while_loop<'a>(condition: BlockRef<'a>, block: BlockRef<'a>) -> EvalResult<'a> {
+fn run_while_loop(condition: BlockRef, block: BlockRef) -> EvalResult {
     use CompilerErrorCode::*;
     while condition
         .apply(empty_tuple())
@@ -538,10 +536,10 @@ fn run_while_loop<'a>(condition: BlockRef<'a>, block: BlockRef<'a>) -> EvalResul
     empty_tuple().ok()
 }
 
-fn run_foreach<'a>(
-    input: Result<BergVal<'a>, EvalException<'a>>,
-    block: BlockRef<'a>,
-) -> EvalResult<'a> {
+fn run_foreach(
+    input: Result<BergVal, EvalException>,
+    block: BlockRef,
+) -> EvalResult {
     use CompilerErrorCode::*;
     let mut remaining = input?;
     while let NextVal {
@@ -565,7 +563,7 @@ fn run_foreach<'a>(
     empty_tuple().ok()
 }
 
-impl<'a> fmt::Display for EvalVal<'a> {
+impl fmt::Display for EvalVal {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         use ConditionalState::*;
         match self {
@@ -604,8 +602,8 @@ impl<'a> fmt::Display for EvalVal<'a> {
     }
 }
 
-impl<'a> AssignmentTarget<'a> {
-    pub fn get(&self) -> EvalResult<'a> {
+impl AssignmentTarget {
+    pub fn get(&self) -> EvalResult {
         // If it's a declaration, declare it and get its initial value, if any.
         self.declare()?;
         self.get_internal()
@@ -613,16 +611,16 @@ impl<'a> AssignmentTarget<'a> {
 
     pub fn set(
         &mut self,
-        value: BergVal<'a>,
-        operand_position: ExpressionErrorPosition,
-    ) -> EvalResult<'a> {
+        value: BergVal,
+        operand_position: ExpressionPosition,
+    ) -> EvalResult {
         match self.set_internal(value).and_then(|_| self.declare()) {
             Ok(()) => empty_tuple().ok(),
             Err(error) => error.reposition(operand_position).err(),
         }
     }
 
-    fn declare(&self) -> Result<(), EvalException<'a>> {
+    fn declare(&self) -> Result<(), EvalException> {
         use AssignmentTarget::*;
         match self {
             LocalFieldDeclaration(scope, field) => scope.declare_field(*field, &scope.ast())?,
@@ -631,7 +629,7 @@ impl<'a> AssignmentTarget<'a> {
         Ok(())
     }
 
-    fn get_internal(&self) -> EvalResult<'a> {
+    fn get_internal(&self) -> EvalResult {
         use AssignmentTarget::*;
         let result = match self {
             LocalFieldReference(scope, field) | LocalFieldDeclaration(scope, field) => {
@@ -642,7 +640,7 @@ impl<'a> AssignmentTarget<'a> {
         self.point_errors_at_identifier(result)
     }
 
-    fn set_internal(&mut self, value: BergVal<'a>) -> Result<(), EvalException<'a>> {
+    fn set_internal(&mut self, value: BergVal) -> Result<(), EvalException> {
         use AssignmentTarget::*;
         let result = match self {
             LocalFieldReference(scope, field) | LocalFieldDeclaration(scope, field) => {
@@ -655,10 +653,10 @@ impl<'a> AssignmentTarget<'a> {
 
     fn point_errors_at_identifier<T>(
         &self,
-        result: Result<T, EvalException<'a>>,
-    ) -> Result<T, EvalException<'a>> {
+        result: Result<T, EvalException>,
+    ) -> Result<T, EvalException> {
         use AssignmentTarget::*;
-        use ExpressionErrorPosition::*;
+        use ExpressionPosition::*;
         match self {
             LocalFieldDeclaration(..) | ObjectFieldReference(..) => {
                 result.map_err(|e| e.reposition(Right))
@@ -668,29 +666,29 @@ impl<'a> AssignmentTarget<'a> {
     }
 }
 
-impl<'a> From<AssignmentTarget<'a>> for EvalVal<'a> {
-    fn from(from: AssignmentTarget<'a>) -> Self {
+impl From<AssignmentTarget> for EvalVal {
+    fn from(from: AssignmentTarget) -> Self {
         EvalVal::Target(from)
     }
 }
 
-impl<'a> Value<'a> for AssignmentTarget<'a> {
-    fn lazy_val(self) -> Result<BergVal<'a>, EvalException<'a>>
+impl Value for AssignmentTarget {
+    fn lazy_val(self) -> Result<BergVal, EvalException>
     where
         Self: Sized,
     {
         self.get().lazy_val()
     }
-    fn eval_val(self) -> EvalResult<'a>
+    fn eval_val(self) -> EvalResult
     where
         Self: Sized,
     {
         self.ok()
     }
-    fn into_native<T: TryFromBergVal<'a>>(self) -> Result<T, EvalException<'a>> {
+    fn into_native<T: TryFromBergVal>(self) -> Result<T, EvalException> {
         self.get().into_native()
     }
-    fn try_into_native<T: TryFromBergVal<'a>>(self) -> Result<Option<T>, EvalException<'a>> {
+    fn try_into_native<T: TryFromBergVal>(self) -> Result<Option<T>, EvalException> {
         self.get().try_into_native()
     }
     fn display(&self) -> &dyn fmt::Display {
@@ -698,14 +696,14 @@ impl<'a> Value<'a> for AssignmentTarget<'a> {
     }
 }
 
-impl<'a> IteratorValue<'a> for AssignmentTarget<'a> {
-    fn next_val(self) -> Result<NextVal<'a>, EvalException<'a>> {
+impl IteratorValue for AssignmentTarget {
+    fn next_val(self) -> Result<NextVal, EvalException> {
         self.get().next_val()
     }
 }
 
-impl<'a> ObjectValue<'a> for AssignmentTarget<'a> {
-    fn field(self, name: IdentifierIndex) -> EvalResult<'a>
+impl ObjectValue for AssignmentTarget {
+    fn field(self, name: IdentifierIndex) -> EvalResult
     where
         Self: Sized,
     {
@@ -714,20 +712,20 @@ impl<'a> ObjectValue<'a> for AssignmentTarget<'a> {
     fn set_field(
         &mut self,
         name: IdentifierIndex,
-        value: BergVal<'a>,
-    ) -> Result<(), EvalException<'a>> {
+        value: BergVal,
+    ) -> Result<(), EvalException> {
         let mut obj = self.get().lazy_val()?;
         obj.set_field(name, value)?;
         self.set(obj, Expression).and(Ok(()))
     }
 }
 
-impl<'a> OperableValue<'a> for AssignmentTarget<'a> {
+impl OperableValue for AssignmentTarget {
     fn infix(
         mut self,
         operator: IdentifierIndex,
-        right: RightOperand<'a, impl EvaluatableValue<'a>>,
-    ) -> EvalResult<'a> {
+        right: RightOperand<impl EvaluatableValue>,
+    ) -> EvalResult {
         use AssignmentTarget::*;
         match (operator, &self) {
             // Handle <identifier>: <value>
@@ -738,15 +736,15 @@ impl<'a> OperableValue<'a> for AssignmentTarget<'a> {
     fn infix_assign(
         mut self,
         operator: IdentifierIndex,
-        right: RightOperand<'a, impl EvaluatableValue<'a>>,
-    ) -> EvalResult<'a> {
+        right: RightOperand<impl EvaluatableValue>,
+    ) -> EvalResult {
         match operator {
             EMPTY_STRING => self.set(right.lazy_val()?, Left),
             operator => self.set(self.get().infix(operator, right).lazy_val()?, Left),
         }
     }
 
-    fn prefix(self, operator: IdentifierIndex) -> EvalResult<'a>
+    fn prefix(self, operator: IdentifierIndex) -> EvalResult
     where
         Self: Sized,
     {
@@ -759,7 +757,7 @@ impl<'a> OperableValue<'a> for AssignmentTarget<'a> {
         }
     }
 
-    fn postfix(mut self, operator: IdentifierIndex) -> EvalResult<'a> {
+    fn postfix(mut self, operator: IdentifierIndex) -> EvalResult {
         match operator {
             PLUS_PLUS => self.set(self.get().postfix(PLUS_ONE).lazy_val()?, Left),
             DASH_DASH => self.set(self.get().postfix(MINUS_ONE).lazy_val()?, Left),
@@ -767,7 +765,7 @@ impl<'a> OperableValue<'a> for AssignmentTarget<'a> {
         }
     }
 
-    fn subexpression_result(self, boundary: ExpressionBoundary) -> EvalResult<'a>
+    fn subexpression_result(self, boundary: ExpressionBoundary) -> EvalResult
     where
         Self: Sized,
     {
@@ -775,7 +773,7 @@ impl<'a> OperableValue<'a> for AssignmentTarget<'a> {
     }
 }
 
-impl<'a> fmt::Display for AssignmentTarget<'a> {
+impl fmt::Display for AssignmentTarget {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         use AssignmentTarget::*;
         match self {

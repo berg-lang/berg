@@ -1,4 +1,4 @@
-use crate::util::from_range::IntoRange;
+use crate::IntoRange;
 use std::borrow::{Borrow, BorrowMut, Cow};
 use std::cmp::Ordering;
 use std::fmt;
@@ -16,12 +16,12 @@ use std::slice::{Iter, IterMut};
 // the thing you think you are!
 //
 // Think of index_type (TokenIndex/SourceIndex/ByteIndex) as your number and
-// the IndexedVec as Vec<Token>/Vec<SourceRef>, and you will be good.
+// the IndexedVec as Vec<Token>/Vec<SourceSpec>, and you will be good.
 
 #[macro_export]
 macro_rules! index_type {
     ($(pub struct $name:ident(pub $($type:tt)*) $(with $($trait:tt),*)* <= $max:expr ;)*) => {
-        use $crate::util::indexed_vec::{Delta,IndexType};
+        use $crate::{Delta,IndexType};
         use std::fmt;
         use std::ops::{Add,AddAssign,Sub,SubAssign};
         use std::cmp::Ordering;
@@ -191,7 +191,7 @@ impl<Inner: Iterator, Idx: IndexType> From<Inner> for IndexedIter<Inner, Idx> {
 
 impl<Inner: Iterator, Idx: IndexType> IndexedIter<Inner, Idx> {
     // Functions where the indices just don't matter
-    #[cfg_attr(feature = "clippy", allow(should_implement_trait))]
+    #[allow(clippy::should_implement_trait)]
     pub fn next(&mut self) -> Option<Inner::Item> {
         self.0.next()
     }

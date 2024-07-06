@@ -1,12 +1,13 @@
-use crate::syntax::Fixity::*;
-use crate::syntax::{
-    Ast, AstIndex, AstRef, ByteRange, ExpressionBoundary, ExpressionFormatter, ExpressionToken,
-    ExpressionTreeFormatter, Fixity, OperandPosition, OperatorToken, SourceReconstruction, Token,
-};
-use crate::value::ExpressionErrorPosition;
 use std::borrow::Cow;
 use std::fmt;
 use std::ops::RangeInclusive;
+
+use super::ast::{Ast, AstIndex, OperandPosition};
+use super::bytes::ByteRange;
+use super::expression_formatter::{ExpressionFormatter, ExpressionTreeFormatter};
+use super::source_reconstruction::SourceReconstruction;
+use super::token::{ExpressionBoundary, ExpressionToken, Fixity, OperatorToken, Token};
+use Fixity::*;
 
 ///
 /// Implements Expression navigation: left operand, right operand, open/close
@@ -21,101 +22,79 @@ use std::ops::RangeInclusive;
 /// is used for ExpressionEvaluator.
 ///
 #[derive(Copy, Clone)]
-pub struct ExpressionTreeWalker<'p, 'a: 'p, Context: Copy + Clone + fmt::Debug = ()> {
+pub struct ExpressionTreeWalker<'p, Context: Copy + Clone + fmt::Debug = ()> {
     context: Context,
-    expression: AstExpressionTree<'p, 'a>,
+    expression: AstExpressionTree<'p>,
 }
 
 #[derive(Copy, Clone)]
-pub struct AstExpressionTree<'p, 'a: 'p> {
-    ast: &'p Ast<'a>,
+pub struct AstExpressionTree<'p> {
+    ast: &'p Ast,
     root: AstIndex,
 }
 
-#[derive(Clone)]
-pub struct ExpressionRef<'a> {
-    pub ast: AstRef<'a>,
-    pub root: AstIndex,
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub enum ExpressionPosition {
+    Expression,
+    Left,
+    Right,
+    LeftLeft,
+    LeftRight,
+    RightLeft,
+    RightRight,
 }
 
-impl<'a> ExpressionRef<'a> {
-    pub fn new(ast: AstRef<'a>, root: AstIndex) -> Self {
-        ExpressionRef { ast, root }
-    }
-    pub fn expression<'p>(&'p self) -> ExpressionTreeWalker<'p, 'a> {
-        ExpressionTreeWalker::basic(&self.ast, self.root)
-    }
-    pub fn at_position(mut self, position: ExpressionErrorPosition) -> Self {
-        self.root = AstExpressionTree::new(&self.ast, self.root)
-            .at_position(position)
-            .root_index();
-        self
-    }
-}
-impl<'a> fmt::Debug for ExpressionRef<'a> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{:?}", self.expression())
-    }
-}
-impl<'a> fmt::Display for ExpressionRef<'a> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.expression())
-    }
-}
-
-impl<'p, 'a: 'p, Context: Copy + Clone + fmt::Debug> fmt::Debug
-    for ExpressionTreeWalker<'p, 'a, Context>
-{
+impl<'p, Context: Copy + Clone + fmt::Debug> fmt::Debug for ExpressionTreeWalker<'p, Context> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{:?}", self.expression)
     }
 }
-impl<'p, 'a: 'p> fmt::Display for ExpressionTreeWalker<'p, 'a, ()> {
+impl<'p> fmt::Display for ExpressionTreeWalker<'p, ()> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self.expression)
     }
 }
 
-impl<'p, 'a: 'p> fmt::Debug for AstExpressionTree<'p, 'a> {
+impl<'p> fmt::Debug for AstExpressionTree<'p> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self.format())
     }
 }
 
-impl<'p, 'a: 'p> fmt::Display for AstExpressionTree<'p, 'a> {
+impl<'p> fmt::Display for AstExpressionTree<'p> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self.reconstruct_source())
     }
 }
 
-impl<'p, 'a: 'p> ExpressionTreeWalker<'p, 'a, ()> {
-    pub fn basic(ast: &'p Ast<'a>, index: AstIndex) -> Self {
+impl<'p> ExpressionTreeWalker<'p, ()> {
+    pub fn basic(ast: &'p Ast, index: AstIndex) -> Self {
         ExpressionTreeWalker::new((), ast, index)
     }
 }
-impl<'p, 'a: 'p, Context: Copy + Clone + fmt::Debug> ExpressionTreeWalker<'p, 'a, Context> {
-    pub fn new(context: Context, ast: &'p Ast<'a>, root: AstIndex) -> Self {
+impl<'p, Context: Copy + Clone + fmt::Debug> ExpressionTreeWalker<'p, Context> {
+    pub fn new(context: Context, ast: &'p Ast, root: AstIndex) -> Self {
         ExpressionTreeWalker {
             context,
             expression: AstExpressionTree::new(ast, root),
         }
     }
-    pub fn format(self) -> ExpressionTreeWalker<'p, 'a, ExpressionFormatter> {
+    pub fn format(self) -> ExpressionTreeWalker<'p, ExpressionFormatter> {
         self.expression.format()
     }
-    pub fn format_tree(self) -> ExpressionTreeWalker<'p, 'a, ExpressionTreeFormatter> {
+    pub fn format_tree(self) -> ExpressionTreeWalker<'p, ExpressionTreeFormatter> {
         self.expression.format_tree()
     }
     pub fn with_context<C: Copy + Clone + fmt::Debug>(
         self,
         context: C,
-    ) -> ExpressionTreeWalker<'p, 'a, C> {
+    ) -> ExpressionTreeWalker<'p, C> {
         ExpressionTreeWalker {
             context,
             expression: self.expression,
         }
     }
-    pub fn with_expression(self, expression: AstExpressionTree<'p, 'a>) -> Self {
+    pub fn with_expression(self, expression: AstExpressionTree<'p>) -> Self {
         ExpressionTreeWalker {
             context: self.context,
             expression,
@@ -124,7 +103,7 @@ impl<'p, 'a: 'p, Context: Copy + Clone + fmt::Debug> ExpressionTreeWalker<'p, 'a
     pub fn context(self) -> Context {
         self.context
     }
-    pub fn ast(self) -> &'p Ast<'a> {
+    pub fn ast(self) -> &'p Ast {
         self.expression.ast()
     }
     pub fn root_index(&self) -> AstIndex {
@@ -187,11 +166,11 @@ impl<'p, 'a: 'p, Context: Copy + Clone + fmt::Debug> ExpressionTreeWalker<'p, 'a
     }
 }
 
-impl<'p, 'a: 'p> AstExpressionTree<'p, 'a> {
-    pub fn new(ast: &'p Ast<'a>, root: AstIndex) -> Self {
+impl<'p> AstExpressionTree<'p> {
+    pub fn new(ast: &'p Ast, root: AstIndex) -> Self {
         AstExpressionTree { ast, root }
     }
-    pub fn ast(self) -> &'p Ast<'a> {
+    pub fn ast(self) -> &'p Ast {
         self.ast
     }
     pub fn root_index(&self) -> AstIndex {
@@ -300,8 +279,8 @@ impl<'p, 'a: 'p> AstExpressionTree<'p, 'a> {
         result
     }
 
-    pub fn at_position(self, position: ExpressionErrorPosition) -> Self {
-        use ExpressionErrorPosition::*;
+    pub fn at_position(self, position: ExpressionPosition) -> Self {
+        use ExpressionPosition::*;
         let expression = self.skip_implicit_groups();
         let result = match position {
             Expression => expression,
@@ -327,10 +306,10 @@ impl<'p, 'a: 'p> AstExpressionTree<'p, 'a> {
         result.skip_implicit_groups()
     }
 
-    pub fn format(self) -> ExpressionTreeWalker<'p, 'a, ExpressionFormatter> {
+    pub fn format(self) -> ExpressionTreeWalker<'p, ExpressionFormatter> {
         ExpressionTreeWalker::new(ExpressionFormatter, self.ast(), self.root_index())
     }
-    pub fn format_tree(self) -> ExpressionTreeWalker<'p, 'a, ExpressionTreeFormatter> {
+    pub fn format_tree(self) -> ExpressionTreeWalker<'p, ExpressionTreeFormatter> {
         ExpressionTreeWalker::new(
             ExpressionTreeFormatter {
                 starting_depth: self.depth(),
@@ -339,7 +318,7 @@ impl<'p, 'a: 'p> AstExpressionTree<'p, 'a> {
             self.root_index(),
         )
     }
-    pub fn reconstruct_source(self) -> SourceReconstruction<'p, 'a> {
+    pub fn reconstruct_source(self) -> SourceReconstruction<'p> {
         SourceReconstruction::new(self.ast(), self.byte_range())
     }
 }
@@ -524,5 +503,30 @@ fn close_operator_index(ast: &Ast, index: AstIndex) -> AstIndex {
     match ast.tokens[index] {
         Token::Expression(ExpressionToken::Open(_, _, delta)) => index + delta,
         _ => index,
+    }
+}
+
+impl ExpressionPosition {
+    pub fn relative_to(self, new_position: ExpressionPosition) -> ExpressionPosition {
+        use ExpressionPosition::*;
+        match (new_position, self) {
+            (new_position, Expression) => new_position,
+            (Expression, position) => position,
+            (Left, Left) => LeftLeft,
+            (Left, Right) => LeftRight,
+            (Right, Left) => RightLeft,
+            (Right, Right) => RightRight,
+            (LeftLeft, _)
+            | (LeftRight, _)
+            | (RightLeft, _)
+            | (RightRight, _)
+            | (_, LeftLeft)
+            | (_, LeftRight)
+            | (_, RightLeft)
+            | (_, RightRight) => unreachable!(
+                "Cannot reposition {:?} on top of {:?}: too deep!",
+                self, new_position
+            ),
+        }
     }
 }

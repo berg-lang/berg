@@ -1,11 +1,13 @@
-use crate::syntax::{ByteIndex, ByteRange, WhitespaceIndex};
-use crate::util::indexed_vec::Delta;
+use berg_util::Delta;
 use std::cmp::Ordering;
 use std::fmt::{Display, Formatter, Result};
 use std::str;
 use std::u32;
 use string_interner::backend::StringBackend;
 use string_interner::StringInterner;
+
+use super::ast::WhitespaceIndex;
+use super::bytes::{ByteIndex, ByteRange};
 
 ///
 /// Debug data about the original source.

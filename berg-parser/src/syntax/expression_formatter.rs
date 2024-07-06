@@ -1,9 +1,8 @@
-use crate::syntax::identifiers::SEMICOLON;
-use crate::syntax::{
-    ExpressionBoundary, ExpressionToken, ExpressionTreeWalker, Fixity, OperatorToken, TermToken,
-    Token,
-};
 use std::fmt;
+
+use super::expression_tree::ExpressionTreeWalker;
+use super::identifiers::SEMICOLON;
+use super::token::{ExpressionBoundary, ExpressionToken, Fixity, OperatorToken, TermToken, Token};
 
 #[derive(Copy, Clone, Debug)]
 pub struct ExpressionFormatter;
@@ -13,7 +12,7 @@ pub struct ExpressionTreeFormatter {
     pub starting_depth: usize,
 }
 
-impl<'p, 'a: 'p> ExpressionTreeWalker<'p, 'a, ExpressionFormatter> {
+impl<'a> ExpressionTreeWalker<'a, ExpressionFormatter> {
     fn boundary_strings(self) -> (&'static str, &'static str) {
         let boundary = match self.open_token() {
             ExpressionToken::Open(_, boundary, _) => boundary,
@@ -34,7 +33,7 @@ impl<'p, 'a: 'p> ExpressionTreeWalker<'p, 'a, ExpressionFormatter> {
     }
 }
 
-impl<'p, 'a: 'p> fmt::Display for ExpressionTreeWalker<'p, 'a, ExpressionFormatter> {
+impl<'a> fmt::Display for ExpressionTreeWalker<'a, ExpressionFormatter> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         use ExpressionToken::*;
         use OperatorToken::*;
@@ -91,7 +90,7 @@ impl<'p, 'a: 'p> fmt::Display for ExpressionTreeWalker<'p, 'a, ExpressionFormatt
     }
 }
 
-impl<'p, 'a: 'p> ExpressionTreeWalker<'p, 'a, ExpressionTreeFormatter> {
+impl<'a> ExpressionTreeWalker<'a, ExpressionTreeFormatter> {
     fn fmt_self(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let token = self.token();
         match token.fixity() {
@@ -110,7 +109,7 @@ impl<'p, 'a: 'p> ExpressionTreeWalker<'p, 'a, ExpressionTreeFormatter> {
     }
 }
 
-impl<'p, 'a: 'p> fmt::Display for ExpressionTreeWalker<'p, 'a, ExpressionTreeFormatter> {
+impl<'a> fmt::Display for ExpressionTreeWalker<'a, ExpressionTreeFormatter> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         self.fmt_self(f)?;
         match self.token().fixity() {

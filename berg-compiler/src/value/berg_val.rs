@@ -1,5 +1,6 @@
 use crate::eval::BlockRef;
 use crate::value::implement::*;
+use berg_parser::ExpressionPosition;
 use num::BigRational;
 use std::fmt;
 
@@ -9,7 +10,7 @@ use std::fmt;
 /// Contrast with [`EvalVal`], which holds the results of evaluations.
 ///
 #[derive(Clone)]
-pub enum BergVal<'a> {
+pub enum BergVal {
     ///
     /// Boolean value (true or false).
     ///
@@ -27,20 +28,20 @@ pub enum BergVal<'a> {
     ///
     /// May or may not be evaluated already.
     ///
-    BlockRef(BlockRef<'a>),
+    BlockRef(BlockRef),
     /// try { 1/0 } catch { $_ }
-    CaughtException(CaughtException<'a>),
+    CaughtException(CaughtException),
     /// compiler error
-    CompilerError(CompilerError<'a>),
+    CompilerError(CompilerError),
     /// [ 1, 2, 3 ]
-    Tuple(Tuple<'a>),
+    Tuple(Tuple),
 }
 
-pub type BergResult<'a> = Result<BergVal<'a>, Exception<'a>>;
+pub type BergResult = Result<BergVal, Exception>;
 
-impl<'a> BergVal<'a> {
-    pub fn throw<T>(self) -> Result<T, EvalException<'a>> {
-        EvalException::Thrown(self, ExpressionErrorPosition::Expression).err()
+impl BergVal {
+    pub fn throw<T>(self) -> Result<T, EvalException> {
+        EvalException::Thrown(self, ExpressionPosition::Expression).err()
     }
     pub fn is_single_primitive(&self) -> bool {
         use BergVal::*;
@@ -51,24 +52,24 @@ impl<'a> BergVal<'a> {
     }
 }
 
-pub fn empty_tuple<'a>() -> BergVal<'a> {
+pub fn empty_tuple() -> BergVal {
     BergVal::from(vec![])
 }
 
-impl<'a> From<BergVal<'a>> for EvalVal<'a> {
-    fn from(from: BergVal<'a>) -> Self {
+impl From<BergVal> for EvalVal {
+    fn from(from: BergVal) -> Self {
         EvalVal::Val(from)
     }
 }
 
-impl<'a> From<BergVal<'a>> for EvalResult<'a> {
-    fn from(from: BergVal<'a>) -> Self {
+impl From<BergVal> for EvalResult {
+    fn from(from: BergVal) -> Self {
         from.ok()
     }
 }
 
-impl<'a> Value<'a> for BergVal<'a> {
-    fn lazy_val(self) -> Result<BergVal<'a>, EvalException<'a>>
+impl Value for BergVal {
+    fn lazy_val(self) -> Result<BergVal, EvalException>
     where
         Self: Sized,
     {
@@ -82,7 +83,7 @@ impl<'a> Value<'a> for BergVal<'a> {
             Tuple(value) => value.lazy_val(),
         }
     }
-    fn eval_val(self) -> EvalResult<'a>
+    fn eval_val(self) -> EvalResult
     where
         Self: Sized,
     {
@@ -97,7 +98,7 @@ impl<'a> Value<'a> for BergVal<'a> {
         }
     }
 
-    fn into_native<T: TryFromBergVal<'a>>(self) -> Result<T, EvalException<'a>> {
+    fn into_native<T: TryFromBergVal>(self) -> Result<T, EvalException> {
         use BergVal::*;
         match self {
             Boolean(value) => value.into_native(),
@@ -109,7 +110,7 @@ impl<'a> Value<'a> for BergVal<'a> {
         }
     }
 
-    fn try_into_native<T: TryFromBergVal<'a>>(self) -> Result<Option<T>, EvalException<'a>> {
+    fn try_into_native<T: TryFromBergVal>(self) -> Result<Option<T>, EvalException> {
         use BergVal::*;
         match self {
             Boolean(value) => value.try_into_native(),
@@ -126,8 +127,8 @@ impl<'a> Value<'a> for BergVal<'a> {
     }
 }
 
-impl<'a> IteratorValue<'a> for BergVal<'a> {
-    fn next_val(self) -> Result<NextVal<'a>, EvalException<'a>> {
+impl IteratorValue for BergVal {
+    fn next_val(self) -> Result<NextVal, EvalException> {
         use BergVal::*;
         match self {
             Boolean(value) => value.next_val(),
@@ -140,8 +141,8 @@ impl<'a> IteratorValue<'a> for BergVal<'a> {
     }
 }
 
-impl<'a> ObjectValue<'a> for BergVal<'a> {
-    fn field(self, name: IdentifierIndex) -> EvalResult<'a>
+impl ObjectValue for BergVal {
+    fn field(self, name: IdentifierIndex) -> EvalResult
     where
         Self: Sized,
     {
@@ -159,8 +160,8 @@ impl<'a> ObjectValue<'a> for BergVal<'a> {
     fn set_field(
         &mut self,
         name: IdentifierIndex,
-        field_value: BergVal<'a>,
-    ) -> Result<(), EvalException<'a>> {
+        field_value: BergVal,
+    ) -> Result<(), EvalException> {
         use BergVal::*;
         match self {
             Boolean(ref mut value) => value.set_field(name, field_value),
@@ -173,12 +174,12 @@ impl<'a> ObjectValue<'a> for BergVal<'a> {
     }
 }
 
-impl<'a> OperableValue<'a> for BergVal<'a> {
+impl OperableValue for BergVal {
     fn infix(
         self,
         operator: IdentifierIndex,
-        right: RightOperand<'a, impl EvaluatableValue<'a>>,
-    ) -> EvalResult<'a>
+        right: RightOperand<impl EvaluatableValue>,
+    ) -> EvalResult
     where
         Self: Sized,
     {
@@ -196,8 +197,8 @@ impl<'a> OperableValue<'a> for BergVal<'a> {
     fn infix_assign(
         self,
         operator: IdentifierIndex,
-        right: RightOperand<'a, impl EvaluatableValue<'a>>,
-    ) -> EvalResult<'a>
+        right: RightOperand<impl EvaluatableValue>,
+    ) -> EvalResult
     where
         Self: Sized,
     {
@@ -212,7 +213,7 @@ impl<'a> OperableValue<'a> for BergVal<'a> {
         }
     }
 
-    fn postfix(self, operator: IdentifierIndex) -> EvalResult<'a>
+    fn postfix(self, operator: IdentifierIndex) -> EvalResult
     where
         Self: Sized,
     {
@@ -227,7 +228,7 @@ impl<'a> OperableValue<'a> for BergVal<'a> {
         }
     }
 
-    fn prefix(self, operator: IdentifierIndex) -> EvalResult<'a>
+    fn prefix(self, operator: IdentifierIndex) -> EvalResult
     where
         Self: Sized,
     {
@@ -242,7 +243,7 @@ impl<'a> OperableValue<'a> for BergVal<'a> {
         }
     }
 
-    fn subexpression_result(self, boundary: ExpressionBoundary) -> EvalResult<'a>
+    fn subexpression_result(self, boundary: ExpressionBoundary) -> EvalResult
     where
         Self: Sized,
     {
@@ -258,7 +259,7 @@ impl<'a> OperableValue<'a> for BergVal<'a> {
     }
 }
 
-impl<'a> fmt::Debug for BergVal<'a> {
+impl fmt::Debug for BergVal {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         use BergVal::*;
         write!(f, "BergVal(")?;
@@ -274,7 +275,7 @@ impl<'a> fmt::Debug for BergVal<'a> {
     }
 }
 
-impl<'a> fmt::Display for BergVal<'a> {
+impl fmt::Display for BergVal {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         use BergVal::*;
         match *self {
@@ -288,10 +289,10 @@ impl<'a> fmt::Display for BergVal<'a> {
     }
 }
 
-impl<'a> BergValue<'a> for BergVal<'a> {}
+impl BergValue for BergVal {}
 
-impl<'a> EvaluatableValue<'a> for BergVal<'a> {
-    fn evaluate(self) -> BergResult<'a>
+impl EvaluatableValue for BergVal {
+    fn evaluate(self) -> BergResult
     where
         Self: Sized,
     {
@@ -307,15 +308,15 @@ impl<'a> EvaluatableValue<'a> for BergVal<'a> {
     }
 }
 
-impl<'a, V: BergValue<'a> + Clone + 'a, E: BergValue<'a> + Clone + 'a> BergValue<'a>
+impl<V: BergValue + Clone + 'static, E: BergValue + Clone + 'static> BergValue
     for Result<V, E>
 {
 }
 
-impl<'a, V: EvaluatableValue<'a> + Clone + 'a, E: EvaluatableValue<'a> + Clone + 'a>
-    EvaluatableValue<'a> for Result<V, E>
+impl<V: EvaluatableValue + Clone, E: EvaluatableValue + Clone>
+    EvaluatableValue for Result<V, E>
 {
-    fn evaluate(self) -> BergResult<'a>
+    fn evaluate(self) -> BergResult
     where
         Self: Sized,
     {
@@ -326,22 +327,22 @@ impl<'a, V: EvaluatableValue<'a> + Clone + 'a, E: EvaluatableValue<'a> + Clone +
     }
 }
 
-impl<'a, V: Value<'a> + 'a, E: Value<'a> + 'a> Value<'a> for Result<V, E> {
-    fn into_native<T: TryFromBergVal<'a>>(self) -> Result<T, EvalException<'a>> {
+impl<V: Value, E: Value> Value for Result<V, E> {
+    fn into_native<T: TryFromBergVal>(self) -> Result<T, EvalException> {
         match self {
             Ok(v) => v.into_native(),
             Err(v) => v.into_native(),
         }
     }
 
-    fn try_into_native<T: TryFromBergVal<'a>>(self) -> Result<Option<T>, EvalException<'a>> {
+    fn try_into_native<T: TryFromBergVal>(self) -> Result<Option<T>, EvalException> {
         match self {
             Ok(v) => v.try_into_native(),
             Err(v) => v.try_into_native(),
         }
     }
 
-    fn lazy_val(self) -> Result<BergVal<'a>, EvalException<'a>>
+    fn lazy_val(self) -> Result<BergVal, EvalException>
     where
         Self: Sized,
     {
@@ -351,7 +352,7 @@ impl<'a, V: Value<'a> + 'a, E: Value<'a> + 'a> Value<'a> for Result<V, E> {
         }
     }
 
-    fn eval_val(self) -> EvalResult<'a>
+    fn eval_val(self) -> EvalResult
     where
         Self: Sized,
     {
@@ -369,8 +370,8 @@ impl<'a, V: Value<'a> + 'a, E: Value<'a> + 'a> Value<'a> for Result<V, E> {
     }
 }
 
-impl<'a, V: IteratorValue<'a> + 'a, E: IteratorValue<'a> + 'a> IteratorValue<'a> for Result<V, E> {
-    fn next_val(self) -> Result<NextVal<'a>, EvalException<'a>> {
+impl<V: IteratorValue, E: IteratorValue> IteratorValue for Result<V, E> {
+    fn next_val(self) -> Result<NextVal, EvalException> {
         match self {
             Ok(v) => v.next_val(),
             Err(v) => v.next_val(),
@@ -378,10 +379,10 @@ impl<'a, V: IteratorValue<'a> + 'a, E: IteratorValue<'a> + 'a> IteratorValue<'a>
     }
 }
 
-impl<'a, V: ObjectValue<'a> + Clone + 'a, E: ObjectValue<'a> + Clone + 'a> ObjectValue<'a>
+impl<V: ObjectValue + Clone, E: ObjectValue + Clone> ObjectValue
     for Result<V, E>
 {
-    fn field(self, name: IdentifierIndex) -> EvalResult<'a>
+    fn field(self, name: IdentifierIndex) -> EvalResult
     where
         Self: Sized,
     {
@@ -394,8 +395,8 @@ impl<'a, V: ObjectValue<'a> + Clone + 'a, E: ObjectValue<'a> + Clone + 'a> Objec
     fn set_field(
         &mut self,
         name: IdentifierIndex,
-        value: BergVal<'a>,
-    ) -> Result<(), EvalException<'a>>
+        value: BergVal,
+    ) -> Result<(), EvalException>
     where
         Self: Clone,
     {
@@ -406,12 +407,12 @@ impl<'a, V: ObjectValue<'a> + Clone + 'a, E: ObjectValue<'a> + Clone + 'a> Objec
     }
 }
 
-impl<'a, V: OperableValue<'a> + 'a, E: OperableValue<'a> + 'a> OperableValue<'a> for Result<V, E> {
+impl<V: OperableValue, E: OperableValue> OperableValue for Result<V, E> {
     fn infix(
         self,
         operator: IdentifierIndex,
-        right: RightOperand<'a, impl EvaluatableValue<'a>>,
-    ) -> EvalResult<'a>
+        right: RightOperand<impl EvaluatableValue>,
+    ) -> EvalResult
     where
         Self: Sized,
     {
@@ -424,8 +425,8 @@ impl<'a, V: OperableValue<'a> + 'a, E: OperableValue<'a> + 'a> OperableValue<'a>
     fn infix_assign(
         self,
         operator: IdentifierIndex,
-        right: RightOperand<'a, impl EvaluatableValue<'a>>,
-    ) -> EvalResult<'a>
+        right: RightOperand<impl EvaluatableValue>,
+    ) -> EvalResult
     where
         Self: Sized,
     {
@@ -435,7 +436,7 @@ impl<'a, V: OperableValue<'a> + 'a, E: OperableValue<'a> + 'a> OperableValue<'a>
         }
     }
 
-    fn postfix(self, operator: IdentifierIndex) -> EvalResult<'a>
+    fn postfix(self, operator: IdentifierIndex) -> EvalResult
     where
         Self: Sized,
     {
@@ -445,7 +446,7 @@ impl<'a, V: OperableValue<'a> + 'a, E: OperableValue<'a> + 'a> OperableValue<'a>
         }
     }
 
-    fn prefix(self, operator: IdentifierIndex) -> EvalResult<'a>
+    fn prefix(self, operator: IdentifierIndex) -> EvalResult
     where
         Self: Sized,
     {
@@ -455,7 +456,7 @@ impl<'a, V: OperableValue<'a> + 'a, E: OperableValue<'a> + 'a> OperableValue<'a>
         }
     }
 
-    fn subexpression_result(self, boundary: ExpressionBoundary) -> EvalResult<'a>
+    fn subexpression_result(self, boundary: ExpressionBoundary) -> EvalResult
     where
         Self: Sized,
     {

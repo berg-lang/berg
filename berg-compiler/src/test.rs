@@ -1,13 +1,11 @@
-use crate::eval::{evaluate_ast, RootRef};
-use crate::parser;
-use crate::syntax::identifiers::*;
-use crate::syntax::{AstRef, ByteIndex, ByteRange, LineColumnRange, SourceRef};
-use crate::util::from_range::BoundedRange;
-use crate::util::from_range::IntoRange;
+use crate::eval::evaluate_ast;
 use crate::value::*;
+use berg_parser::identifiers::*;
+use berg_parser::{ByteIndex, ByteRange, LineColumnRange};
+use berg_util::{BoundedRange, IntoRange};
 use std::fmt;
 use std::io;
-use std::ops::Range;
+use std::ops::{Range, RangeFrom, RangeInclusive, RangeTo};
 pub use CompilerErrorCode::*;
 
 ///
@@ -24,7 +22,7 @@ pub use CompilerErrorCode::*;
 /// expect(&[0x0]).to_error(UnsupportedCharacters, 0);
 /// ```
 ///
-pub fn expect<T: AsRef<[u8]> + ?Sized>(source: &T) -> ExpectBerg {
+pub fn expect<T: AsRef<[u8]> + ?Sized>(source: &'static T) -> ExpectBerg {
     ExpectBerg(source.as_ref())
 }
 
@@ -42,21 +40,21 @@ pub fn expect<T: AsRef<[u8]> + ?Sized>(source: &T) -> ExpectBerg {
 /// ```
 ///
 #[derive(Debug)]
-pub struct ExpectBerg<'a>(pub &'a [u8]);
+pub struct ExpectBerg(pub &'static [u8]);
 
 ///
 /// An expected value.
 ///
-pub trait ExpectedValue<'a>: fmt::Display + Clone {
-    fn matches(self, actual: BergVal<'a>) -> Result<bool, EvalException<'a>>;
+pub trait ExpectedValue: fmt::Display + Clone {
+    fn matches(self, actual: BergVal) -> Result<bool, EvalException>;
 }
-impl<'a> ExpectedValue<'a> for CompilerErrorCode {
-    fn matches(self, actual: BergVal<'a>) -> Result<bool, EvalException<'a>> {
+impl ExpectedValue for CompilerErrorCode {
+    fn matches(self, actual: BergVal) -> Result<bool, EvalException> {
         Ok(self == actual.into_native::<CompilerError>()?.code())
     }
 }
-impl<'a, T: Into<BergVal<'a>> + fmt::Display + Clone> ExpectedValue<'a> for T {
-    fn matches(self, actual: BergVal<'a>) -> Result<bool, EvalException<'a>> {
+impl<T: Into<BergVal> + fmt::Display + Clone> ExpectedValue for T {
+    fn matches(self, actual: BergVal) -> Result<bool, EvalException> {
         self.into()
             .infix(EQUAL_TO, actual.into())?
             .into_native::<bool>()
@@ -93,36 +91,33 @@ pub trait ExpectedErrorRange: fmt::Debug {
     ///
     /// Find this error range after the end of the other one.
     ///
-    fn after<T: ExpectedErrorRange>(
+    fn after<T: ExpectedErrorRange + Sized>(
         self,
         after: T,
     ) -> ExpectedErrorRangeWithin<Self, ExpectedErrorRangeAfter<T>>
     where
         Self: Sized,
-        T: Sized,
     {
         self.within(ExpectedErrorRangeAfter(after))
     }
     ///
     /// Find this error range before the start of the other one.
     ///
-    fn before<T: ExpectedErrorRange>(
+    fn before<T: ExpectedErrorRange + Sized>(
         self,
         before: T,
     ) -> ExpectedErrorRangeWithin<Self, ExpectedErrorRangeBefore<T>>
     where
         Self: Sized,
-        T: Sized,
     {
         self.within(ExpectedErrorRangeBefore(before))
     }
     ///
     /// Find this error range inside the other one.
     ///
-    fn within<T: ExpectedErrorRange>(self, within: T) -> ExpectedErrorRangeWithin<Self, T>
+    fn within<T: ExpectedErrorRange + Sized>(self, within: T) -> ExpectedErrorRangeWithin<Self, T>
     where
         Self: Sized,
-        T: Sized,
     {
         ExpectedErrorRangeWithin {
             error_range: self,
@@ -164,7 +159,7 @@ pub struct ExpectedErrorRangeBefore<T: ExpectedErrorRange>(T);
 #[derive(Debug)]
 pub struct ExpectLine(usize);
 
-impl<'a> ExpectBerg<'a> {
+impl ExpectBerg {
     ///
     /// Test that the given value is returned when the Berg source is compiled and run.
     ///
@@ -183,7 +178,7 @@ impl<'a> ExpectBerg<'a> {
     /// ```
     ///
     #[allow(clippy::needless_pass_by_value, clippy::wrong_self_convention)]
-    pub fn to_yield(self, expected: impl ExpectedValue<'a>) {
+    pub fn to_yield(self, expected: impl ExpectedValue) {
         println!("Source:");
         println!("{}", String::from_utf8_lossy(self.0));
         println!();
@@ -240,14 +235,14 @@ impl<'a> ExpectBerg<'a> {
     #[allow(clippy::wrong_self_convention)]
     pub fn to_error(
         self,
-        expected_value: impl ExpectedValue<'a>,
+        expected_value: impl ExpectedValue,
         expected_range: impl ExpectedErrorRange,
     ) {
         // Run the Berg
         println!("Source:");
         println!("{}", String::from_utf8_lossy(self.0));
         println!();
-        let ast = parser::parse(test_source(self.0));
+        let ast = test_root().parse_bytes("test.rs", self.0);
         let expected_range = ast
             .char_data
             .range(&expected_range.into_error_range(self.0.as_ref()));
@@ -283,20 +278,20 @@ impl<'a> ExpectBerg<'a> {
         )
     }
 
-    fn parse(&self) -> AstRef<'a> {
-        let ast = parser::parse(test_source(self.0));
+    fn parse(&self) -> AstRef {
+        let ast = test_root().parse_bytes("test.rs", self.0);
         assert_eq!(
             self.0,
             ast.to_bytes().as_slice(),
             "Round trip failed!\nExpected:\n{}\n---------\nActual:\n{}\n---------\nDebug:\n{:?}\n---------",
             String::from_utf8_lossy(self.0),
-            *ast,
+            **ast,
             ast.token_ranges
         );
         ast
     }
 
-    fn evaluate_all(value: BergVal<'a>) -> Result<BergVal<'a>, Exception<'a>> {
+    fn evaluate_all(value: BergVal) -> Result<BergVal, Exception> {
         let mut value = value.evaluate()?;
         if value.is_single_primitive() {
             return value.ok();
@@ -334,11 +329,11 @@ impl<'a> ExpectBerg<'a> {
         &self,
         value: &dyn fmt::Display,
         range: LineColumnRange,
-        ast: &AstRef<'a>,
+        ast: &AstRef,
     ) -> String {
         format!("{} at {}", value, self.error_range_string(range, ast))
     }
-    fn error_range_string(&self, range: LineColumnRange, ast: &AstRef<'a>) -> String {
+    fn error_range_string(&self, range: LineColumnRange, ast: &AstRef) -> String {
         let byte_range = ast.char_data.byte_range(range).into_range();
         format!(
             "{} ({})",
@@ -348,22 +343,18 @@ impl<'a> ExpectBerg<'a> {
     }
 }
 
-fn test_source<'a, Bytes: Into<&'a [u8]>>(source: Bytes) -> SourceRef<'a> {
-    SourceRef::memory("test.rs", source.into(), test_root())
-}
-
 fn test_root() -> RootRef {
     // Steal "source"
     let out: Vec<u8> = vec![];
     let err: Vec<u8> = vec![];
-    let root_path = Err(io::Error::new(
+    let root = SourceRoot::new_error(io::Error::new(
         io::ErrorKind::Other,
         "SYSTEM ERROR: no relative path--this error should be impossible to trigger",
     ));
-    RootRef::new(root_path, Box::new(out), Box::new(err))
+    RootRef::new(root, Box::new(out), Box::new(err))
 }
 
-impl<'a> fmt::Display for ExpectBerg<'a> {
+impl fmt::Display for ExpectBerg {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "test '{}'", String::from_utf8_lossy(self.0))
     }
@@ -453,13 +444,24 @@ fn find_line_start(line: usize, source: &[u8]) -> usize {
     }
     current_line_start
 }
-impl<R: BoundedRange<ByteIndex>, T: IntoRange<ByteIndex, Output = R> + fmt::Debug>
-    ExpectedErrorRange for T
-{
+impl ExpectedErrorRange for RangeInclusive<usize> {
     fn into_error_range(self, source: &[u8]) -> ByteRange {
-        let result = self.into_range().bounded_range(source.len().into());
-        assert!(result.start + 1 != result.end);
-        result
+        self.bounded_range(source.len()).into_range()
+    }
+}
+impl ExpectedErrorRange for Range<usize> {
+    fn into_error_range(self, source: &[u8]) -> ByteRange {
+        self.bounded_range(source.len()).into_range()
+    }
+}
+impl ExpectedErrorRange for RangeFrom<usize> {
+    fn into_error_range(self, source: &[u8]) -> ByteRange {
+        self.bounded_range(source.len()).into_range()
+    }
+}
+impl ExpectedErrorRange for RangeTo<usize> {
+    fn into_error_range(self, source: &[u8]) -> ByteRange {
+        self.bounded_range(source.len()).into_range()
     }
 }
 

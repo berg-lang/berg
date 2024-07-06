@@ -1,6 +1,3 @@
 [workspace]
-members = [
-#    "berg",
-    "berg-compiler",
-]
+members = [ "berg-util", "berg-parser", "berg-compiler" ]
 resolver = "2"

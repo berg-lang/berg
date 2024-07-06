@@ -5,15 +5,21 @@ Samples.CodeAbbey.SumOfTwo
 
     @see http://www.codeabbey.com/index/task_view/sum-of-two
 
-###
+Decimal:
+    
 
-sum: SumInput Console.Input
+sum = Match Console.Input
+Console.WriteLine ReadInteger
 
-Console.WriteLine sum
+ReadInteger:
+
+    match '0'...'9':
 
 
-SumInput(input)
----------------
+
+
+SumInput
+--------
 
     Reads two numbers from an input stream using the Match function, and sums them.
 
@@ -22,13 +28,17 @@ SumInput(input)
     @param input The input stream.
     @return The parsed integer
 
-###
-
 first = readNumber(input)
 skipSpace(input)
 second = readNumber(input)
 
 return first + second
+
+
+
+readNumbers(input)
+------------------
+
 
 
 readNumber(input)

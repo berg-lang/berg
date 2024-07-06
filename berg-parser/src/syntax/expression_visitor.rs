@@ -1,5 +1,8 @@
-use crate::syntax::{
-    BlockIndex, ExpressionBoundary, ExpressionBoundaryError, IdentifierIndex, TermToken,
+use crate::IdentifierIndex;
+
+use super::{
+    block::BlockIndex,
+    token::{ExpressionBoundary, ExpressionBoundaryError, TermToken},
 };
 
 ///
@@ -36,6 +39,7 @@ pub struct VisitResult<V: ExpressionVisitor, E: Expression> {
     pub walk_state: E::VisitState,
 }
 
+#[allow(dead_code)]
 pub trait Expression: Sized {
     ///
     /// Internal state held by an expression.
