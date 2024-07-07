@@ -3,9 +3,7 @@ use berg_parser::identifiers::*;
 
 impl TryFromBergVal for IdentifierIndex {
     const TYPE_NAME: &'static str = "identifier";
-    fn try_from_berg_val(
-        from: EvalVal,
-    ) -> Result<Result<Self, BergVal>, EvalException> {
+    fn try_from_berg_val(from: EvalVal) -> Result<Result<Self, BergVal>, EvalException> {
         match from {
             EvalVal::RawIdentifier(value) => Ok(Ok(value)),
             from => Ok(Err(from.lazy_val()?)),
@@ -55,11 +53,7 @@ impl ObjectValue for IdentifierIndex {
     {
         default_field(self, name)
     }
-    fn set_field(
-        &mut self,
-        name: IdentifierIndex,
-        value: BergVal,
-    ) -> Result<(), EvalException> {
+    fn set_field(&mut self, name: IdentifierIndex, value: BergVal) -> Result<(), EvalException> {
         default_set_field(self, name, value)
     }
 }

@@ -4,7 +4,12 @@ use berg_util::Delta;
 use ByteType::*;
 use CharType::*;
 
-use crate::syntax::bytes::{ByteIndex, ByteSlice};
+use crate::{
+    syntax::bytes::{ByteIndex, ByteSlice},
+    ByteRange,
+};
+
+use super::sequencer::{PartialSequence, Sequence};
 
 ///
 /// Scans UTF-8 identifying characters.
@@ -21,7 +26,7 @@ pub struct Scanner {
 pub enum CharType {
     Digit,
     Identifier,
-    Operator,
+    OtherOperator,
     OpenParen,
     CloseParen,
     OpenCurly,
@@ -29,6 +34,9 @@ pub enum CharType {
     Separator,
     Colon,
     Hash,
+    Equal,
+    ComparisonOperatorStart,
+    Dash,
     Newline,
     LineEnding,
     Space,
@@ -45,6 +53,10 @@ enum ByteType {
     Utf8LeadingByte(Delta<ByteIndex>),
 }
 
+pub trait CharMatcher: Copy {
+    fn matches(&self, char_type: CharType) -> bool;
+}
+
 impl Scanner {
     pub fn new(buffer: Cow<'static, ByteSlice>) -> Self {
         Scanner {
@@ -55,6 +67,31 @@ impl Scanner {
 
     pub fn buffer(&self) -> &ByteSlice {
         &self.buffer
+    }
+
+    pub fn bytes(&self, start: ByteIndex) -> &[u8] {
+        &self.buffer[start..self.index]
+    }
+
+    pub fn range(&self, start: ByteIndex) -> ByteRange {
+        start..self.index
+    }
+
+    pub fn utf8(&self, start: ByteIndex) -> Sequence {
+        Sequence {
+            buffer: &self.buffer,
+            start,
+            end: self.index,
+        }
+    }
+
+    pub fn partial_utf8(&self, start: ByteIndex, partial_end: ByteIndex) -> PartialSequence {
+        PartialSequence {
+            buffer: &self.buffer,
+            start,
+            full_end: self.index,
+            partial_end,
+        }
     }
 
     pub fn next(&mut self) -> CharType {
@@ -71,64 +108,45 @@ impl Scanner {
         CharType::peek(self.buffer(), self.index)
     }
 
-    pub fn peek_at<At: Into<Delta<ByteIndex>>>(&self, delta: At) -> CharType {
+    pub fn peek_at(&self, delta: impl Into<Delta<ByteIndex>>) -> CharType {
         CharType::peek(self.buffer(), self.index + delta.into())
     }
 
-    pub fn next_while(&mut self, if_type: CharType) -> bool {
-        if self.next_if(if_type) {
-            while self.next_if(if_type) {}
+    pub fn next_while(&mut self, matcher: impl CharMatcher) -> bool {
+        if self.next_if(matcher) {
+            while self.next_if(matcher) {}
             true
         } else {
             false
         }
     }
 
-    pub fn next_until_eol(&mut self) {
-        loop {
-            let (char_type, char_length) = CharType::read(self.buffer(), self.index);
-            if char_type.ends_line() {
-                return;
-            }
-            self.advance(char_length);
+    pub fn next_until(&mut self, matcher: impl CharMatcher) -> bool {
+        if self.next_unless(matcher) {
+            while self.next_unless(matcher) {}
+            true
+        } else {
+            false
         }
     }
 
-    pub fn next_while_horizontal_whitespace(&mut self) -> bool {
-        let mut found = false;
-        loop {
-            let (char_type, char_length) = CharType::read(self.buffer(), self.index);
-            if char_type.is_horizontal_whitespace() {
-                self.advance(char_length);
-                found = true;
-            } else {
-                break;
-            }
-        }
-        found
-    }
-
-    pub fn next_while_identifier(&mut self) -> bool {
-        let mut found = false;
-        loop {
-            let (char_type, char_length) = CharType::read(self.buffer(), self.index);
-            if char_type.is_identifier_middle() {
-                self.advance(char_length);
-                found = true;
-            } else {
-                break;
-            }
-        }
-        found
-    }
-
-    fn next_if(&mut self, if_type: CharType) -> bool {
+    pub fn next_if(&mut self, matcher: impl CharMatcher) -> bool {
         let (char_type, char_length) = CharType::read(self.buffer(), self.index);
-        if char_type == if_type {
+        if matcher.matches(char_type) {
             self.advance(char_length);
             true
         } else {
             false
+        }
+    }
+
+    pub fn next_unless(&mut self, matcher: impl CharMatcher) -> bool {
+        let (char_type, char_length) = CharType::read(self.buffer(), self.index);
+        if matcher.matches(char_type) {
+            false
+        } else {
+            self.advance(char_length);
+            true
         }
     }
 
@@ -195,6 +213,10 @@ impl CharType {
         }
     }
 
+    pub(crate) fn is_operator(self) -> bool {
+        matches!(self, OtherOperator | Equal | Dash)
+    }
+
     pub(crate) fn is_identifier_middle(self) -> bool {
         matches!(self, Identifier | Digit)
     }
@@ -246,9 +268,7 @@ impl ByteType {
 
     fn from_byte(byte: u8) -> ByteType {
         match byte {
-            b'+' | b'-' | b'*' | b'/' | b'=' | b'>' | b'<' | b'&' | b'|' | b'!' | b'.' => {
-                Char(Operator)
-            }
+            b'+' | b'*' | b'/' | b'&' | b'|' | b'.' => Char(OtherOperator),
             b'0'..=b'9' => Char(Digit),
             b'a'..=b'z' | b'A'..=b'Z' | b'_' => Char(Identifier),
             b'(' => Char(OpenParen),
@@ -258,6 +278,9 @@ impl ByteType {
             b';' | b',' => Char(Separator),
             b':' => Char(Colon),
             b'#' => Char(Hash),
+            b'=' => Char(Equal),
+            b'!' | b'<' | b'>' => Char(ComparisonOperatorStart),
+            b'-' => Char(Dash),
             b' ' => Char(Space),
             b'\t' => Char(HorizontalWhitespace),
             b'\n' => Char(Newline),
@@ -278,5 +301,17 @@ impl ByteType {
 
     fn is_utf8_cont(byte: u8) -> bool {
         (0b1000_0000..0b1011_1111).contains(&byte)
+    }
+}
+
+impl CharMatcher for CharType {
+    fn matches(&self, char_type: CharType) -> bool {
+        *self == char_type
+    }
+}
+
+impl<F: Fn(CharType) -> bool> CharMatcher for &F {
+    fn matches(&self, char_type: CharType) -> bool {
+        self(char_type)
     }
 }

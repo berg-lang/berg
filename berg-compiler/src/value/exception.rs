@@ -325,11 +325,7 @@ impl ObjectValue for Exception {
         self.err()
     }
 
-    fn set_field(
-        &mut self,
-        _name: IdentifierIndex,
-        _value: BergVal,
-    ) -> Result<(), EvalException>
+    fn set_field(&mut self, _name: IdentifierIndex, _value: BergVal) -> Result<(), EvalException>
     where
         Self: Clone,
     {
@@ -420,11 +416,7 @@ impl ObjectValue for CaughtException {
         self.0.value.field(name)
     }
 
-    fn set_field(
-        &mut self,
-        name: IdentifierIndex,
-        value: BergVal,
-    ) -> Result<(), EvalException>
+    fn set_field(&mut self, name: IdentifierIndex, value: BergVal) -> Result<(), EvalException>
     where
         Self: Clone,
     {
@@ -479,9 +471,7 @@ impl OperableValue for CaughtException {
 
 impl TryFromBergVal for CaughtException {
     const TYPE_NAME: &'static str = "CaughtException";
-    fn try_from_berg_val(
-        from: EvalVal,
-    ) -> Result<Result<Self, BergVal>, EvalException> {
+    fn try_from_berg_val(from: EvalVal) -> Result<Result<Self, BergVal>, EvalException> {
         match from.lazy_val()?.evaluate()? {
             BergVal::CaughtException(value) => Ok(Ok(value)),
             from => Ok(Err(from)),

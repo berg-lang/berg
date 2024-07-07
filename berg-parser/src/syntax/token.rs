@@ -1,3 +1,5 @@
+use crate::AstIndex;
+
 use super::ast::{Ast, AstDelta, LiteralIndex, RawLiteralIndex};
 use super::block::{BlockIndex, FieldIndex};
 use super::identifiers::*;
@@ -111,7 +113,7 @@ pub enum OperatorToken {
     ///
     InfixAssignment(IdentifierIndex),
     ///
-    /// A prefix operator, such as the `++` in `a++`.
+    /// A postfix operator, such as the `++` in `a++`.
     ///
     /// The [`IdentifierIndex`] refers to the operator itself (like `++`). For a
     /// list of standard operators to compare against, look in
@@ -238,14 +240,25 @@ pub enum ExpressionBoundaryError {
 ///
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum ExpressionBoundary {
+    /// Used when the thing on the right binds tighter: x + y * z has a group for y * z
     PrecedenceGroup,
+    /// For a group of things with no spaces: a+b * c+d has groups for a+b and c+d
     CompoundTerm,
+    /// (b + c)
     Parentheses,
+    /// After a colon: a: b+c has an auto-block for b+c
     AutoBlock,
+    /// { b + c }
     CurlyBraces,
+    /// a + b +
+    ///   c + d
     IndentedExpression,
+    /// if a == b
+    ///   c = d
     IndentedBlock,
+    /// The top-level group for the source file, the scope in which top-level names are defined
     Source,
+    /// The top-level group, used to give the evaluator a place to attach external keywords and variables
     Root,
 }
 
@@ -308,11 +321,11 @@ impl Token {
             Expression(token) => token.takes_right_child(right),
         }
     }
-    pub fn original_bytes(self, ast: &Ast) -> Cow<[u8]> {
+    pub fn original_bytes(self, ast: &Ast, index: AstIndex) -> Cow<[u8]> {
         use Token::*;
         match self {
-            Expression(token) => token.original_bytes(ast),
-            Operator(token) => token.original_bytes(ast),
+            Expression(token) => token.original_bytes(ast, index),
+            Operator(token) => token.original_bytes(ast, index),
         }
     }
 }
@@ -375,7 +388,7 @@ impl ExpressionToken {
     pub fn takes_right_child(self, right: impl Into<Token>) -> bool {
         self.fixity().takes_right_child(right.into().fixity())
     }
-    pub fn original_bytes(self, ast: &Ast) -> Cow<[u8]> {
+    pub fn original_bytes(self, ast: &Ast, _: AstIndex) -> Cow<[u8]> {
         use ExpressionToken::*;
         match self {
             Term(token) => token.original_bytes(ast),
@@ -413,6 +426,7 @@ impl OperatorToken {
             InfixOperator(NEWLINE_SEQUENCE)
             | InfixOperator(FOLLOWED_BY)
             | InfixOperator(IMMEDIATELY_FOLLOWED_BY) => "".into(),
+
             InfixOperator(identifier) | PostfixOperator(identifier) => {
                 ast.identifier_string(identifier).into()
             }
@@ -441,12 +455,21 @@ impl OperatorToken {
         }
     }
 
-    pub fn original_bytes(self, ast: &Ast) -> Cow<[u8]> {
+    pub fn original_bytes(self, ast: &Ast, index: AstIndex) -> Cow<[u8]> {
         use OperatorToken::*;
         match self {
             InfixOperator(NEWLINE_SEQUENCE)
             | InfixOperator(FOLLOWED_BY)
             | InfixOperator(IMMEDIATELY_FOLLOWED_BY) => Cow::Borrowed(b""),
+
+            InfixOperator(LEVEL_1_HEADER) => {
+                let repeat = ast.char_data.inline_header_delimiters[&index].get() as usize;
+                b"=".repeat(repeat).into()
+            }
+            InfixOperator(LEVEL_2_HEADER) => {
+                let repeat = ast.char_data.inline_header_delimiters[&index].get() as usize;
+                b"-".repeat(repeat).into()
+            }
 
             InfixOperator(identifier) | PostfixOperator(identifier) => {
                 ast.identifier_string(identifier).as_bytes().into()

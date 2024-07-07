@@ -1,14 +1,22 @@
-use crate::syntax::{
-    ast::Ast,
-    bytes::{ByteIndex, ByteRange},
-    identifiers::{APPLY, FOLLOWED_BY, NEWLINE_SEQUENCE},
-    token::{ExpressionBoundary, ExpressionToken, OperatorToken, TermToken},
+use crate::{
+    identifiers::COLON,
+    syntax::{
+        ast::{Ast, LiteralIndex},
+        bytes::{ByteIndex, ByteRange},
+        identifiers::{IdentifierIndex, APPLY, FOLLOWED_BY, NEWLINE_SEQUENCE},
+        token::{ExpressionBoundary, ExpressionToken, Fixity, OperatorToken, TermToken},
+    },
+    ErrorTermError, RawErrorTermError,
 };
+use ExpressionToken::*;
 use OperatorToken::*;
 use TermToken::*;
 use WhitespaceState::*;
 
-use super::{grouper::Grouper, sequencer::IndentLevel};
+use super::{
+    grouper::Grouper,
+    sequencer::{IndentLevel, PartialSequence, Sequence},
+};
 
 ///
 /// This builds up a valid expression from the incoming sequences.
@@ -36,7 +44,7 @@ pub struct Tokenizer {
     /// Where we are with respect to whitespace groupings (vertical text blocks with indent and
     /// horizontal expressions without space)
     ///
-    whitespace_state: WhitespaceState,
+    pub whitespace_state: WhitespaceState,
 
     ///
     /// The indent level of all open indented text blocks.
@@ -51,6 +59,25 @@ pub struct Tokenizer {
     /// ```
     ///
     indented_blocks: Vec<(IndentLevel, ExpressionBoundary)>,
+    // ///
+    // /// Delimited block state (whether we're in a first-level, second-level or third-level delimited block):
+    // ///
+    // /// ```text
+    // /// MyClass
+    // /// =======
+    // ///
+    // /// MyFunction
+    // /// -------
+    // ///
+    // /// MyFunction2
+    // /// -------
+    // ///
+    // /// MyClass2
+    // /// =======
+    // /// ...
+    // /// ```
+    // ///
+    // delimited_block_state: (bool, bool)
 }
 
 ///
@@ -60,7 +87,7 @@ pub struct Tokenizer {
 /// with no space).
 ///
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
-enum WhitespaceState {
+pub enum WhitespaceState {
     ///
     /// An expression has already started on the current line, and we are in a compact term.
     ///
@@ -128,6 +155,7 @@ impl Default for Tokenizer {
             prev_was_operator: true,
             whitespace_state: NotInTerm,
             indented_blocks: vec![(0.into(), ExpressionBoundary::Source)],
+            // delimited_block_state: (false, false)
         }
     }
 }
@@ -153,13 +181,47 @@ impl Tokenizer {
 
     // The end of the source closes any open terms, just like space. Also emits "close source."
     pub fn on_source_end(mut self, end: ByteIndex) -> Ast {
+        self.ast_mut().char_data.size = end;
         let close_token = ExpressionBoundary::Source.placeholder_close_token();
         self.close_term(end);
         self.emit_operator_token(close_token, end..end);
         self.grouper.on_source_end()
     }
 
-    pub fn on_expression_token(&mut self, token: impl Into<ExpressionToken>, range: ByteRange) {
+    pub fn on_error_term(&mut self, error: ErrorTermError, seq: Sequence) {
+        let literal = self.intern_literal(seq);
+        self.on_expression_token(ErrorTerm(error, literal), seq.range());
+    }
+
+    pub fn on_raw_error_term(&mut self, error: RawErrorTermError, bytes: &[u8], range: ByteRange) {
+        let raw_literal = self.ast_mut().raw_literals.push(bytes.into());
+        self.on_expression_token(RawErrorTerm(error, raw_literal), range);
+    }
+
+    pub fn on_integer(&mut self, seq: Sequence) {
+        let literal = self.intern_literal(seq);
+        self.on_expression_token(IntegerLiteral(literal), seq.range())
+    }
+
+    pub fn on_identifier(&mut self, seq: Sequence) {
+        let identifier = self.intern_identifier(seq);
+        self.on_expression_token(RawIdentifier(identifier), seq.range())
+    }
+
+    pub fn on_separator(&mut self, seq: Sequence) {
+        let identifier = self.intern_identifier(seq);
+        self.on_separator_token(InfixOperator(identifier), seq.range())
+    }
+
+    pub fn on_colon(&mut self, range: ByteRange, next_char_is_always_right_operand: bool) {
+        if (!self.in_term() || self.prev_was_operator) && next_char_is_always_right_operand {
+            self.on_expression_token(PrefixOperator(COLON), range);
+        } else {
+            self.on_separator_token(InfixOperator(COLON), range);
+        }
+    }
+
+    fn on_expression_token(&mut self, token: impl Into<ExpressionToken>, range: ByteRange) {
         assert!(range.start < range.end);
         let token = token.into();
 
@@ -200,7 +262,64 @@ impl Tokenizer {
         self.emit_expression_token(token, range);
     }
 
-    pub fn on_operator_token(&mut self, token: OperatorToken, range: ByteRange) {
+    pub fn intern_identifier(
+        &mut self,
+        identifier: impl Into<String> + AsRef<str>,
+    ) -> IdentifierIndex {
+        self.ast_mut().intern_identifier(identifier)
+    }
+
+    pub fn intern_literal(&mut self, literal: impl Into<String> + AsRef<str>) -> LiteralIndex {
+        self.ast_mut().intern_literal(literal)
+    }
+
+    pub fn on_assignment_operator(&mut self, seq: PartialSequence, term_is_about_to_end: bool) {
+        if self.operator_fixity(term_is_about_to_end) == Fixity::Infix {
+            // If the infix operator is like a+b, it's inside the term. If it's
+            // like a + b, it's outside (like a separator).
+            let operator = self.intern_identifier(seq.partial_str());
+            if self.in_term() {
+                self.on_operator_token(InfixAssignment(operator), seq.range());
+            } else {
+                self.on_separator_token(InfixAssignment(operator), seq.range());
+            }
+        } else {
+            self.on_operator(seq.into_full(), term_is_about_to_end);
+        }
+    }
+
+    fn operator_fixity(&self, term_is_about_to_end: bool) -> Fixity {
+        // If the term is about to end, this operator is postfix. i.e. "a? + 2"
+        if self.in_term() && term_is_about_to_end {
+            Fixity::Postfix
+
+        // If we're *not* in a term, and there is something else right after the
+        // operator, it is prefix. i.e. "+1"
+        } else if !self.in_term() && !term_is_about_to_end {
+            Fixity::Prefix
+
+        // Otherwise, it's infix. i.e. "1+2" or "1 + 2"
+        } else {
+            Fixity::Infix
+        }
+    }
+
+    pub fn on_operator(&mut self, seq: Sequence, term_is_about_to_end: bool) {
+        let operator = self.intern_identifier(seq.str());
+        match self.operator_fixity(term_is_about_to_end) {
+            Fixity::Postfix => self.on_operator_token(PostfixOperator(operator), seq.range()),
+            Fixity::Prefix => self.on_expression_token(PrefixOperator(operator), seq.range()),
+            // If the infix operator is like a+b, it's inside the term. If it's
+            // like a + b, it's outside (like a separator).
+            Fixity::Infix if self.in_term() => {
+                self.on_operator_token(InfixOperator(operator), seq.range())
+            }
+            Fixity::Infix => self.on_separator_token(InfixOperator(operator), seq.range()),
+            _ => unreachable!(),
+        }
+    }
+
+    fn on_operator_token(&mut self, token: OperatorToken, range: ByteRange) {
         assert!(range.start < range.end);
         self.emit_operator_token(token, range);
     }
@@ -208,17 +327,17 @@ impl Tokenizer {
     ///
     /// Handle space, which closes compound terms.
     ///
-    pub fn on_space(&mut self, range: ByteRange) {
-        self.close_term(range.start);
+    pub fn on_space(&mut self, start: ByteIndex) {
+        self.close_term(start);
     }
 
     ///
     /// Handle space, which closes any compound terms.
     ///
-    pub fn on_comment(&mut self, range: ByteRange) {
+    pub fn on_comment(&mut self, start: ByteIndex) {
         // Comment after a term closes it.
         // We don't have delimited comments, so a+/*comment*/b is impossible.
-        self.close_term(range.start);
+        self.close_term(start);
     }
 
     ///
@@ -260,7 +379,7 @@ impl Tokenizer {
     }
 
     // ( or {.
-    pub fn on_open(&mut self, boundary: ExpressionBoundary, range: ByteRange) {
+    pub fn on_open(&mut self, boundary: ExpressionBoundary, seq: Sequence) {
         // `f(x,y)` is f APPLY x, y (two arguments), to distinguish it from `f (x,y)`,
         // which is f with a single argument, the tuple `(x,y)`.
         //
@@ -269,11 +388,11 @@ impl Tokenizer {
         // the first arg being a single-element array `[1]`").
         if !self.prev_was_operator && self.in_term() && boundary == ExpressionBoundary::Parentheses
         {
-            self.emit_operator_token(InfixOperator(APPLY), range.start..range.start);
+            self.emit_operator_token(InfixOperator(APPLY), seq.start..seq.start);
         }
 
         // Otherwise, just put the open token like normal.
-        self.on_expression_token(boundary.placeholder_open_token(None), range);
+        self.on_expression_token(boundary.placeholder_open_token(None), seq.range());
 
         // Inside the (, a new expression term is started.
         self.whitespace_state = NotInTerm;
@@ -281,14 +400,14 @@ impl Tokenizer {
 
     // ) or }. If the ) is in a term, it closes it. After the ), we are definitely in a term,
     // however--part of the outer (...) term.
-    pub fn on_close(&mut self, boundary: ExpressionBoundary, range: ByteRange) {
-        self.on_operator_token(boundary.placeholder_close_token(), range);
+    pub fn on_close(&mut self, boundary: ExpressionBoundary, seq: Sequence) {
+        self.on_operator_token(boundary.placeholder_close_token(), seq.range());
         self.whitespace_state = InTerm;
     }
 
     // ; , or :. If it is in a term, the term is closed before the separator.
     // Afterwards, we are looking to start a new term, so it's still closed.
-    pub fn on_separator(&mut self, token: OperatorToken, range: ByteRange) {
+    fn on_separator_token(&mut self, token: OperatorToken, range: ByteRange) {
         self.close_term(range.start);
         self.on_operator_token(token, range);
     }
@@ -313,6 +432,7 @@ impl Tokenizer {
         self.grouper.on_expression_token(token, range);
         self.prev_was_operator = token.has_right_operand();
     }
+
     fn emit_operator_token(&mut self, token: OperatorToken, range: ByteRange) {
         if self.prev_was_operator {
             self.emit_expression_token(MissingExpression.into(), range.start..range.start);

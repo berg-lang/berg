@@ -228,11 +228,7 @@ impl ObjectValue for EvalVal {
         }
     }
 
-    fn set_field(
-        &mut self,
-        name: IdentifierIndex,
-        value: BergVal,
-    ) -> Result<(), EvalException> {
+    fn set_field(&mut self, name: IdentifierIndex, value: BergVal) -> Result<(), EvalException> {
         match self {
             Val(v) => v.set_field(name, value),
             Target(v) => v.set_field(name, value),
@@ -536,10 +532,7 @@ fn run_while_loop(condition: BlockRef, block: BlockRef) -> EvalResult {
     empty_tuple().ok()
 }
 
-fn run_foreach(
-    input: Result<BergVal, EvalException>,
-    block: BlockRef,
-) -> EvalResult {
+fn run_foreach(input: Result<BergVal, EvalException>, block: BlockRef) -> EvalResult {
     use CompilerErrorCode::*;
     let mut remaining = input?;
     while let NextVal {
@@ -609,11 +602,7 @@ impl AssignmentTarget {
         self.get_internal()
     }
 
-    pub fn set(
-        &mut self,
-        value: BergVal,
-        operand_position: ExpressionPosition,
-    ) -> EvalResult {
+    pub fn set(&mut self, value: BergVal, operand_position: ExpressionPosition) -> EvalResult {
         match self.set_internal(value).and_then(|_| self.declare()) {
             Ok(()) => empty_tuple().ok(),
             Err(error) => error.reposition(operand_position).err(),
@@ -709,11 +698,7 @@ impl ObjectValue for AssignmentTarget {
     {
         self.get().field(name)
     }
-    fn set_field(
-        &mut self,
-        name: IdentifierIndex,
-        value: BergVal,
-    ) -> Result<(), EvalException> {
+    fn set_field(&mut self, name: IdentifierIndex, value: BergVal) -> Result<(), EvalException> {
         let mut obj = self.get().lazy_val()?;
         obj.set_field(name, value)?;
         self.set(obj, Expression).and(Ok(()))

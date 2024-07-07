@@ -308,14 +308,9 @@ impl EvaluatableValue for BergVal {
     }
 }
 
-impl<V: BergValue + Clone + 'static, E: BergValue + Clone + 'static> BergValue
-    for Result<V, E>
-{
-}
+impl<V: BergValue + Clone + 'static, E: BergValue + Clone + 'static> BergValue for Result<V, E> {}
 
-impl<V: EvaluatableValue + Clone, E: EvaluatableValue + Clone>
-    EvaluatableValue for Result<V, E>
-{
+impl<V: EvaluatableValue + Clone, E: EvaluatableValue + Clone> EvaluatableValue for Result<V, E> {
     fn evaluate(self) -> BergResult
     where
         Self: Sized,
@@ -379,9 +374,7 @@ impl<V: IteratorValue, E: IteratorValue> IteratorValue for Result<V, E> {
     }
 }
 
-impl<V: ObjectValue + Clone, E: ObjectValue + Clone> ObjectValue
-    for Result<V, E>
-{
+impl<V: ObjectValue + Clone, E: ObjectValue + Clone> ObjectValue for Result<V, E> {
     fn field(self, name: IdentifierIndex) -> EvalResult
     where
         Self: Sized,
@@ -392,11 +385,7 @@ impl<V: ObjectValue + Clone, E: ObjectValue + Clone> ObjectValue
         }
     }
 
-    fn set_field(
-        &mut self,
-        name: IdentifierIndex,
-        value: BergVal,
-    ) -> Result<(), EvalException>
+    fn set_field(&mut self, name: IdentifierIndex, value: BergVal) -> Result<(), EvalException>
     where
         Self: Clone,
     {
