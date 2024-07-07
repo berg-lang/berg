@@ -90,11 +90,7 @@ impl RootRef {
     }
 
     #[allow(clippy::needless_pass_by_value)]
-    pub fn set_local_field(
-        &self,
-        index: FieldIndex,
-        _value: BergVal,
-    ) -> Result<(), EvalException> {
+    pub fn set_local_field(&self, index: FieldIndex, _value: BergVal) -> Result<(), EvalException> {
         CompilerError::ImmutableFieldOnRoot(index).err()
     }
 

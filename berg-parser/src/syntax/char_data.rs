@@ -1,12 +1,15 @@
 use berg_util::Delta;
 use std::cmp::Ordering;
+use std::collections::HashMap;
 use std::fmt::{Display, Formatter, Result};
+use std::num::NonZeroU32;
 use std::str;
 use std::u32;
 use string_interner::backend::StringBackend;
-use string_interner::StringInterner;
+use string_interner::{StringInterner, Symbol};
 
-use super::ast::WhitespaceIndex;
+use crate::AstIndex;
+
 use super::bytes::{ByteIndex, ByteRange};
 
 ///
@@ -53,6 +56,14 @@ pub struct CharData {
     /// not String.)
     ///
     pub comments: Vec<(Vec<u8>, ByteIndex)>,
+
+    ///
+    /// Data about the markdown headers in the document.
+    ///
+    /// The key is the index of the BlockDelimiter token in the AST, and the value is
+    /// the number of repeated = or - characters.
+    ///
+    pub inline_header_delimiters: HashMap<AstIndex, NonZeroU32>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -68,6 +79,9 @@ pub struct LineColumnRange {
     pub end: Option<LineColumn>,
 }
 
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Ord, PartialOrd)]
+pub struct WhitespaceIndex(NonZeroU32);
+
 ///
 /// An index into [`Whitespace::whitespace_characters`]
 ///
@@ -79,6 +93,7 @@ impl Default for CharData {
             whitespace_characters: StringInterner::new(),
             whitespace_ranges: Default::default(),
             comments: Default::default(),
+            inline_header_delimiters: Default::default(),
         }
     }
 }
@@ -199,5 +214,22 @@ impl Display for LineColumnRange {
         } else {
             write!(f, "{}:{}<0>", self.start.line, self.start.column)
         }
+    }
+}
+
+// For StringInterner
+impl Symbol for WhitespaceIndex {
+    fn try_from_usize(val: usize) -> Option<Self> {
+        if val < u32::MAX as usize {
+            Some(WhitespaceIndex(unsafe {
+                NonZeroU32::new_unchecked((val + 1) as u32)
+            }))
+        } else {
+            None
+        }
+    }
+
+    fn to_usize(self) -> usize {
+        (self.0.get() as usize) - 1
     }
 }

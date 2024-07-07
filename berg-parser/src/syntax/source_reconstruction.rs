@@ -175,7 +175,7 @@ impl<'a> SourceReconstructionIterator<'a> {
             // Skip empty tokens
             if *end > *start {
                 let token = self.ast.tokens[self.ast_index - 1];
-                return self.truncate(*start, token.original_bytes(self.ast));
+                return self.truncate(*start, token.original_bytes(self.ast, self.ast_index));
             }
         }
         None

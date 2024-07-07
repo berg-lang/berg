@@ -259,11 +259,7 @@ impl BlockRef {
         }
     }
 
-    pub fn declare_field(
-        &self,
-        field_index: FieldIndex,
-        ast: &Ast,
-    ) -> Result<(), EvalException> {
+    pub fn declare_field(&self, field_index: FieldIndex, ast: &Ast) -> Result<(), EvalException> {
         // Make sure we have enough spots to put the field
         use BlockFieldValue::*;
         let block_field_index = {
@@ -482,11 +478,7 @@ impl ObjectValue for BlockRef {
         }
     }
 
-    fn set_field(
-        &mut self,
-        name: IdentifierIndex,
-        value: BergVal,
-    ) -> Result<(), EvalException> {
+    fn set_field(&mut self, name: IdentifierIndex, value: BergVal) -> Result<(), EvalException> {
         self.ensure_evaluated()?;
 
         // Figure out the field index from its name

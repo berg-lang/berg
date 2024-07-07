@@ -222,11 +222,7 @@ impl ObjectValue for CompilerError {
         }
     }
 
-    fn set_field(
-        &mut self,
-        name: IdentifierIndex,
-        value: BergVal,
-    ) -> Result<(), EvalException> {
+    fn set_field(&mut self, name: IdentifierIndex, value: BergVal) -> Result<(), EvalException> {
         match name {
             ERROR_CODE => CompilerError::ImmutableFieldOnValue(Box::new(self.clone()), name).err(),
             _ => default_set_field(self, name, value),
@@ -281,9 +277,7 @@ impl OperableValue for CompilerError {
 
 impl TryFromBergVal for CompilerError {
     const TYPE_NAME: &'static str = "CompilerError";
-    fn try_from_berg_val(
-        from: EvalVal,
-    ) -> Result<Result<Self, BergVal>, EvalException> {
+    fn try_from_berg_val(from: EvalVal) -> Result<Result<Self, BergVal>, EvalException> {
         match from.lazy_val()?.evaluate()? {
             BergVal::CompilerError(value) => Ok(Ok(value)),
             from => Ok(Err(from)),

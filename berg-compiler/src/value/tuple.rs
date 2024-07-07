@@ -119,11 +119,7 @@ impl ObjectValue for Tuple {
     {
         default_field(self, name)
     }
-    fn set_field(
-        &mut self,
-        name: IdentifierIndex,
-        value: BergVal,
-    ) -> Result<(), EvalException> {
+    fn set_field(&mut self, name: IdentifierIndex, value: BergVal) -> Result<(), EvalException> {
         default_set_field(self, name, value)
     }
 }
@@ -199,9 +195,7 @@ impl From<Tuple> for EvalVal {
 
 impl TryFromBergVal for Tuple {
     const TYPE_NAME: &'static str = "Tuple";
-    fn try_from_berg_val(
-        from: EvalVal,
-    ) -> Result<Result<Self, BergVal>, EvalException> {
+    fn try_from_berg_val(from: EvalVal) -> Result<Result<Self, BergVal>, EvalException> {
         match from.lazy_val()? {
             BergVal::Tuple(value) => Ok(Ok(value)),
             value => Ok(Err(value)),

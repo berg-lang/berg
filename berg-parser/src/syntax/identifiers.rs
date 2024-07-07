@@ -65,6 +65,9 @@ identifiers! {
     PLUS_ONE = "<plus_one>",
     MINUS_ONE = "<minus_one>",
 
+    LEVEL_1_HEADER = "===",
+    LEVEL_2_HEADER = "---",
+
     TRUE = "true",
     FALSE = "false",
     IF = "if",
