@@ -52,11 +52,7 @@ impl ObjectValue for BigRational {
     {
         default_field(self, name)
     }
-    fn set_field(
-        &mut self,
-        name: IdentifierIndex,
-        value: BergVal,
-    ) -> Result<(), EvalException> {
+    fn set_field(&mut self, name: IdentifierIndex, value: BergVal) -> Result<(), EvalException> {
         default_set_field(self, name, value)
     }
 }
@@ -162,9 +158,7 @@ impl From<BigRational> for EvalVal {
 
 impl TryFromBergVal for BigRational {
     const TYPE_NAME: &'static str = "number";
-    fn try_from_berg_val(
-        from: EvalVal,
-    ) -> Result<Result<Self, BergVal>, EvalException> {
+    fn try_from_berg_val(from: EvalVal) -> Result<Result<Self, BergVal>, EvalException> {
         match from.lazy_val()? {
             BergVal::BigRational(value) => Ok(Ok(value)),
             from => Ok(Err(from)),

@@ -1,7 +1,7 @@
 use std::fmt;
 
 use super::expression_tree::ExpressionTreeWalker;
-use super::identifiers::SEMICOLON;
+use super::identifiers::{COLON, COMMA, LEVEL_1_HEADER, LEVEL_2_HEADER, SEMICOLON};
 use super::token::{ExpressionBoundary, ExpressionToken, Fixity, OperatorToken, TermToken, Token};
 
 #[derive(Copy, Clone, Debug)]
@@ -39,20 +39,18 @@ impl<'a> fmt::Display for ExpressionTreeWalker<'a, ExpressionFormatter> {
         use OperatorToken::*;
         use TermToken::*;
         use Token::*;
-        let token = self.token();
-        let string = self.token_string();
-        match token {
+        match self.token() {
             Expression(token) => match token {
                 Term(token) => match token {
                     MissingExpression => write!(f, "<missing>"),
-                    _ => write!(f, "{}", token.to_string(self.ast())),
+                    _ => write!(f, "{}", self.token_string()),
                 },
                 PrefixOperator(_) => {
                     let right = self.right_expression();
                     if self.ast().tokens[self.root_index() - 1].has_left_operand() {
-                        write!(f, " {}{}", string, right)
+                        write!(f, " {}{}", self.token_string(), right)
                     } else {
-                        write!(f, "{}{}", string, right)
+                        write!(f, "{}{}", self.token_string(), right)
                     }
                 }
                 Open(..) => {
@@ -65,24 +63,31 @@ impl<'a> fmt::Display for ExpressionTreeWalker<'a, ExpressionFormatter> {
                 PostfixOperator(_) => {
                     let left = self.left_expression();
                     if self.ast().tokens[self.root_index() + 1].has_right_operand() {
-                        write!(f, " {}{}", left, string)
+                        write!(f, " {}{}", left, self.token_string())
                     } else {
-                        write!(f, "{}{}", left, string)
+                        write!(f, "{}{}", left, self.token_string())
                     }
                 }
                 Close(..) | CloseBlock(..) => unreachable!(),
-                InfixOperator(SEMICOLON) => write!(
+                InfixOperator(SEMICOLON) | InfixOperator(COMMA) | InfixOperator(COLON) => write!(
                     f,
                     "{}{} {}",
                     self.left_expression(),
-                    string,
+                    self.token_string(),
+                    self.right_expression()
+                ),
+                InfixOperator(LEVEL_1_HEADER) | InfixOperator(LEVEL_2_HEADER) => write!(
+                    f,
+                    "block{{\n{}\n{}\n{}\n}}",
+                    self.left_expression(),
+                    self.token_string(),
                     self.right_expression()
                 ),
                 InfixOperator(_) | InfixAssignment(_) => write!(
                     f,
                     "{} {} {}",
                     self.left_expression(),
-                    string,
+                    self.token_string(),
                     self.right_expression()
                 ),
             },

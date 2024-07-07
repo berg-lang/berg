@@ -1,13 +1,12 @@
 use berg_util::{index_type, IndexedVec};
 use std::borrow::Cow;
-use std::num::NonZeroU32;
 use std::u32;
 use string_interner::backend::StringBackend;
-use string_interner::{DefaultSymbol, StringInterner, Symbol};
+use string_interner::{DefaultSymbol, StringInterner};
 
 use super::block::{AstBlock, BlockIndex, Field, FieldIndex};
 use super::bytes::ByteRange;
-use super::char_data::CharData;
+use super::char_data::{CharData, WhitespaceIndex};
 use super::identifiers::{keywords, IdentifierIndex};
 use super::source_reconstruction::{SourceReconstruction, SourceReconstructionReader};
 use super::token::{ExpressionToken, OperatorToken, Token};
@@ -25,9 +24,6 @@ pub type TokenRanges = IndexedVec<ByteRange, AstIndex>;
 
 // So we can signify that something is meant to be a *difference* between indices.
 pub type AstDelta = Delta<AstIndex>;
-
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Ord, PartialOrd)]
-pub struct WhitespaceIndex(NonZeroU32);
 
 #[derive(Debug)]
 pub struct Ast {
@@ -195,22 +191,5 @@ impl fmt::Display for OperandPosition {
             Right | PrefixOperand => "right side",
         };
         write!(f, "{}", string)
-    }
-}
-
-// For StringInterner
-impl Symbol for WhitespaceIndex {
-    fn try_from_usize(val: usize) -> Option<Self> {
-        if val < u32::MAX as usize {
-            Some(WhitespaceIndex(unsafe {
-                NonZeroU32::new_unchecked((val + 1) as u32)
-            }))
-        } else {
-            None
-        }
-    }
-
-    fn to_usize(self) -> usize {
-        (self.0.get() as usize) - 1
     }
 }
