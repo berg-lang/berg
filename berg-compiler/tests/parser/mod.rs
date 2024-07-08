@@ -1,5 +1,6 @@
 mod comments;
 mod indent;
+mod indented_expressions;
 mod newline_sequences;
 mod parentheses;
 mod parse_errors;
