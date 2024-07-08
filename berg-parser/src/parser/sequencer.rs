@@ -1,8 +1,12 @@
-use crate::syntax::{
-    ast::Ast,
-    bytes::{ByteIndex, ByteRange, ByteSlice},
-    char_data::WhitespaceIndex,
-    token::{ErrorTermError, ExpressionBoundary, RawErrorTermError},
+use crate::{
+    identifiers::{LEVEL_1_HEADER, LEVEL_2_HEADER},
+    syntax::{
+        ast::Ast,
+        bytes::{ByteIndex, ByteRange, ByteSlice},
+        char_data::WhitespaceIndex,
+        identifiers::IdentifierIndex,
+        token::{ErrorTermError, ExpressionBoundary, RawErrorTermError},
+    },
 };
 use berg_util::Delta;
 use std::{borrow::Cow, cmp::min, str};
@@ -94,8 +98,9 @@ impl Sequencer {
             match char_type {
                 Digit => self.integer(start),
                 Identifier => self.identifier(start),
-                OtherOperator | Dash => self.operator(start, char_type),
+                OtherOperator => self.operator(start, char_type),
                 Equal => self.equal(start),
+                Dash => self.dash(start),
                 ComparisonOperatorStart => self.comparison_operator_start(start),
                 Separator => self.separator(start),
                 Colon => self.colon(start),
@@ -192,24 +197,55 @@ impl Sequencer {
             .on_operator(self.scanner.utf8(start), self.term_is_about_to_end());
     }
 
+    fn emit_block_delimiter(&mut self, start: ByteIndex, operator: IdentifierIndex) {
+        self.tokenizer
+            .on_block_delimiter(operator, self.scanner.range(start));
+    }
+
     fn equal(&mut self, start: ByteIndex) {
-        // Check for just plain =
-        if self.scanner.next_if(Equal) && !self.scanner.peek().is_operator() {
-            self.emit_operator(start);
+        // = is an assignment operator
+        if !self.scanner.peek().is_operator() {
+            return self.emit_assignment_operator(start);
+        }
+        if self.scanner.next_if(Equal) {
+            // === (3 or more equals) is a block delimiter
+            let has_three_equals = self.scanner.next_while(Equal);
+            if !self.scanner.peek().is_operator() {
+                if has_three_equals {
+                    // === and beyond is a block delimiter
+                    return self.emit_block_delimiter(start, LEVEL_1_HEADER);
+                } else {
+                    // == is a normal operator
+                    return self.emit_operator(start);
+                }
+            }
+        }
+        self.operator(start, Equal)
+    }
+
+    fn dash(&mut self, start: ByteIndex) {
+        if self.scanner.next_if(Dash)
+            && self.scanner.next_while(Dash)
+            && !self.scanner.peek().is_operator()
+        {
+            self.emit_block_delimiter(start, LEVEL_2_HEADER)
         } else {
-            self.operator(start, Equal);
+            self.operator(start, Dash)
         }
     }
 
     fn comparison_operator_start(&mut self, start: ByteIndex) {
-        if self.scanner.next_if(Equal) {
+        if self.scanner.next_while(Equal) {
             if self.scanner.peek().is_operator() {
-                self.operator(start, Equal);
+                // <==>, >==<, etc.
+                self.operator(start, Equal)
             } else {
-                self.emit_operator(start); // !=, >=, <= are not assignments
+                // >=, >==, !=, !==, etc.
+                self.emit_operator(start)
             }
         } else {
-            self.operator(start, ComparisonOperatorStart);
+            // >>, <<, etc.
+            self.operator(start, ComparisonOperatorStart)
         }
     }
 
