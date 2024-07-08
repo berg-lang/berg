@@ -4,12 +4,8 @@ use berg_util::Delta;
 use ByteType::*;
 use CharType::*;
 
-use crate::{
-    syntax::bytes::{ByteIndex, ByteSlice},
-    ByteRange,
-};
-
 use super::sequencer::{PartialSequence, Sequence};
+use crate::syntax::bytes::{ByteIndex, ByteRange, ByteSlice};
 
 ///
 /// Scans UTF-8 identifying characters.

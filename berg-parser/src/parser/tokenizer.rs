@@ -4,9 +4,11 @@ use crate::{
         ast::{Ast, LiteralIndex},
         bytes::{ByteIndex, ByteRange},
         identifiers::{IdentifierIndex, APPLY, FOLLOWED_BY, NEWLINE_SEQUENCE},
-        token::{ExpressionBoundary, ExpressionToken, Fixity, OperatorToken, TermToken},
+        token::{
+            ErrorTermError, ExpressionBoundary, ExpressionToken, Fixity, OperatorToken,
+            RawErrorTermError, TermToken,
+        },
     },
-    ErrorTermError, RawErrorTermError,
 };
 use ExpressionToken::*;
 use OperatorToken::*;
@@ -278,13 +280,23 @@ impl Tokenizer {
             // If the infix operator is like a+b, it's inside the term. If it's
             // like a + b, it's outside (like a separator).
             let operator = self.intern_identifier(seq.partial_str());
-            if self.in_term() {
-                self.on_operator_token(InfixAssignment(operator), seq.range());
-            } else {
-                self.on_separator_token(InfixAssignment(operator), seq.range());
-            }
+            self.on_operator_token(InfixAssignment(operator), seq.range())
         } else {
             self.on_operator(seq.into_full(), term_is_about_to_end);
+        }
+    }
+
+    pub fn on_block_delimiter(&mut self, operator: IdentifierIndex, range: ByteRange) {
+        self.on_separator_token(InfixOperator(operator), range)
+    }
+
+    pub fn on_operator(&mut self, seq: Sequence, term_is_about_to_end: bool) {
+        let operator = self.intern_identifier(seq.str());
+        match self.operator_fixity(term_is_about_to_end) {
+            Fixity::Postfix => self.on_operator_token(PostfixOperator(operator), seq.range()),
+            Fixity::Prefix => self.on_expression_token(PrefixOperator(operator), seq.range()),
+            Fixity::Infix => self.on_operator_token(InfixOperator(operator), seq.range()),
+            Fixity::Close | Fixity::Open | Fixity::Term => unreachable!(),
         }
     }
 
@@ -304,19 +316,11 @@ impl Tokenizer {
         }
     }
 
-    pub fn on_operator(&mut self, seq: Sequence, term_is_about_to_end: bool) {
-        let operator = self.intern_identifier(seq.str());
-        match self.operator_fixity(term_is_about_to_end) {
-            Fixity::Postfix => self.on_operator_token(PostfixOperator(operator), seq.range()),
-            Fixity::Prefix => self.on_expression_token(PrefixOperator(operator), seq.range()),
-            // If the infix operator is like a+b, it's inside the term. If it's
-            // like a + b, it's outside (like a separator).
-            Fixity::Infix if self.in_term() => {
-                self.on_operator_token(InfixOperator(operator), seq.range())
-            }
-            Fixity::Infix => self.on_separator_token(InfixOperator(operator), seq.range()),
-            _ => unreachable!(),
-        }
+    // ; , or :. If it is in a term, the term is closed before the separator.
+    // Afterwards, we are looking to start a new term, so it's still closed.
+    fn on_separator_token(&mut self, token: OperatorToken, range: ByteRange) {
+        self.close_term(range.start);
+        self.on_operator_token(token, range);
     }
 
     fn on_operator_token(&mut self, token: OperatorToken, range: ByteRange) {
@@ -403,13 +407,6 @@ impl Tokenizer {
     pub fn on_close(&mut self, boundary: ExpressionBoundary, seq: Sequence) {
         self.on_operator_token(boundary.placeholder_close_token(), seq.range());
         self.whitespace_state = InTerm;
-    }
-
-    // ; , or :. If it is in a term, the term is closed before the separator.
-    // Afterwards, we are looking to start a new term, so it's still closed.
-    fn on_separator_token(&mut self, token: OperatorToken, range: ByteRange) {
-        self.close_term(range.start);
-        self.on_operator_token(token, range);
     }
 
     fn open_term(&mut self, index: ByteIndex) {
