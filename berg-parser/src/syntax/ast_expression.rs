@@ -62,6 +62,12 @@ impl<'a> Expression for AstExpression<'a> {
                     true,
                     next.walk_state.operand(Fixity::Infix),
                 ),
+                InlineBlockDelimiter(level, _) => walker.infix(
+                    next.result,
+                    level.identifier(),
+                    false,
+                    next.walk_state.operand(Fixity::Infix),
+                ),
                 PostfixOperator(operator) => next
                     .walk_state
                     .result(walker.postfix(next.result, operator)),

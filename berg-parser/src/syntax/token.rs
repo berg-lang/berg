@@ -1,11 +1,15 @@
-use crate::AstIndex;
-
-use super::ast::{Ast, AstDelta, LiteralIndex, RawLiteralIndex};
-use super::block::{BlockIndex, FieldIndex};
-use super::identifiers::*;
-use super::precedence::Precedence;
 use std::borrow::Cow;
 use std::fmt;
+use berg_util::Delta;
+
+use super::{
+    ast::{Ast, AstDelta, LiteralIndex, RawLiteralIndex},
+    block::{BlockIndex, FieldIndex},
+    bytes::ByteIndex,
+    identifiers,
+    precedence::Precedence,
+};
+use identifiers::*;
 use ExpressionBoundary::*;
 
 ///
@@ -24,9 +28,12 @@ pub enum Token {
 // nesting enums :(
 // This test exists to make sure we don't regress further.
 #[test]
-fn token_size_is_16bytes_even_though_we_want_it_to_be_8() {
+fn token_size_is_12bytes_even_though_we_want_it_to_be_8() {
     use std::mem::size_of;
-    assert!(size_of::<Token>() <= 16);
+    assert_eq!(size_of::<Token>(), 12);
+    assert_eq!(size_of::<ExpressionToken>(), 12);
+    assert_eq!(size_of::<TermToken>(), 8);
+    assert_eq!(size_of::<OperatorToken>(), 8);
 }
 
 ///
@@ -112,6 +119,13 @@ pub enum OperatorToken {
     /// [`syntax::identifiers`].
     ///
     InfixAssignment(IdentifierIndex),
+    ///
+    /// Delimiter indicating an inline block.
+    /// 
+    /// Tuple is (level, repeat) where repeat is the number of times the = or - sign was
+    /// repeated, and level is the level of the header (1 or 2).
+    /// 
+    InlineBlockDelimiter(InlineBlockLevel, Delta<ByteIndex>),
     ///
     /// A postfix operator, such as the `++` in `a++`.
     ///
@@ -212,6 +226,15 @@ pub enum TermToken {
     /// For example, `(a + )` has a `MissingExpression` just in front of the `)`.
     ///
     MissingExpression,
+}
+
+///
+/// Inline block level.
+/// 
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub enum InlineBlockLevel {
+    One,
+    Two,
 }
 
 ///
@@ -321,11 +344,11 @@ impl Token {
             Expression(token) => token.takes_right_child(right),
         }
     }
-    pub fn original_bytes(self, ast: &Ast, index: AstIndex) -> Cow<[u8]> {
+    pub fn original_bytes(self, ast: &Ast) -> Cow<[u8]> {
         use Token::*;
         match self {
-            Expression(token) => token.original_bytes(ast, index),
-            Operator(token) => token.original_bytes(ast, index),
+            Expression(token) => token.original_bytes(ast),
+            Operator(token) => token.original_bytes(ast),
         }
     }
 }
@@ -388,7 +411,7 @@ impl ExpressionToken {
     pub fn takes_right_child(self, right: impl Into<Token>) -> bool {
         self.fixity().takes_right_child(right.into().fixity())
     }
-    pub fn original_bytes(self, ast: &Ast, _: AstIndex) -> Cow<[u8]> {
+    pub fn original_bytes(self, ast: &Ast) -> Cow<[u8]> {
         use ExpressionToken::*;
         match self {
             Term(token) => token.original_bytes(ast),
@@ -402,7 +425,7 @@ impl OperatorToken {
     pub fn fixity(self) -> Fixity {
         use OperatorToken::*;
         match self {
-            InfixOperator(_) | InfixAssignment(_) => Fixity::Infix,
+            InfixOperator(_) | InfixAssignment(_) | InlineBlockDelimiter(..) => Fixity::Infix,
             PostfixOperator(_) => Fixity::Postfix,
             Close { .. } | CloseBlock { .. } => Fixity::Close,
         }
@@ -418,7 +441,7 @@ impl OperatorToken {
     }
     pub fn starts_auto_block(self) -> bool {
         use OperatorToken::*;
-        matches!(self, InfixOperator(COLON))
+        matches!(self, InfixOperator(COLON) | InlineBlockDelimiter(..))
     }
     pub fn to_string(self, ast: &Ast) -> Cow<str> {
         use OperatorToken::*;
@@ -430,6 +453,8 @@ impl OperatorToken {
             InfixOperator(identifier) | PostfixOperator(identifier) => {
                 ast.identifier_string(identifier).into()
             }
+
+            InlineBlockDelimiter(level, _) => level.to_string().into(),
 
             InfixAssignment(identifier) => format!("{}=", ast.identifier_string(identifier)).into(),
             Close(_, boundary) | CloseBlock(_, boundary) => boundary.close_string().into(),
@@ -455,21 +480,14 @@ impl OperatorToken {
         }
     }
 
-    pub fn original_bytes(self, ast: &Ast, index: AstIndex) -> Cow<[u8]> {
+    pub fn original_bytes(self, ast: &Ast) -> Cow<[u8]> {
         use OperatorToken::*;
         match self {
             InfixOperator(NEWLINE_SEQUENCE)
             | InfixOperator(FOLLOWED_BY)
             | InfixOperator(IMMEDIATELY_FOLLOWED_BY) => Cow::Borrowed(b""),
 
-            InfixOperator(LEVEL_1_HEADER) => {
-                let repeat = ast.char_data.inline_header_delimiters[&index].get() as usize;
-                b"=".repeat(repeat).into()
-            }
-            InfixOperator(LEVEL_2_HEADER) => {
-                let repeat = ast.char_data.inline_header_delimiters[&index].get() as usize;
-                b"-".repeat(repeat).into()
-            }
+            InlineBlockDelimiter(level, repeat) => level.original_string(repeat).into(),
 
             InfixOperator(identifier) | PostfixOperator(identifier) => {
                 ast.identifier_string(identifier).as_bytes().into()
@@ -524,6 +542,27 @@ impl TermToken {
             MissingExpression => unreachable!(),
         }
         .into()
+    }
+}
+
+impl InlineBlockLevel {
+    pub fn to_string(self) -> &'static str {
+        match self {
+            InlineBlockLevel::One => "===",
+            InlineBlockLevel::Two => "---",
+        }
+    }
+    pub fn original_string(self, repeat: Delta<ByteIndex>) -> Vec<u8> {
+        match self {
+            InlineBlockLevel::One => b"=".repeat(repeat.into()),
+            InlineBlockLevel::Two => b"-".repeat(repeat.into()),
+        }
+    }
+    pub fn identifier(self) -> IdentifierIndex {
+        match self {
+            InlineBlockLevel::One => INLINE_BLOCK_LEVEL_ONE,
+            InlineBlockLevel::Two => INLINE_BLOCK_LEVEL_TWO,
+        }
     }
 }
 

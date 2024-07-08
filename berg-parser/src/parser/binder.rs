@@ -92,7 +92,7 @@ impl Binder {
             }
             // We are the one who generates CloseBlock; no one before us should be doing so.
             CloseBlock(..) => unreachable!(),
-            InfixOperator(COLON) => self.push_declaration_with_default(token, range),
+            InfixOperator(COLON) | InlineBlockDelimiter(..) => self.push_declaration_with_default(token, range),
             _ => self.ast.push_token(token, range),
         }
     }

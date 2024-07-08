@@ -1,5 +1,7 @@
 use Precedence::*;
 
+use crate::syntax::token::InlineBlockLevel;
+
 use super::{identifiers::IdentifierIndex, token::OperatorToken};
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
@@ -16,6 +18,8 @@ pub enum Precedence {
     FollowedBy,
     SemicolonSequence,
     NewlineSequence,
+    InlineBlockLevel2,
+    InlineBlockLevel1,
 }
 
 const DEFAULT_PRECEDENCE: Precedence = Precedence::PlusMinus;
@@ -102,6 +106,35 @@ impl Precedence {
                     | FollowedBy
                     | SemicolonSequence
             ),
+            InlineBlockLevel2 => matches!(
+                right,
+                Dot | TimesDivide
+                    | PlusMinus
+                    | Comparison
+                    | And
+                    | Or
+                    | CommaSequence
+                    | Assign
+                    | ColonDeclaration
+                    | FollowedBy
+                    | SemicolonSequence
+                    | NewlineSequence
+            ),
+            InlineBlockLevel1 => matches!(
+                right,
+                Dot | TimesDivide
+                    | PlusMinus
+                    | Comparison
+                    | And
+                    | Or
+                    | CommaSequence
+                    | Assign
+                    | ColonDeclaration
+                    | FollowedBy
+                    | SemicolonSequence
+                    | NewlineSequence
+                    | InlineBlockLevel2
+            ),
         }
     }
 }
@@ -112,6 +145,8 @@ impl From<OperatorToken> for Precedence {
         match from {
             InfixOperator(operator) => operator.into(),
             InfixAssignment(_) => Precedence::Assign,
+            InlineBlockDelimiter(InlineBlockLevel::One, _) => Precedence::InlineBlockLevel1,
+            InlineBlockDelimiter(InlineBlockLevel::Two, _) => Precedence::InlineBlockLevel2,
             // Should only ever be called for infix
             _ => unreachable!(),
         }

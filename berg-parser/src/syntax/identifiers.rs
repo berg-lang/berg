@@ -65,8 +65,8 @@ identifiers! {
     PLUS_ONE = "<plus_one>",
     MINUS_ONE = "<minus_one>",
 
-    LEVEL_1_HEADER = "===",
-    LEVEL_2_HEADER = "---",
+    INLINE_BLOCK_LEVEL_ONE = "===",
+    INLINE_BLOCK_LEVEL_TWO = "---",
 
     TRUE = "true",
     FALSE = "false",

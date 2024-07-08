@@ -137,6 +137,7 @@ impl<'a> ExpressionEvaluator<'a> {
                 InfixOperator(operator) => self.evaluate_infix(operator),
                 // A <op>= B
                 InfixAssignment(operator) => self.evaluate_infix_assign(operator),
+                InlineBlockDelimiter(level, _) => self.evaluate_infix(level.identifier()),
 
                 //
                 // Postfix operators

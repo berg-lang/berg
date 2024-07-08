@@ -1,7 +1,7 @@
 use std::fmt;
 
 use super::expression_tree::ExpressionTreeWalker;
-use super::identifiers::{COLON, COMMA, LEVEL_1_HEADER, LEVEL_2_HEADER, SEMICOLON};
+use super::identifiers::{COLON, COMMA, SEMICOLON};
 use super::token::{ExpressionBoundary, ExpressionToken, Fixity, OperatorToken, TermToken, Token};
 
 #[derive(Copy, Clone, Debug)]
@@ -76,14 +76,7 @@ impl<'a> fmt::Display for ExpressionTreeWalker<'a, ExpressionFormatter> {
                     self.token_string(),
                     self.right_expression()
                 ),
-                InfixOperator(LEVEL_1_HEADER) | InfixOperator(LEVEL_2_HEADER) => write!(
-                    f,
-                    "block{{\n{}\n{}\n{}\n}}",
-                    self.left_expression(),
-                    self.token_string(),
-                    self.right_expression()
-                ),
-                InfixOperator(_) | InfixAssignment(_) => write!(
+                InfixOperator(_) | InfixAssignment(_) | InlineBlockDelimiter(..) => write!(
                     f,
                     "{} {} {}",
                     self.left_expression(),
