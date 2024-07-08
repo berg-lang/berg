@@ -1,13 +1,9 @@
-use crate::{
-    identifiers::{LEVEL_1_HEADER, LEVEL_2_HEADER},
-    syntax::{
+use crate::syntax::{
         ast::Ast,
         bytes::{ByteIndex, ByteRange, ByteSlice},
         char_data::WhitespaceIndex,
-        identifiers::IdentifierIndex,
-        token::{ErrorTermError, ExpressionBoundary, RawErrorTermError},
-    },
-};
+        token::{ErrorTermError, ExpressionBoundary, InlineBlockLevel, RawErrorTermError},
+    };
 use berg_util::Delta;
 use std::{borrow::Cow, cmp::min, str};
 use CharType::*;
@@ -197,9 +193,9 @@ impl Sequencer {
             .on_operator(self.scanner.utf8(start), self.term_is_about_to_end());
     }
 
-    fn emit_block_delimiter(&mut self, start: ByteIndex, operator: IdentifierIndex) {
+    fn emit_block_delimiter(&mut self, start: ByteIndex, level: InlineBlockLevel) {
         self.tokenizer
-            .on_block_delimiter(operator, self.scanner.range(start));
+            .on_block_delimiter(level, self.scanner.range(start));
     }
 
     fn equal(&mut self, start: ByteIndex) {
@@ -213,7 +209,7 @@ impl Sequencer {
             if !self.scanner.peek().is_operator() {
                 if has_three_equals {
                     // === and beyond is a block delimiter
-                    return self.emit_block_delimiter(start, LEVEL_1_HEADER);
+                    return self.emit_block_delimiter(start, InlineBlockLevel::One);
                 } else {
                     // == is a normal operator
                     return self.emit_operator(start);
@@ -228,7 +224,7 @@ impl Sequencer {
             && self.scanner.next_while(Dash)
             && !self.scanner.peek().is_operator()
         {
-            self.emit_block_delimiter(start, LEVEL_2_HEADER)
+            self.emit_block_delimiter(start, InlineBlockLevel::Two)
         } else {
             self.operator(start, Dash)
         }

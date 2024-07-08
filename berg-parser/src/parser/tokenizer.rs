@@ -5,8 +5,7 @@ use crate::{
         bytes::{ByteIndex, ByteRange},
         identifiers::{IdentifierIndex, APPLY, FOLLOWED_BY, NEWLINE_SEQUENCE},
         token::{
-            ErrorTermError, ExpressionBoundary, ExpressionToken, Fixity, OperatorToken,
-            RawErrorTermError, TermToken,
+            ErrorTermError, ExpressionBoundary, ExpressionToken, Fixity, InlineBlockLevel, OperatorToken, RawErrorTermError, TermToken
         },
     },
 };
@@ -286,8 +285,8 @@ impl Tokenizer {
         }
     }
 
-    pub fn on_block_delimiter(&mut self, operator: IdentifierIndex, range: ByteRange) {
-        self.on_separator_token(InfixOperator(operator), range)
+    pub fn on_block_delimiter(&mut self, level: InlineBlockLevel, range: ByteRange) {
+        self.on_separator_token(InlineBlockDelimiter(level, range.end - range.start), range)
     }
 
     pub fn on_operator(&mut self, seq: Sequence, term_is_about_to_end: bool) {
