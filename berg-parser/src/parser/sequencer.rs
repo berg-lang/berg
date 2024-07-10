@@ -1,9 +1,12 @@
+use crate::bytes::{line_column::DocumentLines, ByteIndex, ByteRange, ByteSlice};
 use crate::syntax::{
-        ast::{Ast, AstIndex}, bytes::{ByteIndex, ByteRange, ByteSlice}, char_data::{CharData, WhitespaceIndex}, line_column::DocumentLines, token::{ErrorTermError, ExpressionBoundary, InlineBlockLevel, RawErrorTermError}
-    };
+    ast::{Ast, AstIndex},
+    char_data::{CharData, WhitespaceIndex},
+    token::{ErrorTermError, ExpressionBoundary, InlineBlockLevel, RawErrorTermError},
+};
 use berg_util::Delta;
-use string_interner::{backend::StringBackend, StringInterner};
 use std::{borrow::Cow, cmp::min, collections::HashMap, num::NonZeroU32, str};
+use string_interner::{backend::StringBackend, StringInterner};
 use CharType::*;
 use ErrorTermError::*;
 use ExpressionBoundary::*;
@@ -296,7 +299,10 @@ impl Sequencer {
 
     fn line_start(&mut self) {
         let start = self.scanner.index;
-        assert!((start == 0 && self.line_starts.is_empty()) || start > *self.line_starts.last().unwrap());
+        assert!(
+            (start == 0 && self.line_starts.is_empty())
+                || start > *self.line_starts.last().unwrap()
+        );
         self.line_starts.push(start);
 
         // Get the indent level.
@@ -327,8 +333,7 @@ impl Sequencer {
             // The old indent and new indent both have non-space characters.
             (Some(indent_whitespace), Some(current_whitespace)) => {
                 let indent_whitespace = self.whitespace_string(indent_whitespace).as_bytes();
-                let current_whitespace =
-                    self.whitespace_string(current_whitespace).as_bytes();
+                let current_whitespace = self.whitespace_string(current_whitespace).as_bytes();
                 let current_whitespace =
                     &current_whitespace[0..min(indent_whitespace.len(), current_whitespace.len())];
                 indent_whitespace

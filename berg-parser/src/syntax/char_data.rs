@@ -1,13 +1,13 @@
+use berg_util::Delta;
 use std::collections::HashMap;
 use std::num::NonZeroU32;
 use std::u32;
-use berg_util::Delta;
 use string_interner::backend::StringBackend;
 use string_interner::{StringInterner, Symbol};
 
+use crate::bytes::{line_column::DocumentLines, ByteIndex};
+
 use super::ast::AstIndex;
-use super::bytes::ByteIndex;
-use super::line_column::DocumentLines;
 
 ///
 /// Debug data about the original source.
@@ -16,7 +16,7 @@ use super::line_column::DocumentLines;
 ///
 #[derive(Debug)]
 pub struct CharData {
-    // 
+    //
     // Line / column data for the document (including its size).
     //
     pub lines: DocumentLines,

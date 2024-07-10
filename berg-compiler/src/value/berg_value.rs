@@ -324,8 +324,8 @@ pub mod implement {
         right: RightOperand<impl EvaluatableValue>,
     ) -> EvalResult {
         use berg_parser::identifiers::{
-            COLON, COMMA, DOT, EQUAL_TO, EXCLAMATION_POINT, INLINE_BLOCK_LEVEL_ONE, INLINE_BLOCK_LEVEL_TWO, NEWLINE_SEQUENCE, NOT_EQUAL_TO,
-            SEMICOLON,
+            COLON, COMMA, DOT, EQUAL_TO, EXCLAMATION_POINT, INLINE_BLOCK_LEVEL_ONE,
+            INLINE_BLOCK_LEVEL_TWO, NEWLINE_SEQUENCE, NOT_EQUAL_TO, SEMICOLON,
         };
         match operator {
             COMMA => {
@@ -377,7 +377,9 @@ pub mod implement {
                     None => CompilerError::RightSideOfDotMustBeIdentifier.operand_err(Right),
                 }
             }
-            COLON | INLINE_BLOCK_LEVEL_ONE | INLINE_BLOCK_LEVEL_TWO => CompilerError::AssignmentTargetMustBeIdentifier.operand_err(Left),
+            COLON | INLINE_BLOCK_LEVEL_ONE | INLINE_BLOCK_LEVEL_TWO => {
+                CompilerError::AssignmentTargetMustBeIdentifier.operand_err(Left)
+            }
             _ => CompilerError::UnsupportedOperator(
                 Box::new(left.lazy_val()?),
                 Fixity::Infix,

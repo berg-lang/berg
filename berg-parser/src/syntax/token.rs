@@ -1,11 +1,12 @@
+use berg_util::Delta;
 use std::borrow::Cow;
 use std::fmt;
-use berg_util::Delta;
+
+use crate::bytes::ByteIndex;
 
 use super::{
     ast::{Ast, AstDelta, LiteralIndex, RawLiteralIndex},
     block::{BlockIndex, FieldIndex},
-    bytes::ByteIndex,
     identifiers,
     precedence::Precedence,
 };
@@ -121,10 +122,10 @@ pub enum OperatorToken {
     InfixAssignment(IdentifierIndex),
     ///
     /// Delimiter indicating an inline block.
-    /// 
+    ///
     /// Tuple is (level, repeat) where repeat is the number of times the = or - sign was
     /// repeated, and level is the level of the header (1 or 2).
-    /// 
+    ///
     InlineBlockDelimiter(InlineBlockLevel, Delta<ByteIndex>),
     ///
     /// A postfix operator, such as the `++` in `a++`.
@@ -230,7 +231,7 @@ pub enum TermToken {
 
 ///
 /// Inline block level.
-/// 
+///
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub enum InlineBlockLevel {
     One,

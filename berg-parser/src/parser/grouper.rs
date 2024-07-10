@@ -1,6 +1,6 @@
+use crate::bytes::ByteRange;
 use crate::syntax::{
     ast::{AstDelta, AstIndex},
-    bytes::ByteRange,
     token::{
         ExpressionBoundary, ExpressionBoundaryError, ExpressionToken, OperatorToken, TermToken,
         Token,
@@ -394,10 +394,12 @@ impl Grouper {
                 match self.binder.tokens[index] {
                     Token::Expression(token) => match token {
                         Term(_) if index == self.binder.tokens.last_index() => None,
-                        Open(_, _, delta) if index + delta == self.binder.tokens.last_index() => None,
+                        Open(_, _, delta) if index + delta == self.binder.tokens.last_index() => {
+                            None
+                        }
                         Term(_) | Open(..) | PrefixOperator(_) => Some(open_expression),
-                    }
-                    Token::Operator(_) => unreachable!()
+                    },
+                    Token::Operator(_) => unreachable!(),
                 }
             }
             _ => {

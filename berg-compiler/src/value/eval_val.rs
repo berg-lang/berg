@@ -714,7 +714,9 @@ impl OperableValue for AssignmentTarget {
         use AssignmentTarget::*;
         match (operator, &self) {
             // Handle <identifier>: <value>
-            (COLON | INLINE_BLOCK_LEVEL_ONE | INLINE_BLOCK_LEVEL_TWO, LocalFieldReference(..)) => self.set(right.lazy_val()?, Left),
+            (COLON | INLINE_BLOCK_LEVEL_ONE | INLINE_BLOCK_LEVEL_TWO, LocalFieldReference(..)) => {
+                self.set(right.lazy_val()?, Left)
+            }
             _ => self.get().infix(operator, right),
         }
     }
@@ -735,7 +737,10 @@ impl OperableValue for AssignmentTarget {
     {
         use AssignmentTarget::*;
         match (operator, self) {
-            (COLON | INLINE_BLOCK_LEVEL_ONE | INLINE_BLOCK_LEVEL_TWO, LocalFieldReference(scope, field)) => LocalFieldDeclaration(scope, field).ok(),
+            (
+                COLON | INLINE_BLOCK_LEVEL_ONE | INLINE_BLOCK_LEVEL_TWO,
+                LocalFieldReference(scope, field),
+            ) => LocalFieldDeclaration(scope, field).ok(),
             (PLUS_PLUS, mut right) => right.set(right.get().prefix(PLUS_ONE).lazy_val()?, Right),
             (DASH_DASH, mut right) => right.set(right.get().prefix(MINUS_ONE).lazy_val()?, Right),
             (_, right) => right.get().prefix(operator),

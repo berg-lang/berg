@@ -3,11 +3,9 @@ use std::fmt;
 use std::io;
 use std::io::Read;
 
-use super::ast::Ast;
-use super::ast::AstIndex;
-use super::bytes::ByteIndex;
-use super::bytes::ByteRange;
-use super::line_column::LineNumber;
+use crate::bytes::{line_column::LineNumber, ByteIndex, ByteRange};
+
+use super::ast::{Ast, AstIndex};
 
 ///
 /// Reconstructs a range of source from the parsed AST.

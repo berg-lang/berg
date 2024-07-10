@@ -8,7 +8,7 @@ fn indented_trail() {
     3 + 4
     ",
     )
-    .to_yield(1+2*(3+4))
+    .to_yield(1 + 2 * (3 + 4))
 }
 
 #[test]
@@ -20,7 +20,7 @@ fn nonindented_trail() {
 3 + 4
     ",
     )
-    .to_yield(1+2*(3+4))
+    .to_yield(1 + 2 * (3 + 4))
 }
 
 #[test]
@@ -43,7 +43,7 @@ fn indented_lead() {
     * 3 + 4
     ",
     )
-    .to_yield((1+2)*(3+4))
+    .to_yield((1 + 2) * (3 + 4))
 }
 
 // TODO why is this different from the indented continued expression? Something seems fishy.
@@ -56,7 +56,7 @@ fn nonindented_lead() {
 * 3 + 4
     ",
     )
-    .to_yield((1+2)*(3+4))
+    .to_yield((1 + 2) * (3 + 4))
 }
 
 #[test]
@@ -67,7 +67,7 @@ fn undented_lead() {
 * 3 + 4
     ",
     )
-    .to_yield((1+2)*3+4)
+    .to_yield((1 + 2) * 3 + 4)
 }
 
 #[test]
@@ -80,7 +80,7 @@ fn indented_bare_left() {
     3 + 4
     ",
     )
-    .to_yield((1+2)*(3+4))
+    .to_yield((1 + 2) * (3 + 4))
 }
 
 #[test]
@@ -93,7 +93,7 @@ fn indented_bare_right() {
     3 + 4
     ",
     )
-    .to_yield((1+2)*(3+4))
+    .to_yield((1 + 2) * (3 + 4))
 }
 
 #[test]
@@ -106,7 +106,7 @@ fn indented_bare_mid() {
     3 + 4
     ",
     )
-    .to_yield((1+2)*(3+4))
+    .to_yield((1 + 2) * (3 + 4))
 }
 
 #[test]
@@ -119,7 +119,7 @@ fn nonindented_bare() {
 3 + 4
     ",
     )
-    .to_yield((1+2)*(3+4))
+    .to_yield((1 + 2) * (3 + 4))
 }
 
 #[test]
@@ -131,7 +131,7 @@ fn nonindented_bare_left() {
     3 + 4
     ",
     )
-    .to_yield((1+2)*(3+4))
+    .to_yield((1 + 2) * (3 + 4))
 }
 
 #[test]
@@ -144,7 +144,7 @@ fn nonindented_bare_right() {
 3 + 4
     ",
     )
-    .to_yield((1+2)*(3+4))
+    .to_yield((1 + 2) * (3 + 4))
 }
 
 #[test]
@@ -157,7 +157,7 @@ fn undented_bare_left() {
 3 + 4
     ",
     )
-    .to_yield((1+2)*(3+4))
+    .to_yield((1 + 2) * (3 + 4))
 }
 
 #[test]
@@ -170,7 +170,7 @@ fn undented_bare_mid() {
 3 + 4
     ",
     )
-    .to_yield((1+2)*(3+4))
+    .to_yield((1 + 2) * (3 + 4))
 }
 
 #[test]
@@ -183,9 +183,8 @@ fn undented_bare_right() {
 3 + 4
     ",
     )
-    .to_yield((1+2)*(3+4))
+    .to_yield((1 + 2) * (3 + 4))
 }
-
 
 mod sandwich {
     use crate::*;
@@ -200,7 +199,7 @@ mod sandwich {
     * 5 + 6
         ",
         )
-        .to_yield((1+2)*(3+4)*(5+6))
+        .to_yield((1 + 2) * (3 + 4) * (5 + 6))
     }
 
     #[test]
@@ -213,7 +212,7 @@ mod sandwich {
     * 5 + 6
         ",
         )
-        .to_yield((1+2)*(3+4)*(5+6))
+        .to_yield((1 + 2) * (3 + 4) * (5 + 6))
     }
 
     #[test]
@@ -251,6 +250,6 @@ mod sandwich {
     * 7 + 8
         ",
         )
-        .to_yield((1+2)*(3+4)*(5+6)*(7+8))
+        .to_yield((1 + 2) * (3 + 4) * (5 + 6) * (7 + 8))
     }
 }

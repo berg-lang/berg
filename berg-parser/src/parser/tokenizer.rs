@@ -1,14 +1,16 @@
+use crate::bytes::{ByteIndex, ByteRange};
 use crate::{
     identifiers::COLON,
     syntax::{
         ast::{LiteralIndex, RawLiteralIndex},
-        bytes::{ByteIndex, ByteRange},
         identifiers::{self, IdentifierIndex, APPLY, FOLLOWED_BY, NEWLINE_SEQUENCE},
         token::{
-            ErrorTermError, ExpressionBoundary, ExpressionToken, Fixity, InlineBlockLevel, OperatorToken, RawErrorTermError, TermToken
+            ErrorTermError, ExpressionBoundary, ExpressionToken, Fixity, InlineBlockLevel,
+            OperatorToken, RawErrorTermError, TermToken,
         },
     },
 };
+
 use berg_util::IndexedVec;
 use string_interner::{backend::StringBackend, StringInterner};
 use ExpressionToken::*;
@@ -81,7 +83,6 @@ pub struct Tokenizer {
     // /// ```
     // ///
     // delimited_block_state: (bool, bool)
-
     pub identifiers: StringInterner<StringBackend<IdentifierIndex>>,
     pub literals: StringInterner<StringBackend<LiteralIndex>>,
     pub raw_literals: IndexedVec<Vec<u8>, RawLiteralIndex>,

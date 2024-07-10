@@ -4,19 +4,19 @@ use std::{cmp::Ordering, fmt, num::NonZeroU32, ops::RangeInclusive};
 
 use berg_util::Delta;
 
-use crate::syntax::bytes::{ByteIndex, ByteRange};
+use super::{ByteIndex, ByteRange};
 
 ///
 /// Data about lines in the document.
-/// 
+///
 /// The first line is at the beginning of the document.
-/// 
+///
 /// Line ranges include the line endings. All lines except the last one include a line ending and
 /// are thus not empty.and may be an empty
 /// line.
 /// Lines start at the beginning of the document and after a line terminator.
-/// Lines end after a line 
-/// 
+/// Lines end after a line
+///
 #[derive(Debug)]
 pub struct DocumentLines {
     pub line_starts: Box<[ByteIndex]>,
@@ -92,7 +92,7 @@ impl DocumentLines {
 
         let line = unsafe { LineNumber::new_unchecked(line as u32) };
         let bytes_to_column = index - self.line_start(line);
-        let column = unsafe { ColumnNumber::new_unchecked(bytes_to_column.0.0 + 1) };
+        let column = unsafe { ColumnNumber::new_unchecked(bytes_to_column.0 .0 + 1) };
         LineColumn { line, column }
     }
 

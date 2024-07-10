@@ -4,8 +4,9 @@ use std::u32;
 use string_interner::backend::StringBackend;
 use string_interner::{DefaultSymbol, StringInterner};
 
+use crate::bytes::ByteRange;
+
 use super::block::{AstBlock, BlockIndex, Field, FieldIndex};
-use super::bytes::ByteRange;
 use super::char_data::{CharData, WhitespaceIndex};
 use super::identifiers::IdentifierIndex;
 use super::source_reconstruction::{SourceReconstruction, SourceReconstructionReader};

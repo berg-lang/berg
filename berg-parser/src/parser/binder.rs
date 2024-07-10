@@ -1,13 +1,14 @@
+use crate::bytes::ByteRange;
 use crate::syntax::{
     ast::{AstDelta, AstIndex, TokenRanges, Tokens},
     block::{AstBlock, BlockIndex, Field, FieldIndex},
-    bytes::ByteRange,
     identifiers::*,
     token::{
         ExpressionBoundary, ExpressionBoundaryError, ExpressionToken, OperatorToken, TermToken,
         Token,
     },
 };
+
 use berg_util::{Delta, IndexedVec};
 
 // Handles nesting and precedence: balances (), {}, and compound terms, and
@@ -62,8 +63,7 @@ impl Binder {
         result
     }
 
-    pub fn on_source_end(&mut self) {
-    }
+    pub fn on_source_end(&mut self) {}
 
     pub fn push_expression_token(&mut self, token: ExpressionToken, range: ByteRange) -> AstIndex {
         use ExpressionToken::*;
@@ -102,7 +102,9 @@ impl Binder {
             }
             // We are the one who generates CloseBlock; no one before us should be doing so.
             CloseBlock(..) => unreachable!(),
-            InfixOperator(COLON) | InlineBlockDelimiter(..) => self.push_declaration_with_default(token, range),
+            InfixOperator(COLON) | InlineBlockDelimiter(..) => {
+                self.push_declaration_with_default(token, range)
+            }
             _ => self.push_token(token, range),
         }
     }
@@ -126,10 +128,7 @@ impl Binder {
         use ExpressionToken::*;
         use TermToken::*;
         use Token::*;
-        let is_declaration = matches!(
-            self.tokens.last(),
-            Some(&Expression(PrefixOperator(COLON)))
-        );
+        let is_declaration = matches!(self.tokens.last(), Some(&Expression(PrefixOperator(COLON))));
         let field = self
             .find_field(name, is_declaration)
             .unwrap_or_else(|| self.create_field(name, is_declaration));
@@ -224,8 +223,7 @@ impl Binder {
 
         // Fix all parent indices after the block. They are guaranteed to be our children since this
         // will only happen after closing any children.
-        for (i, block) in self.blocks.iter_mut().enumerate().skip((index + 1).into())
-        {
+        for (i, block) in self.blocks.iter_mut().enumerate().skip((index + 1).into()) {
             assert!(i - block.parent >= index);
             block.parent += 1;
         }
