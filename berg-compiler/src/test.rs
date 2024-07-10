@@ -245,6 +245,7 @@ impl ExpectBerg {
         let ast = test_root().parse_bytes("test.rs", self.0);
         let expected_range = ast
             .char_data
+            .lines
             .range(&expected_range.into_error_range(self.0.as_ref()));
         let result = evaluate_ast(ast.clone());
         let result = result.and_then(Self::evaluate_all);
@@ -334,7 +335,7 @@ impl ExpectBerg {
         format!("{} at {}", value, self.error_range_string(range, ast))
     }
     fn error_range_string(&self, range: LineColumnRange, ast: &AstRef) -> String {
-        let byte_range = ast.char_data.byte_range(range).into_range();
+        let byte_range = ast.char_data.lines.byte_range(range).into_range();
         format!(
             "{} ({})",
             range,

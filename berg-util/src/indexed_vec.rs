@@ -27,6 +27,7 @@ macro_rules! index_type {
         use std::cmp::Ordering;
         $(
             #[derive(Copy,Clone,Default,PartialEq,Eq,PartialOrd,Ord,Hash)]
+            #[repr(transparent)]
             pub struct $name(pub $($type)*);
             impl PartialEq<usize> for $name {
                 fn eq(&self, other: &usize) -> bool { (self.0 as usize).eq(other) }
@@ -720,6 +721,7 @@ impl<Inner: Iterator, Idx: IndexType> Iterator for EnumerateIndex<Inner, Idx> {
 /// and can use non-usized indexes).
 ///
 #[derive(Debug)]
+#[repr(transparent)]
 pub struct IndexedSlice<Elem, Idx: IndexType> {
     marker: PhantomData<Idx>,
     slice: [Elem],

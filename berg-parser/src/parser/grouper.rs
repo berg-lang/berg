@@ -1,5 +1,5 @@
 use crate::syntax::{
-    ast::{Ast, AstDelta, AstIndex},
+    ast::{AstDelta, AstIndex},
     bytes::ByteRange,
     token::{
         ExpressionBoundary, ExpressionBoundaryError, ExpressionToken, OperatorToken, TermToken,
@@ -21,9 +21,9 @@ use super::binder::Binder;
 ///
 /// The Grouper elides superfluous precedence groups where it can.
 ///
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct Grouper {
-    binder: Binder,
+    pub binder: Binder,
     open_expressions: Vec<OpenExpression>,
     start_auto_block: bool,
 }
@@ -58,14 +58,13 @@ struct OpenExpression {
 }
 
 impl Grouper {
-    pub fn ast(&self) -> &Ast {
-        &self.binder.ast
+    pub fn new() -> Grouper {
+        Grouper {
+            binder: Binder::new(),
+            open_expressions: Default::default(),
+            start_auto_block: Default::default(),
+        }
     }
-
-    pub fn ast_mut(&mut self) -> &mut Ast {
-        &mut self.binder.ast
-    }
-
     pub fn on_expression_token(&mut self, token: ExpressionToken, range: ByteRange) {
         // If we need to start an auto block, do so at this point! This allows the block to start
         // at the actual start of the block's expression.
@@ -122,7 +121,7 @@ impl Grouper {
         // TODO fill this in
     }
 
-    pub fn on_source_end(self) -> Ast {
+    pub fn on_source_end(&mut self) {
         self.binder.on_source_end()
     }
 
@@ -288,13 +287,12 @@ impl Grouper {
         error: Option<ExpressionBoundaryError>,
         close_range: ByteRange,
     ) -> AstIndex {
-        let close_index = self.ast().next_index();
+        let close_index = self.binder.next_index();
         let delta = close_index - open_index;
 
         // Update open index and add error
         {
-            let ast = self.ast_mut();
-            match ast.tokens[open_index] {
+            match self.binder.tokens[open_index] {
                 Token::Expression(Open(ref mut open_error, open_boundary, ref mut open_delta)) => {
                     assert_eq!(open_boundary, boundary);
                     *open_delta = delta;
@@ -305,7 +303,7 @@ impl Grouper {
                         *open_error = error;
                     }
                 }
-                _ => unreachable!("{}: {:?}", open_index, ast.tokens[open_index]),
+                _ => unreachable!("{}: {:?}", open_index, self.binder.tokens[open_index]),
             }
         }
 
@@ -335,8 +333,8 @@ impl Grouper {
         error: Option<ExpressionBoundaryError>,
         close_range: ByteRange,
     ) -> AstIndex {
-        let open_start = self.ast().token_ranges[open_index].start;
-        let close_index = self.ast().next_index() + 1; // Have to add 1 due to the impending insert.
+        let open_start = self.binder.token_ranges[open_index].start;
+        let close_index = self.binder.next_index() + 1; // Have to add 1 due to the impending insert.
         let delta = close_index - open_index;
         let close_token = Close(delta, boundary);
         self.insert_open_token(open_index, error, boundary, delta, open_start..open_start);
@@ -351,7 +349,7 @@ impl Grouper {
         error: Option<ExpressionBoundaryError>,
         open_range: ByteRange,
     ) {
-        let open_index = self.ast().next_index();
+        let open_index = self.binder.next_index();
         self.push_open_expression(open_index, boundary, None);
         if boundary.is_required() {
             self.push_open_token(boundary, error, open_range);
@@ -390,13 +388,16 @@ impl Grouper {
             ExpressionBoundary::CompoundTerm => {
                 // We elide compound terms that have only prefixes and terms.
                 let mut index = open_expression.open_index;
-                while let PrefixOperator(_) = self.ast().expression_token(index) {
+                while let Token::Expression(PrefixOperator(_)) = self.binder.tokens[index] {
                     index += 1;
                 }
-                match self.ast().expression_token(index) {
-                    Term(_) if index == self.ast().tokens.last_index() => None,
-                    Open(_, _, delta) if index + delta == self.ast().tokens.last_index() => None,
-                    Term(_) | Open(..) | PrefixOperator(_) => Some(open_expression),
+                match self.binder.tokens[index] {
+                    Token::Expression(token) => match token {
+                        Term(_) if index == self.binder.tokens.last_index() => None,
+                        Open(_, _, delta) if index + delta == self.binder.tokens.last_index() => None,
+                        Term(_) | Open(..) | PrefixOperator(_) => Some(open_expression),
+                    }
+                    Token::Operator(_) => unreachable!()
                 }
             }
             _ => {

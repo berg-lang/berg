@@ -1,14 +1,16 @@
 use crate::{
     identifiers::COLON,
     syntax::{
-        ast::{Ast, LiteralIndex},
+        ast::{LiteralIndex, RawLiteralIndex},
         bytes::{ByteIndex, ByteRange},
-        identifiers::{IdentifierIndex, APPLY, FOLLOWED_BY, NEWLINE_SEQUENCE},
+        identifiers::{self, IdentifierIndex, APPLY, FOLLOWED_BY, NEWLINE_SEQUENCE},
         token::{
             ErrorTermError, ExpressionBoundary, ExpressionToken, Fixity, InlineBlockLevel, OperatorToken, RawErrorTermError, TermToken
         },
     },
 };
+use berg_util::IndexedVec;
+use string_interner::{backend::StringBackend, StringInterner};
 use ExpressionToken::*;
 use OperatorToken::*;
 use TermToken::*;
@@ -79,6 +81,10 @@ pub struct Tokenizer {
     // /// ```
     // ///
     // delimited_block_state: (bool, bool)
+
+    pub identifiers: StringInterner<StringBackend<IdentifierIndex>>,
+    pub literals: StringInterner<StringBackend<LiteralIndex>>,
+    pub raw_literals: IndexedVec<Vec<u8>, RawLiteralIndex>,
 }
 
 ///
@@ -149,25 +155,19 @@ pub enum WhitespaceState {
     IndentedLine(IndentLevel),
 }
 
-impl Default for Tokenizer {
-    fn default() -> Self {
+impl Tokenizer {
+    pub fn new() -> Self {
+        let identifiers = identifiers::intern_all();
         Tokenizer {
-            grouper: Grouper::default(),
+            grouper: Grouper::new(),
             prev_was_operator: true,
             whitespace_state: NotInTerm,
             indented_blocks: vec![(0.into(), ExpressionBoundary::Source)],
             // delimited_block_state: (false, false)
+            identifiers,
+            literals: StringInterner::new(),
+            raw_literals: Default::default(),
         }
-    }
-}
-
-impl Tokenizer {
-    pub fn ast(&self) -> &Ast {
-        self.grouper.ast()
-    }
-
-    pub fn ast_mut(&mut self) -> &mut Ast {
-        self.grouper.ast_mut()
     }
 
     pub fn in_term(&self) -> bool {
@@ -181,12 +181,11 @@ impl Tokenizer {
     }
 
     // The end of the source closes any open terms, just like space. Also emits "close source."
-    pub fn on_source_end(mut self, end: ByteIndex) -> Ast {
-        self.ast_mut().char_data.size = end;
+    pub fn on_source_end(&mut self, end: ByteIndex) {
         let close_token = ExpressionBoundary::Source.placeholder_close_token();
         self.close_term(end);
         self.emit_operator_token(close_token, end..end);
-        self.grouper.on_source_end()
+        self.grouper.on_source_end();
     }
 
     pub fn on_error_term(&mut self, error: ErrorTermError, seq: Sequence) {
@@ -195,7 +194,7 @@ impl Tokenizer {
     }
 
     pub fn on_raw_error_term(&mut self, error: RawErrorTermError, bytes: &[u8], range: ByteRange) {
-        let raw_literal = self.ast_mut().raw_literals.push(bytes.into());
+        let raw_literal = self.raw_literals.push(bytes.into());
         self.on_expression_token(RawErrorTerm(error, raw_literal), range);
     }
 
@@ -267,11 +266,11 @@ impl Tokenizer {
         &mut self,
         identifier: impl Into<String> + AsRef<str>,
     ) -> IdentifierIndex {
-        self.ast_mut().intern_identifier(identifier)
+        self.identifiers.get_or_intern(identifier)
     }
 
     pub fn intern_literal(&mut self, literal: impl Into<String> + AsRef<str>) -> LiteralIndex {
-        self.ast_mut().intern_literal(literal)
+        self.literals.get_or_intern(literal)
     }
 
     pub fn on_assignment_operator(&mut self, seq: PartialSequence, term_is_about_to_end: bool) {
