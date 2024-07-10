@@ -1,6 +1,8 @@
 use berg_util::{index_type, IndexedSlice};
 use std::ops::Range;
 
+pub mod line_column;
+
 index_type! {
     pub struct ByteIndex(pub u32) with Display,Debug <= u32::MAX;
 }

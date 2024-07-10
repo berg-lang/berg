@@ -2,8 +2,9 @@ use std::borrow::Cow;
 use std::fmt;
 use std::ops::RangeInclusive;
 
+use crate::bytes::ByteRange;
+
 use super::ast::{Ast, AstIndex, OperandPosition};
-use super::bytes::ByteRange;
 use super::expression_formatter::{ExpressionFormatter, ExpressionTreeFormatter};
 use super::source_reconstruction::SourceReconstruction;
 use super::token::{ExpressionBoundary, ExpressionToken, Fixity, OperatorToken, Token};

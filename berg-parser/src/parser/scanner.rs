@@ -5,7 +5,7 @@ use ByteType::*;
 use CharType::*;
 
 use super::sequencer::{PartialSequence, Sequence};
-use crate::syntax::bytes::{ByteIndex, ByteRange, ByteSlice};
+use crate::bytes::{ByteIndex, ByteRange, ByteSlice};
 
 ///
 /// Scans UTF-8 identifying characters.
