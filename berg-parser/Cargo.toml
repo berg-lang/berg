@@ -8,6 +8,8 @@ edition = "2021"
 clippy = {version = "*", optional = true}
 berg-util = {path = "../berg-util"}
 string-interner = "*"
+derive_more = "*"
+nonzero_ext = "*"
 
 [dev-dependencies]
 clippy = {version = "*"}

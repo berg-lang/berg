@@ -1,11 +1,9 @@
 use crate::syntax::{
-        ast::Ast,
-        bytes::{ByteIndex, ByteRange, ByteSlice},
-        char_data::WhitespaceIndex,
-        token::{ErrorTermError, ExpressionBoundary, InlineBlockLevel, RawErrorTermError},
+        ast::{Ast, AstIndex}, bytes::{ByteIndex, ByteRange, ByteSlice}, char_data::{CharData, WhitespaceIndex}, line_column::DocumentLines, token::{ErrorTermError, ExpressionBoundary, InlineBlockLevel, RawErrorTermError}
     };
 use berg_util::Delta;
-use std::{borrow::Cow, cmp::min, str};
+use string_interner::{backend::StringBackend, StringInterner};
+use std::{borrow::Cow, cmp::min, collections::HashMap, num::NonZeroU32, str};
 use CharType::*;
 use ErrorTermError::*;
 use ExpressionBoundary::*;
@@ -50,6 +48,11 @@ pub struct Sequencer {
     current_indent: IndentLevel,
     /// Whitespace for current indent level.
     current_indent_whitespace: Option<WhitespaceIndex>,
+    pub line_starts: Vec<ByteIndex>,
+    pub whitespace_characters: StringInterner<StringBackend<WhitespaceIndex>>,
+    pub whitespace_ranges: Vec<(WhitespaceIndex, ByteIndex)>,
+    pub comments: Vec<(Vec<u8>, ByteIndex)>,
+    pub inline_header_delimiters: HashMap<AstIndex, NonZeroU32>,
 }
 
 ///
@@ -74,13 +77,16 @@ pub struct PartialSequence<'s> {
 
 impl Sequencer {
     pub fn new(buffer: Cow<'static, ByteSlice>) -> Self {
-        let tokenizer = Tokenizer::default();
-        let scanner = Scanner::new(buffer);
         Sequencer {
-            tokenizer,
-            scanner,
+            tokenizer: Tokenizer::new(),
+            scanner: Scanner::new(buffer),
             current_indent: 0.into(),
             current_indent_whitespace: None,
+            line_starts: Default::default(),
+            whitespace_characters: StringInterner::new(),
+            whitespace_ranges: Default::default(),
+            comments: Default::default(),
+            inline_header_delimiters: Default::default(),
         }
     }
 
@@ -130,11 +136,26 @@ impl Sequencer {
         assert!(start == self.scanner.index);
         assert!(self.scanner.at_end());
 
-        self.tokenizer.on_source_end(self.scanner.index)
-    }
-
-    pub fn ast(&self) -> &Ast {
-        self.tokenizer.ast()
+        self.tokenizer.on_source_end(self.scanner.index);
+        Ast {
+            identifiers: self.tokenizer.identifiers,
+            fields: self.tokenizer.grouper.binder.fields,
+            char_data: CharData {
+                lines: DocumentLines {
+                    line_starts: self.line_starts.into(),
+                    eof: self.scanner.index,
+                },
+                whitespace_characters: self.whitespace_characters,
+                whitespace_ranges: self.whitespace_ranges,
+                comments: self.comments,
+                inline_header_delimiters: self.inline_header_delimiters,
+            },
+            literals: self.tokenizer.literals,
+            raw_literals: self.tokenizer.raw_literals,
+            blocks: self.tokenizer.grouper.binder.blocks,
+            tokens: self.tokenizer.grouper.binder.tokens,
+            token_ranges: self.tokenizer.grouper.binder.token_ranges,
+        }
     }
 
     fn utf8_syntax_error(&mut self, error: ErrorTermError, start: ByteIndex) {
@@ -268,14 +289,15 @@ impl Sequencer {
     }
 
     fn line_ending(&mut self, start: ByteIndex) {
-        self.store_whitespace_in_char_data(start);
+        self.append_whitespace(start);
         self.tokenizer.on_space(start);
         self.line_start();
     }
 
     fn line_start(&mut self) {
         let start = self.scanner.index;
-        self.tokenizer.ast_mut().char_data.line_starts.push(start);
+        assert!((start == 0 && self.line_starts.is_empty()) || start > *self.line_starts.last().unwrap());
+        self.line_starts.push(start);
 
         // Get the indent level.
         let indent_whitespace = self.read_space(start);
@@ -304,9 +326,9 @@ impl Sequencer {
             (None, None) => indent,
             // The old indent and new indent both have non-space characters.
             (Some(indent_whitespace), Some(current_whitespace)) => {
-                let indent_whitespace = self.ast().whitespace_string(indent_whitespace).as_bytes();
+                let indent_whitespace = self.whitespace_string(indent_whitespace).as_bytes();
                 let current_whitespace =
-                    self.ast().whitespace_string(current_whitespace).as_bytes();
+                    self.whitespace_string(current_whitespace).as_bytes();
                 let current_whitespace =
                     &current_whitespace[0..min(indent_whitespace.len(), current_whitespace.len())];
                 indent_whitespace
@@ -319,7 +341,7 @@ impl Sequencer {
             // The old indent is all spaces, and the new indent has other space characters in it.
             // As long as the
             (Some(indent_whitespace), None) => {
-                let indent_whitespace = self.ast().whitespace_string(indent_whitespace).as_bytes();
+                let indent_whitespace = self.whitespace_string(indent_whitespace).as_bytes();
                 let indent_whitespace =
                     &indent_whitespace[0..min(indent.into(), indent_whitespace.len())];
                 indent_whitespace
@@ -330,8 +352,7 @@ impl Sequencer {
             }
             // The new indent is all spaces, and the old indent has other space characters in it.
             (None, Some(current_whitespace)) => {
-                let current_whitespace =
-                    self.ast().whitespace_string(current_whitespace).as_bytes();
+                let current_whitespace = self.whitespace_string(current_whitespace).as_bytes();
                 let current_whitespace =
                     &current_whitespace[0..min(indent.into(), current_whitespace.len())];
                 current_whitespace
@@ -345,7 +366,7 @@ impl Sequencer {
 
     fn read_space(&mut self, start: ByteIndex) -> Option<WhitespaceIndex> {
         if self.scanner.next_while(&CharType::is_horizontal_whitespace) {
-            Some(self.store_whitespace_in_char_data(start))
+            Some(self.append_whitespace(start))
         } else {
             None
         }
@@ -358,17 +379,14 @@ impl Sequencer {
 
     fn horizontal_whitespace(&mut self, start: ByteIndex) {
         self.scanner.next_while(&CharType::is_horizontal_whitespace);
-        self.store_whitespace_in_char_data(start);
+        self.append_whitespace(start);
         self.tokenizer.on_space(start)
     }
 
     // # <comment>
     fn comment(&mut self, start: ByteIndex) {
         self.scanner.next_until(&CharType::ends_line);
-        self.tokenizer
-            .ast_mut()
-            .char_data
-            .append_comment(self.scanner.bytes(start), start);
+        self.append_comment(start);
         self.tokenizer.on_comment(start);
     }
 
@@ -382,12 +400,29 @@ impl Sequencer {
         self.raw_syntax_error(RawErrorTermError::InvalidUtf8, start)
     }
 
-    fn store_whitespace_in_char_data(&mut self, start: ByteIndex) -> WhitespaceIndex {
+    ///
+    /// Add the run of whitespace to the whitespace list.
+    ///
+    /// # Panics
+    ///
+    /// * Panics if spaces.len() == 0
+    /// * Panics if `append()` is not called with `start` increasing each time.
+    /// * Panics if ByteIndex == u32::MAX
+    ///
+    fn append_whitespace(&mut self, start: ByteIndex) -> WhitespaceIndex {
         let seq = self.scanner.utf8(start);
-        self.tokenizer
-            .ast_mut()
-            .char_data
-            .append_whitespace(seq.str(), seq.start)
+        let whitespace_index = self.whitespace_characters.get_or_intern(seq.str());
+        self.whitespace_ranges.push((whitespace_index, seq.start));
+        whitespace_index
+    }
+
+    fn append_comment(&mut self, start: ByteIndex) {
+        let bytes = self.scanner.bytes(start);
+        self.comments.push((bytes.into(), start))
+    }
+
+    pub fn whitespace_string(&self, index: WhitespaceIndex) -> &str {
+        self.whitespace_characters.resolve(index).unwrap()
     }
 }
 

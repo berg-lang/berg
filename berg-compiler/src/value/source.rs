@@ -149,7 +149,7 @@ impl AstRef {
         Self(Rc::new(AstData {
             root,
             source,
-            ast: Ast::default(),
+            ast: Ast::empty(),
             error: Some(error),
         }))
     }

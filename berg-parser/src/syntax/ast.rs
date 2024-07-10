@@ -7,7 +7,7 @@ use string_interner::{DefaultSymbol, StringInterner};
 use super::block::{AstBlock, BlockIndex, Field, FieldIndex};
 use super::bytes::ByteRange;
 use super::char_data::{CharData, WhitespaceIndex};
-use super::identifiers::{keywords, IdentifierIndex};
+use super::identifiers::IdentifierIndex;
 use super::source_reconstruction::{SourceReconstruction, SourceReconstructionReader};
 use super::token::{ExpressionToken, OperatorToken, Token};
 use OperandPosition::*;
@@ -45,19 +45,11 @@ pub enum OperandPosition {
     PostfixOperand,
 }
 
-impl Default for Ast {
-    fn default() -> Ast {
-        let identifiers = super::identifiers::intern_all();
-        let fields = keywords::FIELD_NAMES
-            .iter()
-            .map(|name| Field {
-                name: *name,
-                is_public: false,
-            })
-            .collect();
+impl Ast {
+    pub fn empty() -> Ast {
         Ast {
-            identifiers,
-            fields,
+            identifiers: StringInterner::new(),
+            fields: Default::default(),
             char_data: Default::default(),
             literals: Default::default(),
             raw_literals: Default::default(),
@@ -66,9 +58,6 @@ impl Default for Ast {
             token_ranges: Default::default(),
         }
     }
-}
-
-impl Ast {
     pub fn token(&self, index: AstIndex) -> Token {
         self.tokens[index]
     }
@@ -120,48 +109,10 @@ impl Ast {
     }
 
     pub fn read_bytes(&self) -> SourceReconstructionReader {
-        SourceReconstructionReader::new(self, 0.into()..self.char_data.size)
+        SourceReconstructionReader::new(self, 0.into()..self.char_data.lines.eof)
     }
     pub fn to_bytes(&self) -> Vec<u8> {
-        SourceReconstruction::new(self, 0.into()..self.char_data.size).to_bytes()
-    }
-
-    pub fn push_token(&mut self, token: impl Into<Token>, range: ByteRange) -> AstIndex {
-        let token = token.into();
-        println!("PUSH {:?}", token);
-        // Validate that we push tokens in increasing order
-        assert!(
-            match self.token_ranges.last() {
-                Some(last) => range.start >= last.end,
-                None => true,
-            },
-            "Pushing token {:?} too early! Last token ended at {} and this one starts at {}",
-            token,
-            self.token_ranges.last().unwrap().end,
-            range.start
-        );
-        self.tokens.push(token);
-        self.token_ranges.push(range)
-    }
-
-    pub fn insert_token(&mut self, index: AstIndex, token: impl Into<Token>, range: ByteRange) {
-        let token = token.into();
-        println!("INSERT {:?} AT {}", token, index);
-        assert!(index == 0 || range.start >= self.token_ranges[index - 1].end);
-        assert!(index == self.token_ranges.len() || range.end <= self.token_ranges[index].start);
-        self.tokens.insert(index, token);
-        self.token_ranges.insert(index, range);
-    }
-
-    pub fn next_index(&self) -> AstIndex {
-        self.tokens.next_index()
-    }
-
-    pub fn intern_identifier(&mut self, string: impl Into<String> + AsRef<str>) -> IdentifierIndex {
-        self.identifiers.get_or_intern(string)
-    }
-    pub fn intern_literal(&mut self, string: impl Into<String> + AsRef<str>) -> LiteralIndex {
-        self.literals.get_or_intern(string)
+        SourceReconstruction::new(self, 0.into()..self.char_data.lines.eof).to_bytes()
     }
 }
 
@@ -170,7 +121,7 @@ impl fmt::Display for Ast {
         writeln!(f, "Tokens:")?;
         let mut index = AstIndex(0);
         while index < self.tokens.len() {
-            let range = self.char_data.range(&self.token_range(index));
+            let range = self.char_data.lines.range(&self.token_range(index));
             writeln!(
                 f,
                 "[{}] {} {:?}",

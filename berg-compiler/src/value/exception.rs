@@ -68,7 +68,7 @@ impl ErrorLocation {
     pub fn range(&self) -> LineColumnRange {
         match self {
             ErrorLocation::SourceExpression(ast, _) | ErrorLocation::SourceRange(ast, _) => {
-                ast.char_data.range(&self.byte_range())
+                ast.char_data.lines.range(&self.byte_range())
             }
             _ => unreachable!(),
         }
