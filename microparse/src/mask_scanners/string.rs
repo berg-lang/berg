@@ -1,12 +1,13 @@
 use std::ops::Shr;
 
-use super::{Mask64, BLOCK_SIZE};
+use crate::prefix_xor::prefix_xor;
 
+use super::{Mask64, BLOCK_SIZE, LAST};
+
+#[repr(transparent)]
 pub struct Strings {
     /// real quotes (non-escaped ones)
     pub quote: Mask64,
-    /// string characters (includes start quote but not end quote)
-    pub start_quote_and_string: Mask64,
 }
 
 ///
@@ -16,7 +17,7 @@ pub struct Strings {
 /// 
 #[repr(transparent)]
 pub struct StringScanner {
-    pub still_in_string: Mask64,
+    pub start_quote_and_string: Mask64,
 }
 
 impl StringScanner {
@@ -28,47 +29,35 @@ impl StringScanner {
         // Then we xor with still_in_string: if we were in a string already, its effect is flipped
         // (characters inside strings are outside, and characters outside strings are inside).
         //
-        let start_quote_and_string = Self::prefix_xor(quote) ^ self.still_in_string;
+        let local_in_string = prefix_xor(quote);
+        // Shift right arithmetically: if the high bit of the last start_quote_and_string is 1, then
+        // still_in_string will be all 1's, otherwise it will be all 0's.
+        let still_in_string = (self.start_quote_and_string as i64).shr(BLOCK_SIZE-1) as u64;
+        self.start_quote_and_string = local_in_string ^ still_in_string;
 
-        //
-        // Check if we're still inside a string at the end of the box so the next block will know
-        //
-        // Shift right arithmetically: if the high bit is 1, then it will be all 1's,
-        // otherwise it will be all 0's.
-        self.still_in_string = (start_quote_and_string as i64).shr(BLOCK_SIZE-1) as u64;
-
-        Strings { quote, start_quote_and_string }
+        Strings { quote }
     }
 
+    /// Tell whether we are still in a string.
     #[inline]
-    fn prefix_xor(delimiters: Mask64) -> Mask64 {
-        // TODO AI did this and I don't trust it
-        let mut prefix_xor = delimiters;
-        prefix_xor ^= prefix_xor >> 1;
-        prefix_xor ^= prefix_xor >> 2;
-        prefix_xor ^= prefix_xor >> 4;
-        prefix_xor ^= prefix_xor >> 8;
-        prefix_xor ^= prefix_xor >> 16;
-        prefix_xor ^= prefix_xor >> 32;
-        prefix_xor
+    pub fn still_in_string(&self) -> bool {
+        // Test whether the last bit of the previous start_quote_and_string is 1.
+        (self.start_quote_and_string & LAST) != 0
     }
 }
 
 impl Strings {
-    /// Real (non-backslashed) quotes
-    #[inline]
-    pub fn quote(&self) -> Mask64 { self.quote }
     /// Only characters inside the string (not including the quotes)
     #[inline]
-    pub fn string_content(&self) -> Mask64 { self.start_quote_and_string & !self.quote }
+    pub fn string_content(&self, scanner: &StringScanner) -> Mask64 { scanner.start_quote_and_string & !self.quote }
     /// Tail of string (everything except the start quote)
     #[inline]
-    pub fn end_quote_and_string(&self) -> Mask64 { self.start_quote_and_string ^ self.quote }
+    pub fn end_quote_and_string(&self, scanner: &StringScanner) -> Mask64 { scanner.start_quote_and_string ^ self.quote }
     /// Return a mask of whether the given characters are inside a string (only works on non-quotes)
     #[inline]
-    pub fn non_quote_inside_string(&self, mask: Mask64) -> Mask64 { mask & self.start_quote_and_string }
+    pub fn non_quote_inside_string(&self, scanner: &StringScanner, mask: Mask64) -> Mask64 { mask & scanner.start_quote_and_string }
     /// Return a mask of whether the given characters are inside a string (only works on non-quotes)
     #[inline]
-    pub fn non_quote_outside_string(&self, mask: Mask64) -> Mask64 { mask & !self.start_quote_and_string }
+    pub fn non_quote_outside_string(&self, scanner: &StringScanner, mask: Mask64) -> Mask64 { mask & !scanner.start_quote_and_string }
 }
 

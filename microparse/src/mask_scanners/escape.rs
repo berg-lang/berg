@@ -43,7 +43,7 @@ impl<const SHORT_CIRCUIT_NO_BACKSLASHES: bool> EscapeScanner<SHORT_CIRCUIT_NO_BA
     ///        escaped itself). e.g. block.eq('\\')
     #[inline]
     pub fn next(&mut self, backslash: Mask64) -> Escapes {
-        if SHORT_CIRCUIT_NO_BACKSLASHES && backslash != 0 {
+        if SHORT_CIRCUIT_NO_BACKSLASHES {
             return Escapes { escaped: self.next_escaped_without_backslashes(), escape: 0 }
         }
     
@@ -61,7 +61,7 @@ impl<const SHORT_CIRCUIT_NO_BACKSLASHES: bool> EscapeScanner<SHORT_CIRCUIT_NO_BA
         let escaped = escape_and_terminal_code ^ (backslash | self.next_is_escaped);
         let escape = escape_and_terminal_code & backslash;
         // We do this now instead of when it's used so that the fast path doesn't have to do it on every iteration.
-        self.next_is_escaped = escape >> BLOCK_SIZE;
+        self.next_is_escaped = escape >> (BLOCK_SIZE-1);
         Escapes { escaped, escape }
     }
 
