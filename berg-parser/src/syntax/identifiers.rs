@@ -1,7 +1,6 @@
 use std::fmt;
 use std::num::NonZeroU32;
 use std::ops::Range;
-use std::u32;
 use string_interner::{backend::StringBackend, StringInterner, Symbol};
 
 #[derive(Copy, Clone, PartialEq, Eq, Ord, PartialOrd)]

@@ -11,6 +11,7 @@ use super::{
 /// Prefix or Open. This is necessary to determine how long the operand is
 /// (which type of operators to consume before the parent operator can run).
 ///
+#[allow(dead_code)]
 pub struct AstExpression<'a> {
     ast: &'a Ast,
     index: AstIndex,
@@ -78,6 +79,7 @@ impl<'a> Expression for AstExpression<'a> {
     }
 }
 
+#[allow(dead_code)]
 impl<'a> AstExpression<'a> {
     ///
     /// Helper to create an operand and advance index by one.

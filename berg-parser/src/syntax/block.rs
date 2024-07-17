@@ -1,5 +1,4 @@
 use berg_util::index_type;
-use std::u32;
 
 use super::{
     ast::{Ast, AstDelta},

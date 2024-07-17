@@ -1,6 +1,5 @@
 use berg_util::{index_type, IndexedSlice};
 use std::ops::Range;
-use std::u32;
 
 pub mod line_column;
 

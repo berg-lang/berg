@@ -1,6 +1,5 @@
 use berg_util::{index_type, IndexedVec};
 use std::borrow::Cow;
-use std::u32;
 use string_interner::backend::StringBackend;
 use string_interner::{DefaultSymbol, StringInterner};
 

@@ -8,6 +8,7 @@ use super::{
 ///
 /// A visitor that is passed expressions in evaluation order.
 ///
+#[allow(dead_code)]
 pub trait ExpressionVisitor: Sized {
     type Result: Sized;
     fn term(&self, term: TermToken) -> Self::Result;

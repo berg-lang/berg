@@ -1,7 +1,6 @@
 use berg_util::Delta;
 use std::collections::HashMap;
 use std::num::NonZeroU32;
-use std::u32;
 use string_interner::backend::StringBackend;
 use string_interner::{StringInterner, Symbol};
 
