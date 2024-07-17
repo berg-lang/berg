@@ -4,4 +4,4 @@
 
 pub mod mask_scanners;
 pub mod simd;
-pub mod prefix_xor;
+pub mod arch;
