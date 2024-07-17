@@ -1,6 +1,6 @@
 use std::ops::Shr;
 
-use super::{Mask64, CHUNK_LEN};
+use super::{Mask64, BLOCK_SIZE};
 
 pub struct Strings {
     /// real quotes (non-escaped ones)
@@ -14,6 +14,7 @@ pub struct Strings {
 /// 
 /// i.e. between the first and second, third and fourth, fifth and sixth, etc.
 /// 
+#[repr(transparent)]
 pub struct StringScanner {
     pub still_in_string: Mask64,
 }
@@ -34,7 +35,7 @@ impl StringScanner {
         //
         // Shift right arithmetically: if the high bit is 1, then it will be all 1's,
         // otherwise it will be all 0's.
-        self.still_in_string = (start_quote_and_string as i64).shr(CHUNK_LEN-1) as u64;
+        self.still_in_string = (start_quote_and_string as i64).shr(BLOCK_SIZE-1) as u64;
 
         Strings { quote, start_quote_and_string }
     }

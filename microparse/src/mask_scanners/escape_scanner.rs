@@ -1,4 +1,4 @@
-use super::{Mask64, CHUNK_LEN, ODD_BITS};
+use super::{Mask64, BLOCK_SIZE, ODD_BITS};
 
 ///
 /// Scan for escaped characters preceded by an escape (like backslash).
@@ -61,7 +61,7 @@ impl<const SHORT_CIRCUIT_NO_BACKSLASHES: bool> EscapeScanner<SHORT_CIRCUIT_NO_BA
         let escaped = escape_and_terminal_code ^ (backslash | self.next_is_escaped);
         let escape = escape_and_terminal_code & backslash;
         // We do this now instead of when it's used so that the fast path doesn't have to do it on every iteration.
-        self.next_is_escaped = escape >> CHUNK_LEN;
+        self.next_is_escaped = escape >> BLOCK_SIZE;
         Escapes { escaped, escape }
     }
 
