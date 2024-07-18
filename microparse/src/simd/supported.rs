@@ -1,111 +1,93 @@
-use std::{
-    ops,
-    simd::{cmp::*, LaneCount, Simd, SimdElement, SupportedLaneCount}
-};
+use std::simd::{LaneCount, Simd, SimdElement, SupportedLaneCount};
 
-mod private {
-    pub trait Sealed {}
+/// A supported Simd<u8, N>.
+pub trait SupportedSimd {
+    /// The element type in this Simd
+    type Elem: SimdElement;
+    /// Number of lanes
+    type LaneCount: SupportedLaneCount;
+    /// Width of entire simd in bits (Self::LaneCount::LANES * size_of::<Self::Elem>() * 8)
+    type SimdWidth: SupportedSimdWidth;
 }
 
-trait AnySimdBase: Sized+Copy+private::Sealed {}
-
-pub trait AnySimd:
-    Sized+Copy+private::Sealed
-    +PartialOrd<Self>+PartialEq<Self>
-    +ops::Add<Output=Self>+ops::Sub<Output=Self>+ops::Mul<Output=Self>+ops::Div<Output=Self>
-    +SimdPartialEq+SimdPartialOrd
-{
-    type Elem: SimdElement+Sized;
-    const LANES: usize;
-    const BYTES: usize = Self::LANES * size_of::<Self::Elem>();
+/// A system width (in bits) for the Simd type, e.g. 128, 256, 512, etc.
+/// Meant to be used for generic simd algorithms to find the appropriately-sized simd type for the
+/// architecture they are on.
+pub struct SimdWidth<const BITS: usize>();
+impl<const BITS: usize> SimdWidth<BITS> {
+    // The width (in bits) of the simd type, including all lanes.
+    pub const BITS: usize = BITS;
+}
+/// A supported system width (in bits) for the Simd type, e.g. 128, 256, 512, etc.
+pub trait SupportedSimdWidth {
+    const BITS: usize;
 }
 
-pub trait AnyIntSimd: AnySimd+ops::BitAnd<Output=Self>+ops::BitOr<Output=Self>+ops::BitXor<Output=Self>+ops::Not<Output=Self>+SimdOrd+Ord+Eq {}
-
-pub trait AnySignedSimd: AnySimd+ops::Neg<Output=Self> {}
-
-pub trait SimdForLanes<const N: usize>: AnySimd where LaneCount<N> : SupportedLaneCount {}
-
-pub trait SupportedSimd<T: SimdElement, const N: usize>: SimdForLanes<N, Elem = T> where LaneCount<N>: SupportedLaneCount {}
-
-pub trait AnySimdForSystemSize<const BYTES: usize> : AnySimd where LaneCount<BYTES>: SupportedLaneCount {}
-
-pub trait SimdForSystemSize<T: SimdElement, const BYTES: usize> : AnySimdForSystemSize<BYTES>+AnySimd<Elem = T> where LaneCount<BYTES> : SupportedLaneCount {}
-
-impl<T: SimdElement, const N: usize> private::Sealed for Simd<T, N> where
-    LaneCount<N> : SupportedLaneCount {}
-
-impl<T: SimdElement, const N: usize> AnySimdBase for Simd<T, N> where
-    Self: Sized+Copy+private::Sealed,
-    LaneCount<N> : SupportedLaneCount {}
-
-impl<T: SimdElement, const N: usize> AnySimd for Simd<T, N> where
-    Self: AnySimdBase
-        +PartialOrd<Self>+PartialEq<Self>
-        +ops::Add<Output=Self>+ops::Sub<Output=Self>+ops::Mul<Output=Self>+ops::Div<Output=Self>
-        +SimdPartialEq+SimdPartialOrd,
-    LaneCount<N> : SupportedLaneCount {
-    type Elem = T;
-    const LANES: usize = N;
-}
-
-impl<T: SimdElement, const N: usize> AnyIntSimd for Simd<T, N> where
-    Self: AnySimd
-        +ops::BitAnd<Output=Self>+ops::BitOr<Output=Self>+ops::BitXor<Output=Self>+ops::Not<Output=Self>
-        +SimdOrd+Ord+Eq,
-        LaneCount<N>: SupportedLaneCount {}
-
-impl<T: SimdElement, const N: usize> AnySignedSimd for Simd<T, N> where
-    Self: AnySimd+ops::Neg<Output=Self>,
-    LaneCount<N>: SupportedLaneCount {}
-
-impl<T: SimdElement, const N: usize> SimdForLanes<N> for Simd<T, N> where
-    Self: AnySimd<Elem = T>,
-    LaneCount<N> : SupportedLaneCount {}
-
-impl<T: SimdElement, const N: usize> SupportedSimd<T, N> for Simd<T, N> where
-    Self: SimdForLanes<N, Elem = T>,
-    LaneCount<N> : SupportedLaneCount {}
-
-macro_rules! impl_simd_system_sizes {
-    (types: $t:tt; system_sizes: $e:tt;) => {
-        impl_simd_system_sizes!{@elements types: $t; system_sizes: $e}
-    };
-    (@elements types: ($($t:ty),*); system_sizes: $e:tt) => {
-        $(impl_simd_system_sizes!{@element_systems $t: $e})*
-    };
-    (@element_systems $t:ty: ($($bytes:literal),*)) => {
+macro_rules! impl_supported_simd_widths {
+    ($($bits:expr),*) => {
         $(
-            impl AnySimdForSystemSize<$bytes> for Simd<$t, { $bytes / size_of::<$t>() }> {}
-            impl SimdForSystemSize<$t, $bytes> for Simd<$t, { $bytes / size_of::<$t>() }> {}
+            impl SupportedSimdWidth for SimdWidth<{ $bits }> {
+                const BITS: usize = $bits;
+            }
+        )*
+    }
+}
+// TODO: 1024+ is not really supported, it's just what happens when you multiply u64*64 (max lane count)
+impl_supported_simd_widths! {
+    8, 16, 32, 64, 128, 256, 512
+}
+
+macro_rules! impl_supported_simds {
+    (types: ($($t:ty),*); lanes: $lanes:tt;) => {
+        $(impl_supported_simds!{type: $t; lanes: $lanes})*
+    };
+    (type: $t:ty; lanes: ($($lanes:literal),*)) => {
+        $(
+            impl SupportedSimd for Simd<$t, $lanes> {
+                type Elem = $t;
+                type LaneCount = LaneCount<$lanes>;
+                type SimdWidth = SimdWidth<{ $lanes * size_of::<$t>() * 8 }>;
+            }
         )*
     };
 }
 
-impl_simd_system_sizes! {
-    types: (u8, i8);
-    system_sizes: (1, 2, 4, 8, 16, 32, 64);
+// TODO: ignoring Simd<*const T> and Simd<*mut T> for now. We really only wanted u8 anyway :)
+
+impl_supported_simds! {
+    types: (u64, i64, f64);
+    lanes: (1, 2, 4, 8);
 }
-impl_simd_system_sizes! {
+impl_supported_simds! {
+    types: (u32, i32, f32);
+    lanes: (1, 2, 4, 8, 16);
+}
+impl_supported_simds! {
     types: (u16, i16);
-    system_sizes: (2, 4, 8, 16, 32, 64);
+    lanes: (1, 2, 4, 8, 16, 32);
 }
-impl_simd_system_sizes! {
-    types: (u32, i32);
-    system_sizes: (4, 8, 16, 32, 64);
-}
-impl_simd_system_sizes! {
-    types: (u64, i64, f32, f64, usize, isize);
-    system_sizes: (8, 16, 32, 64);
+impl_supported_simds! {
+    types: (u8, i8);
+    lanes: (1, 2, 4, 8, 16, 32, 64);
 }
 
-#[cfg(target_pointer_width = "16")]
-impl_simd_system_sizes! {
-    types: (usize, isize);
-    system_sizes: (2, 4);
-}
-#[cfg(target_pointer_width = "32")]
-impl_simd_system_sizes! {
-    types: (usize, isize);
-    system_sizes: (4);
+cfg_if::cfg_if! {
+    if #[cfg(target_pointer_width = "64")] {
+        impl_supported_simds! {
+            types: (usize, isize);
+            lanes: (1, 2, 4, 8);
+        }
+    } else if #[cfg(target_pointer_width = "32")] {
+        impl_supported_simds! {
+            types: (usize, isize);
+            lanes: (1, 2, 4, 8, 16);
+        }
+    } else if #[cfg(target_pointer_width = "16")] {
+        impl_supported_simds! {
+            types: (usize, isize);
+            lanes: (1, 2, 4, 8, 16, 32);
+        }
+    } else {
+        compile_error!("Unsupported target_pointer_width");
+    }
 }

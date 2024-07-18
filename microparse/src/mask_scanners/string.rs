@@ -1,6 +1,6 @@
 use std::ops::Shr;
 
-use crate::arch::prefix_xor;
+use crate::arch::native::prefix_xor;
 
 use super::{Mask64, BLOCK_SIZE, LAST};
 
