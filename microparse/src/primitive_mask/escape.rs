@@ -16,21 +16,17 @@ pub struct Escapes {
     ///
     /// Mask of escaped characters.
     ///
-    /// ```
     /// \n \\n \\\n \\\\n \
     /// 0100100010100101000
     ///  n  \   \ n  \ \
-    /// ```
     ///
     pub escaped: Mask64,
     ///
     /// Mask of escape characters.
     ///
-    /// ```
     /// \n \\n \\\n \\\\n \
     /// 1001000101001010001
     /// \  \   \ \  \ \   \
-    /// ```
     ///
     pub escape: Mask64,
 }

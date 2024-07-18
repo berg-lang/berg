@@ -1,19 +1,6 @@
-#[derive(
-    Copy, Clone, Debug, PartialEq, Eq,
-    derive_more::AsRef, derive_more::AsMut, derive_more::From, derive_more::Into,
-    derive_more::BitAnd, derive_more::BitOr, derive_more::BitXor, derive_more::Not,
-    derive_more::BitAndAssign, derive_more::BitOrAssign, derive_more::BitXorAssign,
-)]
-struct Mask64(pub u64);
-
-impl Mask64 {
-    #[inline]
-    pub fn new(value: u64) -> Self {
-        Mask64(value)
-    }
-
-    #[inline]
-    pub fn next(&mut self, new_mask: Mask64) {
-        self.0 = new_mask.0
-    }
-}
+pub type Mask64 = u64;
+pub const ALL: u64 = 0xFFFF_FFFF_FFFF_FFFF;
+pub const NONE: u64 = 0x0000_0000_0000_0000;
+pub const ODD_BITS: u64 = 0xAAAA_AAAA_AAAA_AAAA;
+pub const LAST: u64 = 0x8000_0000_0000_0000;
+pub const FIRST: u64 = 0x0000_0000_0000_0001;
