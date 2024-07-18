@@ -21,10 +21,12 @@ pub unsafe fn prefix_xor(bitmask: u64) -> u64 {
 }
 
 #[target_feature(enable="sse4.2")]
+#[inline]
 pub unsafe fn lookup_lower16_ascii(lookup_table: SimdU8, keys: SimdU8) -> SimdU8 {
     _mm_shuffle_epi8(lookup_table.into(), keys.into()).into()
 }
 
+#[inline(always)]
 pub const fn splat16(val: Simd<u8, 16>) -> SimdU8 {
     val
 }

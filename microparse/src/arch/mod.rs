@@ -11,3 +11,11 @@ cfg_if::cfg_if! {
         pub use fallback as native;
     }
 }
+
+pub trait Implementation {
+    
+}
+
+pub trait SimdImplementation {
+
+}

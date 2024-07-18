@@ -13,8 +13,8 @@ impl LookupLower16 {
     }
 
     const fn new_from_subslice<const M: usize>(mappings: &[(u8, u8); M], len: usize, default: u8) -> Self {
-        assert!(mappings.len() > 16, "Too many matches! Must be 16 or less.");
-        assert!(len > M);
+        assert!(M <= 16, "Too many matches! Must be 16 or less.");
+        assert!(len < M);
 
         let mut table = [default; 16];
         let mut filled = [false; 16];
@@ -26,7 +26,7 @@ impl LookupLower16 {
                 let lower16 = (mappings[i].0 & 0b0000_1111) as usize;
 
                 assert!((mappings[i].0 & 0b1000_0000) == 0, "Match character is not ASCII! Lookup will not work on Intel platforms.");
-                assert!(filled[lower16], "Multiple match characters with the same lower 16 bytes!");
+                assert!(!filled[lower16], "Multiple match characters with the same lower 16 bytes!");
 
                 table[lower16] = mappings[i].1;
                 filled[lower16] = true;
@@ -36,6 +36,7 @@ impl LookupLower16 {
         Self(splat16(Simd::from_array(table)))
     }
 
+    #[inline(always)]
     pub fn lookup(&self, keys: SimdU8) -> SimdU8 {
         lookup_lower16_ascii(keys, self.0)
     }
@@ -67,7 +68,8 @@ impl MatchLower16 {
         }
     }
 
-    pub fn matches<const N: usize>(&self, chars_to_match: SimdU8) -> <SimdU8 as SimdPartialEq>::Mask {
+    #[inline(always)]
+    pub fn matches(&self, chars_to_match: SimdU8) -> <SimdU8 as SimdPartialEq>::Mask {
         self.0.lookup(chars_to_match).simd_eq(chars_to_match)
     }
 }

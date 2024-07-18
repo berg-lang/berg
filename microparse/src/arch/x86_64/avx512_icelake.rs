@@ -2,16 +2,18 @@
 
 use std::{arch::x86_64::*, simd::Simd};
 
-pub use super::sse4_2::prefix_xor;
-
 pub const SIMD_BITS: usize = 512;
 pub type SimdU8 = Simd<u8, { 512 / 8 / size_of::<u8>() }>;
 
+pub use super::sse4_2::prefix_xor;
+
 #[target_feature(enable = "avx512bw")]
+#[inline]
 pub unsafe fn lookup_lower16_ascii(lookup_table: SimdU8, keys: SimdU8) -> SimdU8 {
     _mm512_shuffle_epi8(lookup_table.into(), keys.into()).into()
 }
 
+#[inline(always)]
 pub const fn splat16(val: Simd<u8, 16>) -> SimdU8 {
     let val = val.to_array();
     SimdU8::from_array([

@@ -5,8 +5,15 @@ pub struct PrecededByScanner<const N: usize = 1> {
     pub matches: Mask64,
 }
 
+impl<const N: usize> Default for PrecededByScanner<N> {
+    #[inline(always)]
+    fn default() -> Self {
+        Self { matches: 0 }
+    }
+}
+
 impl<const N: usize> PrecededByScanner<N> {
-    #[inline]
+    #[inline(always)]
     pub fn next(&mut self, matches: Mask64) -> Mask64 {
         const { assert!(N < BLOCK_SIZE); };
         let preceded_by = (matches >> N) | (self.matches << (BLOCK_SIZE-N));

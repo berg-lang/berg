@@ -35,13 +35,20 @@ pub struct Escapes {
     pub escape: Mask64,
 }
 
+impl<const SHORT_CIRCUIT_NO_BACKSLASHES: bool> Default for EscapeScanner<SHORT_CIRCUIT_NO_BACKSLASHES> {
+    #[inline(always)]
+    fn default() -> Self {
+        Self { next_is_escaped: 0 }
+    }
+}
+
 impl<const SHORT_CIRCUIT_NO_BACKSLASHES: bool> EscapeScanner<SHORT_CIRCUIT_NO_BACKSLASHES> {
     ///
     /// Get a mask of both escape and escaped characters (the characters following a backslash).
     ///
     /// @param backslash A mask of the character that can escape others (but could be
     ///        escaped itself). e.g. block.eq('\\')
-    #[inline]
+    #[inline(always)]
     pub fn next(&mut self, backslash: Mask64) -> Escapes {
         if SHORT_CIRCUIT_NO_BACKSLASHES {
             return Escapes { escaped: self.next_escaped_without_backslashes(), escape: 0 }

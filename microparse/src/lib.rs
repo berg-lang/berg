@@ -4,6 +4,7 @@
 #![feature(stdarch_x86_avx512)]
 #![feature(avx512_target_feature)]
 
-pub mod mask_scanners;
+// pub mod parsers;
+pub mod primitive_mask;
 pub mod simd;
 pub mod arch;
