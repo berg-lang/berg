@@ -6,3 +6,4 @@ edition = "2021"
 [dependencies]
 derive_more = "*"
 cfg-if = "*"
+seq-macro = "*"

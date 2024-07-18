@@ -1,3 +1,8 @@
+use std::simd::Simd;
+
+// TODO shouldn't need this here, but I want to actually code stuff instead of figure out arch stuff right now
+pub type SimdU8 = Simd<u8, 64>;
+
 #[inline]
 pub fn prefix_xor(mut bitmask: u64) -> u64 {
     // From simdjson:
@@ -21,4 +26,38 @@ pub fn prefix_xor(mut bitmask: u64) -> u64 {
     bitmask ^= bitmask << 16;
     bitmask ^= bitmask << 32;
     bitmask
+}
+
+pub fn lookup_lower16_ascii(lookup_table: SimdU8, keys: SimdU8) -> SimdU8 {
+    let lookup_table = lookup_table.to_array();
+    let mut keys = (keys & SimdU8::splat(0b0000_1111)).to_array();
+    for i in 0..64 {
+        keys[i] = lookup_table[keys[i] as usize];
+    }
+    SimdU8::from_array(keys)
+}
+
+pub const fn splat16(val: Simd<u8, 16>) -> SimdU8 {
+    let val = val.to_array();
+    SimdU8::from_array([
+        val[0], val[1], val[2], val[3],
+        val[4], val[5], val[6], val[7],
+        val[8], val[9], val[10], val[11],
+        val[12], val[13], val[14], val[15],
+
+        val[0], val[1], val[2], val[3],
+        val[4], val[5], val[6], val[7],
+        val[8], val[9], val[10], val[11],
+        val[12], val[13], val[14], val[15],
+
+        val[0], val[1], val[2], val[3],
+        val[4], val[5], val[6], val[7],
+        val[8], val[9], val[10], val[11],
+        val[12], val[13], val[14], val[15],
+
+        val[0], val[1], val[2], val[3],
+        val[4], val[5], val[6], val[7],
+        val[8], val[9], val[10], val[11],
+        val[12], val[13], val[14], val[15],
+    ])
 }
