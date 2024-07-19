@@ -27,47 +27,69 @@ mod tests {
 use super::*;
 use crate::primitive_mask::test::*;
 
-macro_rules! assert_mask_eq {
-    ($actual:expr, $expected:expr) => ({
-        let actual = $actual;
-        let expected = $expected;
-        assert_eq!(actual, expected, "Masks not equal!\nactual    : {}\nexpected  : {}\ndifference: {}", actual.fmt_x(), expected.fmt_x(), (actual ^ expected).fmt_ch('^', ' '));
-    })
+macro_rules! assert_next_eq {
+    ( $( $scanner:ident.next($input:expr) => $expected:expr );*) => ($({
+        let input = backslashes($input);
+        let actual = input.with_mask($scanner.next(input.into()));
+        let expected = non_spaces($expected);
+        assert_eq!(actual, expected, "Masks not equal!\n|     actual | {} |\n|   expected | {} |\n| difference | {} |", actual, expected, (*actual ^ *expected).fmt_ch('^', ' '));
+    });*);
 }
 
 #[test]
 fn zeroes() {
     let mut scanner: PrecededByScanner = Default::default();
-    assert_mask_eq!(scanner.next(NONE), NONE);
-    assert_mask_eq!(scanner.next(NONE), NONE);
-    assert_mask_eq!(scanner.next(NONE), NONE);
+    assert_next_eq!(
+        scanner.next(br"                                                                ")
+                  => br"                                                                ";
+        scanner.next(br"                                                                ")
+                  => br"                                                                ";
+        scanner.next(br"                                                                ")
+                  => br"                                                                "
+    );
 }
 
 #[test]
 fn all() {
     let mut scanner: PrecededByScanner = Default::default();
-    assert_mask_eq!(scanner.next(ALL), !FIRST);
-    assert_mask_eq!(scanner.next(ALL), ALL);
-    assert_mask_eq!(scanner.next(ALL), ALL);
-    assert_mask_eq!(scanner.next(NONE), FIRST);
+    assert_next_eq!(
+        scanner.next(br"\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\")
+                  => br" \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\";
+        scanner.next(br"\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\")
+                  => br"\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\";
+        scanner.next(br"\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\")
+                  => br"\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\";
+        scanner.next(br"                                                                ")
+                  => br"\                                                               "
+    );
 }
 
 #[test]
 fn overflow_only() {
     let mut scanner: PrecededByScanner = Default::default();
-    assert_mask_eq!(scanner.next(LAST), NONE);
-    assert_mask_eq!(scanner.next(LAST), FIRST);
-    assert_mask_eq!(scanner.next(NONE), FIRST);
-    assert_mask_eq!(scanner.next(NONE), NONE);
+    assert_next_eq!(
+        scanner.next(br"                                                               \")
+                  => br"                                                                ";
+        scanner.next(br"                                                               \")
+                  => br"\                                                               ";
+        scanner.next(br"                                                                ")
+                  => br"\                                                               "
+    );
 }
 
 #[test]
 fn all_except_overflow() {
     let mut scanner: PrecededByScanner = Default::default();
-    assert_mask_eq!(scanner.next(!LAST), !FIRST);
-    assert_mask_eq!(scanner.next(!LAST), !FIRST);
-    assert_mask_eq!(scanner.next(!LAST), !FIRST);
-    assert_mask_eq!(scanner.next(NONE), NONE);
+    assert_next_eq!(
+        scanner.next(br"\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\ ")
+                  => br" \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\";
+        scanner.next(br"\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\ ")
+                  => br" \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\";
+        scanner.next(br"\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\ ")
+                  => br" \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\";
+        scanner.next(br"                                                                ")
+                  => br"                                                                "
+    );
 }
 
 }

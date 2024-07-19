@@ -1,4 +1,4 @@
-use super::{Mask64, BLOCK_SIZE, ODD_BITS};
+use super::{Mask64, BLOCK_SIZE, ODD};
 
 ///
 /// Scan for escaped characters preceded by an escape (like backslash).
@@ -46,7 +46,7 @@ impl<const SHORT_CIRCUIT_NO_BACKSLASHES: bool> EscapeScanner<SHORT_CIRCUIT_NO_BA
     ///        escaped itself). e.g. block.eq('\\')
     #[inline(always)]
     pub fn next(&mut self, backslash: Mask64) -> Escapes {
-        if SHORT_CIRCUIT_NO_BACKSLASHES {
+        if SHORT_CIRCUIT_NO_BACKSLASHES && backslash == 0 {
             return Escapes { escaped: self.next_escaped_without_backslashes(), escape: 0 }
         }
     
@@ -66,6 +66,10 @@ impl<const SHORT_CIRCUIT_NO_BACKSLASHES: bool> EscapeScanner<SHORT_CIRCUIT_NO_BA
         // We do this now instead of when it's used so that the fast path doesn't have to do it on every iteration.
         self.next_is_escaped = escape >> (BLOCK_SIZE-1);
         Escapes { escaped, escape }
+    }
+
+    pub fn next_is_escaped(&self) -> bool {
+        self.next_is_escaped != 0
     }
 
     ///
@@ -131,15 +135,117 @@ impl<const SHORT_CIRCUIT_NO_BACKSLASHES: bool> EscapeScanner<SHORT_CIRCUIT_NO_BA
         // - Odd runs of backslashes are 0000, and the code at the end ("n" in \n or \\n) is 1.
         // - Odd runs of backslashes are 1111, and the code at the end ("n" in \n or \\n) is 0.
         // - All other odd bytes are 1, and even bytes are 0.
-        let maybe_escaped_and_odd_bits     = maybe_escaped | ODD_BITS;
-        let even_series_codes_and_odd_bits = maybe_escaped_and_odd_bits - potential_escape;
+        let maybe_escaped_and_odd_bits     = maybe_escaped | ODD;
+        let even_series_codes_and_odd_bits = maybe_escaped_and_odd_bits.wrapping_sub(potential_escape);
     
         // Now we flip all odd bytes back with xor. This:
         // - Makes odd runs of backslashes go from 0000 to 1010
         // - Makes even runs of backslashes go from 1111 to 1010
         // - Sets actually-escaped codes to 1 (the n in \n and \\n: \n = 11, \\n = 100)
         // - Resets all other bytes to 0
-        even_series_codes_and_odd_bits ^ ODD_BITS
+        even_series_codes_and_odd_bits ^ ODD
     }
 }
 
+#[cfg(test)]
+mod test {
+    use super::*;
+    use super::super::test::*;
+
+    macro_rules! assert_next_eq {
+        ( $( $scanner:ident.next($input:expr) => $expected_escape:expr, $expected_escaped:expr );*) => ($({
+            let input = backslashes($input);
+            let actual = $scanner.next(input.into());
+            {
+                let actual_escape  = input.with_mask(actual.escape);
+                let expected_escape  = non_spaces($expected_escape);
+                assert_eq!(actual_escape, expected_escape, "Escapes not equal!\n|     actual | {} |\n|   expected | {} |\n| difference | {} |", actual_escape, expected_escape, (*actual_escape ^ *expected_escape).fmt_ch('^', ' '));
+            }
+            {
+                let actual_escaped = input.with_mask(actual.escaped);
+                let expected_escaped = non_spaces($expected_escaped);
+                assert_eq!(actual_escaped, expected_escaped, "Escaped not equal!\n|     actual | {} |\n|   expected | {} |\n| difference | {} |", actual_escaped, expected_escaped, (*actual_escaped ^ *expected_escaped).fmt_ch('^', ' '));
+            }
+        });*);
+    }
+
+    #[test]
+    fn no_escapes() {
+        let mut scanner: EscapeScanner = Default::default();
+        assert_next_eq!(
+            scanner.next(br"                                                                ")
+                      => br"                                                                ",
+                         br"                                                                ";
+            scanner.next(br"                                                                ")
+                      => br"                                                                ",
+                         br"                                                                ";
+            scanner.next(br"                                                                ")
+                      => br"                                                                ",
+                         br"                                                                "
+        );
+    }
+
+    #[test]
+    fn all_escapes() {
+        let mut scanner: EscapeScanner = Default::default();
+        assert_next_eq!(
+            scanner.next(br"\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\")
+                      => br"\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ ",
+                         br" \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \";
+            scanner.next(br"\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\")
+                      => br"\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ ",
+                         br" \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \";
+            scanner.next(br"\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\")
+                      => br"\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ ",
+                         br" \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \"
+        );
+    }
+
+    #[test]
+    fn odd_escapes() {
+        let mut scanner: EscapeScanner = Default::default();
+        assert_next_eq!(
+            scanner.next(br" \n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\")
+                      => br" \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \",
+                         br"  n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n ";
+            scanner.next(br"n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\")
+                      => br" \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \",
+                         br"n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n ";
+            scanner.next(br"n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\")
+                      => br" \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \",
+                         br"n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n "
+        );
+    }
+
+    #[test]
+    fn even_escapes() {
+        let mut scanner: EscapeScanner = Default::default();
+        assert_next_eq!(
+            scanner.next(br"\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n")
+                      => br"\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ ",
+                         br" n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n";
+            scanner.next(br"\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n")
+                      => br"\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ ",
+                         br" n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n";
+            scanner.next(br"\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n")
+                      => br"\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ ",
+                         br" n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n"
+        );
+    }
+
+    #[test]
+    fn overflow_only() {
+        let mut scanner: EscapeScanner = Default::default();
+        assert_next_eq!(
+            scanner.next(br"                                                               \")
+                      => br"                                                               \",
+                         br"                                                                ";
+            scanner.next(br"n                                                              \")
+                      => br"                                                               \",
+                         br"n                                                               ";
+            scanner.next(br"n                                                               ")
+                      => br"n                                                               ",
+                         br"                                                                "
+        );
+    }
+}
