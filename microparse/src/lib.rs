@@ -5,6 +5,9 @@
 #![feature(avx512_target_feature)]
 
 // pub mod parsers;
+pub mod arch;
+pub mod fold_n;
+pub mod unwrapping_iterator;
+pub mod parsers;
 pub mod primitive_mask;
 pub mod simd;
-pub mod arch;

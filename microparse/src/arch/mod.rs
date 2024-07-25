@@ -1,4 +1,5 @@
 pub mod fallback;
+pub(crate) mod define_simd;
 
 cfg_if::cfg_if! {
     if #[cfg(target_arch = "aarch64")] {

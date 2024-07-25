@@ -1,10 +1,10 @@
 #![allow(clippy::missing_safety_doc)]
 
-use std::{arch::x86_64::*, simd::Simd};
+use std::arch::x86_64::*;
+use crate::unwrapping_iterator::IntoUnwrappingIterator;
 
-pub const SIMD_BITS: usize = 256;
-pub type SimdU8 = std::simd::Simd<u8, { 256 / 8 / size_of::<u8>() }>;
-
+pub use crate::arch::define_simd::simd256::*;
+pub use crate::primitive_mask::mask64::Mask64Builder;
 pub use super::sse4_2::prefix_xor;
 
 #[target_feature(enable = "avx2")]
@@ -14,17 +14,8 @@ pub unsafe fn lookup_lower16_ascii(lookup_table: SimdU8, keys: SimdU8) -> SimdU8
 }
 
 #[inline(always)]
-pub const fn splat16(val: Simd<u8, 16>) -> SimdU8 {
-    let val = val.to_array();
-    SimdU8::from_array([
-        val[0], val[1], val[2], val[3],
-        val[4], val[5], val[6], val[7],
-        val[8], val[9], val[10], val[11],
-        val[12], val[13], val[14], val[15],
-
-        val[0], val[1], val[2], val[3],
-        val[4], val[5], val[6], val[7],
-        val[8], val[9], val[10], val[11],
-        val[12], val[13], val[14], val[15],
-    ])
+pub fn merge_to_bitmask(masks: impl IntoUnwrappingIterator<SIMD_PER_64_BYTES, UnwrappingItem=SimdMask8>) -> crate::primitive_mask::Mask64 {
+    let mut masks = masks.into_unwrapping_iter();
+    masks.next().to_bitmask()
+    | (masks.next().to_bitmask() << SIMD_BYTES)
 }

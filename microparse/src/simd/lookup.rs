@@ -8,13 +8,13 @@ pub struct LookupLower16(SimdU8);
 pub struct MatchLower16(LookupLower16);
 
 impl LookupLower16 {
-    pub const fn new<const M: usize>(mappings: [(u8, u8); M], default: u8) -> Self {
-        Self::new_from_subslice(&mappings, M, default)
+    pub const fn new<const N: usize>(mappings: [(u8, u8); N], default: u8) -> Self {
+        Self::new_from_subslice(&mappings, N, default)
     }
 
-    const fn new_from_subslice<const M: usize>(mappings: &[(u8, u8); M], len: usize, default: u8) -> Self {
-        assert!(M <= 16, "Too many matches! Must be 16 or less.");
-        assert!(len < M);
+    const fn new_from_subslice<const N: usize>(mappings: &[(u8, u8); N], len: usize, default: u8) -> Self {
+        assert!(N <= 16, "Too many matches! Nust be 16 or less.");
+        assert!(len < N);
 
         let mut table = [default; 16];
         let mut filled = [false; 16];
@@ -43,15 +43,15 @@ impl LookupLower16 {
 }
 
 impl MatchLower16 {
-    pub const fn new<const M: usize>(matches: [u8; M]) -> Self {
-        if M > 16 {
+    pub const fn new<const N: usize>(matches: [u8; N]) -> Self {
+        if N > 16 {
             panic!("Too many matches! Must be 16 or less.");
         }
 
         let mut mappings = [(0u8, 0u8); 16];
         let mut found0 = false;
         seq_macro::seq!(i in 0..16 {
-            if i < M {
+            if i < N {
                 let lower16 = matches[i] & 0b0000_1111;
                 found0 = found0 || lower16 == 0;
                 mappings[i] = (matches[i], matches[i]);

@@ -1,10 +1,10 @@
 #![allow(clippy::missing_safety_doc)]
 
 use core::arch::x86_64::*;
-use std::simd::Simd;
+use crate::unwrapping_iterator::IntoUnwrappingIterator;
 
-pub const SIMD_BITS: usize = 128;
-pub type SimdU8 = Simd<u8, { 128 / 8 / size_of::<u8>() }>;
+pub use crate::arch::define_simd::simd128::*;
+pub use crate::primitive_mask::mask64::Mask64Builder;
 
 ///
 /// Compute a prefix xor of the bitmask: turn a bit on if it's preceded by an even number of 1's,
@@ -27,6 +27,10 @@ pub unsafe fn lookup_lower16_ascii(lookup_table: SimdU8, keys: SimdU8) -> SimdU8
 }
 
 #[inline(always)]
-pub const fn splat16(val: Simd<u8, 16>) -> SimdU8 {
-    val
+pub fn merge_to_bitmask(masks: impl IntoUnwrappingIterator<SIMD_PER_64_BYTES, UnwrappingItem=SimdMask8>) -> crate::primitive_mask::Mask64 {
+    let mut masks = masks.into_unwrapping_iter();
+    masks.next().to_bitmask()
+    | (masks.next().to_bitmask() << SIMD_BYTES)
+    | (masks.next().to_bitmask() << (SIMD_BYTES*2))
+    | (masks.next().to_bitmask() << (SIMD_BYTES*3))
 }

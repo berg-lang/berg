@@ -1,7 +1,6 @@
-use std::simd::Simd;
-
-// TODO shouldn't need this here, but I want to actually code stuff instead of figure out arch stuff right now
-pub type SimdU8 = Simd<u8, 64>;
+// TODO this should be 64, but until we make it so we can use something other than lookup16,
+// it has to be at least 128
+pub use crate::arch::define_simd::simd128::*;
 
 #[inline]
 pub fn prefix_xor(mut bitmask: u64) -> u64 {
@@ -37,27 +36,10 @@ pub fn lookup_lower16_ascii(lookup_table: SimdU8, keys: SimdU8) -> SimdU8 {
     SimdU8::from_array(keys)
 }
 
-pub const fn splat16(val: Simd<u8, 16>) -> SimdU8 {
-    let val = val.to_array();
-    SimdU8::from_array([
-        val[0], val[1], val[2], val[3],
-        val[4], val[5], val[6], val[7],
-        val[8], val[9], val[10], val[11],
-        val[12], val[13], val[14], val[15],
-
-        val[0], val[1], val[2], val[3],
-        val[4], val[5], val[6], val[7],
-        val[8], val[9], val[10], val[11],
-        val[12], val[13], val[14], val[15],
-
-        val[0], val[1], val[2], val[3],
-        val[4], val[5], val[6], val[7],
-        val[8], val[9], val[10], val[11],
-        val[12], val[13], val[14], val[15],
-
-        val[0], val[1], val[2], val[3],
-        val[4], val[5], val[6], val[7],
-        val[8], val[9], val[10], val[11],
-        val[12], val[13], val[14], val[15],
-    ])
+#[inline(always)]
+pub fn merge_to_bitmask(masks: [SimdMask8; SIMD_PER_64_BYTES]) -> crate::primitive_mask::Mask64 {
+    masks[0].to_bitmask()
+    | (masks[1].to_bitmask() << SIMD_BYTES)
+    | (masks[2].to_bitmask() << (SIMD_BYTES*2))
+    | (masks[3].to_bitmask() << (SIMD_BYTES*3))
 }
