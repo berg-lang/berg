@@ -1,18 +1,20 @@
 use std::simd::{LaneCount, Mask, MaskElement, Simd, SimdElement, SupportedLaneCount};
 
+use generic::SupportedSimdWidth;
+
 use crate::primitive_mask::Mask64;
 
 use super::*;
 
 #[repr(transparent)]
-struct SimdBitmaskBuilder<const U64_LANES: usize>(pub Simd<u64, U64_LANES>) where LaneCount<U64_LANES>: SupportedLaneCount;
+struct SimdBitmaskBuilder<W: SupportedSimdWidth>(pub W::Lanes64::Simd<u64>);
 
 impl SimdBitmaskBuilder<2> {
     #[inline(always)]
     pub fn push(&mut self, mask: Mask<i8, 16>, u16_lane: usize) {
         // TODO don't 
         // TODO there might be a way to do this without pulling the bitmask 
-        
+
         self.0 = match u16_lane {
             0 => mask,
             1 => self.0 + self.0 + mask + mask,

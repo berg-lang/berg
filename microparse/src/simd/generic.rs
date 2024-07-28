@@ -1,9 +1,74 @@
 use std::{ops::{Deref, DerefMut}, simd::{LaneCount, Mask, MaskElement, Simd, SimdElement, SupportedLaneCount}};
 
-pub struct GenericMask<T: MaskElement, N: SupportedLaneCountFor<T>>(N::Mask<T>);
+//
+// Mask/Simd
+//
+
+pub struct GenericMask<T: MaskElement, N: GenericLaneCount>(N::RawMask<T>);
+pub struct GenericSimd<T: SimdElement, N: GenericLaneCount>(N::RawSimd<T>);
+pub trait SupportedMask {
+    type Elem: SupportedMaskElementFor<Self::SimdWidth, LaneCount = Self::LaneCount>;
+    type LaneCount: SupportedLaneCountFor<Self::Elem, SimdWidth = Self::SimdWidth>;
+    type SimdWidth: SupportedSimdWidth<Mask<Self::Elem>: SupportedMask<Elem = Self::Elem, LaneCount = Self::LaneCount>>;
+}
+pub trait SupportedSimd {
+    type Elem: SimdElement<Mask: SupportedMaskElementFor<Self::SimdWidth, LaneCount = Self::LaneCount>>;
+    type LaneCount: SupportedLaneCountFor<<Self::Elem as SimdElement>::Mask, SimdWidth = Self::SimdWidth>;
+    type SimdWidth: SupportedSimdWidth<Mask<<Self::Elem as SimdElement>::Mask>: SupportedMask<Elem = <Self::Elem as SimdElement>::Mask, LaneCount = Self::LaneCount>>;
+}
+
+impl<T: MaskElement, N: SupportedLaneCountFor<T>> GenericMask<T, N> {
+    pub fn new(mask: N::RawMask<T>) -> Self {
+        Self(mask)
+    }
+    pub fn into_mask(self) -> N::RawMask<T> {
+        self.0
+    }
+}
+impl<T: SimdElement, N: SupportedLaneCountFor<T>> GenericSimd<T, N> {
+    pub fn new(simd: N::RawSimd<T>) -> Self {
+        Self(simd)
+    }
+    pub fn into_simd(self) -> N::RawSimd<T> {
+        self.0
+    }
+}
+
+impl<T: MaskElement, const N: usize> From<GenericMask<T, LaneCount<N>>> for Mask<T, N> where LaneCount<N>: SupportedLaneCountFor<T, RawMask<T>: Into<Mask<T, N>>> {
+    fn from(from: GenericMask<T, LaneCount<N>>) -> Self {
+        from.0.into()
+    }
+}
+impl<T: SimdElement, const N: usize> From<GenericSimd<T, LaneCount<N>>> for Simd<T, N> where LaneCount<N>: SupportedLaneCountFor<T::Mask, RawSimd<T>: Into<Simd<T, N>>> {
+    fn from(from: GenericSimd<T, LaneCount<N>>) -> Self {
+        from.0.into()
+    }
+}
+impl<T: MaskElement, const N: usize> From<Mask<T, N>> for GenericMask<T, LaneCount<N>> where LaneCount<N>: SupportedLaneCountFor<T, RawMask<T>: From<Mask<T, N>>> {
+    fn from(from: Mask<T, N>) -> Self {
+        Self(from.into())
+    }
+}
+impl<T: SimdElement, const N: usize> From<Simd<T, N>> for GenericSimd<T, LaneCount<N>> where LaneCount<N>: SupportedLaneCountFor<T::Mask, RawSimd<T>: From<Simd<T, N>>> {
+    fn from(from: Simd<T, N>) -> Self {
+        Self(from.into())
+    }
+}
+
+impl<E: SimdElement, N: SupportedLaneCountFor<E::Mask>> SupportedSimd for GenericSimd<E, N> where E::Mask: SupportedMaskElementFor<N::SimdWidth, LaneCount = N> {
+    type Elem = E;
+    type LaneCount = N;
+    type SimdWidth = N::SimdWidth;
+}
+
+impl<E: MaskElement, N: SupportedLaneCountFor<E>> SupportedMask for GenericMask<E, N> where E: SupportedMaskElementFor<N::SimdWidth, LaneCount = N> {
+    type Elem = E;
+    type LaneCount = N;
+    type SimdWidth = N::SimdWidth;
+}
 
 impl<T: MaskElement, N: SupportedLaneCountFor<T>> Deref for GenericMask<T, N> {
-    type Target = N::Mask<T>;
+    type Target = N::RawMask<T>;
 
     fn deref(&self) -> &Self::Target {
         &self.0
@@ -16,10 +81,8 @@ impl<T: MaskElement, N: SupportedLaneCountFor<T>> DerefMut for GenericMask<T, N>
     }
 }
 
-pub struct GenericSimd<T: SimdElement, N: GenericLaneCount>(N::Simd<T>);
-
 impl<T: SimdElement, N: SupportedLaneCountFor<T::Mask>> Deref for GenericSimd<T, N> {
-    type Target = N::Simd<T>;
+    type Target = N::RawSimd<T>;
 
     fn deref(&self) -> &Self::Target {
         &self.0
@@ -32,94 +95,92 @@ impl<T: SimdElement, N: SupportedLaneCountFor<T::Mask>> DerefMut for GenericSimd
     }
 }
 
-pub trait SupportedSimdWidth {
-    const BITS: usize;
-    type Lanes8:  SupportedLaneCountFor<i8,  SimdWidth = Self>;
-    type Lanes16: SupportedLaneCountFor<i16, SimdWidth = Self>;
-    type Lanes32: SupportedLaneCountFor<i32, SimdWidth = Self>;
-    type Lanes64: SupportedLaneCountFor<i64, SimdWidth = Self>;
-}
-pub struct SimdWidth<const N: usize>;
+//
+// LaneCount
+//
 
 pub trait GenericLaneCount: SupportedLaneCount {
     const LANES: usize;
-    type Simd<T: SimdElement>;
-    type Mask<T: MaskElement>;
+    type RawSimd<T: SimdElement>;
+    type RawMask<T: MaskElement>;
+}
+
+pub trait SupportedLaneCountFor<M>: GenericLaneCount { // : SupportedMaskElementFor<Self::SimdWidth, LaneCount = Self>
+    type SimdWidth: SupportedSimdWidth;
 }
 
 impl<const N: usize> GenericLaneCount for LaneCount<N> where LaneCount<N>: SupportedLaneCount {
     const LANES: usize = N;
-    type Simd<T: SimdElement> = Simd<T, N>;
-    type Mask<T: MaskElement> = Mask<T, N>;
+    type RawSimd<T: SimdElement> = Simd<T, N>;
+    type RawMask<T: MaskElement> = Mask<T, N>;
 }
 
-pub trait SupportedLaneCountFor<M: MaskElement>: GenericLaneCount {
-    type SimdWidth: SupportedSimdWidth;
+//
+// SimdWidth
+//
+
+pub trait SupportedSimdWidth: Sized {
+    const BITS: usize;
+    type Mask<T: SupportedMaskElementFor<Self>>: SupportedMask<Elem = T, LaneCount = T::LaneCount>;
+    type Simd<T: SimdElement<Mask: SupportedMaskElementFor<Self>>>: SupportedSimd<Elem = T, LaneCount = <T::Mask as SupportedMaskElementFor<Self>>::LaneCount>;
+}
+pub struct SimdWidth<const BITS: usize>;
+
+impl<const BITS: usize> SupportedSimdWidth for SimdWidth<BITS> where
+    i8:  SupportedMaskElementFor<Self>,
+    i16: SupportedMaskElementFor<Self>,
+    i32: SupportedMaskElementFor<Self>,
+    i64: SupportedMaskElementFor<Self>,
+{
+    const BITS: usize = BITS;
+    type Mask<T: SupportedMaskElementFor<Self>> = GenericMask<T, T::LaneCount>;
+    type Simd<T: SimdElement<Mask: SupportedMaskElementFor<Self>>> = GenericSimd<T, <T::Mask as SupportedMaskElementFor<Self>>::LaneCount>;
 }
 
-impl SupportedSimdWidth for SimdWidth<512> {
-    const BITS: usize = 512;
-    type Lanes8 = LaneCount<64>;
-    type Lanes16 = LaneCount<32>;
-    type Lanes32 = LaneCount<16>;
-    type Lanes64 = LaneCount<8>;
+//
+// MaskElement / SimdElement
+//
+
+pub trait SupportedMaskElementFor<W>: MaskElement {
+    type LaneCount: SupportedLaneCountFor<Self, SimdWidth = W>;
 }
+
+//
+// Supported triples
+//
+
+impl SupportedMaskElementFor<SimdWidth<512>> for i8  { type LaneCount = LaneCount<64>; }
+impl SupportedMaskElementFor<SimdWidth<512>> for i16 { type LaneCount = LaneCount<32>; }
+impl SupportedMaskElementFor<SimdWidth<512>> for i32 { type LaneCount = LaneCount<16>; }
+impl SupportedMaskElementFor<SimdWidth<512>> for i64 { type LaneCount = LaneCount<8>; }
 impl SupportedLaneCountFor<i8>  for LaneCount<64> { type SimdWidth = SimdWidth<512>; }
 impl SupportedLaneCountFor<i16> for LaneCount<32> { type SimdWidth = SimdWidth<512>; }
 impl SupportedLaneCountFor<i32> for LaneCount<16> { type SimdWidth = SimdWidth<512>; }
 impl SupportedLaneCountFor<i64> for LaneCount<8>  { type SimdWidth = SimdWidth<512>; }
 
-impl SupportedSimdWidth for SimdWidth<256> {
-    const BITS: usize = 256;
-    type Lanes8 = LaneCount<32>;
-    type Lanes16 = LaneCount<16>;
-    type Lanes32 = LaneCount<8>;
-    type Lanes64 = LaneCount<4>;
-}
+impl SupportedMaskElementFor<SimdWidth<256>> for i8  { type LaneCount = LaneCount<32>; }
+impl SupportedMaskElementFor<SimdWidth<256>> for i16 { type LaneCount = LaneCount<16>; }
+impl SupportedMaskElementFor<SimdWidth<256>> for i32 { type LaneCount = LaneCount<8>; }
+impl SupportedMaskElementFor<SimdWidth<256>> for i64 { type LaneCount = LaneCount<4>; }
 impl SupportedLaneCountFor<i8>  for LaneCount<32> { type SimdWidth = SimdWidth<256>; }
 impl SupportedLaneCountFor<i16> for LaneCount<16> { type SimdWidth = SimdWidth<256>; }
 impl SupportedLaneCountFor<i32> for LaneCount<8>  { type SimdWidth = SimdWidth<256>; }
 impl SupportedLaneCountFor<i64> for LaneCount<4>  { type SimdWidth = SimdWidth<256>; }
 
-impl SupportedSimdWidth for SimdWidth<128> {
-    const BITS: usize = 128;
-    type Lanes8 = LaneCount<16>;
-    type Lanes16 = LaneCount<8>;
-    type Lanes32 = LaneCount<4>;
-    type Lanes64 = LaneCount<2>;
-}
+impl SupportedMaskElementFor<SimdWidth<128>> for i8  { type LaneCount = LaneCount<16>; }
+impl SupportedMaskElementFor<SimdWidth<128>> for i16 { type LaneCount = LaneCount<8>; }
+impl SupportedMaskElementFor<SimdWidth<128>> for i32 { type LaneCount = LaneCount<4>; }
+impl SupportedMaskElementFor<SimdWidth<128>> for i64 { type LaneCount = LaneCount<2>; }
 impl SupportedLaneCountFor<i8>  for LaneCount<16> { type SimdWidth = SimdWidth<128>; }
 impl SupportedLaneCountFor<i16> for LaneCount<8>  { type SimdWidth = SimdWidth<128>; }
 impl SupportedLaneCountFor<i32> for LaneCount<4>  { type SimdWidth = SimdWidth<128>; }
 impl SupportedLaneCountFor<i64> for LaneCount<2>  { type SimdWidth = SimdWidth<128>; }
 
-impl SupportedSimdWidth for SimdWidth<64> {
-    const BITS: usize = 64;
-    type Lanes8 = LaneCount<8>;
-    type Lanes16 = LaneCount<4>;
-    type Lanes32 = LaneCount<2>;
-    type Lanes64 = LaneCount<1>;
-}
-impl SupportedLaneCountFor<i8>  for LaneCount<8>  { type SimdWidth = SimdWidth<64>; }
-impl SupportedLaneCountFor<i16> for LaneCount<4>  { type SimdWidth = SimdWidth<64>; }
-impl SupportedLaneCountFor<i32> for LaneCount<2>  { type SimdWidth = SimdWidth<64>; }
-impl SupportedLaneCountFor<i64> for LaneCount<1>  { type SimdWidth = SimdWidth<64>; }
-
-pub trait SupportedMask {
-    type Elem: MaskElement;
-    type LaneCount: SupportedLaneCountFor<Self::Elem>;
-}
-impl<E: MaskElement, N: SupportedLaneCountFor<E>> SupportedMask for GenericMask<E, N> {
-    type Elem = E;
-    type LaneCount = N;
-}
-
-pub trait SupportedSimd {
-    type Elem: SimdElement;
-    type LaneCount: SupportedLaneCountFor<<Self::Elem as SimdElement>::Mask>;
-}
-
-impl<E: SimdElement, N: SupportedLaneCountFor<E::Mask>> SupportedSimd for GenericSimd<E, N> {
-    type Elem = E;
-    type LaneCount = N;
-}
+impl SupportedMaskElementFor<SimdWidth<64>> for i8  { type LaneCount = LaneCount<8>; }
+impl SupportedMaskElementFor<SimdWidth<64>> for i16 { type LaneCount = LaneCount<4>; }
+impl SupportedMaskElementFor<SimdWidth<64>> for i32 { type LaneCount = LaneCount<2>; }
+impl SupportedMaskElementFor<SimdWidth<64>> for i64 { type LaneCount = LaneCount<1>; }
+impl SupportedLaneCountFor<i8>  for LaneCount<8> { type SimdWidth = SimdWidth<64>; }
+impl SupportedLaneCountFor<i16> for LaneCount<4> { type SimdWidth = SimdWidth<64>; }
+impl SupportedLaneCountFor<i32> for LaneCount<2> { type SimdWidth = SimdWidth<64>; }
+impl SupportedLaneCountFor<i64> for LaneCount<1> { type SimdWidth = SimdWidth<64>; }
