@@ -164,12 +164,12 @@ impl ObjectValue for BergVal {
     ) -> Result<(), EvalException> {
         use BergVal::*;
         match self {
-            Boolean(ref mut value) => value.set_field(name, field_value),
-            BigRational(ref mut value) => value.set_field(name, field_value),
-            BlockRef(ref mut value) => value.set_field(name, field_value),
-            CaughtException(ref mut value) => value.set_field(name, field_value),
-            CompilerError(ref mut value) => value.set_field(name, field_value),
-            Tuple(ref mut value) => value.set_field(name, field_value),
+            Boolean(value) => value.set_field(name, field_value),
+            BigRational(value) => value.set_field(name, field_value),
+            BlockRef(value) => value.set_field(name, field_value),
+            CaughtException(value) => value.set_field(name, field_value),
+            CompilerError(value) => value.set_field(name, field_value),
+            Tuple(value) => value.set_field(name, field_value),
         }
     }
 }
@@ -265,11 +265,11 @@ impl fmt::Debug for BergVal {
         write!(f, "BergVal(")?;
         match self {
             Boolean(value) => write!(f, "{}", value)?,
-            BigRational(ref value) => write!(f, "{}", value)?,
-            BlockRef(ref value) => write!(f, "{}", value)?,
-            CaughtException(ref value) => write!(f, "{}", value)?,
-            CompilerError(ref value) => write!(f, "{}", value)?,
-            Tuple(ref value) => write!(f, "{}", value)?,
+            BigRational(value) => write!(f, "{}", value)?,
+            BlockRef(value) => write!(f, "{}", value)?,
+            CaughtException(value) => write!(f, "{}", value)?,
+            CompilerError(value) => write!(f, "{}", value)?,
+            Tuple(value) => write!(f, "{}", value)?,
         }
         write!(f, ")")
     }
@@ -278,13 +278,13 @@ impl fmt::Debug for BergVal {
 impl fmt::Display for BergVal {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         use BergVal::*;
-        match *self {
+        match self {
             Boolean(value) => write!(f, "{}", value),
-            BigRational(ref value) => write!(f, "{}", value),
-            BlockRef(ref value) => write!(f, "{}", value),
-            CaughtException(ref value) => write!(f, "{}", value),
-            CompilerError(ref value) => write!(f, "{}", value),
-            Tuple(ref value) => write!(f, "{}", value),
+            BigRational(value) => write!(f, "{}", value),
+            BlockRef(value) => write!(f, "{}", value),
+            CaughtException(value) => write!(f, "{}", value),
+            CompilerError(value) => write!(f, "{}", value),
+            Tuple(value) => write!(f, "{}", value),
         }
     }
 }

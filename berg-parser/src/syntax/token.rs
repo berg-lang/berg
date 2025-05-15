@@ -17,14 +17,14 @@ pub enum Token {
     Operator(OperatorToken),
 }
 
-// TODO because of the nested enums, Token is 16 bytes, even though all variants are < 6 bytes.
+// TODO because of the nested enums, Token is 12 bytes, even though all variants are < 6 bytes.
 // Rust core is thinking about (but has not fixed) this case, but we can fix it internally by not
 // nesting enums :(
 // This test exists to make sure we don't regress further.
 #[test]
-fn token_size_is_16bytes_even_though_we_want_it_to_be_8() {
+fn token_size_is_12bytes_even_though_we_want_it_to_be_8() {
     use std::mem::size_of;
-    assert!(size_of::<Token>() <= 16);
+    assert_eq!(size_of::<Token>(), 12);
 }
 
 ///

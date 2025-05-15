@@ -125,14 +125,14 @@ impl Sequencer {
     }
     unsafe fn with_utf8<R>(&mut self, start: ByteIndex, f: impl FnOnce(&str, &mut Ast) -> R) -> R {
         self.with_bytes(start, |bytes, ast| {
-            f(std::str::from_utf8_unchecked(bytes), ast)
+            f(unsafe { std::str::from_utf8_unchecked(bytes) }, ast)
         })
     }
     unsafe fn intern_utf8_identifier(&mut self, start: ByteIndex) -> IdentifierIndex {
-        self.with_utf8(start, |utf8, ast| ast.intern_identifier(utf8))
+        unsafe { self.with_utf8(start, |utf8, ast| ast.intern_identifier(utf8)) }
     }
     unsafe fn intern_utf8_literal(&mut self, start: ByteIndex) -> LiteralIndex {
-        self.with_utf8(start, |utf8, ast| ast.intern_literal(utf8))
+        unsafe { self.with_utf8(start, |utf8, ast| ast.intern_literal(utf8)) }
     }
 
     pub fn ast(&self) -> &Ast {

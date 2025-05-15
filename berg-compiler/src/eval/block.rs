@@ -150,7 +150,7 @@ impl BlockRef {
             BlockState::Running | BlockState::InNextVal => {
                 CircularDependency.at_location(&block).err()
             }
-            BlockState::Complete(ref result) => result.clone(),
+            BlockState::Complete(result) => result.clone(),
             BlockState::Ready => unreachable!(),
         }
     }
@@ -704,7 +704,7 @@ impl BlockParentRef {
     pub fn declare_field(&self, index: FieldIndex, ast: &Ast) -> Result<(), EvalException> {
         match self {
             BlockParentRef::BlockRef(block) => block.declare_field(index, ast),
-            BlockParentRef::AstRef(ref ast) => ast.root.declare_field(index),
+            BlockParentRef::AstRef(ast) => ast.root.declare_field(index),
         }
     }
     pub fn set_local_field(
@@ -729,8 +729,8 @@ impl BlockParentRef {
 impl fmt::Debug for BlockParentRef {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            BlockParentRef::BlockRef(ref block) => block.fmt(f),
-            BlockParentRef::AstRef(ref ast) => f
+            BlockParentRef::BlockRef(block) => block.fmt(f),
+            BlockParentRef::AstRef(ast) => f
                 .debug_struct("AstRef")
                 .field("fields", &ast.root.field_names())
                 .finish(),

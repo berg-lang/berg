@@ -2,7 +2,7 @@
 name = "berg-parser"
 version = "0.1.0"
 authors = ["John Keiser <john@johnkeiser.com>"]
-edition = "2021"
+edition = "2024"
 
 [dependencies]
 clippy = {version = "*", optional = true}

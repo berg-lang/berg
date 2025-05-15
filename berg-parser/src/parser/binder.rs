@@ -230,7 +230,7 @@ impl Binder {
         // TODO This is slow and by itself justifies us not doing binding at the same time as
         // open/close matching.
         for token in self.ast.tokens.iter_mut().skip(open_index.into()) {
-            if let Token::Operator(OperatorToken::CloseBlock(ref mut other_index, _)) = token {
+            if let Token::Operator(OperatorToken::CloseBlock(other_index, _)) = token {
                 assert!(*other_index >= index);
                 *other_index += 1;
             }

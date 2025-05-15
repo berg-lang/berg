@@ -127,7 +127,7 @@ impl<'a> io::Read for SourceReconstructionReader<'a> {
 
 impl<'a> SourceReconstructionIterator<'a> {
     fn new(ast: &'a Ast, range: ByteRange) -> Self {
-        assert!(ast.tokens.len() > 0);
+        assert!(!ast.tokens.is_empty());
         let index = range.start;
         SourceReconstructionIterator {
             ast,

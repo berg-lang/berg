@@ -204,7 +204,7 @@ impl ObjectValue for EvalException {
     {
         use EvalException::*;
         match self {
-            Error(ref mut value) => value.set_field(name, field_value),
+            Error(value) => value.set_field(name, field_value),
             Thrown(..) => self.clone().err(),
         }
     }

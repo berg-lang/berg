@@ -347,8 +347,7 @@ fn test_root() -> RootRef {
     // Steal "source"
     let out: Vec<u8> = vec![];
     let err: Vec<u8> = vec![];
-    let root = SourceRoot::new_error(io::Error::new(
-        io::ErrorKind::Other,
+    let root = SourceRoot::new_error(io::Error::other(
         "SYSTEM ERROR: no relative path--this error should be impossible to trigger",
     ));
     RootRef::new(root, Box::new(out), Box::new(err))
