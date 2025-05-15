@@ -100,6 +100,7 @@ impl Mask64Builder {
     }
 }
 
+
 impl SimdMaskBuilder {
     #[inline(always)]
     pub fn push<T: MaskElement, const N: usize>(&mut self, mask: Mask<T, N>, u64_lane: usize) where LaneCount<N>: SupportedLaneCount {
@@ -112,17 +113,17 @@ impl SimdMaskBuilder {
         //   return vgetq_lane_u64(vreinterpretq_u64_u8(sum0), 0);        
         let mask = mask.to_bitmask_vector() & NTH_BIT;
         match u64_lane {
-            // self.0 = 0
+            // self.0 = L8<0>
             0 => self.0 = mask,
 
-            // self.0 = 0+1
+            // self.0 = L4<0+1>
             1 => self.0 = vpaddq_u8(self.0.into(), mask.into()),
 
-            // self.0 = 0+1
-            // self.1 = 2
+            // self.0 = L4<0+1>
+            // self.1 = L8<2>
             2 => self.1 = mask,
 
-            // self.0 = 0+1+2+3
+            // self.0 = L2<0+1+2+3>
             3 => {
                 self.1 = vpaddq_u8(self.1.into(), mask.into());
                 self.0 = vpaddq_u8(self.0.into(), second);
