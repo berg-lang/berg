@@ -264,12 +264,12 @@ impl fmt::Debug for BergVal {
         use BergVal::*;
         write!(f, "BergVal(")?;
         match self {
-            Boolean(value) => write!(f, "{}", value)?,
-            BigRational(value) => write!(f, "{}", value)?,
-            BlockRef(value) => write!(f, "{}", value)?,
-            CaughtException(value) => write!(f, "{}", value)?,
-            CompilerError(value) => write!(f, "{}", value)?,
-            Tuple(value) => write!(f, "{}", value)?,
+            Boolean(value) => write!(f, "{value}")?,
+            BigRational(value) => write!(f, "{value}")?,
+            BlockRef(value) => write!(f, "{value}")?,
+            CaughtException(value) => write!(f, "{value}")?,
+            CompilerError(value) => write!(f, "{value}")?,
+            Tuple(value) => write!(f, "{value}")?,
         }
         write!(f, ")")
     }
@@ -279,12 +279,12 @@ impl fmt::Display for BergVal {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         use BergVal::*;
         match self {
-            Boolean(value) => write!(f, "{}", value),
-            BigRational(value) => write!(f, "{}", value),
-            BlockRef(value) => write!(f, "{}", value),
-            CaughtException(value) => write!(f, "{}", value),
-            CompilerError(value) => write!(f, "{}", value),
-            Tuple(value) => write!(f, "{}", value),
+            Boolean(value) => write!(f, "{value}"),
+            BigRational(value) => write!(f, "{value}"),
+            BlockRef(value) => write!(f, "{value}"),
+            CaughtException(value) => write!(f, "{value}"),
+            CompilerError(value) => write!(f, "{value}"),
+            Tuple(value) => write!(f, "{value}"),
         }
     }
 }

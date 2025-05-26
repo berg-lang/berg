@@ -194,7 +194,13 @@ impl Binder {
     ) {
         let (index, ast_block) = {
             let open_scope = self.open_scope();
-            assert!(open_index > open_scope.open_index, "Expected open {:?} to be inserted after {:?}, but it's being before it ({:?}) instead ...", boundary, self.tokens[open_scope.open_index], self.tokens[open_index - 1]);
+            assert!(
+                open_index > open_scope.open_index,
+                "Expected open {:?} to be inserted after {:?}, but it's being before it ({:?}) instead ...",
+                boundary,
+                self.tokens[open_scope.open_index],
+                self.tokens[open_index - 1]
+            );
 
             let open_block = &self.blocks[open_scope.index];
 
@@ -207,7 +213,7 @@ impl Binder {
                 delta,
                 boundary,
             };
-            println!("insert block {:?} at {}", ast_block, index);
+            println!("insert block {ast_block:?} at {index}");
             (index, ast_block)
         };
 
@@ -296,7 +302,7 @@ impl Binder {
 
     pub fn push_token(&mut self, token: impl Into<Token>, range: ByteRange) -> AstIndex {
         let token = token.into();
-        println!("PUSH {:?}", token);
+        println!("PUSH {token:?}");
         // Validate that we push tokens in increasing order
         assert!(
             match self.token_ranges.last() {
@@ -314,7 +320,7 @@ impl Binder {
 
     pub fn insert_token(&mut self, index: AstIndex, token: impl Into<Token>, range: ByteRange) {
         let token = token.into();
-        println!("INSERT {:?} AT {}", token, index);
+        println!("INSERT {token:?} AT {index}");
         assert!(index == 0 || range.start >= self.token_ranges[index - 1].end);
         assert!(index == self.token_ranges.len() || range.end <= self.token_ranges[index].start);
         self.tokens.insert(index, token);

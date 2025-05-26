@@ -1,4 +1,4 @@
-use berg_util::{index_type, IndexedVec};
+use berg_util::{IndexedVec, index_type};
 use std::borrow::Cow;
 use string_interner::backend::StringBackend;
 use string_interner::{DefaultSymbol, StringInterner};
@@ -141,6 +141,6 @@ impl fmt::Display for OperandPosition {
             Left | PostfixOperand => "left side",
             Right | PrefixOperand => "right side",
         };
-        write!(f, "{}", string)
+        write!(f, "{string}")
     }
 }

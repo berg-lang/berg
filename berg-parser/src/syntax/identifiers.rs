@@ -1,7 +1,7 @@
 use std::fmt;
 use std::num::NonZeroU32;
 use std::ops::Range;
-use string_interner::{backend::StringBackend, StringInterner, Symbol};
+use string_interner::{StringInterner, Symbol, backend::StringBackend};
 
 #[derive(Copy, Clone, PartialEq, Eq, Ord, PartialOrd)]
 pub struct IdentifierIndex(NonZeroU32);
@@ -133,7 +133,7 @@ impl Symbol for IdentifierIndex {
 impl fmt::Display for IdentifierIndex {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         if let Some(string) = self.as_str() {
-            write!(f, "{}", string)
+            write!(f, "{string}")
         } else {
             write!(f, "{}", self.to_usize())
         }
@@ -142,7 +142,7 @@ impl fmt::Display for IdentifierIndex {
 impl fmt::Debug for IdentifierIndex {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         if let Some(string) = self.as_str() {
-            write!(f, "{}", string)
+            write!(f, "{string}")
         } else {
             write!(f, "{}", self.to_usize())
         }

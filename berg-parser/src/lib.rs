@@ -4,7 +4,7 @@ pub(crate) mod bytes;
 mod parser;
 pub(crate) mod syntax;
 
-pub use bytes::{line_column::LineColumnRange, ByteIndex, ByteRange, ByteSlice};
+pub use bytes::{ByteIndex, ByteRange, ByteSlice, line_column::LineColumnRange};
 pub use parser::parse;
 pub use syntax::{
     ast::{Ast, AstIndex, LiteralIndex, RawLiteralIndex},

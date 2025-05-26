@@ -92,7 +92,7 @@ impl DocumentLines {
 
         let line = unsafe { LineNumber::new_unchecked(line as u32) };
         let bytes_to_column = index - self.line_start(line);
-        let column = unsafe { ColumnNumber::new_unchecked(bytes_to_column.0 .0 + 1) };
+        let column = unsafe { ColumnNumber::new_unchecked(bytes_to_column.0.0 + 1) };
         LineColumn { line, column }
     }
 

@@ -56,7 +56,7 @@ impl<'a> fmt::Display for ExpressionTreeWalker<'a, ExpressionFormatter> {
                 Open(..) => {
                     let (open, close) = self.boundary_strings();
                     let inner = self.inner_expression();
-                    write!(f, "{}{}{}", open, inner, close)
+                    write!(f, "{open}{inner}{close}")
                 }
             },
             Operator(token) => match token {

@@ -8,8 +8,8 @@ use std::{env, io};
 
 use berg_parser::{Ast, ByteIndex, ByteSlice};
 
-use super::compiler_error::SourceLoadError;
 use super::RootRef;
+use super::compiler_error::SourceLoadError;
 
 #[derive(Debug)]
 pub struct SourceRoot(Result<Cow<'static, Path>, SourceLoadError>);
@@ -116,7 +116,7 @@ impl SourceFileSpec {
                 return Err(match io_error.kind() {
                     io::ErrorKind::NotFound => SourceNotFound(Rc::new(io_error)),
                     _ => IoOpenError(Rc::new(io_error)),
-                })
+                });
             }
         };
 

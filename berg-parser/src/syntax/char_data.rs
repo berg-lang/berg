@@ -4,7 +4,7 @@ use std::num::NonZeroU32;
 use string_interner::backend::StringBackend;
 use string_interner::{StringInterner, Symbol};
 
-use crate::bytes::{line_column::DocumentLines, ByteIndex};
+use crate::bytes::{ByteIndex, line_column::DocumentLines};
 
 use super::ast::AstIndex;
 

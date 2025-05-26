@@ -72,12 +72,12 @@ impl AstBlock {
         let scope_end = self.scope_start + self.scope_count;
         while field_index < scope_end {
             // Bypass any indices that are owned by child blocks.
-            if let Some(child) = ast.blocks.get(child_index) {
-                if field_index >= child.scope_start {
-                    field_index = child.scope_start + child.scope_count;
-                    child_index += 1;
-                    continue;
-                }
+            if let Some(child) = ast.blocks.get(child_index)
+                && field_index >= child.scope_start
+            {
+                field_index = child.scope_start + child.scope_count;
+                child_index += 1;
+                continue;
             }
 
             let field = &ast.fields[field_index];

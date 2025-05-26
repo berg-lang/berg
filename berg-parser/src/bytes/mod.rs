@@ -1,4 +1,4 @@
-use berg_util::{index_type, IndexedSlice};
+use berg_util::{IndexedSlice, index_type};
 use std::ops::Range;
 
 pub mod line_column;

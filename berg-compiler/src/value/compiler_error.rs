@@ -299,7 +299,7 @@ impl From<CompilerError> for EvalVal {
 
 impl fmt::Display for CompilerError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{:?}", self)
+        write!(f, "{self:?}")
     }
 }
 
@@ -357,7 +357,7 @@ impl fmt::Display for CompilerErrorCode {
             FinallyWithoutResult => "FinallyWithoutResult",
             ThrowWithoutException => "ThrowWithoutException",
         };
-        write!(f, "{}", string)
+        write!(f, "{string}")
     }
 }
 
@@ -365,10 +365,10 @@ impl fmt::Display for EvalException {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         use EvalException::*;
         match self {
-            Error(error) => write!(f, "{}", error),
+            Error(error) => write!(f, "{error}"),
             Thrown(error, position) => match position {
-                ExpressionPosition::Expression => write!(f, "{:?}", error),
-                _ => write!(f, "{:?} at {:?}", error, position),
+                ExpressionPosition::Expression => write!(f, "{error:?}"),
+                _ => write!(f, "{error:?} at {position:?}"),
             },
         }
     }
@@ -527,29 +527,42 @@ impl CompilerError {
         match *self {
             SourceLoadError(ref error) => error.fmt_display(&expression.ast, f),
             InvalidUtf8(raw_literal) => {
-                write!(f, "Invalid UTF-8 bytes! Perhaps this isn't a Berg UTF-8 source file? Invalid bytes: '")?;
+                write!(
+                    f,
+                    "Invalid UTF-8 bytes! Perhaps this isn't a Berg UTF-8 source file? Invalid bytes: '"
+                )?;
                 let bytes = expression.ast.raw_literal_string(raw_literal);
                 // Only print up to the first 12 bytes to prevent the error message from being ridiculous
                 let print_max = 12.min(bytes.len());
                 for byte in &bytes[0..print_max] {
-                    write!(f, "{:2X}", byte)?;
+                    write!(f, "{byte:2X}")?;
                 }
                 if print_max > 12 {
                     write!(f, "...")?;
                 }
                 write!(f, "'")
             }
-            UnsupportedCharacters(literal) => write!(f, "Unsupported Unicode characters! Perhaps this isn't a Berg source file? Unsupported characters: '{}'", expression.ast.literal_string(literal)),
+            UnsupportedCharacters(literal) => write!(
+                f,
+                "Unsupported Unicode characters! Perhaps this isn't a Berg source file? Unsupported characters: '{}'",
+                expression.ast.literal_string(literal)
+            ),
             OpenWithoutClose => write!(
                 f,
                 "Open '{}' found without a matching close '{}'.",
-                expression.expression().open_token().to_string(&expression.ast),
+                expression
+                    .expression()
+                    .open_token()
+                    .to_string(&expression.ast),
                 expression.expression().boundary().close_string()
             ),
             CloseWithoutOpen => write!(
                 f,
                 "Close '{}' found without a matching open '{}'.",
-                expression.expression().close_token().to_string(&expression.ast),
+                expression
+                    .expression()
+                    .close_token()
+                    .to_string(&expression.ast),
                 expression.expression().boundary().open_string()
             ),
             UnsupportedOperator(ref value, fixity, identifier) => write!(
@@ -669,10 +682,7 @@ impl CompilerError {
                 "try block must be a block! Did you mean to add brackets here, like '{{ {} }}'?",
                 expression.expression()
             ),
-            TryWithoutCatchOrFinally => write!(
-                f,
-                "try must be followed by catch or finally!"
-            ),
+            TryWithoutCatchOrFinally => write!(f, "try must be followed by catch or finally!"),
             CatchWithoutBlock => write!(
                 f,
                 "catch statement missing a block! catch requires a block to run, such as 'try {{ 1/0 }} catch {{ :error.CompilerErrorCode }}'."
@@ -686,10 +696,7 @@ impl CompilerError {
                 f,
                 "catch statement must follow an expression! For example, '{{ 1/0 }} catch {{ :error.CompilerErrorCode }}'?"
             ),
-            CatchWithoutFinally => write!(
-                f,
-                "catch must be followed by finally (or nothing)!"
-            ),
+            CatchWithoutFinally => write!(f, "catch must be followed by finally (or nothing)!"),
             FinallyWithoutBlock => write!(
                 f,
                 "finally statement missing a block! while requires a block to run, such as 'while x < 10 {{ x++ }}'?"
@@ -731,31 +738,38 @@ impl CompilerError {
                 "Field names must start with letters or '_', but '{}' starts with a number! You may have mistyped the field name, or missed an operator?",
                 expression.ast.literal_string(literal)
             ),
-            CircularDependency => write!(
-                f,
-                "Circular dependency at '{}'!",
-                expression
-            ),
+            CircularDependency => write!(f, "Circular dependency at '{expression}'!",),
             MissingOperand => write!(
                 f,
                 "Operator {} has no value on {} to operate on!",
-                expression.expression().parent_expression().token().to_string(&expression.ast),
+                expression
+                    .expression()
+                    .parent_expression()
+                    .token()
+                    .to_string(&expression.ast),
                 expression.expression().operand_position()
             ),
             AssignmentTargetMustBeIdentifier => write!(
                 f,
                 "The assignment operator '{operator}' must have a field declaration or name on {position} (like \":foo {operator} ...\" or \"foo {operator} ...\": {position} is currently {operand}.",
-                operator = expression.expression().parent_expression().token().to_string(&expression.ast),
+                operator = expression
+                    .expression()
+                    .parent_expression()
+                    .token()
+                    .to_string(&expression.ast),
                 position = expression.expression().operand_position(),
                 operand = expression,
             ),
             RightSideOfDotMustBeIdentifier => write!(
                 f,
                 "The field access operator '.' must have an identifier on the right side (like \"{left}.FieldName\"): currently it is '{right}'.",
-                left = expression.expression().parent_expression().left_expression(),
+                left = expression
+                    .expression()
+                    .parent_expression()
+                    .left_expression(),
                 right = expression.expression(),
             ),
-            BadOperandType(ref actual_value,expected_type) => write!(
+            BadOperandType(ref actual_value, expected_type) => write!(
                 f,
                 "The value of '{operand}' is {actual_value}, but {position} '{operator}' must be an {expected_type}!",
                 operand = expression.expression(),
@@ -803,24 +817,15 @@ impl SourceLoadError {
     pub fn fmt_display(&self, ast: &AstRef, f: &mut fmt::Formatter) -> fmt::Result {
         use self::SourceLoadError::*;
         match self {
-            SourceNotFound(io_error) => write!(
-                f,
-                "Source not found {}: {}",
-                ast.source.name(),
-                io_error
-            ),
-            IoOpenError(io_error) => write!(
-                f,
-                "I/O error opening {}: {}",
-                ast.source.name(),
-                io_error
-            ),
-            IoReadError(io_error) => write!(
-                f,
-                "I/O error reading {}: {}",
-                ast.source.name(),
-                io_error
-            ),
+            SourceNotFound(io_error) => {
+                write!(f, "Source not found {}: {}", ast.source.name(), io_error)
+            }
+            IoOpenError(io_error) => {
+                write!(f, "I/O error opening {}: {}", ast.source.name(), io_error)
+            }
+            IoReadError(io_error) => {
+                write!(f, "I/O error reading {}: {}", ast.source.name(), io_error)
+            }
             CurrentDirectoryError(io_error) => write!(
                 f,
                 "I/O error getting current directory while opening {}: {}",

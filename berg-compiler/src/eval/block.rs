@@ -505,8 +505,8 @@ impl OperableValue for BlockRef {
     where
         Self: Sized,
     {
-        use berg_parser::identifiers::*;
         use EvalVal::*;
+        use berg_parser::identifiers::*;
 
         match operator {
             DOT => default_infix(self, operator, right),
@@ -601,9 +601,9 @@ impl fmt::Display for BlockRef {
                 let name = ast.identifier_string(field.name);
 
                 match field_value {
-                    Val(value) => write!(f, "{}: {}", name, value)?,
-                    NotDeclared => write!(f, "{}: <undeclared>", name)?,
-                    NotSet => write!(f, "{}: <not set>", name)?,
+                    Val(value) => write!(f, "{name}: {value}")?,
+                    NotDeclared => write!(f, "{name}: <undeclared>")?,
+                    NotSet => write!(f, "{name}: <not set>")?,
                 }
             }
             write!(f, "}}")?;
@@ -636,7 +636,7 @@ impl fmt::Debug for BlockRef {
         write!(f, "BlockRef {{ state: {:?}", block.state)?;
         match &block.input {
             Some(Ok(BergVal::Tuple(tuple))) if tuple.is_empty() => {}
-            input => write!(f, ", input: {:?}", input)?,
+            input => write!(f, ", input: {input:?}")?,
         }
         if !block.fields.is_empty() {
             write!(f, ", fields: {{")?;
@@ -653,9 +653,9 @@ impl fmt::Debug for BlockRef {
                 let name = ast.identifier_string(field.name);
 
                 match field_value {
-                    Val(value) => write!(f, "{}: {:?}", name, value)?,
-                    NotDeclared => write!(f, "{}: <undeclared>", name)?,
-                    NotSet => write!(f, "{}: <not set>", name)?,
+                    Val(value) => write!(f, "{name}: {value:?}")?,
+                    NotDeclared => write!(f, "{name}: <undeclared>")?,
+                    NotSet => write!(f, "{name}: <not set>")?,
                 }
             }
             write!(f, "}}")?;

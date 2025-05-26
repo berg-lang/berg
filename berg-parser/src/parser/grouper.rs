@@ -134,14 +134,14 @@ impl Grouper {
         // e.g. 1+2>3*4 -> 1+2>(3* ...
         // e.g. 1>2+3*4 -> 1>(2+(3* ...
         let open_expression = self.open_expression();
-        if let Some((infix, index)) = open_expression.infix {
-            if infix.takes_right_child(next_infix) {
-                self.open_expressions.push(OpenExpression {
-                    open_index: index + 1,
-                    boundary: PrecedenceGroup,
-                    infix: None,
-                });
-            }
+        if let Some((infix, index)) = open_expression.infix
+            && infix.takes_right_child(next_infix)
+        {
+            self.open_expressions.push(OpenExpression {
+                open_index: index + 1,
+                boundary: PrecedenceGroup,
+                infix: None,
+            });
         }
     }
 

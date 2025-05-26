@@ -358,7 +358,7 @@ pub mod implement {
                         (None, None) => return true.ok(),
                         (Some(_), None) | (None, Some(_)) => return false.ok(),
                         (Some(left), Some(right)) => {
-                            println!("EQUAL {} == {}", left, right);
+                            println!("EQUAL {left} == {right}");
                             if left.infix(EQUAL_TO, right.into()).into_native::<bool>()? {
                                 left_next = left_next.tail.next_val()?;
                                 right_next = right_next.tail.next_val()?;

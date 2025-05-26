@@ -64,7 +64,7 @@ impl<'a> ExpressionEvaluator<'a> {
     }
     fn evaluate_local(self) -> Result<EvalVal, Exception> {
         let indent = "  ".repeat(self.depth());
-        println!("{}Evaluating {} ...", indent, self);
+        println!("{indent}Evaluating {self} ...");
         use ErrorTermError::*;
         use ExpressionBoundaryError::*;
         use ExpressionToken::*;

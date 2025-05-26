@@ -1,6 +1,6 @@
 use crate::value::implement::*;
-use berg_parser::identifiers::*;
 use berg_parser::IdentifierIndex;
+use berg_parser::identifiers::*;
 use num::{BigInt, BigRational, One, ToPrimitive, Zero};
 
 impl BergValue for BigRational {}

@@ -1,9 +1,9 @@
 use crate::eval::BlockRef;
 use crate::value::implement::*;
-use berg_parser::{identifiers::*, ExpressionPosition};
+use EvalVal::*;
+use berg_parser::{ExpressionPosition, identifiers::*};
 use berg_parser::{FieldIndex, IdentifierIndex};
 use std::fmt;
-use EvalVal::*;
 
 ///
 /// The result of an evaluation.
@@ -237,10 +237,7 @@ impl ObjectValue for EvalVal {
             PartialTuple(_) | TrailingComma(_) | TrailingSemicolon | If | Else
             | ConditionalVal(..) | While | WhileCondition(_) | Foreach | ForeachInput(_) | Try
             | TryResult(_) | Catch | TryCatch(_) | CatchResult(_) | Finally | TryFinally(_)
-            | Throw => panic!(
-                "not yet implemented: can't set field {} on {:?} to {}",
-                name, self, value
-            ),
+            | Throw => panic!("not yet implemented: can't set field {name} on {self:?} to {value}"),
         }
     }
 }
@@ -560,27 +557,27 @@ impl fmt::Display for EvalVal {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         use ConditionalState::*;
         match self {
-            Val(v) => write!(f, "{}", v),
-            Target(v) => write!(f, "{}", v),
-            RawIdentifier(v) => write!(f, "{}", v),
+            Val(v) => write!(f, "{v}"),
+            Target(v) => write!(f, "{v}"),
+            RawIdentifier(v) => write!(f, "{v}"),
             MissingExpression => write!(f, "<missing>"),
-            PartialTuple(vec) => write!(f, "<partial tuple> {:?}", vec),
-            TrailingComma(vec) => write!(f, "<trailing ,> {:?}", vec),
+            PartialTuple(vec) => write!(f, "<partial tuple> {vec:?}"),
+            TrailingComma(vec) => write!(f, "<trailing ,> {vec:?}"),
             TrailingSemicolon => write!(f, "<trailing ;>"),
             If => write!(f, "if"),
             Else => write!(f, "else"),
             ConditionalVal(ElseBlock, None) => write!(f, "else <run block>"),
-            ConditionalVal(ElseBlock, Some(v)) => write!(f, "else <ignore block> -> {}", v),
+            ConditionalVal(ElseBlock, Some(v)) => write!(f, "else <ignore block> -> {v}"),
             ConditionalVal(IfCondition, None) => write!(f, "if <run condition>"),
-            ConditionalVal(IfCondition, Some(v)) => write!(f, "if <ignore condition> -> {}", v),
+            ConditionalVal(IfCondition, Some(v)) => write!(f, "if <ignore condition> -> {v}"),
             ConditionalVal(IgnoreBlock, None) => write!(f, "if false <ignore block>"),
-            ConditionalVal(IgnoreBlock, Some(v)) => write!(f, "if <ignore block> -> {}", v),
+            ConditionalVal(IgnoreBlock, Some(v)) => write!(f, "if <ignore block> -> {v}"),
             ConditionalVal(RunBlock, None) => write!(f, "if true <run block>"),
             ConditionalVal(RunBlock, Some(_)) => unreachable!(),
             ConditionalVal(MaybeElse, None) => write!(f, "complete if -> ()"),
-            ConditionalVal(MaybeElse, Some(v)) => write!(f, "complete if -> {}", v),
+            ConditionalVal(MaybeElse, Some(v)) => write!(f, "complete if -> {v}"),
             While => write!(f, "while"),
-            WhileCondition(condition) => write!(f, "while {}", condition),
+            WhileCondition(condition) => write!(f, "while {condition}"),
             Foreach => write!(f, "foreach"),
             ForeachInput(input) => write!(f, "foreach {}", input.display()),
             Try => write!(f, "try"),
@@ -781,7 +778,7 @@ impl fmt::Display for AssignmentTarget {
                     .ast()
                     .identifier_string(scope.ast().fields[*field].name)
             ),
-            ObjectFieldReference(object, name) => write!(f, "{}.{}", object, name),
+            ObjectFieldReference(object, name) => write!(f, "{object}.{name}"),
         }
     }
 }

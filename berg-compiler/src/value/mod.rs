@@ -12,10 +12,10 @@ mod root;
 mod source;
 mod tuple;
 
-pub use self::berg_val::{empty_tuple, BergResult, BergVal};
+pub use self::berg_val::{BergResult, BergVal, empty_tuple};
 pub use self::berg_value::{
-    implement, BergValue, EvaluatableValue, IteratorValue, NextVal, ObjectValue, OperableValue,
-    RightOperand, TryFromBergVal, Value,
+    BergValue, EvaluatableValue, IteratorValue, NextVal, ObjectValue, OperableValue, RightOperand,
+    TryFromBergVal, Value, implement,
 };
 pub use self::compiler_error::{CompilerError, CompilerErrorCode};
 pub use self::eval_val::{AssignmentTarget, EvalResult, EvalVal};

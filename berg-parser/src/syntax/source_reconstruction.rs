@@ -3,7 +3,7 @@ use std::fmt;
 use std::io;
 use std::io::Read;
 
-use crate::bytes::{line_column::LineNumber, ByteIndex, ByteRange};
+use crate::bytes::{ByteIndex, ByteRange, line_column::LineNumber};
 
 use super::ast::{Ast, AstIndex};
 
@@ -182,18 +182,17 @@ impl<'a> SourceReconstructionIterator<'a> {
 
     fn next_comment(&mut self) -> Option<Cow<'a, [u8]>> {
         if let Some((comment, comment_start)) = self.ast.char_data.comments.get(self.comment_index)
+            && *comment_start <= self.index
         {
-            if *comment_start <= self.index {
-                self.comment_index += 1;
-                assert!(
-                    *comment_start + comment.len() > self.index,
-                    "comment {:?} at {} got skipped somehow! Current index is {}.",
-                    comment,
-                    comment_start,
-                    self.index
-                );
-                return self.truncate(*comment_start, comment);
-            }
+            self.comment_index += 1;
+            assert!(
+                *comment_start + comment.len() > self.index,
+                "comment {:?} at {} got skipped somehow! Current index is {}.",
+                comment,
+                comment_start,
+                self.index
+            );
+            return self.truncate(*comment_start, comment);
         }
 
         None
@@ -235,19 +234,18 @@ impl<'a> SourceReconstructionIterator<'a> {
             .char_data
             .whitespace_ranges
             .get(self.whitespace_index)
+            && *whitespace_start <= self.index
         {
-            if *whitespace_start <= self.index {
-                self.whitespace_index += 1;
-                let whitespace_string = self.ast.whitespace_string(*whitespace);
-                assert!(
-                    *whitespace_start + whitespace_string.len() > self.index,
-                    "whitespace {:?} at {} got skipped somehow! Current index is {}.",
-                    whitespace_string,
-                    whitespace_start,
-                    self.index
-                );
-                return self.truncate(*whitespace_start, whitespace_string.as_bytes());
-            }
+            self.whitespace_index += 1;
+            let whitespace_string = self.ast.whitespace_string(*whitespace);
+            assert!(
+                *whitespace_start + whitespace_string.len() > self.index,
+                "whitespace {:?} at {} got skipped somehow! Current index is {}.",
+                whitespace_string,
+                whitespace_start,
+                self.index
+            );
+            return self.truncate(*whitespace_start, whitespace_string.as_bytes());
         }
 
         None

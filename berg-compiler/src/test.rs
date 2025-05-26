@@ -1,12 +1,12 @@
 use crate::eval::evaluate_ast;
 use crate::value::*;
+pub use CompilerErrorCode::*;
 use berg_parser::identifiers::*;
 use berg_parser::{ByteIndex, ByteRange, LineColumnRange};
 use berg_util::{BoundedRange, IntoRange};
 use std::fmt;
 use std::io;
 use std::ops::{Range, RangeFrom, RangeInclusive, RangeTo};
-pub use CompilerErrorCode::*;
 
 ///
 /// Test a string containing Berg source code.
@@ -184,17 +184,14 @@ impl ExpectBerg {
         println!();
         let actual = evaluate_ast(self.parse())
             .and_then(Self::evaluate_all)
-            .unwrap_or_else(|e| panic!("Unexpected error from {}: {}", self, e));
-        println!("actual: {}, expected: {}", actual, expected);
+            .unwrap_or_else(|e| panic!("Unexpected error from {self}: {e}"));
+        println!("actual: {actual}, expected: {expected}");
         assert!(
             expected
                 .clone()
                 .matches(actual.clone())
-                .unwrap_or_else(|e| panic!("Unexpected error from {}: {}", self, e)),
-            "Wrong value returned from {}! expected: {}, actual: {}.",
-            self,
-            expected,
-            actual
+                .unwrap_or_else(|e| panic!("Unexpected error from {self}: {e}")),
+            "Wrong value returned from {self}! expected: {expected}, actual: {actual}.",
         );
     }
 
@@ -263,9 +260,8 @@ impl ExpectBerg {
             expected_value
                 .clone()
                 .matches(actual.value.clone())
-                .unwrap_or_else(|e| panic!("Unexpected error: {}", e)),
-            "Wrong error returned from {}! expected: {}, actual: {}.",
-            self,
+                .unwrap_or_else(|e| panic!("Unexpected error: {e}")),
+            "Wrong error returned from {self}! expected: {}, actual: {}.",
             self.error_string(&expected_value, expected_range, &ast),
             self.error_string(&actual.value, actual_range, &ast)
         );
@@ -396,14 +392,14 @@ impl<T: ExpectedErrorRange, Within: ExpectedErrorRange> ExpectedErrorRange
 {
     fn into_error_range(self, source: &[u8]) -> ByteRange {
         let within_range = self.within.into_error_range(source);
-        println!("within {:?}", within_range);
+        println!("within {within_range:?}");
         let mut range = self
             .error_range
             .into_error_range(&source[within_range.start.into()..within_range.end.into()]);
-        println!("range {:?}", range);
+        println!("range {range:?}");
         range.start += usize::from(within_range.start);
         range.end += usize::from(within_range.start);
-        println!("result {:?}", range);
+        println!("result {range:?}");
         range
     }
 }

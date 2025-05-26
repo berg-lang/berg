@@ -1,15 +1,15 @@
-use crate::bytes::{line_column::DocumentLines, ByteIndex, ByteRange, ByteSlice};
+use crate::bytes::{ByteIndex, ByteRange, ByteSlice, line_column::DocumentLines};
 use crate::syntax::{
     ast::{Ast, AstIndex},
     char_data::{CharData, WhitespaceIndex},
     token::{ErrorTermError, ExpressionBoundary, InlineBlockLevel, RawErrorTermError},
 };
-use berg_util::Delta;
-use std::{borrow::Cow, cmp::min, collections::HashMap, num::NonZeroU32, str};
-use string_interner::{backend::StringBackend, StringInterner};
 use CharType::*;
 use ErrorTermError::*;
 use ExpressionBoundary::*;
+use berg_util::Delta;
+use std::{borrow::Cow, cmp::min, collections::HashMap, num::NonZeroU32, str};
+use string_interner::{StringInterner, backend::StringBackend};
 
 use super::{
     scanner::{CharType, Scanner},

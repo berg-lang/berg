@@ -175,7 +175,7 @@ impl fmt::Display for Tuple {
             } else {
                 write!(f, ",")?;
             }
-            write!(f, "{}", elem)?;
+            write!(f, "{elem}")?;
         }
         write!(f, ")")
     }

@@ -10,8 +10,8 @@ use super::{
     identifiers,
     precedence::Precedence,
 };
-use identifiers::*;
 use ExpressionBoundary::*;
+use identifiers::*;
 
 ///
 /// One atomic unit of an expression.
@@ -358,8 +358,8 @@ impl fmt::Debug for Token {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         use Token::*;
         match self {
-            Expression(token) => write!(f, "{:?}", token),
-            Operator(token) => write!(f, "{:?}", token),
+            Expression(token) => write!(f, "{token:?}"),
+            Operator(token) => write!(f, "{token:?}"),
         }
     }
 }
@@ -515,8 +515,8 @@ impl TermToken {
         use TermToken::*;
         match self {
             IntegerLiteral(literal) => ast.literal_string(literal).into(),
-            ErrorTerm(code, ..) => format!("error({:?})", code).into(),
-            RawErrorTerm(code, ..) => format!("error({:?})", code).into(),
+            ErrorTerm(code, ..) => format!("error({code:?})").into(),
+            RawErrorTerm(code, ..) => format!("error({code:?})").into(),
             FieldReference(field) => ast.identifier_string(ast.fields[field].name).into(),
             RawIdentifier(identifier) => ast.identifier_string(identifier).into(),
             MissingExpression => "".into(),
@@ -718,6 +718,6 @@ impl fmt::Display for Fixity {
             Close => "close",
             Postfix => "postfix",
         };
-        write!(f, "{}", fixity)
+        write!(f, "{fixity}")
     }
 }

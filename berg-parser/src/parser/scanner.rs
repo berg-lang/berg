@@ -1,8 +1,8 @@
 use std::borrow::Cow;
 
-use berg_util::Delta;
 use ByteType::*;
 use CharType::*;
+use berg_util::Delta;
 
 use super::sequencer::{PartialSequence, Sequence};
 use crate::bytes::{ByteIndex, ByteRange, ByteSlice};

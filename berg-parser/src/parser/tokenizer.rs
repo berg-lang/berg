@@ -3,7 +3,7 @@ use crate::{
     identifiers::COLON,
     syntax::{
         ast::{LiteralIndex, RawLiteralIndex},
-        identifiers::{self, IdentifierIndex, APPLY, FOLLOWED_BY, NEWLINE_SEQUENCE},
+        identifiers::{self, APPLY, FOLLOWED_BY, IdentifierIndex, NEWLINE_SEQUENCE},
         token::{
             ErrorTermError, ExpressionBoundary, ExpressionToken, Fixity, InlineBlockLevel,
             OperatorToken, RawErrorTermError, TermToken,
@@ -11,12 +11,12 @@ use crate::{
     },
 };
 
-use berg_util::IndexedVec;
-use string_interner::{backend::StringBackend, StringInterner};
 use ExpressionToken::*;
 use OperatorToken::*;
 use TermToken::*;
 use WhitespaceState::*;
+use berg_util::IndexedVec;
+use string_interner::{StringInterner, backend::StringBackend};
 
 use super::{
     grouper::Grouper,
