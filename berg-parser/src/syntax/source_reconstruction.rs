@@ -3,10 +3,9 @@ use std::fmt;
 use std::io;
 use std::io::Read;
 
-use super::ast::Ast;
-use super::ast::AstIndex;
-use super::bytes::ByteIndex;
-use super::bytes::ByteRange;
+use crate::bytes::{line_column::LineNumber, ByteIndex, ByteRange};
+
+use super::ast::{Ast, AstIndex};
 
 ///
 /// Reconstructs a range of source from the parsed AST.
@@ -48,7 +47,7 @@ struct SourceReconstructionIterator<'a> {
     /// The next whitespace.
     whitespace_index: usize,
     /// The next line start.
-    line_start_index: usize,
+    line: LineNumber,
 }
 
 impl<'a> SourceReconstruction<'a> {
@@ -136,7 +135,7 @@ impl<'a> SourceReconstructionIterator<'a> {
             ast_index: find_ast_index(ast, index),
             comment_index: find_comment_index(ast, index),
             whitespace_index: find_whitespace_index(ast, index),
-            line_start_index: 0,
+            line: LineNumber::ONE,
         }
     }
 }
@@ -259,17 +258,19 @@ impl<'a> SourceReconstructionIterator<'a> {
     ///
     fn next_newline(&mut self) -> Option<Cow<'a, [u8]>> {
         // If this is a line start, increment the line start index and return "\n".
-        while let Some(line_start) = self.ast.char_data.line_starts.get(self.line_start_index) {
+        while self.line <= self.ast.char_data.lines.last_line_number() {
+            let line_start = self.ast.char_data.lines.line_start(self.line);
+
             // We haven't reached the line ending yet.
-            if *line_start > self.index + 1 {
+            if line_start > self.index + 1 {
                 break;
             }
 
             // We may have to skip a few line starts if some of them had alternate
             // line endings like \r or \r\n in them (and therefore we found the space
             // string in next_whitespace()).
-            self.line_start_index += 1;
-            if *line_start == self.index + 1 {
+            self.line = self.line.next_line();
+            if line_start == self.index + 1 {
                 return Some("\n".as_bytes().into());
             }
         }

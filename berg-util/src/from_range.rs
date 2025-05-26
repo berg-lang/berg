@@ -1,6 +1,5 @@
-use std::ops::Add;
 use std::ops::{
-    Range, RangeBounds, RangeFrom, RangeFull, RangeInclusive, RangeTo, RangeToInclusive,
+    Add, Range, RangeBounds, RangeFrom, RangeFull, RangeInclusive, RangeTo, RangeToInclusive,
 };
 
 pub trait IntoRange<ToIndex> {
@@ -14,42 +13,43 @@ pub trait FromRange<FromIndex> {
     fn from_range(from: Self::From) -> Self;
 }
 
-impl<FromIndex, ToIndex: From<FromIndex>> FromRange<FromIndex> for Range<ToIndex> {
+impl<ToIndex, FromIndex: Into<ToIndex>> FromRange<FromIndex> for Range<ToIndex> {
     type From = Range<FromIndex>;
     fn from_range(from: Self::From) -> Self {
         Self {
-            start: ToIndex::from(from.start),
-            end: ToIndex::from(from.end),
+            start: from.start.into(),
+            end: from.end.into(),
         }
     }
 }
-impl<FromIndex, ToIndex: From<FromIndex>> FromRange<FromIndex> for RangeFrom<ToIndex> {
+impl<ToIndex, FromIndex: Into<ToIndex>> FromRange<FromIndex> for RangeFrom<ToIndex> {
     type From = RangeFrom<FromIndex>;
     fn from_range(from: Self::From) -> Self {
         Self {
-            start: ToIndex::from(from.start),
+            start: from.start.into(),
         }
     }
 }
-impl<FromIndex: Copy, ToIndex: From<FromIndex>> FromRange<FromIndex> for RangeInclusive<ToIndex> {
+impl<ToIndex, FromIndex: Into<ToIndex>> FromRange<FromIndex> for RangeInclusive<ToIndex> {
     type From = RangeInclusive<FromIndex>;
     fn from_range(from: Self::From) -> Self {
-        Self::new(ToIndex::from(*from.end()), ToIndex::from(*from.end()))
+        let (start, end) = from.into_inner();
+        Self::new(start.into(), end.into())
     }
 }
-impl<FromIndex, ToIndex: From<FromIndex>> FromRange<FromIndex> for RangeTo<ToIndex> {
+impl<ToIndex, FromIndex: Into<ToIndex>> FromRange<FromIndex> for RangeTo<ToIndex> {
     type From = RangeTo<FromIndex>;
     fn from_range(from: Self::From) -> Self {
         Self {
-            end: ToIndex::from(from.end),
+            end: from.end.into(),
         }
     }
 }
-impl<FromIndex, ToIndex: From<FromIndex>> FromRange<FromIndex> for RangeToInclusive<ToIndex> {
+impl<ToIndex, FromIndex: Into<ToIndex>> FromRange<FromIndex> for RangeToInclusive<ToIndex> {
     type From = RangeToInclusive<FromIndex>;
     fn from_range(from: Self::From) -> Self {
         Self {
-            end: ToIndex::from(from.end),
+            end: from.end.into(),
         }
     }
 }
@@ -60,42 +60,43 @@ impl<FromIndex> FromRange<FromIndex> for RangeFull {
     }
 }
 
-impl<FromIndex, ToIndex: From<FromIndex>> IntoRange<ToIndex> for Range<FromIndex> {
+impl<ToIndex, FromIndex: Into<ToIndex>> IntoRange<ToIndex> for Range<FromIndex> {
     type Output = Range<ToIndex>;
     fn into_range(self) -> Self::Output {
         Self::Output {
-            start: ToIndex::from(self.start),
-            end: ToIndex::from(self.end),
+            start: self.start.into(),
+            end: self.end.into(),
         }
     }
 }
-impl<FromIndex, ToIndex: From<FromIndex>> IntoRange<ToIndex> for RangeFrom<FromIndex> {
+impl<ToIndex, FromIndex: Into<ToIndex>> IntoRange<ToIndex> for RangeFrom<FromIndex> {
     type Output = RangeFrom<ToIndex>;
     fn into_range(self) -> Self::Output {
         Self::Output {
-            start: ToIndex::from(self.start),
+            start: self.start.into(),
         }
     }
 }
-impl<FromIndex: Copy, ToIndex: From<FromIndex>> IntoRange<ToIndex> for RangeInclusive<FromIndex> {
+impl<ToIndex, FromIndex: Into<ToIndex>> IntoRange<ToIndex> for RangeInclusive<FromIndex> {
     type Output = RangeInclusive<ToIndex>;
     fn into_range(self) -> Self::Output {
-        Self::Output::new(ToIndex::from(*self.start()), ToIndex::from(*self.end()))
+        let (start, end) = self.into_inner();
+        Self::Output::new(start.into(), end.into())
     }
 }
-impl<FromIndex, ToIndex: From<FromIndex>> IntoRange<ToIndex> for RangeTo<FromIndex> {
+impl<ToIndex, FromIndex: Into<ToIndex>> IntoRange<ToIndex> for RangeTo<FromIndex> {
     type Output = RangeTo<ToIndex>;
     fn into_range(self) -> Self::Output {
         Self::Output {
-            end: ToIndex::from(self.end),
+            end: self.end.into(),
         }
     }
 }
-impl<FromIndex, ToIndex: From<FromIndex>> IntoRange<ToIndex> for RangeToInclusive<FromIndex> {
+impl<ToIndex, FromIndex: Into<ToIndex>> IntoRange<ToIndex> for RangeToInclusive<FromIndex> {
     type Output = RangeToInclusive<ToIndex>;
     fn into_range(self) -> Self::Output {
         Self::Output {
-            end: ToIndex::from(self.end),
+            end: self.end.into(),
         }
     }
 }

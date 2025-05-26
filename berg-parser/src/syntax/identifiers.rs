@@ -64,6 +64,9 @@ identifiers! {
     PLUS_ONE = "<plus_one>",
     MINUS_ONE = "<minus_one>",
 
+    INLINE_BLOCK_LEVEL_ONE = "===",
+    INLINE_BLOCK_LEVEL_TWO = "---",
+
     TRUE = "true",
     FALSE = "false",
     IF = "if",

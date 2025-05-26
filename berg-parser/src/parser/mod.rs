@@ -8,7 +8,8 @@ use std::borrow::Cow;
 
 use sequencer::Sequencer;
 
-use crate::syntax::{ast::Ast, bytes::ByteSlice};
+use crate::bytes::ByteSlice;
+use crate::syntax::ast::Ast;
 
 ///
 /// Opens and parses the source into an AST.

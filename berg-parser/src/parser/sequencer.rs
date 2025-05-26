@@ -1,21 +1,15 @@
+use crate::bytes::{line_column::DocumentLines, ByteIndex, ByteRange, ByteSlice};
 use crate::syntax::{
-    ast::{Ast, LiteralIndex, WhitespaceIndex},
-    bytes::{ByteIndex, ByteRange, ByteSlice},
-    identifiers::IdentifierIndex,
-    token::{
-        ErrorTermError, ExpressionBoundary, ExpressionToken, OperatorToken, RawErrorTermError,
-        TermToken,
-    },
+    ast::{Ast, AstIndex},
+    char_data::{CharData, WhitespaceIndex},
+    token::{ErrorTermError, ExpressionBoundary, InlineBlockLevel, RawErrorTermError},
 };
 use berg_util::Delta;
-use std::borrow::Cow;
-use std::cmp::min;
+use std::{borrow::Cow, cmp::min, collections::HashMap, num::NonZeroU32, str};
+use string_interner::{backend::StringBackend, StringInterner};
 use CharType::*;
 use ErrorTermError::*;
 use ExpressionBoundary::*;
-use ExpressionToken::*;
-use OperatorToken::*;
-use TermToken::*;
 
 use super::{
     scanner::{CharType, Scanner},
@@ -57,6 +51,11 @@ pub struct Sequencer {
     current_indent: IndentLevel,
     /// Whitespace for current indent level.
     current_indent_whitespace: Option<WhitespaceIndex>,
+    pub line_starts: Vec<ByteIndex>,
+    pub whitespace_characters: StringInterner<StringBackend<WhitespaceIndex>>,
+    pub whitespace_ranges: Vec<(WhitespaceIndex, ByteIndex)>,
+    pub comments: Vec<(Vec<u8>, ByteIndex)>,
+    pub inline_header_delimiters: HashMap<AstIndex, NonZeroU32>,
 }
 
 ///
@@ -64,15 +63,33 @@ pub struct Sequencer {
 ///
 pub type IndentLevel = Delta<ByteIndex>;
 
+#[derive(Copy, Clone)]
+pub struct Sequence<'s> {
+    pub buffer: &'s ByteSlice,
+    pub start: ByteIndex,
+    pub end: ByteIndex,
+}
+
+#[derive(Copy, Clone)]
+pub struct PartialSequence<'s> {
+    pub buffer: &'s ByteSlice,
+    pub start: ByteIndex,
+    pub full_end: ByteIndex,
+    pub partial_end: ByteIndex,
+}
+
 impl Sequencer {
     pub fn new(buffer: Cow<'static, ByteSlice>) -> Self {
-        let tokenizer = Tokenizer::default();
-        let scanner = Scanner::new(buffer);
         Sequencer {
-            tokenizer,
-            scanner,
+            tokenizer: Tokenizer::new(),
+            scanner: Scanner::new(buffer),
             current_indent: 0.into(),
             current_indent_whitespace: None,
+            line_starts: Default::default(),
+            whitespace_characters: StringInterner::new(),
+            whitespace_ranges: Default::default(),
+            comments: Default::default(),
+            inline_header_delimiters: Default::default(),
         }
     }
 
@@ -86,14 +103,27 @@ impl Sequencer {
             match char_type {
                 Digit => self.integer(start),
                 Identifier => self.identifier(start),
-                Operator => self.operator(start),
+                OtherOperator => self.operator(start, char_type),
+                Equal => self.equal(start),
+                Dash => self.dash(start),
+                ComparisonOperatorStart => self.comparison_operator_start(start),
                 Separator => self.separator(start),
                 Colon => self.colon(start),
-                OpenParen => self.tokenizer.on_open(Parentheses, self.range(start)),
-                CloseParen => self.tokenizer.on_close(Parentheses, self.range(start)),
-                OpenCurly => self.tokenizer.on_open(CurlyBraces, self.range(start)),
-                CloseCurly => self.tokenizer.on_close(CurlyBraces, self.range(start)),
+                OpenParen => self
+                    .tokenizer
+                    .on_open(Parentheses, self.scanner.utf8(start)),
+                CloseParen => self
+                    .tokenizer
+                    .on_close(Parentheses, self.scanner.utf8(start)),
+                OpenCurly => self
+                    .tokenizer
+                    .on_open(CurlyBraces, self.scanner.utf8(start)),
+                CloseCurly => self
+                    .tokenizer
+                    .on_close(CurlyBraces, self.scanner.utf8(start)),
                 Hash => self.comment(start),
+                // Equal => self.equal(start),
+                // Dash => self.dash(start),
                 Newline => self.newline(start),
                 LineEnding => self.line_ending(start),
                 Space => self.space(start),
@@ -109,114 +139,138 @@ impl Sequencer {
         assert!(start == self.scanner.index);
         assert!(self.scanner.at_end());
 
-        self.tokenizer.ast_mut().char_data.size = self.scanner.index;
-
-        self.tokenizer.on_source_end(self.scanner.index)
-    }
-
-    fn range(&self, start: ByteIndex) -> ByteRange {
-        start..self.scanner.index
-    }
-    fn with_bytes<R>(&mut self, start: ByteIndex, f: impl FnOnce(&[u8], &mut Ast) -> R) -> R {
-        f(
-            &self.scanner.buffer()[self.range(start)],
-            self.tokenizer.ast_mut(),
-        )
-    }
-    unsafe fn with_utf8<R>(&mut self, start: ByteIndex, f: impl FnOnce(&str, &mut Ast) -> R) -> R {
-        self.with_bytes(start, |bytes, ast| {
-            f(unsafe { std::str::from_utf8_unchecked(bytes) }, ast)
-        })
-    }
-    unsafe fn intern_utf8_identifier(&mut self, start: ByteIndex) -> IdentifierIndex {
-        unsafe { self.with_utf8(start, |utf8, ast| ast.intern_identifier(utf8)) }
-    }
-    unsafe fn intern_utf8_literal(&mut self, start: ByteIndex) -> LiteralIndex {
-        unsafe { self.with_utf8(start, |utf8, ast| ast.intern_literal(utf8)) }
-    }
-
-    pub fn ast(&self) -> &Ast {
-        self.tokenizer.ast()
+        self.tokenizer.on_source_end(self.scanner.index);
+        Ast {
+            identifiers: self.tokenizer.identifiers,
+            fields: self.tokenizer.grouper.binder.fields,
+            char_data: CharData {
+                lines: DocumentLines {
+                    line_starts: self.line_starts.into(),
+                    eof: self.scanner.index,
+                },
+                whitespace_characters: self.whitespace_characters,
+                whitespace_ranges: self.whitespace_ranges,
+                comments: self.comments,
+                inline_header_delimiters: self.inline_header_delimiters,
+            },
+            literals: self.tokenizer.literals,
+            raw_literals: self.tokenizer.raw_literals,
+            blocks: self.tokenizer.grouper.binder.blocks,
+            tokens: self.tokenizer.grouper.binder.tokens,
+            token_ranges: self.tokenizer.grouper.binder.token_ranges,
+        }
     }
 
     fn utf8_syntax_error(&mut self, error: ErrorTermError, start: ByteIndex) {
-        let literal = unsafe { self.intern_utf8_literal(start) };
         self.tokenizer
-            .on_expression_token(ErrorTerm(error, literal), self.range(start));
+            .on_error_term(error, self.scanner.utf8(start))
     }
 
     fn raw_syntax_error(&mut self, error: RawErrorTermError, start: ByteIndex) {
-        let raw_literal = self.with_bytes(start, |bytes, ast| ast.raw_literals.push(bytes.into()));
-        self.tokenizer
-            .on_expression_token(RawErrorTerm(error, raw_literal), self.range(start));
+        self.tokenizer.on_raw_error_term(
+            error,
+            self.scanner.bytes(start),
+            start..self.scanner.index,
+        )
     }
 
     fn integer(&mut self, start: ByteIndex) {
         self.scanner.next_while(Digit);
-        if self.scanner.next_while_identifier() {
+        if self.scanner.next_while(&CharType::is_identifier_middle) {
             return self.utf8_syntax_error(IdentifierStartsWithNumber, start);
         }
-        let literal = unsafe { self.intern_utf8_literal(start) };
-        self.tokenizer
-            .on_expression_token(IntegerLiteral(literal), self.range(start))
+        self.tokenizer.on_integer(self.scanner.utf8(start));
     }
 
     fn identifier(&mut self, start: ByteIndex) {
-        self.scanner.next_while_identifier();
-        let identifier = unsafe { self.intern_utf8_identifier(start) };
-        self.tokenizer
-            .on_expression_token(RawIdentifier(identifier), self.range(start))
+        self.scanner.next_while(&CharType::is_identifier_middle);
+        self.tokenizer.on_identifier(self.scanner.utf8(start));
     }
 
-    fn operator(&mut self, start: ByteIndex) {
-        self.scanner.next_while(CharType::Operator);
+    fn term_is_about_to_end(&self) -> bool {
+        let char_type = self.scanner.peek();
+        char_type.is_whitespace()
+            || char_type.is_close()
+            || char_type.is_separator()
+            || (char_type == Colon && !self.scanner.peek_at(1).is_always_right_operand())
+    }
 
-        let term_is_about_to_end = {
-            let char_type = self.scanner.peek();
-            char_type.is_whitespace()
-                || char_type.is_close()
-                || char_type.is_separator()
-                || (char_type == Colon && !self.scanner.peek_at(1).is_always_right_operand())
-        };
-
-        // If the term is about to end, this operator is postfix. i.e. "a? + 2"
-        if self.tokenizer.in_term() && term_is_about_to_end {
-            let operator = unsafe { self.intern_utf8_identifier(start) };
-            self.tokenizer
-                .on_operator_token(PostfixOperator(operator), self.range(start));
-        // If we're *not* in a term, and there is something else right after the
-        // operator, it is prefix. i.e. "+1"
-        } else if !self.tokenizer.in_term() && !term_is_about_to_end {
-            let operator = unsafe { self.intern_utf8_identifier(start) };
-            self.tokenizer
-                .on_expression_token(PrefixOperator(operator), self.range(start));
-        // Otherwise, it's infix. i.e. "1+2" or "1 + 2"
+    fn operator(&mut self, start: ByteIndex, mut last_char_type: CharType) {
+        while self.scanner.peek().is_operator() {
+            last_char_type = self.scanner.next();
+        }
+        if last_char_type == Equal {
+            self.emit_assignment_operator(start);
         } else {
-            let token = unsafe {
-                self.with_utf8(start, |utf8, ast| {
-                    if Self::is_assignment_operator(utf8.as_bytes()) {
-                        // Remove the trailing '='
-                        let utf8 = &utf8[0..utf8.len() - 1];
-                        InfixAssignment(ast.intern_identifier(utf8))
-                    } else {
-                        InfixOperator(ast.intern_identifier(utf8))
-                    }
-                })
-            };
-            // If the infix operator is like a+b, it's inside the term. If it's
-            // like a + b, it's outside (like a separator).
-            if self.tokenizer.in_term() {
-                self.tokenizer.on_operator_token(token, self.range(start));
-            } else {
-                self.tokenizer.on_separator(token, self.range(start));
+            self.emit_operator(start);
+        }
+    }
+
+    fn emit_assignment_operator(&mut self, start: ByteIndex) {
+        let operator = self.scanner.partial_utf8(start, self.scanner.index - 1);
+        self.tokenizer
+            .on_assignment_operator(operator, self.term_is_about_to_end());
+    }
+
+    fn emit_operator(&mut self, start: ByteIndex) {
+        self.tokenizer
+            .on_operator(self.scanner.utf8(start), self.term_is_about_to_end());
+    }
+
+    fn emit_block_delimiter(&mut self, start: ByteIndex, level: InlineBlockLevel) {
+        self.tokenizer
+            .on_block_delimiter(level, self.scanner.range(start));
+    }
+
+    fn equal(&mut self, start: ByteIndex) {
+        // = is an assignment operator
+        if !self.scanner.peek().is_operator() {
+            return self.emit_assignment_operator(start);
+        }
+        if self.scanner.next_if(Equal) {
+            // === (3 or more equals) is a block delimiter
+            let has_three_equals = self.scanner.next_while(Equal);
+            if !self.scanner.peek().is_operator() {
+                if has_three_equals {
+                    // === and beyond is a block delimiter
+                    return self.emit_block_delimiter(start, InlineBlockLevel::One);
+                } else {
+                    // == is a normal operator
+                    return self.emit_operator(start);
+                }
             }
+        }
+        self.operator(start, Equal)
+    }
+
+    fn dash(&mut self, start: ByteIndex) {
+        if self.scanner.next_if(Dash)
+            && self.scanner.next_while(Dash)
+            && !self.scanner.peek().is_operator()
+        {
+            self.emit_block_delimiter(start, InlineBlockLevel::Two)
+        } else {
+            self.operator(start, Dash)
+        }
+    }
+
+    fn comparison_operator_start(&mut self, start: ByteIndex) {
+        if self.scanner.next_while(Equal) {
+            if self.scanner.peek().is_operator() {
+                // <==>, >==<, etc.
+                self.operator(start, Equal)
+            } else {
+                // >=, >==, !=, !==, etc.
+                self.emit_operator(start)
+            }
+        } else {
+            // >>, <<, etc.
+            self.operator(start, ComparisonOperatorStart)
         }
     }
 
     fn separator(&mut self, start: ByteIndex) {
-        let operator = unsafe { self.intern_utf8_identifier(start) };
-        self.tokenizer
-            .on_separator(InfixOperator(operator), self.range(start))
+        self.tokenizer.on_separator(self.scanner.utf8(start));
     }
 
     // Colon is, sadly, just a little ... special.
@@ -226,51 +280,30 @@ impl Sequencer {
     // See where the "operator" function calculates whether the term is about to end for the other
     // relevant silliness to ensure "a+:b" means "(a) + (:b)".
     fn colon(&mut self, start: ByteIndex) {
-        let operator = unsafe { self.intern_utf8_identifier(start) };
-        if (!self.tokenizer.in_term() || self.tokenizer.prev_was_operator)
-            && self.scanner.peek().is_always_right_operand()
-        {
-            self.tokenizer
-                .on_expression_token(PrefixOperator(operator), self.range(start));
-        } else {
-            self.tokenizer
-                .on_separator(InfixOperator(operator), self.range(start));
-        }
-    }
-
-    // Anything ending with exactly one = is assignment, EXCEPT
-    // >=, != and <=.
-    fn is_assignment_operator(slice: &[u8]) -> bool {
-        if slice[slice.len() - 1] != b'=' {
-            return false;
-        }
-        if slice.len() < 2 {
-            return true;
-        }
-        let prev_ch = slice[slice.len() - 2];
-        if prev_ch == b'=' {
-            return false;
-        }
-        if slice.len() > 2 {
-            return true;
-        }
-        !matches!(prev_ch, b'!' | b'>' | b'<')
+        self.tokenizer.on_colon(
+            self.scanner.range(start),
+            self.scanner.peek().is_always_right_operand(),
+        )
     }
 
     fn newline(&mut self, start: ByteIndex) {
-        self.tokenizer.on_space(self.range(start));
+        self.tokenizer.on_space(start);
         self.line_start();
     }
 
     fn line_ending(&mut self, start: ByteIndex) {
-        self.store_whitespace_in_char_data(start);
-        self.tokenizer.on_space(self.range(start));
+        self.append_whitespace(start);
+        self.tokenizer.on_space(start);
         self.line_start();
     }
 
     fn line_start(&mut self) {
         let start = self.scanner.index;
-        self.tokenizer.ast_mut().char_data.line_starts.push(start);
+        assert!(
+            (start == 0 && self.line_starts.is_empty())
+                || start > *self.line_starts.last().unwrap()
+        );
+        self.line_starts.push(start);
 
         // Get the indent level.
         let indent_whitespace = self.read_space(start);
@@ -299,9 +332,8 @@ impl Sequencer {
             (None, None) => indent,
             // The old indent and new indent both have non-space characters.
             (Some(indent_whitespace), Some(current_whitespace)) => {
-                let indent_whitespace = self.ast().whitespace_string(indent_whitespace).as_bytes();
-                let current_whitespace =
-                    self.ast().whitespace_string(current_whitespace).as_bytes();
+                let indent_whitespace = self.whitespace_string(indent_whitespace).as_bytes();
+                let current_whitespace = self.whitespace_string(current_whitespace).as_bytes();
                 let current_whitespace =
                     &current_whitespace[0..min(indent_whitespace.len(), current_whitespace.len())];
                 indent_whitespace
@@ -314,7 +346,7 @@ impl Sequencer {
             // The old indent is all spaces, and the new indent has other space characters in it.
             // As long as the
             (Some(indent_whitespace), None) => {
-                let indent_whitespace = self.ast().whitespace_string(indent_whitespace).as_bytes();
+                let indent_whitespace = self.whitespace_string(indent_whitespace).as_bytes();
                 let indent_whitespace =
                     &indent_whitespace[0..min(indent.into(), indent_whitespace.len())];
                 indent_whitespace
@@ -325,8 +357,7 @@ impl Sequencer {
             }
             // The new indent is all spaces, and the old indent has other space characters in it.
             (None, Some(current_whitespace)) => {
-                let current_whitespace =
-                    self.ast().whitespace_string(current_whitespace).as_bytes();
+                let current_whitespace = self.whitespace_string(current_whitespace).as_bytes();
                 let current_whitespace =
                     &current_whitespace[0..min(indent.into(), current_whitespace.len())];
                 current_whitespace
@@ -339,9 +370,8 @@ impl Sequencer {
     }
 
     fn read_space(&mut self, start: ByteIndex) -> Option<WhitespaceIndex> {
-        self.scanner.next_while(Space);
-        if self.scanner.next_while_horizontal_whitespace() {
-            Some(self.store_whitespace_in_char_data(start))
+        if self.scanner.next_while(&CharType::is_horizontal_whitespace) {
+            Some(self.append_whitespace(start))
         } else {
             None
         }
@@ -349,22 +379,20 @@ impl Sequencer {
 
     fn space(&mut self, start: ByteIndex) {
         self.read_space(start);
-        self.tokenizer.on_space(self.range(start))
+        self.tokenizer.on_space(start)
     }
 
     fn horizontal_whitespace(&mut self, start: ByteIndex) {
-        self.scanner.next_while_horizontal_whitespace();
-        self.store_whitespace_in_char_data(start);
-        self.tokenizer.on_space(self.range(start))
+        self.scanner.next_while(&CharType::is_horizontal_whitespace);
+        self.append_whitespace(start);
+        self.tokenizer.on_space(start)
     }
 
     // # <comment>
     fn comment(&mut self, start: ByteIndex) {
-        self.scanner.next_until_eol();
-        self.with_bytes(start, |bytes, ast| {
-            ast.char_data.append_comment(bytes, start)
-        });
-        self.tokenizer.on_comment(self.range(start));
+        self.scanner.next_until(&CharType::ends_line);
+        self.append_comment(start);
+        self.tokenizer.on_comment(start);
     }
 
     fn unsupported(&mut self, start: ByteIndex) {
@@ -377,11 +405,65 @@ impl Sequencer {
         self.raw_syntax_error(RawErrorTermError::InvalidUtf8, start)
     }
 
-    fn store_whitespace_in_char_data(&mut self, start: ByteIndex) -> WhitespaceIndex {
-        unsafe {
-            self.with_utf8(start, |utf8, ast| {
-                ast.char_data.append_whitespace(utf8, start)
-            })
+    ///
+    /// Add the run of whitespace to the whitespace list.
+    ///
+    /// # Panics
+    ///
+    /// * Panics if spaces.len() == 0
+    /// * Panics if `append()` is not called with `start` increasing each time.
+    /// * Panics if ByteIndex == u32::MAX
+    ///
+    fn append_whitespace(&mut self, start: ByteIndex) -> WhitespaceIndex {
+        let seq = self.scanner.utf8(start);
+        let whitespace_index = self.whitespace_characters.get_or_intern(seq.str());
+        self.whitespace_ranges.push((whitespace_index, seq.start));
+        whitespace_index
+    }
+
+    fn append_comment(&mut self, start: ByteIndex) {
+        let bytes = self.scanner.bytes(start);
+        self.comments.push((bytes.into(), start))
+    }
+
+    pub fn whitespace_string(&self, index: WhitespaceIndex) -> &str {
+        self.whitespace_characters.resolve(index).unwrap()
+    }
+}
+
+impl<'s> Sequence<'s> {
+    pub fn str(&self) -> &'s str {
+        unsafe { str::from_utf8_unchecked(&self.buffer[self.range()]) }
+    }
+    pub fn range(&self) -> ByteRange {
+        self.start..self.end
+    }
+}
+
+impl<'s> From<Sequence<'s>> for String {
+    fn from(value: Sequence<'s>) -> Self {
+        value.str().to_string()
+    }
+}
+
+impl<'s> AsRef<str> for Sequence<'s> {
+    fn as_ref(&self) -> &str {
+        self.str()
+    }
+}
+
+impl<'s> PartialSequence<'s> {
+    pub fn into_full(self) -> Sequence<'s> {
+        Sequence {
+            buffer: self.buffer,
+            start: self.start,
+            end: self.full_end,
         }
+    }
+    pub fn partial_str(&self) -> &'s str {
+        unsafe { str::from_utf8_unchecked(&self.buffer[self.start..self.partial_end]) }
+    }
+    pub fn range(&self) -> ByteRange {
+        self.start..self.full_end
     }
 }

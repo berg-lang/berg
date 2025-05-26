@@ -8,6 +8,8 @@ edition = "2024"
 clippy = {version = "*", optional = true}
 berg-util = {path = "../berg-util"}
 string-interner = "*"
+derive_more = {version = "*", features = ["full"] }
+nonzero_ext = "*"
 
 [dev-dependencies]
 clippy = {version = "*"}

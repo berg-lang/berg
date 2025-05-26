@@ -1,7 +1,6 @@
 pub mod ast;
 pub mod ast_expression;
 pub mod block;
-pub mod bytes;
 pub mod char_data;
 pub mod expression_formatter;
 pub mod expression_tree;

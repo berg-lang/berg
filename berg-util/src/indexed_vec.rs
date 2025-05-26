@@ -5,10 +5,9 @@ use std::fmt;
 use std::iter::*;
 use std::marker::PhantomData;
 use std::ops::{
-    Add, AddAssign, Deref, DerefMut, Index, IndexMut, Range, RangeFrom, RangeFull, RangeInclusive,
-    RangeTo, RangeToInclusive, Sub, SubAssign,
+    Add, AddAssign, Bound, Deref, DerefMut, Index, IndexMut, Range, RangeBounds, RangeFrom, RangeFull, RangeInclusive, RangeTo, RangeToInclusive, Sub, SubAssign
 };
-use std::slice::{Iter, IterMut};
+use std::slice::{Iter, IterMut, SliceIndex};
 
 // index_type and util::indexed_vec work together to let you use a custom type
 // (like TokenIndex) to index the vector, and disallow any other type (like usize
@@ -27,6 +26,7 @@ macro_rules! index_type {
         use std::cmp::Ordering;
         $(
             #[derive(Copy,Clone,Default,PartialEq,Eq,PartialOrd,Ord,Hash)]
+            #[repr(transparent)]
             pub struct $name(pub $($type)*);
             impl PartialEq<usize> for $name {
                 fn eq(&self, other: &usize) -> bool { (self.0 as usize).eq(other) }
@@ -178,6 +178,9 @@ pub trait IndexType:
     + Add<Delta<Self>, Output = Self>
     + Sub<Delta<Self>, Output = Self>
 {
+    fn into_slice_index(self) -> usize {
+        self.into()
+    }
 }
 
 pub struct IndexedIter<Inner: Iterator, Idx: IndexType>(Inner, PhantomData<Idx>);
@@ -720,15 +723,13 @@ impl<Inner: Iterator, Idx: IndexType> Iterator for EnumerateIndex<Inner, Idx> {
 /// and can use non-usized indexes).
 ///
 #[derive(Debug)]
+#[repr(transparent)]
 pub struct IndexedSlice<Elem, Idx: IndexType> {
     marker: PhantomData<Idx>,
     slice: [Elem],
 }
 
-impl<Elem, Idx: IndexType> IndexedSlice<Elem, Idx> {
-    pub fn len(&self) -> usize {
-        self.slice.len()
-    }
+impl<T, Idx: IndexType> IndexedSlice<T, Idx> {
     pub fn next_index(&self) -> Idx {
         self.slice.len().into()
     }
@@ -738,37 +739,328 @@ impl<Elem, Idx: IndexType> IndexedSlice<Elem, Idx> {
     pub fn last_index(&self) -> Idx {
         (self.slice.len() - 1).into()
     }
-    pub fn get(&self, index: Idx) -> Option<&Elem> {
-        let index: usize = index.into();
-        self.slice.get(index)
+
+    pub const fn len(&self) -> usize {
+        self.slice.len()
     }
-    pub fn iter(&self) -> IndexedIter<Iter<Elem>, Idx> {
-        self.slice.iter().into()
-    }
-    pub fn iter_mut(&mut self) -> IndexedIter<IterMut<Elem>, Idx> {
-        self.slice.iter_mut().into()
-    }
-    pub fn is_empty(&self) -> bool {
+    pub const fn is_empty(&self) -> bool {
         self.slice.is_empty()
     }
-    pub fn from_slice(slice: &[Elem]) -> &Self {
-        unsafe { &*(slice as *const [Elem] as *const Self) }
-    }
-    pub fn from_mut_slice(slice: &mut [Elem]) -> &mut Self {
-        unsafe { &mut *(slice as *mut [Elem] as *mut Self) }
-    }
-    pub fn first(&self) -> Option<&Elem> {
+    pub const fn first(&self) -> Option<&T> {
         self.slice.first()
     }
-    pub fn last(&self) -> Option<&Elem> {
+    pub fn first_mut(&mut self) -> Option<&mut T> {
+        self.slice.first_mut()
+    }
+    pub const fn split_first(&self) -> Option<(&T, &[T])> {
+        self.slice.split_first()
+    }
+    pub fn split_first_mut(&mut self) -> Option<(&mut T, &mut [T])> {
+        self.slice.split_first_mut()
+    }
+    pub const fn split_last(&self) -> Option<(&T, &[T])> {
+        self.slice.split_last()
+    }
+    pub fn split_last_mut(&mut self) -> Option<(&mut T, &mut [T])> {
+        self.slice.split_last_mut()
+    }
+    pub const fn last(&self) -> Option<&T> {
         self.slice.last()
     }
-    pub fn last_mut(&mut self) -> Option<&mut Elem> {
+    pub fn last_mut(&mut self) -> Option<&mut T> {
         self.slice.last_mut()
     }
-    pub fn as_raw_slice(&self) -> &[Elem] {
+    pub const fn first_chunk<const N: usize>(&self) -> Option<&[T; N]> {
+        self.slice.first_chunk()
+    }
+    pub fn first_chunk_mut<const N: usize>(&mut self) -> Option<&mut [T; N]> {
+        self.slice.first_chunk_mut()
+    }
+    pub const fn split_first_chunk<const N: usize>(&self) -> Option<(&[T; N], &[T])> {
+        self.slice.split_first_chunk()
+    }
+    pub fn split_first_chunk_mut<const N: usize>(&mut self) -> Option<(&mut [T; N], &mut [T])> {
+        self.slice.split_first_chunk_mut()
+    }
+    pub const fn split_last_chunk<const N: usize>(&self) -> Option<(&[T], &[T; N])> {
+        self.slice.split_last_chunk()
+    }
+    pub fn split_last_chunk_mut<const N: usize>(&mut self) -> Option<(&mut [T], &mut [T; N])> {
+        self.slice.split_last_chunk_mut()
+    }
+    pub fn last_chunk<const N: usize>(&self) -> Option<&[T; N]> {
+        self.slice.last_chunk()
+    }
+    pub fn last_chunk_mut<const N: usize>(&mut self) -> Option<&mut [T; N]> {
+        self.slice.last_chunk_mut()
+    }
+    pub fn get(&self, index: Idx) -> Option<&T> {
+        self.slice.get(index.into_slice_index())
+    }
+    pub fn get_mut(&mut self, index: Idx) -> Option<&mut T> {
+        self.slice.get_mut(index.into_slice_index())
+    }
+    #[allow(clippy::missing_safety_doc)]
+    pub unsafe fn get_unchecked<I: IntoSliceIndex<[T]>>(&self, index: I) -> &<I::Output as SliceIndex<[T]>>::Output {
+        unsafe { self.slice.get_unchecked(index.into_slice_index()) }
+    }
+    #[allow(clippy::missing_safety_doc)]
+    pub unsafe fn get_unchecked_mut<I: IntoSliceIndex<[T]>>(&mut self, index: I) -> &mut <I::Output as SliceIndex<[T]>>::Output {
+        unsafe { self.slice.get_unchecked_mut(index.into_slice_index()) }
+    }
+    pub const fn as_ptr(&self) -> *const T {
+        self.slice.as_ptr()
+    }
+    pub fn as_mut_ptr(&mut self) -> *mut T {
+        self.slice.as_mut_ptr()
+    }
+    pub const fn as_ptr_range(&self) -> Range<*const T> {
+        self.slice.as_ptr_range()
+    }
+    pub fn as_mut_ptr_range(&mut self) -> Range<*mut T> {
+        self.slice.as_mut_ptr_range()
+    }
+    pub fn swap(&mut self, a: Idx, b: Idx) {
+        self.slice.swap(a.into(), b.into())
+    }
+    pub fn reverse(&mut self) {
+        self.slice.reverse()
+    }
+    pub fn iter(&self) -> IndexedIter<Iter<T>, Idx> {
+        self.slice.iter().into()
+    }
+    pub fn iter_mut(&mut self) -> IndexedIter<IterMut<T>, Idx> {
+        self.slice.iter_mut().into()
+    }
+    pub fn windows(&self, size: impl Into<Delta<Idx>>) -> std::slice::Windows<'_, T> {
+        self.slice.windows(size.into().into())
+    }
+    pub fn chunks(&self, chunk_size: impl Into<Delta<Idx>>) -> std::slice::Chunks<'_, T> {
+        self.slice.chunks(chunk_size.into().into())
+    }
+    pub fn chunks_mut(&mut self, chunk_size: impl Into<Delta<Idx>>) -> std::slice::ChunksMut<'_, T> {
+        self.slice.chunks_mut(chunk_size.into().into())
+    }
+    pub fn chunks_exact(&self, chunk_size: impl Into<Delta<Idx>>) -> std::slice::ChunksExact<'_, T> {
+        self.slice.chunks_exact(chunk_size.into().into())
+    }
+    pub fn chunks_exact_mut(&mut self, chunk_size: impl Into<Delta<Idx>>) -> std::slice::ChunksExactMut<'_, T> {
+        self.slice.chunks_exact_mut(chunk_size.into().into())
+    }
+    pub fn rchunks(&self, chunk_size: impl Into<Delta<Idx>>) -> std::slice::RChunks<'_, T> {
+        self.slice.rchunks(chunk_size.into().into())
+    }
+    pub fn rchunks_mut(&mut self, chunk_size: impl Into<Delta<Idx>>) -> std::slice::RChunksMut<'_, T> {
+        self.slice.rchunks_mut(chunk_size.into().into())
+    }
+    pub fn rchunks_exact(&self, chunk_size: impl Into<Delta<Idx>>) -> std::slice::RChunksExact<'_, T> {
+        self.slice.rchunks_exact(chunk_size.into().into())
+    }
+    pub fn rchunks_exact_mut(&mut self, chunk_size: impl Into<Delta<Idx>>) -> std::slice::RChunksExactMut<'_, T> {
+        self.slice.rchunks_exact_mut(chunk_size.into().into())
+    }
+    pub fn chunk_by<F: FnMut(&T, &T) -> bool>(&self, pred: F) -> std::slice::ChunkBy<'_, T, F> {
+        self.slice.chunk_by(pred)
+    }
+    pub fn chunk_by_mut<F: FnMut(&T, &T) -> bool>(&mut self, pred: F) -> std::slice::ChunkByMut<'_, T, F> {
+        self.slice.chunk_by_mut(pred)
+    }
+    // TODO can't use const fn because into()
+    pub fn split_at(&self, mid: Idx) -> (&[T], &[T]) {
+        self.slice.split_at(mid.into())
+    }
+    pub fn split_at_mut(&mut self, mid: Idx) -> (&mut [T], &mut [T]) {
+        self.slice.split_at_mut(mid.into())
+    }
+    #[allow(clippy::missing_safety_doc)]
+    pub unsafe fn split_at_unchecked(&self, mid: Idx) -> (&[T], &[T]) {
+        unsafe { self.slice.split_at_unchecked(mid.into()) }
+    }
+    #[allow(clippy::missing_safety_doc)]
+    pub unsafe fn split_at_mut_unchecked(&mut self, mid: Idx) -> (&mut [T], &mut [T]) {
+        unsafe { self.slice.split_at_mut_unchecked(mid.into()) }
+    }
+    pub fn split<F: FnMut(&T) -> bool>(&self, pred: F) -> std::slice::Split<'_, T, F> {
+        self.slice.split(pred)
+    }
+    pub fn split_mut<F: FnMut(&T) -> bool>(&mut self, pred: F) -> std::slice::SplitMut<'_, T, F> {
+        self.slice.split_mut(pred)
+    }
+    pub fn split_inclusive<F: FnMut(&T) -> bool>(&self, pred: F) -> std::slice::SplitInclusive<'_, T, F> {
+        self.slice.split_inclusive(pred)
+    }
+    pub fn split_inclusive_mut<F: FnMut(&T) -> bool>(&mut self, pred: F) -> std::slice::SplitInclusiveMut<'_, T, F> {
+        self.slice.split_inclusive_mut(pred)
+    }
+    pub fn rsplit<F: FnMut(&T) -> bool>(&self, pred: F) -> std::slice::RSplit<'_, T, F> {
+        self.slice.rsplit(pred)
+    }
+    pub fn rsplit_mut<F: FnMut(&T) -> bool>(&mut self, pred: F) -> std::slice::RSplitMut<'_, T, F> {
+        self.slice.rsplit_mut(pred)
+    }
+    pub fn splitn<F: FnMut(&T) -> bool>(&self, n: usize, pred: F) -> std::slice::SplitN<'_, T, F> {
+        self.slice.splitn(n, pred)
+    }
+    pub fn splitn_mut<F: FnMut(&T) -> bool>(&mut self, n: usize, pred: F) -> std::slice::SplitNMut<'_, T, F> {
+        self.slice.splitn_mut(n, pred)
+    }
+    pub fn rsplitn<F: FnMut(&T) -> bool>(&self, n: usize, pred: F) -> std::slice::RSplitN<'_, T, F> {
+        self.slice.rsplitn(n, pred)
+    }
+    pub fn rsplitn_mut<F: FnMut(&T) -> bool>(&mut self, n: usize, pred: F) -> std::slice::RSplitNMut<'_, T, F> {
+        self.slice.rsplitn_mut(n, pred)
+    }
+    pub fn contains(&self, x: &T) -> bool where T: PartialEq {
+        self.slice.contains(x)
+    }
+    pub fn starts_with(&self, needle: &[T]) -> bool where T: PartialEq {
+        self.slice.starts_with(needle)
+    }
+    pub fn ends_with(&self, needle: &[T]) -> bool where T: PartialEq {
+        self.slice.ends_with(needle)
+    }
+    // pub fn strip_prefix<P: core::slice::SlicePattern<Item = T>+?Sized>(&self, prefix: &P) -> Option<&[T]> where T: PartialEq {
+    //     self.slice.strip_prefix(prefix)
+    // }
+    // pub fn strip_suffix<P: core::slice::SlicePattern<Item = T>+?Sized>(&self, suffix: &P) -> Option<&[T]> where T: PartialEq {
+    //     self.slice.strip_suffix(suffix)
+    // }
+    pub fn binary_search(&self, x: &T) -> Result<Idx, Idx> where T: Ord {
+        self.slice.binary_search(x).map(Into::into).map_err(Into::into)
+    }
+    pub fn binary_search_by<'a>(&'a self, f: impl FnMut(&'a T) -> Ordering) -> Result<Idx, Idx> {
+        self.slice.binary_search_by(f).map(Into::into).map_err(Into::into)
+    }
+    pub fn binary_search_by_key<'a, B: Ord, F>( &'a self, b: &B, f: impl FnMut(&'a T) -> B) -> Result<Idx, Idx> {
+        self.slice.binary_search_by_key(b, f).map(Into::into).map_err(Into::into)
+    }
+    pub fn sort_unstable(&mut self) where T: Ord {
+        self.slice.sort_unstable()
+    }
+    pub fn sort_unstable_by(&mut self, compare: impl FnMut(&T, &T) -> Ordering) {
+        self.slice.sort_unstable_by(compare)
+    }
+    pub fn sort_unstable_by_key<K: Ord>(&mut self, f: impl FnMut(&T) -> K) {
+        self.slice.sort_unstable_by_key(f)
+    }
+    pub fn select_nth_unstable(&mut self, index: Idx) -> (&mut [T], &mut T, &mut [T]) where T: Ord {
+        self.slice.select_nth_unstable(index.into())
+    }
+    pub fn select_nth_unstable_by(&mut self, index: Idx, compare: impl FnMut(&T, &T) -> Ordering) -> (&mut [T], &mut T, &mut [T]) where T: Ord {
+        self.slice.select_nth_unstable_by(index.into(), compare)
+    }
+    pub fn select_nth_unstable_by_key<K: Ord>(&mut self, index: Idx, f: impl FnMut(&T) -> K) -> (&mut [T], &mut T, &mut [T]) {
+        self.slice.select_nth_unstable_by_key(index.into(), f)
+    }
+    pub fn rotate_left(&mut self, mid: impl Into<Delta<Idx>>) {
+        self.slice.rotate_left(mid.into().into())
+    }
+    pub fn rotate_right(&mut self, mid: impl Into<Delta<Idx>>) {
+        self.slice.rotate_right(mid.into().into())
+    }
+    pub fn fill(&mut self, value: T) where T: Clone {
+        self.slice.fill(value)
+    }
+    pub fn fill_with(&mut self, f: impl FnMut() -> T) {
+        self.slice.fill_with(f)
+    }
+    pub fn clone_from_slice(&mut self, src: &IndexedSlice<T, Idx>) where T: Clone {
+        self.slice.clone_from_slice(src.as_raw_slice())
+    }
+    pub fn copy_from_slice(&mut self, src: &IndexedSlice<T, Idx>) where T: Copy {
+        self.slice.copy_from_slice(src.as_raw_slice())
+    }
+    pub fn copy_within(&mut self, src: impl RangeBounds<Idx>, dest: Idx) where T: Copy {
+        self.slice.copy_within(into_bounds(src), dest.into())
+    }
+    pub fn swap_with_slice(&mut self, other: &mut IndexedSlice<T, Idx>) {
+        self.slice.swap_with_slice(other.as_raw_slice_mut())
+    }
+    #[allow(clippy::missing_safety_doc)]
+    pub unsafe fn align_to<U>(&self) -> (&[T], &[U], &[T]) {
+        unsafe { self.slice.align_to() }
+    }
+    #[allow(clippy::missing_safety_doc)]
+    pub unsafe fn align_to_mut<U>(&mut self) -> (&mut [T], &mut [U], &mut [T]) {
+        unsafe { self.slice.align_to_mut() }
+    }
+    pub fn partition_point(&self, pred: impl FnMut(&T) -> bool) -> usize {
+        self.slice.partition_point(pred)
+    }
+    pub fn sort(&mut self) where T: Ord {
+        self.slice.sort()
+    }
+    pub fn sort_by(&mut self, compare: impl FnMut(&T, &T) -> Ordering) {
+        self.slice.sort_by(compare)
+    }
+    pub fn sort_by_key<K: Ord>(&mut self, f: impl FnMut(&T) -> K) {
+        self.slice.sort_by_key(f)
+    }
+    pub fn sort_by_cached_key<K: Ord>(&mut self, f: impl FnMut(&T) -> K) {
+        self.slice.sort_by_cached_key(f)
+    }
+    pub fn to_vec(&self) -> IndexedVec<T, Idx> where T: Clone {
+        self.slice.to_vec().into()
+    }
+    // pub fn into_vec<A: std::alloc::Allocator>(self: Box<[T], A>) -> Vec<T, A> {
+    //     self.slice.into_vec()
+    // }
+    pub fn repeat(&self, n: usize) -> IndexedVec<T, Idx> where T: Copy {
+        self.slice.repeat(n).into()
+    }
+    // pub fn concat<Item: ?Sized>(&self) -> <[T] as std::slice::Concat<Item>>::Output where [T]: Concat<Item> {
+    //     self.slice.concat()
+    // }
+    // pub fn join<Separator>(&self, sep: Separator) -> <[T] as std::slice::Join<Separator>>::Output where [T]: std::slice::Join<Separator> {
+    //     self.slice.join(sep)
+    // }
+
+    pub fn from_slice(slice: &[T]) -> &Self {
+        unsafe { &*(slice as *const [T] as *const Self) }
+    }
+    pub fn from_mut_slice(slice: &mut [T]) -> &mut Self {
+        unsafe { &mut *(slice as *mut [T] as *mut Self) }
+    }
+    pub fn as_raw_slice(&self) -> &[T] {
         &self.slice
     }
+    pub fn as_raw_slice_mut(&mut self) -> &mut [T] {
+        &mut self.slice
+    }
+}
+
+impl<Idx: IndexType> IndexedSlice<u8, Idx> {
+    pub const fn is_ascii(&self) -> bool {
+        self.slice.is_ascii()
+    }
+    pub fn eq_ignore_ascii_case(&self, other: &IndexedSlice<u8, Idx>) -> bool {
+        self.slice.eq_ignore_ascii_case(other.as_raw_slice())
+    }
+    pub fn make_ascii_uppercase(&mut self) {
+        self.slice.make_ascii_uppercase()
+    }
+    pub fn make_ascii_lowercase(&mut self) {
+        self.slice.make_ascii_lowercase()
+    }
+    pub fn escape_ascii(&self) -> std::slice::EscapeAscii<'_> {
+        self.slice.escape_ascii()
+    }
+    pub fn utf8_chunks(&self) -> std::str::Utf8Chunks<'_> {
+        self.slice.utf8_chunks()
+    }
+    pub fn to_ascii_uppercase(&self) -> IndexedVec<u8, Idx> {
+        self.slice.to_ascii_uppercase().into()
+    }
+    pub fn to_ascii_lowercase(&self) -> IndexedVec<u8, Idx> {
+        self.slice.to_ascii_lowercase().into()
+    }
+}
+
+fn into_bound(bound: Bound<&impl IndexType>) -> Bound<usize> {
+    bound.map(|b| b.into_slice_index())
+}
+fn into_bounds<Idx: IndexType>(range: impl RangeBounds<Idx>) -> impl RangeBounds<usize> {
+    (into_bound(range.start_bound()), into_bound(range.end_bound()))
 }
 
 impl<Elem, Idx: IndexType> Index<Idx> for IndexedSlice<Elem, Idx> {
@@ -777,113 +1069,74 @@ impl<Elem, Idx: IndexType> Index<Idx> for IndexedSlice<Elem, Idx> {
         &self.slice[index.into()]
     }
 }
-impl<Elem, Idx: IndexType> Index<Range<Idx>> for IndexedSlice<Elem, Idx>
-where
-    usize: From<Idx>,
-{
+impl<Elem, Idx: IndexType> Index<Range<Idx>> for IndexedSlice<Elem, Idx> {
     type Output = [Elem];
     fn index(&self, range: Range<Idx>) -> &[Elem] {
         &self.slice[range.into_range()]
     }
 }
-impl<Elem, Idx: IndexType> Index<RangeFrom<Idx>> for IndexedSlice<Elem, Idx>
-where
-    usize: From<Idx>,
-{
+impl<Elem, Idx: IndexType> Index<RangeFrom<Idx>> for IndexedSlice<Elem, Idx> {
     type Output = [Elem];
     fn index(&self, range: RangeFrom<Idx>) -> &[Elem] {
         &self.slice[range.into_range()]
     }
 }
-impl<Elem, Idx: IndexType> Index<RangeFull> for IndexedSlice<Elem, Idx>
-where
-    usize: From<Idx>,
-{
+impl<Elem, Idx: IndexType> Index<RangeFull> for IndexedSlice<Elem, Idx> {
     type Output = [Elem];
     fn index(&self, range: RangeFull) -> &[Elem] {
         &self.slice[range]
     }
 }
-impl<Elem, Idx: IndexType> Index<RangeInclusive<Idx>> for IndexedSlice<Elem, Idx>
-where
-    usize: From<Idx>,
-{
+impl<Elem, Idx: IndexType> Index<RangeInclusive<Idx>> for IndexedSlice<Elem, Idx> {
     type Output = [Elem];
     fn index(&self, range: RangeInclusive<Idx>) -> &[Elem] {
         &self.slice[range.into_range()]
     }
 }
-impl<Elem, Idx: IndexType> Index<RangeTo<Idx>> for IndexedSlice<Elem, Idx>
-where
-    usize: From<Idx>,
-{
+impl<Elem, Idx: IndexType> Index<RangeTo<Idx>> for IndexedSlice<Elem, Idx> {
     type Output = [Elem];
     fn index(&self, range: RangeTo<Idx>) -> &[Elem] {
         &self.slice[range.into_range()]
     }
 }
-impl<Elem, Idx: IndexType> Index<RangeToInclusive<Idx>> for IndexedSlice<Elem, Idx>
-where
-    usize: From<Idx>,
-{
+impl<Elem, Idx: IndexType> Index<RangeToInclusive<Idx>> for IndexedSlice<Elem, Idx> {
     type Output = [Elem];
     fn index(&self, range: RangeToInclusive<Idx>) -> &[Elem] {
         &self.slice[range.into_range()]
     }
 }
 
-impl<Elem, Idx: IndexType> IndexMut<Idx> for IndexedSlice<Elem, Idx>
-where
-    usize: From<Idx>,
-{
+impl<Elem, Idx: IndexType> IndexMut<Idx> for IndexedSlice<Elem, Idx> {
     fn index_mut(&mut self, index: Idx) -> &mut Elem {
         &mut self.slice[index.into()]
     }
 }
-impl<Elem, Idx: IndexType> IndexMut<Range<Idx>> for IndexedSlice<Elem, Idx>
-where
-    usize: From<Idx>,
-{
+impl<Elem, Idx: IndexType> IndexMut<Range<Idx>> for IndexedSlice<Elem, Idx> {
     fn index_mut(&mut self, range: Range<Idx>) -> &mut [Elem] {
         &mut self.slice[range.into_range()]
     }
 }
-impl<Elem, Idx: IndexType> IndexMut<RangeFrom<Idx>> for IndexedSlice<Elem, Idx>
-where
-    usize: From<Idx>,
-{
+impl<Elem, Idx: IndexType> IndexMut<RangeFrom<Idx>> for IndexedSlice<Elem, Idx> {
     fn index_mut(&mut self, range: RangeFrom<Idx>) -> &mut [Elem] {
         &mut self.slice[range.into_range()]
     }
 }
-impl<Elem, Idx: IndexType> IndexMut<RangeFull> for IndexedSlice<Elem, Idx>
-where
-    usize: From<Idx>,
-{
+impl<Elem, Idx: IndexType> IndexMut<RangeFull> for IndexedSlice<Elem, Idx> {
     fn index_mut(&mut self, range: RangeFull) -> &mut [Elem] {
         &mut self.slice[range]
     }
 }
-impl<Elem, Idx: IndexType> IndexMut<RangeInclusive<Idx>> for IndexedSlice<Elem, Idx>
-where
-    usize: From<Idx>,
-{
+impl<Elem, Idx: IndexType> IndexMut<RangeInclusive<Idx>> for IndexedSlice<Elem, Idx> {
     fn index_mut(&mut self, range: RangeInclusive<Idx>) -> &mut [Elem] {
         &mut self.slice[range.into_range()]
     }
 }
-impl<Elem, Idx: IndexType> IndexMut<RangeTo<Idx>> for IndexedSlice<Elem, Idx>
-where
-    usize: From<Idx>,
-{
+impl<Elem, Idx: IndexType> IndexMut<RangeTo<Idx>> for IndexedSlice<Elem, Idx> {
     fn index_mut(&mut self, range: RangeTo<Idx>) -> &mut [Elem] {
         &mut self.slice[range.into_range()]
     }
 }
-impl<Elem, Idx: IndexType> IndexMut<RangeToInclusive<Idx>> for IndexedSlice<Elem, Idx>
-where
-    usize: From<Idx>,
-{
+impl<Elem, Idx: IndexType> IndexMut<RangeToInclusive<Idx>> for IndexedSlice<Elem, Idx> {
     fn index_mut(&mut self, range: RangeToInclusive<Idx>) -> &mut [Elem] {
         &mut self.slice[range.into_range()]
     }
@@ -895,6 +1148,42 @@ impl<Elem: Clone, Idx: IndexType> ToOwned for IndexedSlice<Elem, Idx> {
         self.slice.to_vec().into()
     }
 }
+
+pub trait IntoSliceIndex<T: ?Sized> {
+    type Output: SliceIndex<T>;
+    fn into_slice_index(self) -> Self::Output;
+}
+impl<Idx: IndexType, Elem> IntoSliceIndex<[Elem]> for Idx {
+    type Output = usize;
+    fn into_slice_index(self) -> Self::Output {
+        self.into()
+    }
+}
+impl<Idx: IndexType, Elem> IntoSliceIndex<[Elem]> for Range<Idx> {
+    type Output = Range<usize>;
+    fn into_slice_index(self) -> Self::Output {
+        self.into_range()
+    }
+}
+impl<Idx: IndexType, Elem> IntoSliceIndex<[Elem]> for RangeFrom<Idx> {
+    type Output = RangeFrom<usize>;
+    fn into_slice_index(self) -> Self::Output {
+        self.into_range()
+    }
+}
+impl<Elem> IntoSliceIndex<[Elem]> for RangeFull {
+    type Output = RangeFull;
+    fn into_slice_index(self) -> Self::Output {
+        RangeFull
+    }
+}
+impl<Idx: IndexType, Elem> IntoSliceIndex<[Elem]> for RangeInclusive<Idx> {
+    type Output = RangeInclusive<usize>;
+    fn into_slice_index(self) -> Self::Output {
+        self.into_range()
+    }
+}
+
 
 ///
 /// A Vec with a specific index type (so you don't accidentally use one Vec's index on another Vec).

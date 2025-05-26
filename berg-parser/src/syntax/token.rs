@@ -1,9 +1,16 @@
-use super::ast::{Ast, AstDelta, LiteralIndex, RawLiteralIndex};
-use super::block::{BlockIndex, FieldIndex};
-use super::identifiers::*;
-use super::precedence::Precedence;
+use berg_util::Delta;
 use std::borrow::Cow;
 use std::fmt;
+
+use crate::bytes::ByteIndex;
+
+use super::{
+    ast::{Ast, AstDelta, LiteralIndex, RawLiteralIndex},
+    block::{BlockIndex, FieldIndex},
+    identifiers,
+    precedence::Precedence,
+};
+use identifiers::*;
 use ExpressionBoundary::*;
 
 ///
@@ -25,6 +32,9 @@ pub enum Token {
 fn token_size_is_12bytes_even_though_we_want_it_to_be_8() {
     use std::mem::size_of;
     assert_eq!(size_of::<Token>(), 12);
+    assert_eq!(size_of::<ExpressionToken>(), 12);
+    assert_eq!(size_of::<TermToken>(), 8);
+    assert_eq!(size_of::<OperatorToken>(), 8);
 }
 
 ///
@@ -111,7 +121,14 @@ pub enum OperatorToken {
     ///
     InfixAssignment(IdentifierIndex),
     ///
-    /// A prefix operator, such as the `++` in `a++`.
+    /// Delimiter indicating an inline block.
+    ///
+    /// Tuple is (level, repeat) where repeat is the number of times the = or - sign was
+    /// repeated, and level is the level of the header (1 or 2).
+    ///
+    InlineBlockDelimiter(InlineBlockLevel, Delta<ByteIndex>),
+    ///
+    /// A postfix operator, such as the `++` in `a++`.
     ///
     /// The [`IdentifierIndex`] refers to the operator itself (like `++`). For a
     /// list of standard operators to compare against, look in
@@ -213,6 +230,15 @@ pub enum TermToken {
 }
 
 ///
+/// Inline block level.
+///
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub enum InlineBlockLevel {
+    One,
+    Two,
+}
+
+///
 /// Indicates an error making us uncertain of the block's contents.
 ///
 #[derive(Debug, Copy, Clone, PartialEq)]
@@ -238,14 +264,25 @@ pub enum ExpressionBoundaryError {
 ///
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum ExpressionBoundary {
+    /// Used when the thing on the right binds tighter: x + y * z has a group for y * z
     PrecedenceGroup,
+    /// For a group of things with no spaces: a+b * c+d has groups for a+b and c+d
     CompoundTerm,
+    /// (b + c)
     Parentheses,
+    /// After a colon: a: b+c has an auto-block for b+c
     AutoBlock,
+    /// { b + c }
     CurlyBraces,
+    /// a + b +
+    ///   c + d
     IndentedExpression,
+    /// if a == b
+    ///   c = d
     IndentedBlock,
+    /// The top-level group for the source file, the scope in which top-level names are defined
     Source,
+    /// The top-level group, used to give the evaluator a place to attach external keywords and variables
     Root,
 }
 
@@ -389,7 +426,7 @@ impl OperatorToken {
     pub fn fixity(self) -> Fixity {
         use OperatorToken::*;
         match self {
-            InfixOperator(_) | InfixAssignment(_) => Fixity::Infix,
+            InfixOperator(_) | InfixAssignment(_) | InlineBlockDelimiter(..) => Fixity::Infix,
             PostfixOperator(_) => Fixity::Postfix,
             Close { .. } | CloseBlock { .. } => Fixity::Close,
         }
@@ -405,7 +442,7 @@ impl OperatorToken {
     }
     pub fn starts_auto_block(self) -> bool {
         use OperatorToken::*;
-        matches!(self, InfixOperator(COLON))
+        matches!(self, InfixOperator(COLON) | InlineBlockDelimiter(..))
     }
     pub fn to_string(self, ast: &Ast) -> Cow<str> {
         use OperatorToken::*;
@@ -413,9 +450,12 @@ impl OperatorToken {
             InfixOperator(NEWLINE_SEQUENCE)
             | InfixOperator(FOLLOWED_BY)
             | InfixOperator(IMMEDIATELY_FOLLOWED_BY) => "".into(),
+
             InfixOperator(identifier) | PostfixOperator(identifier) => {
                 ast.identifier_string(identifier).into()
             }
+
+            InlineBlockDelimiter(level, _) => level.to_string().into(),
 
             InfixAssignment(identifier) => format!("{}=", ast.identifier_string(identifier)).into(),
             Close(_, boundary) | CloseBlock(_, boundary) => boundary.close_string().into(),
@@ -447,6 +487,8 @@ impl OperatorToken {
             InfixOperator(NEWLINE_SEQUENCE)
             | InfixOperator(FOLLOWED_BY)
             | InfixOperator(IMMEDIATELY_FOLLOWED_BY) => Cow::Borrowed(b""),
+
+            InlineBlockDelimiter(level, repeat) => level.original_string(repeat).into(),
 
             InfixOperator(identifier) | PostfixOperator(identifier) => {
                 ast.identifier_string(identifier).as_bytes().into()
@@ -501,6 +543,27 @@ impl TermToken {
             MissingExpression => unreachable!(),
         }
         .into()
+    }
+}
+
+impl InlineBlockLevel {
+    pub fn to_string(self) -> &'static str {
+        match self {
+            InlineBlockLevel::One => "===",
+            InlineBlockLevel::Two => "---",
+        }
+    }
+    pub fn original_string(self, repeat: Delta<ByteIndex>) -> Vec<u8> {
+        match self {
+            InlineBlockLevel::One => b"=".repeat(repeat.into()),
+            InlineBlockLevel::Two => b"-".repeat(repeat.into()),
+        }
+    }
+    pub fn identifier(self) -> IdentifierIndex {
+        match self {
+            InlineBlockLevel::One => INLINE_BLOCK_LEVEL_ONE,
+            InlineBlockLevel::Two => INLINE_BLOCK_LEVEL_TWO,
+        }
     }
 }
 

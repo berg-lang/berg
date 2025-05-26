@@ -108,11 +108,7 @@ pub trait ObjectValue: Value {
     fn field(self, name: IdentifierIndex) -> EvalResult
     where
         Self: Sized;
-    fn set_field(
-        &mut self,
-        name: IdentifierIndex,
-        value: BergVal,
-    ) -> Result<(), EvalException>
+    fn set_field(&mut self, name: IdentifierIndex, value: BergVal) -> Result<(), EvalException>
     where
         Self: Clone;
 }
@@ -295,9 +291,7 @@ pub mod implement {
         NextVal::single(value.lazy_val()?).ok()
     }
 
-    pub fn default_into_native<T: TryFromBergVal>(
-        value: impl Value,
-    ) -> Result<T, EvalException> {
+    pub fn default_into_native<T: TryFromBergVal>(value: impl Value) -> Result<T, EvalException> {
         match T::try_from_berg_val(value.eval_val()?) {
             Ok(Ok(value)) => Ok(value),
             Ok(Err(original)) => {
@@ -330,8 +324,8 @@ pub mod implement {
         right: RightOperand<impl EvaluatableValue>,
     ) -> EvalResult {
         use berg_parser::identifiers::{
-            COLON, COMMA, DOT, EQUAL_TO, EXCLAMATION_POINT, NEWLINE_SEQUENCE, NOT_EQUAL_TO,
-            SEMICOLON,
+            COLON, COMMA, DOT, EQUAL_TO, EXCLAMATION_POINT, INLINE_BLOCK_LEVEL_ONE,
+            INLINE_BLOCK_LEVEL_TWO, NEWLINE_SEQUENCE, NOT_EQUAL_TO, SEMICOLON,
         };
         match operator {
             COMMA => {
@@ -383,7 +377,9 @@ pub mod implement {
                     None => CompilerError::RightSideOfDotMustBeIdentifier.operand_err(Right),
                 }
             }
-            COLON => CompilerError::AssignmentTargetMustBeIdentifier.operand_err(Left),
+            COLON | INLINE_BLOCK_LEVEL_ONE | INLINE_BLOCK_LEVEL_TWO => {
+                CompilerError::AssignmentTargetMustBeIdentifier.operand_err(Left)
+            }
             _ => CompilerError::UnsupportedOperator(
                 Box::new(left.lazy_val()?),
                 Fixity::Infix,
@@ -401,10 +397,7 @@ pub mod implement {
         CompilerError::AssignmentTargetMustBeIdentifier.operand_err(Left)
     }
 
-    pub fn default_postfix(
-        operand: impl Value,
-        operator: IdentifierIndex,
-    ) -> EvalResult {
+    pub fn default_postfix(operand: impl Value, operator: IdentifierIndex) -> EvalResult {
         use berg_parser::identifiers::{DASH_DASH, PLUS_PLUS};
         match operator {
             PLUS_PLUS | DASH_DASH => {
@@ -419,10 +412,7 @@ pub mod implement {
         }
     }
 
-    pub fn default_prefix(
-        operand: impl OperableValue,
-        operator: IdentifierIndex,
-    ) -> EvalResult {
+    pub fn default_prefix(operand: impl OperableValue, operator: IdentifierIndex) -> EvalResult {
         use berg_parser::identifiers::{
             DASH_DASH, DOUBLE_EXCLAMATION_POINT, EXCLAMATION_POINT, PLUS_PLUS,
         };
